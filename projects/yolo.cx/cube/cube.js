@@ -2,7 +2,7 @@
 // https://immersive-collective.org/projects/yolo.cx/cube/cube.js
 
 
-import * as THREE from 'https://unpkg.com/three@0.137.5/build/three.module.js';
+import * as THREE from 'https://unpkg.com/three/build/three.module.js';
 
 export function initWidget(scene) {
 
