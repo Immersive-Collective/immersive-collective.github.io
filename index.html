@@ -68,7 +68,7 @@
 <body>
     <div class="logo">
         <img src="images/xray-view.svg" alt="Logo Icon">
-        <div class="logo-text">Immersive-Collective.org / Yolo.cx</div>
+        <div class="logo-text">Immersive Collective</div>
     </div>
     <button id="webcamButton">Webcam
         <img src="images/webcam.svg" alt="Webcam Icon">
@@ -239,6 +239,13 @@
             });
         }
 
+        function getPosition(event, video, isVertical) {
+            const rect = video.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            return isVertical ? x / rect.width : y / rect.height;
+        }
+
         document.addEventListener('DOMContentLoaded', init);
 
         document.getElementById('webcamButton').addEventListener('click', () => {
@@ -270,6 +277,15 @@
                     }
                     animateTexture();
                 };
+
+                video.addEventListener('click', (event) => {
+                    params.slicePosition = getPosition(event, video, params.mode === 'vertical');
+                });
+
+                video.addEventListener('touchstart', (event) => {
+                    const touch = event.touches[0];
+                    params.slicePosition = getPosition(touch, video, params.mode === 'vertical');
+                });
 
             }).catch(error => {
                 console.error('Error accessing webcam:', error);
