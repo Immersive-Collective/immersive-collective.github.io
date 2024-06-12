@@ -228,8 +228,8 @@
                 slicePosition: 0.5,
                 mode: 'horizontal'
             };
-            gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
-            gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
+            const slicePositionController = gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
+            const modeController = gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
 
             animate();
             window.addEventListener('resize', () => {
@@ -278,13 +278,21 @@
                     animateTexture();
                 };
 
-                video.addEventListener('click', (event) => {
+                function updateSlicePosition(event) {
                     params.slicePosition = getPosition(event, video, params.mode === 'vertical');
+                    slicePositionController.updateDisplay();
+                }
+
+                video.addEventListener('mousemove', updateSlicePosition);
+                video.addEventListener('touchmove', (event) => {
+                    const touch = event.touches[0];
+                    updateSlicePosition(touch);
                 });
 
+                video.addEventListener('click', updateSlicePosition);
                 video.addEventListener('touchstart', (event) => {
                     const touch = event.touches[0];
-                    params.slicePosition = getPosition(touch, video, params.mode === 'vertical');
+                    updateSlicePosition(touch);
                 });
 
             }).catch(error => {
