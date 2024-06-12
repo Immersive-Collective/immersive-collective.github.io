@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -50,7 +51,7 @@
             font-size: 0.8rem;
             color: white;
             border: 1px solid white;
-            background-color: transparent;
+            background-color: rgba(0,0,0,.85);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -61,20 +62,26 @@
             margin-left: 10px; /* Space between text and image */
         }
         #webcamButton:hover {
-            background-color: rgba(255, 255, 255, 0.2);
+            background-color: rgba(0,0,0,0.5);
         }
     </style>
 </head>
+
 <body>
+    
     <div class="logo">
         <img src="images/xray-view.svg" alt="Logo Icon">
         <div class="logo-text">Immersive Collective</div>
     </div>
+    
     <button id="webcamButton">Webcam
         <img src="images/webcam.svg" alt="Webcam Icon">
     </button>
+    
     <video id="webcamVideo" autoplay playsinline></video>
+    
     <div id="sliceIndicator" class="slice-indicator"></div>
+    
     <script type="importmap">
         {
             "imports": {
@@ -84,13 +91,23 @@
             }
         }
     </script>
+
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-
+        
         let scene, camera, controls, renderer;
         let ground, gui, params;
+        let topologyMesh;
+        let slicePositionController, modeController
+
+        let groundWidth = 500;
+       	let groundHeigth = 500;
+
+       	// camera clipping
+       	let cameraNear = 0.1;
+       	let cameraFar = 10000;
 
         function saveCameraParams() {
             const cameraParams = {
@@ -99,7 +116,6 @@
             };
             localStorage.setItem('cameraParams', JSON.stringify(cameraParams));
         }
-
         function loadCameraParams() {
             const cameraParams = JSON.parse(localStorage.getItem('cameraParams'));
             if (cameraParams) {
@@ -108,13 +124,11 @@
                 controls.update();
             }
         }
-
         function createGradientTextureFromArray(rgbaArray, width, height) {
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
             const context = canvas.getContext('2d');
-
             const imageData = context.createImageData(width, height);
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
@@ -126,39 +140,16 @@
                     imageData.data[index + 3] = rgbaArray[rgbaIndex + 3]; // A
                 }
             }
-
             context.putImageData(imageData, 0, 0);
             return new THREE.CanvasTexture(canvas);
         }
-
+        
         function projectTextureToPlane(plane, texture) {
             plane.material.map = texture;
             plane.material.needsUpdate = true;
         }
 
-        function updateTexture(video, plane, slicePosition, mode) {
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
 
-            function getVideoLineData(video, pos, isVertical) {
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                if (isVertical) {
-                    const imageData = context.getImageData(pos, 0, 1, canvas.height);
-                    return imageData.data;
-                } else {
-                    const imageData = context.getImageData(0, pos, canvas.width, 1);
-                    return imageData.data;
-                }
-            }
-
-            const isVertical = mode === 'vertical';
-            const pos = Math.floor((isVertical ? video.videoWidth : video.videoHeight) * slicePosition);
-            const rgbaArray = getVideoLineData(video, pos, isVertical);
-            const gradientTexture = createGradientTextureFromArray(rgbaArray, 500, 500);
-            projectTextureToPlane(plane, gradientTexture);
-        }
 
         function createGradientTexture() {
             const canvas = document.createElement('canvas');
@@ -174,6 +165,7 @@
         }
 
         function addLight() {
+
             const light = new THREE.SpotLight(0xffffff, 1);
             light.position.set(50, 50, 50);
             light.castShadow = true;
@@ -184,10 +176,12 @@
             scene.add(light);
             const ambientLight = new THREE.AmbientLight(0x404040); 
             scene.add(ambientLight);
+        
         }
 
+
         function addGround() {
-            const geometry = new THREE.PlaneGeometry(500, 500);
+            const geometry = new THREE.PlaneGeometry(groundWidth, groundHeigth);
             const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
             ground = new THREE.Mesh(geometry, material);
             ground.rotation.x = -Math.PI / 2;
@@ -195,42 +189,133 @@
             scene.add(ground);
         }
 
+
+function updateTexture(video, plane, slicePosition, mode) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    function getVideoLineData(video, pos, isVertical) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (isVertical) {
+            const imageData = context.getImageData(pos, 0, 1, canvas.height);
+            return imageData.data;
+        } else {
+            const imageData = context.getImageData(0, pos, canvas.width, 1);
+            return imageData.data;
+        }
+    }
+
+    const isVertical = mode === 'vertical';
+    const pos = Math.floor((isVertical ? video.videoWidth : video.videoHeight) * slicePosition);
+    const rgbaArray = getVideoLineData(video, pos, isVertical);
+    const gradientTexture = createGradientTextureFromArray(rgbaArray, 500, 500);
+    projectTextureToPlane(plane, gradientTexture);
+    updateTopology(rgbaArray, isVertical ? video.videoHeight : video.videoWidth, isVertical ? video.videoWidth : video.videoHeight, isVertical);
+}        
+
+function createTopologyFromArray(rgbaArray, width, height, isVertical) {
+    const shape = new THREE.Shape();
+    const extrudeSettings = {
+        steps: 1,
+        depth: 10,
+        bevelEnabled: false
+    };
+
+    if (isVertical) {
+        // Start at the bottom-left corner
+        shape.moveTo(0, 0);
+        for (let i = 0; i < height; i++) {
+            const y = i;
+            const index = i * 4;
+            const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
+            const z = grayscale / 255 * 100; // Scale height
+            shape.lineTo(z, y);
+        }
+        // Close the shape
+        shape.lineTo(0, height);
+        shape.lineTo(0, 0);
+    } else {
+        // Start at the bottom-left corner
+        shape.moveTo(0, 0);
+        for (let i = 0; i < width; i++) {
+            const x = i;
+            const index = i * 4;
+            const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
+            const z = grayscale / 255 * 100; // Scale height
+            shape.lineTo(x, z);
+        }
+        // Close the shape
+        shape.lineTo(width, 0);
+        shape.lineTo(0, 0);
+    }
+
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    const material = new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: false });
+    const mesh = new THREE.Mesh(geometry, material);
+
+    //mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = 50; // Position above the ground plane
+    mesh.position.z = -250;
+
+    mesh.position.x = -250;
+
+
+    return mesh;
+}
+
+function updateTopology(rgbaArray, width, height, isVertical) {
+    if (!topologyMesh) {
+        topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
+        topologyMesh.name = "topologyMesh";
+        scene.add(topologyMesh);
+    } else {
+        scene.remove(topologyMesh);
+        topologyMesh.geometry.dispose();
+        topologyMesh.material.dispose();
+        topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
+        topologyMesh.name = "topologyMesh";
+        scene.add(topologyMesh);
+    }
+}
+
+
+
+
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
             renderer.render(scene, camera);
         }
-
+        
         function init() {
             scene = new THREE.Scene();
             scene.background = createGradientTexture();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, cameraNear, cameraFar);
             renderer = new THREE.WebGLRenderer();
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
-
             controls = new OrbitControls(camera, renderer.domElement);
-
             loadCameraParams();
-
             controls.addEventListener('change', saveCameraParams);
-            
             if (!localStorage.getItem('cameraParams')) {
                 camera.position.set(0, 50, 100);
                 controls.update();
             }
 
-            addLight();
+            //addLight();
+            
             addGround();
-
-            gui = new GUI();
-            params = {
-                slicePosition: 0.5,
-                mode: 'horizontal'
-            };
-            const slicePositionController = gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
-            const modeController = gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
-
+			
+			// Initialize GUI controllers
+			gui = new GUI();
+			params = {
+			    slicePosition: 0.5,
+			    mode: 'horizontal'
+			};
+			slicePositionController = gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
+			modeController = gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
             animate();
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
@@ -239,66 +324,70 @@
             });
         }
 
-        function getPosition(event, video, isVertical) {
-            const rect = video.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-            return isVertical ? x / rect.width : y / rect.height;
-        }
+		// Event listeners for video element
+		function getPosition(event, video, isVertical) {
+		    const rect = video.getBoundingClientRect();
+		    const x = event.clientX - rect.left;
+		    const y = event.clientY - rect.top;
+		    return isVertical ? x / rect.width : y / rect.height;
+		}
+		        
+		document.addEventListener('DOMContentLoaded', init);
 
-        document.addEventListener('DOMContentLoaded', init);
+		document.getElementById('webcamButton').addEventListener('click', () => {
+		    const video = document.getElementById('webcamVideo');
+		    const sliceIndicator = document.getElementById('sliceIndicator');
+		    video.style.display = 'block';
+		    sliceIndicator.style.display = 'block';
 
-        document.getElementById('webcamButton').addEventListener('click', () => {
-            const video = document.getElementById('webcamVideo');
-            const sliceIndicator = document.getElementById('sliceIndicator');
-            video.style.display = 'block';
-            sliceIndicator.style.display = 'block';
+		    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+		        video.srcObject = stream;
 
-            navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-                video.srcObject = stream;
+		        video.onloadedmetadata = () => {
+		            const plane = scene.getObjectByName("groundPlane");
 
-                video.onloadedmetadata = () => {
-                    const plane = scene.getObjectByName("groundPlane");
+		            function animateTexture() {
+		                updateTexture(video, plane, params.slicePosition, params.mode);
+		                if (params.mode === 'horizontal') {
+		                    sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * (video.clientHeight / video.videoHeight)) + 'px';
+		                    sliceIndicator.style.left = '20px';
+		                    sliceIndicator.style.width = '320px';
+		                    sliceIndicator.style.height = '2px';
+		                } else {
+		                    sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * (video.clientWidth / video.videoWidth)) + 'px';
+		                    sliceIndicator.style.top = '40px';
+		                    sliceIndicator.style.width = '2px';
+		                    sliceIndicator.style.height = '240px';
+		                }
+		                requestAnimationFrame(animateTexture);
+		            }
+		            animateTexture();
+		        };
 
-                    function animateTexture() {
-                        updateTexture(video, plane, params.slicePosition, params.mode);
-                        if (params.mode === 'horizontal') {
-                            sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * (video.clientHeight / video.videoHeight)) + 'px';
-                            sliceIndicator.style.left = '20px';
-                            sliceIndicator.style.width = '320px';
-                            sliceIndicator.style.height = '2px';
-                        } else {
-                            sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * (video.clientWidth / video.videoWidth)) + 'px';
-                            sliceIndicator.style.top = '40px';
-                            sliceIndicator.style.width = '2px';
-                            sliceIndicator.style.height = '240px';
-                        }
-                        requestAnimationFrame(animateTexture);
-                    }
-                    animateTexture();
-                };
+		        function updateSlicePosition(event) {
+		            params.slicePosition = getPosition(event, video, params.mode === 'vertical');
+		            slicePositionController.updateDisplay();
+		        }
 
-                function updateSlicePosition(event) {
-                    params.slicePosition = getPosition(event, video, params.mode === 'vertical');
-                    slicePositionController.updateDisplay();
-                }
+		        video.addEventListener('mousemove', updateSlicePosition);
+		        video.addEventListener('touchmove', (event) => {
+		            const touch = event.touches[0];
+		            updateSlicePosition(touch);
+		        }, { passive: true });
 
-                video.addEventListener('mousemove', updateSlicePosition);
-                video.addEventListener('touchmove', (event) => {
-                    const touch = event.touches[0];
-                    updateSlicePosition(touch);
-                });
+		        video.addEventListener('click', updateSlicePosition);
+		        video.addEventListener('touchstart', (event) => {
+		            const touch = event.touches[0];
+		            updateSlicePosition(touch);
+		        }, { passive: true });
 
-                video.addEventListener('click', updateSlicePosition);
-                video.addEventListener('touchstart', (event) => {
-                    const touch = event.touches[0];
-                    updateSlicePosition(touch);
-                });
+		    }).catch(error => {
+		        console.error('Error accessing webcam:', error);
+		    });
+		});
 
-            }).catch(error => {
-                console.error('Error accessing webcam:', error);
-            });
-        });
     </script>
+
+
 </body>
 </html>
