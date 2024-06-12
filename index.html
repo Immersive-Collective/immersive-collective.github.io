@@ -164,20 +164,28 @@
             return new THREE.CanvasTexture(canvas);
         }
 
-        function addLight() {
 
-            const light = new THREE.SpotLight(0xffffff, 1);
-            light.position.set(50, 50, 50);
-            light.castShadow = true;
-            light.shadow.mapSize.width = 2048;
-            light.shadow.mapSize.height = 2048;
-            light.shadow.camera.near = 0.5;
-            light.shadow.camera.far = 100;
-            scene.add(light);
-            const ambientLight = new THREE.AmbientLight(0x404040); 
-            scene.add(ambientLight);
-        
-        }
+		function addLight() {
+
+		    // const light = new THREE.SpotLight(0xffffff, 1);
+		    // light.position.set(250, 250, 50);
+		    // light.castShadow = true;
+
+		    // light.shadow.mapSize.width = 2048;
+		    // light.shadow.mapSize.height = 2048;
+		    // light.shadow.camera.near = 0.5;
+		    // light.shadow.camera.far = 1000;
+		    // scene.add(light);
+
+		    const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+		    scene.add(ambientLight);
+
+		    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+		    directionalLight.position.set(-250, 50, 250);
+		    directionalLight.castShadow = true;
+		    scene.add(directionalLight);
+		}
+
 
 
         function addGround() {
@@ -215,55 +223,85 @@ function updateTexture(video, plane, slicePosition, mode) {
     updateTopology(rgbaArray, isVertical ? video.videoHeight : video.videoWidth, isVertical ? video.videoWidth : video.videoHeight, isVertical);
 }        
 
+let toplogyScale = 500;
+
 function createTopologyFromArray(rgbaArray, width, height, isVertical) {
     const shape = new THREE.Shape();
     const extrudeSettings = {
         steps: 1,
-        depth: 10,
+        depth: 500,
         bevelEnabled: false
     };
 
     if (isVertical) {
-        // Start at the bottom-left corner
         shape.moveTo(0, 0);
         for (let i = 0; i < height; i++) {
             const y = i;
             const index = i * 4;
             const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
-            const z = grayscale / 255 * 100; // Scale height
+            const z = grayscale / 255 * toplogyScale;
             shape.lineTo(z, y);
         }
-        // Close the shape
         shape.lineTo(0, height);
         shape.lineTo(0, 0);
     } else {
-        // Start at the bottom-left corner
         shape.moveTo(0, 0);
         for (let i = 0; i < width; i++) {
             const x = i;
             const index = i * 4;
             const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
-            const z = grayscale / 255 * 100; // Scale height
+            const z = grayscale / 255 * toplogyScale;
             shape.lineTo(x, z);
         }
-        // Close the shape
         shape.lineTo(width, 0);
         shape.lineTo(0, 0);
     }
 
     const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    const material = new THREE.MeshStandardMaterial({ color: 0xffffff, wireframe: false });
+
+    // Apply vertex colors
+    const position = geometry.attributes.position;
+    const colors = [];
+    for (let i = 0; i < position.count; i++) {
+        const x = Math.floor(position.getX(i));
+        const y = Math.floor(position.getY(i));
+        const z = Math.floor(position.getZ(i));
+        const colorIndex = isVertical ? y : x;
+        const rgbaIndex = colorIndex * 4;
+        colors.push(
+            rgbaArray[rgbaIndex] / 255,
+            rgbaArray[rgbaIndex + 1] / 255,
+            rgbaArray[rgbaIndex + 2] / 255
+        );
+    }
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+    const material = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        metalness: 0.25,
+        roughness: 0.25,
+        
+        transparent: true,
+        opacity: 0.5, // Adjust the value between 0 (completely transparent) and 1 (completely opaque)
+
+        wireframe: false
+    });
+
     const mesh = new THREE.Mesh(geometry, material);
-
-    //mesh.rotation.x = -Math.PI / 2;
-    mesh.position.y = 50; // Position above the ground plane
+    mesh.position.y = 50;
     mesh.position.z = -250;
-
     mesh.position.x = -250;
 
+    // Enable shadows
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
 
     return mesh;
 }
+
+
+
+
 
 function updateTopology(rgbaArray, width, height, isVertical) {
     if (!topologyMesh) {
@@ -304,7 +342,7 @@ function updateTopology(rgbaArray, width, height, isVertical) {
                 controls.update();
             }
 
-            //addLight();
+            addLight();
             
             addGround();
 			
