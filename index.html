@@ -1,24 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Three.js POC</title>
     <style>
-        
         body { font-family: "Avenir"; border: 0; padding:0; margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-
         canvas { display: block; }
-        
         video { 
-        	position: absolute; top: 40px; left: 20px; width: 320px; height: 240px;
-        	border-radius: 1rem; 
-        	display: none;
-        	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
-
+            position: absolute; top: 40px; left: 20px; width: 320px; height: 240px;
+            border-radius: 1rem; 
+            display: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
         }
-        
         .slice-indicator {
             position: absolute;
             top: 0;
@@ -44,11 +38,9 @@
             font-size: 10px;
             color: white;
         }
-
         #webcamButton:hover {
             background-color: rgba(255, 255, 255, 0.2);
         }
-        
         #webcamButton {
             position: absolute;
             bottom: 1rem;
@@ -71,22 +63,17 @@
         #webcamButton:hover {
             background-color: rgba(255, 255, 255, 0.2);
         }
-
     </style>
 </head>
-
 <body>
     <div class="logo">
         <img src="images/xray-view.svg" alt="Logo Icon">
         <div class="logo-text">Immersive Collective</div>
     </div>
-    
     <button id="webcamButton">Webcam
         <img src="images/webcam.svg" alt="Webcam Icon">
     </button>
-
-	<video id="webcamVideo" autoplay playsinline></video>
-
+    <video id="webcamVideo" autoplay playsinline></video>
     <div id="sliceIndicator" class="slice-indicator"></div>
     <script type="importmap">
         {
@@ -149,21 +136,26 @@
             plane.material.needsUpdate = true;
         }
 
-        function updateTexture(video, plane, slicePosition) {
+        function updateTexture(video, plane, slicePosition, mode) {
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
 
-            function getVideoLineData(video, y) {
+            function getVideoLineData(video, pos, isVertical) {
                 context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                const imageData = context.getImageData(0, y, canvas.width, 1);
-                return imageData.data;
+                if (isVertical) {
+                    const imageData = context.getImageData(pos, 0, 1, canvas.height);
+                    return imageData.data;
+                } else {
+                    const imageData = context.getImageData(0, pos, canvas.width, 1);
+                    return imageData.data;
+                }
             }
 
-            const specificLine = Math.floor(video.videoHeight * slicePosition); // Variable position of the video
-            const rgbaArray = getVideoLineData(video, specificLine);
-
+            const isVertical = mode === 'vertical';
+            const pos = Math.floor((isVertical ? video.videoWidth : video.videoHeight) * slicePosition);
+            const rgbaArray = getVideoLineData(video, pos, isVertical);
             const gradientTexture = createGradientTextureFromArray(rgbaArray, 500, 500);
             projectTextureToPlane(plane, gradientTexture);
         }
@@ -233,9 +225,11 @@
 
             gui = new GUI();
             params = {
-                slicePosition: 0.5
+                slicePosition: 0.5,
+                mode: 'horizontal'
             };
             gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
+            gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
 
             animate();
             window.addEventListener('resize', () => {
@@ -256,26 +250,31 @@
             navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
                 video.srcObject = stream;
 
+                video.onloadedmetadata = () => {
+                    const plane = scene.getObjectByName("groundPlane");
 
-		        video.onloadedmetadata = () => {
-		            const plane = scene.getObjectByName("groundPlane");
+                    function animateTexture() {
+                        updateTexture(video, plane, params.slicePosition, params.mode);
+                        if (params.mode === 'horizontal') {
+                            sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * (video.clientHeight / video.videoHeight)) + 'px';
+                            sliceIndicator.style.left = '20px';
+                            sliceIndicator.style.width = '320px';
+                            sliceIndicator.style.height = '2px';
+                        } else {
+                            sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * (video.clientWidth / video.videoWidth)) + 'px';
+                            sliceIndicator.style.top = '40px';
+                            sliceIndicator.style.width = '2px';
+                            sliceIndicator.style.height = '240px';
+                        }
+                        requestAnimationFrame(animateTexture);
+                    }
+                    animateTexture();
+                };
 
-		            function animateTexture() {
-		                updateTexture(video, plane, params.slicePosition);
-		                sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * (video.clientHeight / video.videoHeight)) + 'px';
-		                requestAnimationFrame(animateTexture);
-		            }
-		            animateTexture();
-		        };
-
-		    }).catch(error => {
-		        console.error('Error accessing webcam:', error);
-		    });
-		});
-
-
-
+            }).catch(error => {
+                console.error('Error accessing webcam:', error);
+            });
+        });
     </script>
 </body>
-
 </html>
