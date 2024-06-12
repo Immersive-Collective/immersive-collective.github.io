@@ -39,9 +39,34 @@
             font-size: 10px;
             color: white;
         }
-        #webcamButton:hover {
+
+        #exportButton {
+            position: absolute;
+            bottom: 3.5rem;
+            right: 1rem;
+            padding: 0.3rem 0.6rem;
+            font-family: 'Avenir', sans-serif;
+            font-size: 0.8rem;
+            color: white;
+            border: 1px solid white;
+            background-color: rgba(0,0,0,.85);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        #exportButton img {
+            height: 1rem; /* Adjust size as needed */
+            margin-left: 10px; /* Space between text and image */
+        }
+        #exportButton:hover {
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        #exportButton:hover {
             background-color: rgba(255, 255, 255, 0.2);
         }
+
         #webcamButton {
             position: absolute;
             bottom: 1rem;
@@ -64,6 +89,8 @@
         #webcamButton:hover {
             background-color: rgba(0,0,0,0.5);
         }
+
+
     </style>
 </head>
 
@@ -77,6 +104,10 @@
     <button id="webcamButton">Webcam
         <img src="images/webcam.svg" alt="Webcam Icon">
     </button>
+
+	<button id="exportButton">Export GLTF
+		<img src="images/3d.svg" alt="Export GLB">		
+	</button>    
     
     <video id="webcamVideo" autoplay playsinline></video>
     
@@ -87,7 +118,9 @@
             "imports": {
                 "three": "https://unpkg.com/three/build/three.module.js",
                 "three/addons/": "https://unpkg.com/three/examples/jsm/",
-                "dat.gui": "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"
+                "dat.gui": "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js",
+				"three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three/examples/jsm/exporters/GLTFExporter.js"
+
             }
         }
     </script>
@@ -96,6 +129,22 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+		import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+	    function exportGLTF(scene) {
+	        const exporter = new GLTFExporter();
+	        exporter.parse(scene, function (result) {
+	            const output = JSON.stringify(result, null, 2);
+	            const blob = new Blob([output], { type: 'application/json' });
+	            const link = document.createElement('a');
+	            link.style.display = 'none';
+	            document.body.appendChild(link); // Firefox workaround, see #6594
+	            link.href = URL.createObjectURL(blob);
+	            link.download = 'scene.glb';
+	            link.click();
+	        });
+	    }
         
         let scene, camera, controls, renderer;
         let ground, gui, params;
@@ -423,6 +472,10 @@ function updateTopology(rgbaArray, width, height, isVertical) {
 		        console.error('Error accessing webcam:', error);
 		    });
 		});
+
+	    document.getElementById('exportButton').addEventListener('click', () => {
+	        exportGLTF(scene);
+	    });		
 
     </script>
 
