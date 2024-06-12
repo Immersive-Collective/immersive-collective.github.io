@@ -1,14 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Three.js POC</title>
     <style>
-        body { margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        
+        body { font-family: "Avenir"; border: 0; padding:0; margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
         canvas { display: block; }
-        button { position: absolute; top: 20px; }
-        video { position: absolute; top: 20px; left: 20px; width: 320px; height: 240px; display: none; }
+        
+        video { 
+        	position: absolute; top: 40px; left: 20px; width: 320px; height: 240px;
+        	border-radius: 1rem; 
+        	display: none;
+        	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+
+        }
+        
         .slice-indicator {
             position: absolute;
             top: 0;
@@ -18,10 +28,73 @@
             background-color: white;
             display: none;
         }
+        .logo {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .logo img {
+            height: 20px; /* Adjust size as needed */
+            margin-right: 10px; /* Space between image and text */
+        }
+        .logo-text {
+            font-family: Avenir, Roboto, Arial, sans-serif;
+            font-size: 10px;
+            color: white;
+        }
+
+        #webcamButton {
+            position: absolute;
+            top: 20px;
+            padding: 10px 20px;
+            font-family: 'Avenir', sans-serif;
+            font-size: 16px;
+            color: white;
+            border: 2px solid white;
+            background-color: transparent;
+            cursor: pointer;
+        }
+        #webcamButton:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        #webcamButton {
+            position: absolute;
+            top: 20px;
+            padding: 10px 20px;
+            font-family: 'Avenir', sans-serif;
+            font-size: 16px;
+            color: white;
+            border: 2px solid white;
+            background-color: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        #webcamButton img {
+            height: 24px; /* Adjust size as needed */
+            margin-left: 10px; /* Space between text and image */
+        }
+        #webcamButton:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
     </style>
 </head>
+
 <body>
-    <button id="webcamButton">Enable Webcam</button>
+    <div class="logo">
+        <img src="images/xray-view.svg" alt="Logo Icon">
+        <div class="logo-text">Immersive Collective</div>
+    </div>
+    
+    <button id="webcamButton">Webcam
+        <img src="images/webcam.svg" alt="Webcam Icon">
+    </button>
+
     <video id="webcamVideo" autoplay></video>
     <div id="sliceIndicator" class="slice-indicator"></div>
     <script type="importmap">
@@ -198,7 +271,7 @@
 
 		            function animateTexture() {
 		                updateTexture(video, plane, params.slicePosition);
-		                sliceIndicator.style.top = (20 + video.videoHeight * params.slicePosition * (video.clientHeight / video.videoHeight)) + 'px';
+		                sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * (video.clientHeight / video.videoHeight)) + 'px';
 		                requestAnimationFrame(animateTexture);
 		            }
 		            animateTexture();
@@ -213,4 +286,5 @@
 
     </script>
 </body>
+
 </html>
