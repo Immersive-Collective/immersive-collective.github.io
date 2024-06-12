@@ -1,1 +1,216 @@
-Hello, World
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js POC</title>
+    <style>
+        body { margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        canvas { display: block; }
+        button { position: absolute; top: 20px; }
+        video { position: absolute; top: 20px; left: 20px; width: 320px; height: 240px; display: none; }
+        .slice-indicator {
+            position: absolute;
+            top: 0;
+            left: 20px;
+            width: 320px;
+            height: 2px;
+            background-color: white;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <button id="webcamButton">Enable Webcam</button>
+    <video id="webcamVideo" autoplay></video>
+    <div id="sliceIndicator" class="slice-indicator"></div>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three/examples/jsm/",
+                "dat.gui": "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+        let scene, camera, controls, renderer;
+        let ground, gui, params;
+
+        function saveCameraParams() {
+            const cameraParams = {
+                position: camera.position.toArray(),
+                target: controls.target.toArray()
+            };
+            localStorage.setItem('cameraParams', JSON.stringify(cameraParams));
+        }
+
+        function loadCameraParams() {
+            const cameraParams = JSON.parse(localStorage.getItem('cameraParams'));
+            if (cameraParams) {
+                camera.position.fromArray(cameraParams.position);
+                controls.target.fromArray(cameraParams.target);
+                controls.update();
+            }
+        }
+
+        function createGradientTextureFromArray(rgbaArray, width, height) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext('2d');
+
+            const imageData = context.createImageData(width, height);
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const index = (y * width + x) * 4;
+                    const rgbaIndex = (x % (rgbaArray.length / 4)) * 4;
+                    imageData.data[index] = rgbaArray[rgbaIndex];       // R
+                    imageData.data[index + 1] = rgbaArray[rgbaIndex + 1]; // G
+                    imageData.data[index + 2] = rgbaArray[rgbaIndex + 2]; // B
+                    imageData.data[index + 3] = rgbaArray[rgbaIndex + 3]; // A
+                }
+            }
+
+            context.putImageData(imageData, 0, 0);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function projectTextureToPlane(plane, texture) {
+            plane.material.map = texture;
+            plane.material.needsUpdate = true;
+        }
+
+        function updateTexture(video, plane, slicePosition) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            function getVideoLineData(video, y) {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = context.getImageData(0, y, canvas.width, 1);
+                return imageData.data;
+            }
+
+            const specificLine = Math.floor(video.videoHeight * slicePosition); // Variable position of the video
+            const rgbaArray = getVideoLineData(video, specificLine);
+
+            const gradientTexture = createGradientTextureFromArray(rgbaArray, 500, 500);
+            projectTextureToPlane(plane, gradientTexture);
+        }
+
+        function createGradientTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 2;
+            canvas.height = 2;
+            const context = canvas.getContext('2d');
+            const gradient = context.createLinearGradient(0, 0, 0, 2);
+            gradient.addColorStop(0, '#1a2a6c');
+            gradient.addColorStop(1, '#b21f1f');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, 2, 2);
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        function addLight() {
+            const light = new THREE.SpotLight(0xffffff, 1);
+            light.position.set(50, 50, 50);
+            light.castShadow = true;
+            light.shadow.mapSize.width = 2048;
+            light.shadow.mapSize.height = 2048;
+            light.shadow.camera.near = 0.5;
+            light.shadow.camera.far = 100;
+            scene.add(light);
+            const ambientLight = new THREE.AmbientLight(0x404040); 
+            scene.add(ambientLight);
+        }
+
+        function addGround() {
+            const geometry = new THREE.PlaneGeometry(500, 500);
+            const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+            ground = new THREE.Mesh(geometry, material);
+            ground.rotation.x = -Math.PI / 2;
+            ground.name = "groundPlane"
+            scene.add(ground);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = createGradientTexture();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+
+            loadCameraParams();
+
+            controls.addEventListener('change', saveCameraParams);
+            
+            if (!localStorage.getItem('cameraParams')) {
+                camera.position.set(0, 50, 100);
+                controls.update();
+            }
+
+            addLight();
+            addGround();
+
+            gui = new GUI();
+            params = {
+                slicePosition: 0.5
+            };
+            gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
+
+            animate();
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+
+        document.getElementById('webcamButton').addEventListener('click', () => {
+            const video = document.getElementById('webcamVideo');
+            const sliceIndicator = document.getElementById('sliceIndicator');
+            video.style.display = 'block';
+            sliceIndicator.style.display = 'block';
+
+            navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+                video.srcObject = stream;
+
+
+		        video.onloadedmetadata = () => {
+		            const plane = scene.getObjectByName("groundPlane");
+
+		            function animateTexture() {
+		                updateTexture(video, plane, params.slicePosition);
+		                sliceIndicator.style.top = (20 + video.videoHeight * params.slicePosition * (video.clientHeight / video.videoHeight)) + 'px';
+		                requestAnimationFrame(animateTexture);
+		            }
+		            animateTexture();
+		        };
+
+		    }).catch(error => {
+		        console.error('Error accessing webcam:', error);
+		    });
+		});
+
+
+
+    </script>
+</body>
+</html>
