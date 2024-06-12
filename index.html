@@ -45,29 +45,19 @@
             color: white;
         }
 
-        #webcamButton {
-            position: absolute;
-            top: 20px;
-            padding: 10px 20px;
-            font-family: 'Avenir', sans-serif;
-            font-size: 16px;
-            color: white;
-            border: 2px solid white;
-            background-color: transparent;
-            cursor: pointer;
-        }
         #webcamButton:hover {
             background-color: rgba(255, 255, 255, 0.2);
         }
         
         #webcamButton {
             position: absolute;
-            top: 20px;
-            padding: 10px 20px;
+            bottom: 1rem;
+            right: 1rem;
+            padding: 0.3rem 0.6rem;
             font-family: 'Avenir', sans-serif;
-            font-size: 16px;
+            font-size: 0.8rem;
             color: white;
-            border: 2px solid white;
+            border: 1px solid white;
             background-color: transparent;
             cursor: pointer;
             display: flex;
@@ -75,7 +65,7 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         #webcamButton img {
-            height: 24px; /* Adjust size as needed */
+            height: 1rem; /* Adjust size as needed */
             margin-left: 10px; /* Space between text and image */
         }
         #webcamButton:hover {
@@ -95,7 +85,8 @@
         <img src="images/webcam.svg" alt="Webcam Icon">
     </button>
 
-    <video id="webcamVideo" autoplay></video>
+	<video id="webcamVideo" autoplay playsinline></video>
+
     <div id="sliceIndicator" class="slice-indicator"></div>
     <script type="importmap">
         {
