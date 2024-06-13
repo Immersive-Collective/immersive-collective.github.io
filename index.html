@@ -42,7 +42,7 @@
 
         #exportButton {
             position: absolute;
-            bottom: 3.5rem;
+            bottom: 1rem;
             right: 1rem;
             padding: 0.3rem 0.6rem;
             font-family: 'Avenir', sans-serif;
@@ -65,26 +65,40 @@
 
         #webcamButton {
             position: absolute;
-            bottom: 1rem;
-            right: 1rem;
-            padding: 0.3rem 0.6rem;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 1rem 1.8rem;
             font-family: 'Avenir', sans-serif;
-            font-size: 0.8rem;
+            font-size: 2rem;
             color: white;
-            border: 1px solid white;
-            background-color: rgba(0,0,0,.85);
+            border: 0px solid white;
+            border-radius: 1rem;
+            background-color: rgba(0, 0, 0, .25);
             cursor: pointer;
             display: flex;
             align-items: center;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+
         #webcamButton img {
-            height: 1rem; /* Adjust size as needed */
-            margin-left: 10px; /* Space between text and image */
+            height: 1.8rem;
+            /* Adjust size as needed */
+            margin-left: 10px;
+            /* Space between text and image */
         }
+
         #webcamButton:hover {
-            background-color: rgba(0,0,0,0.5);
+            background-color: rgba(0, 0, 0, 0.5);
         }
+
+        #webcamButton.active {
+            bottom: 1rem;
+            left: 1rem;
+            width: auto;
+            height: auto;
+            transform: none;
+        }
+
 
     </style>
 </head>
@@ -96,9 +110,10 @@
         <div class="logo-text">Immersive Collective</div>
     </div>
     
-    <button id="webcamButton">Webcam
-        <img src="images/webcam.svg" alt="Webcam Icon">
-    </button>
+<button id="webcamButton">Start Webcam
+    <img src="images/webcam.svg" alt="Webcam Icon">
+</button>
+
 
     <button id="exportButton">Export GLTF
         <img src="images/3d.svg" alt="Export GLB">      
@@ -402,70 +417,115 @@
                 
         document.addEventListener('DOMContentLoaded', init);
 
-        document.getElementById('webcamButton').addEventListener('click', () => {
+let animationId;
+let isWebcamActive = false;
 
-            const video = document.getElementById('webcamVideo');
-            const sliceIndicator = document.getElementById('sliceIndicator');
-            
-            video.style.display = 'block';
-            sliceIndicator.style.display = 'block';
 
-            navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-                video.srcObject = stream;
+document.getElementById('webcamButton').addEventListener('click', () => {
+    const video = document.getElementById('webcamVideo');
+    const sliceIndicator = document.getElementById('sliceIndicator');
+    const webcamButton = document.getElementById('webcamButton');
 
-                video.onloadedmetadata = () => {
-                    // Scaling factor for the video and slice indicator
-            
-                    const scaleFactor = 0.25; // Adjust as needed to fit your layout
+    
+    if (isWebcamActive) {
+        // Stop the camera feed
+        const stream = video.srcObject;
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+        video.srcObject = null;
 
-                    video.style.width = `${video.videoWidth * scaleFactor}px`;
-                    video.style.height = `${video.videoHeight * scaleFactor}px`;
+        // Change button text
+        webcamButton.innerHTML = 'Start Webcam <img src="images/webcam.svg" alt="Webcam Icon">';
 
-                    sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+        // Hide video and slice indicator
+        video.style.display = 'none';
+        sliceIndicator.style.display = 'none';
 
-                    updateGroundAndTopology(video.videoWidth, video.videoHeight);
+        // Set webcam active state to false
+        isWebcamActive = false;
 
-                    const plane = scene.getObjectByName("groundPlane");
+        // Cancel the animation
+        cancelAnimationFrame(animationId);
 
-                    function animateTexture() {
-                        updateTexture(video, plane, params.slicePosition, params.mode);
-                        if (params.mode === 'horizontal') {
-                            sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * scaleFactor) + 'px';
-                            sliceIndicator.style.left = '20px';
-                            sliceIndicator.style.height = '2px';
-                            sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
-                        } else {
-                            sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * scaleFactor) + 'px';
-                            sliceIndicator.style.top = '40px';
-                            sliceIndicator.style.width = '2px';
-                            sliceIndicator.style.height = `${video.videoHeight * scaleFactor}px`;
-                        }
-                        requestAnimationFrame(animateTexture);
-                    }
-                    animateTexture();
-                };
+    } else {
 
-                function updateSlicePosition(event) {
-                    params.slicePosition = getPosition(event, video, params.mode === 'vertical');
-                    slicePositionController.updateDisplay();
+        // Start the camera feed
+        navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+            video.srcObject = stream;
+
+            video.onloadedmetadata = () => {
+
+
+                if (!webcamButton.classList.contains('active')) {
+                        webcamButton.classList.add('active');
                 }
 
-                video.addEventListener('mousemove', updateSlicePosition);
-                video.addEventListener('touchmove', (event) => {
-                    const touch = event.touches[0];
-                    updateSlicePosition(touch);
-                }, { passive: true });
 
-                video.addEventListener('click', updateSlicePosition);
-                video.addEventListener('touchstart', (event) => {
-                    const touch = event.touches[0];
-                    updateSlicePosition(touch);
-                }, { passive: true });
+                const scaleFactor = 0.25; // Adjust as needed to fit your layout
 
-            }).catch(error => {
-                console.error('Error accessing webcam:', error);
-            });
+                video.style.width = `${video.videoWidth * scaleFactor}px`;
+                video.style.height = `${video.videoHeight * scaleFactor}px`;
+
+                sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+
+                // Set webcam active state to true
+                isWebcamActive = true;
+
+                webcamButton.innerHTML = 'Stop Camera <img src="images/webcam.svg" alt="Webcam Icon">';
+
+                video.style.display = 'block';
+                sliceIndicator.style.display = 'block';
+
+                updateGroundAndTopology(video.videoWidth, video.videoHeight);
+
+                const plane = scene.getObjectByName("groundPlane");
+
+                function animateTexture() {
+                    if (!isWebcamActive) {
+                        return;
+                    }
+                    updateTexture(video, plane, params.slicePosition, params.mode);
+                    if (params.mode === 'horizontal') {
+                        sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * scaleFactor) + 'px';
+                        sliceIndicator.style.left = '20px';
+                        sliceIndicator.style.height = '2px';
+                        sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+                    } else {
+                        sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * scaleFactor) + 'px';
+                        sliceIndicator.style.top = '40px';
+                        sliceIndicator.style.width = '2px';
+                        sliceIndicator.style.height = `${video.videoHeight * scaleFactor}px`;
+                    }
+                    animationId = requestAnimationFrame(animateTexture);
+                }
+                animateTexture();
+            };
+
+            function updateSlicePosition(event) {
+                params.slicePosition = getPosition(event, video, params.mode === 'vertical');
+                slicePositionController.updateDisplay();
+            }
+
+            video.addEventListener('mousemove', updateSlicePosition);
+            video.addEventListener('touchmove', (event) => {
+                const touch = event.touches[0];
+                updateSlicePosition(touch);
+            }, { passive: true });
+
+            video.addEventListener('click', updateSlicePosition);
+            video.addEventListener('touchstart', (event) => {
+                const touch = event.touches[0];
+                updateSlicePosition(touch);
+            }, { passive: true });
+
+        }).catch(error => {
+            console.error('Error accessing webcam:', error);
         });
+    }
+});
+
+
+
 
         document.getElementById('exportButton').addEventListener('click', () => {
             exportGLTF(scene);
