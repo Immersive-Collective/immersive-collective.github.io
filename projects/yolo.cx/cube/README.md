@@ -1,5 +1,3 @@
-Sure, here is a simple documentation for the functions provided in your code, including an explanation of their syntax:
-
 ### Documentation for Cube Functions
 
 #### Function: `seededRandom`
