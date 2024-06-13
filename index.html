@@ -111,12 +111,12 @@
         <div class="logo-text">Immersive Collective</div>
     </div>
     
-<button id="webcamButton" class="ui-but">Start Webcam
+<button id="webcamButton" class="ui-but">Start
     <img src="images/webcam.svg" alt="Webcam Icon">
 </button>
 
 
-    <button id="exportButton" class="ui-but">Export GLTF
+    <button id="exportButton" class="ui-but">Export
         <img src="images/3d.svg" alt="Export GLB">      
     </button>    
     
@@ -438,7 +438,7 @@ document.getElementById('webcamButton').addEventListener('click', () => {
         video.srcObject = null;
 
         // Change button text
-        webcamButton.innerHTML = 'Start Webcam <img src="images/webcam.svg" alt="Webcam Icon">';
+        webcamButton.innerHTML = 'Start <img src="images/webcam.svg" alt="Webcam Icon">';
 
         // Hide video and slice indicator
         video.style.display = 'none';
@@ -474,7 +474,7 @@ document.getElementById('webcamButton').addEventListener('click', () => {
                 // Set webcam active state to true
                 isWebcamActive = true;
 
-                webcamButton.innerHTML = 'Stop Camera <img src="images/webcam.svg" alt="Webcam Icon">';
+                webcamButton.innerHTML = 'Stop <img src="images/webcam.svg" alt="Webcam Icon">';
 
                 video.style.display = 'block';
                 sliceIndicator.style.display = 'block';
