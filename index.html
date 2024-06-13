@@ -240,30 +240,30 @@
             scene.add(ground);
         }
 
-        // function updateTexture(video, plane, slicePosition, mode) {
-        //     const canvas = document.createElement('canvas');
-        //     const context = canvas.getContext('2d');
-        //     canvas.width = video.videoWidth;
-        //     canvas.height = video.videoHeight;
+        function updateTexture(video, plane, slicePosition, mode) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
 
-        //     function getVideoLineData(video, pos, isVertical) {
-        //         context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        //         if (isVertical) {
-        //             const imageData = context.getImageData(pos, 0, 1, canvas.height);
-        //             return imageData.data;
-        //         } else {
-        //             const imageData = context.getImageData(0, pos, canvas.width, 1);
-        //             return imageData.data;
-        //         }
-        //     }
+            function getVideoLineData(video, pos, isVertical) {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                if (isVertical) {
+                    const imageData = context.getImageData(pos, 0, 1, canvas.height);
+                    return imageData.data;
+                } else {
+                    const imageData = context.getImageData(0, pos, canvas.width, 1);
+                    return imageData.data;
+                }
+            }
 
-        //     const isVertical = mode === 'vertical';
-        //     const pos = Math.floor((isVertical ? video.videoWidth : video.videoHeight) * slicePosition);
-        //     const rgbaArray = getVideoLineData(video, pos, isVertical);
-        //     const gradientTexture = createGradientTextureFromArray(rgbaArray, groundWidth, groundHeight);
-        //     projectTextureToPlane(plane, gradientTexture);
-        //     updateTopology(rgbaArray, isVertical ? video.videoHeight : video.videoWidth, isVertical ? video.videoWidth : video.videoHeight, isVertical);
-        // }        
+            const isVertical = mode === 'vertical';
+            const pos = Math.floor((isVertical ? video.videoWidth : video.videoHeight) * slicePosition);
+            const rgbaArray = getVideoLineData(video, pos, isVertical);
+            const gradientTexture = createGradientTextureFromArray(rgbaArray, groundWidth, groundHeight);
+            projectTextureToPlane(plane, gradientTexture);
+            updateTopology(rgbaArray, isVertical ? video.videoHeight : video.videoWidth, isVertical ? video.videoWidth : video.videoHeight, isVertical);
+        }        
 
         let toplogyScale = 500;
 
@@ -402,85 +402,70 @@
                 
         document.addEventListener('DOMContentLoaded', init);
 
-function updateTexture(video, plane, slicePosition, mode) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+        document.getElementById('webcamButton').addEventListener('click', () => {
 
-    function getVideoLineData(video, pos, isVertical) {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        if (isVertical) {
-            const imageData = context.getImageData(pos, 0, 1, canvas.height);
-            return imageData.data;
-        } else {
-            const imageData = context.getImageData(0, pos, canvas.width, 1);
-            return imageData.data;
-        }
-    }
+            const video = document.getElementById('webcamVideo');
+            const sliceIndicator = document.getElementById('sliceIndicator');
+            
+            video.style.display = 'block';
+            sliceIndicator.style.display = 'block';
 
-    const isVertical = mode === 'vertical';
-    const pos = Math.floor((isVertical ? video.videoWidth : video.videoHeight) * slicePosition);
-    const rgbaArray = getVideoLineData(video, pos, isVertical);
-    const gradientTexture = createGradientTextureFromArray(rgbaArray, groundWidth, groundHeight);
-    projectTextureToPlane(plane, gradientTexture);
-    updateTopology(rgbaArray, isVertical ? video.videoHeight : video.videoWidth, isVertical ? video.videoWidth : video.videoHeight, isVertical);
-}
+            navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+                video.srcObject = stream;
 
-document.getElementById('webcamButton').addEventListener('click', () => {
-    const video = document.getElementById('webcamVideo');
-    const sliceIndicator = document.getElementById('sliceIndicator');
-    video.style.display = 'block';
-    sliceIndicator.style.display = 'block';
+                video.onloadedmetadata = () => {
+                    // Scaling factor for the video and slice indicator
+            
+                    const scaleFactor = 0.25; // Adjust as needed to fit your layout
 
-    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-        video.srcObject = stream;
+                    video.style.width = `${video.videoWidth * scaleFactor}px`;
+                    video.style.height = `${video.videoHeight * scaleFactor}px`;
 
-        video.onloadedmetadata = () => {
-            updateGroundAndTopology(video.videoWidth, video.videoHeight);
+                    sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
 
-            const plane = scene.getObjectByName("groundPlane");
+                    updateGroundAndTopology(video.videoWidth, video.videoHeight);
 
-            function animateTexture() {
-                updateTexture(video, plane, params.slicePosition, params.mode);
-                if (params.mode === 'horizontal') {
-                    sliceIndicator.style.top = (video.offsetTop + video.offsetHeight * params.slicePosition) + 'px';
-                    sliceIndicator.style.left = video.offsetLeft + 'px';
-                    sliceIndicator.style.width = video.offsetWidth + 'px';
-                    sliceIndicator.style.height = '2px';
-                } else {
-                    sliceIndicator.style.left = (video.offsetLeft + video.offsetWidth * params.slicePosition) + 'px';
-                    sliceIndicator.style.top = video.offsetTop + 'px';
-                    sliceIndicator.style.width = '2px';
-                    sliceIndicator.style.height = video.offsetHeight + 'px';
+                    const plane = scene.getObjectByName("groundPlane");
+
+                    function animateTexture() {
+                        updateTexture(video, plane, params.slicePosition, params.mode);
+                        if (params.mode === 'horizontal') {
+                            sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * scaleFactor) + 'px';
+                            sliceIndicator.style.left = '20px';
+                            sliceIndicator.style.height = '2px';
+                            sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+                        } else {
+                            sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * scaleFactor) + 'px';
+                            sliceIndicator.style.top = '40px';
+                            sliceIndicator.style.width = '2px';
+                            sliceIndicator.style.height = `${video.videoHeight * scaleFactor}px`;
+                        }
+                        requestAnimationFrame(animateTexture);
+                    }
+                    animateTexture();
+                };
+
+                function updateSlicePosition(event) {
+                    params.slicePosition = getPosition(event, video, params.mode === 'vertical');
+                    slicePositionController.updateDisplay();
                 }
-                requestAnimationFrame(animateTexture);
-            }
-            animateTexture();
-        };
 
-        function updateSlicePosition(event) {
-            params.slicePosition = getPosition(event, video, params.mode === 'vertical');
-            slicePositionController.updateDisplay();
-        }
+                video.addEventListener('mousemove', updateSlicePosition);
+                video.addEventListener('touchmove', (event) => {
+                    const touch = event.touches[0];
+                    updateSlicePosition(touch);
+                }, { passive: true });
 
-        video.addEventListener('mousemove', updateSlicePosition);
-        video.addEventListener('touchmove', (event) => {
-            const touch = event.touches[0];
-            updateSlicePosition(touch);
-        }, { passive: true });
+                video.addEventListener('click', updateSlicePosition);
+                video.addEventListener('touchstart', (event) => {
+                    const touch = event.touches[0];
+                    updateSlicePosition(touch);
+                }, { passive: true });
 
-        video.addEventListener('click', updateSlicePosition);
-        video.addEventListener('touchstart', (event) => {
-            const touch = event.touches[0];
-            updateSlicePosition(touch);
-        }, { passive: true });
-
-    }).catch(error => {
-        console.error('Error accessing webcam:', error);
-    });
-});
-
+            }).catch(error => {
+                console.error('Error accessing webcam:', error);
+            });
+        });
 
         document.getElementById('exportButton').addEventListener('click', () => {
             exportGLTF(scene);
