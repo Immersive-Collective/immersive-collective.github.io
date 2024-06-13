@@ -9,7 +9,7 @@
         body { font-family: "Avenir"; border: 0; padding:0; margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         canvas { display: block; }
         video { 
-            position: absolute; top: 40px; left: 20px; width: 320px; height: 240px;
+            position: absolute; top: 40px; left: 20px; width: auto; height: auto;
             border-radius: 1rem; 
             display: none;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
@@ -18,7 +18,7 @@
             position: absolute;
             top: 0;
             left: 20px;
-            width: 320px;
+            width: auto;
             height: 2px;
             background-color: white;
             display: none;
@@ -63,10 +63,6 @@
             background-color: rgba(0,0,0,0.5);
         }
 
-        #exportButton:hover {
-            background-color: rgba(255, 255, 255, 0.2);
-        }
-
         #webcamButton {
             position: absolute;
             bottom: 1rem;
@@ -90,7 +86,6 @@
             background-color: rgba(0,0,0,0.5);
         }
 
-
     </style>
 </head>
 
@@ -105,9 +100,9 @@
         <img src="images/webcam.svg" alt="Webcam Icon">
     </button>
 
-	<button id="exportButton">Export GLTF
-		<img src="images/3d.svg" alt="Export GLB">		
-	</button>    
+    <button id="exportButton">Export GLTF
+        <img src="images/3d.svg" alt="Export GLB">      
+    </button>    
     
     <video id="webcamVideo" autoplay playsinline></video>
     
@@ -119,8 +114,7 @@
                 "three": "https://unpkg.com/three/build/three.module.js",
                 "three/addons/": "https://unpkg.com/three/examples/jsm/",
                 "dat.gui": "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js",
-				"three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three/examples/jsm/exporters/GLTFExporter.js"
-
+                "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three/examples/jsm/exporters/GLTFExporter.js"
             }
         }
     </script>
@@ -129,34 +123,33 @@
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 
-		import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
-
-	    function exportGLTF(scene) {
-	        const exporter = new GLTFExporter();
-	        exporter.parse(scene, function (result) {
-	            const output = JSON.stringify(result, null, 2);
-	            const blob = new Blob([output], { type: 'application/json' });
-	            const link = document.createElement('a');
-	            link.style.display = 'none';
-	            document.body.appendChild(link); // Firefox workaround, see #6594
-	            link.href = URL.createObjectURL(blob);
-	            link.download = 'scene.glb';
-	            link.click();
-	        });
-	    }
+        function exportGLTF(scene) {
+            const exporter = new GLTFExporter();
+            exporter.parse(scene, function (result) {
+                const output = JSON.stringify(result, null, 2);
+                const blob = new Blob([output], { type: 'application/json' });
+                const link = document.createElement('a');
+                link.style.display = 'none';
+                document.body.appendChild(link); // Firefox workaround, see #6594
+                link.href = URL.createObjectURL(blob);
+                link.download = 'scene.glb';
+                link.click();
+            });
+        }
         
         let scene, camera, controls, renderer;
         let ground, gui, params;
         let topologyMesh;
-        let slicePositionController, modeController
+        let slicePositionController, modeController;
 
         let groundWidth = 500;
-       	let groundHeigth = 500;
+        let groundHeight = 500;
 
-       	// camera clipping
-       	let cameraNear = 0.1;
-       	let cameraFar = 10000;
+        // camera clipping
+        let cameraNear = 0.1;
+        let cameraFar = 10000;
 
         function saveCameraParams() {
             const cameraParams = {
@@ -198,8 +191,6 @@
             plane.material.needsUpdate = true;
         }
 
-
-
         function createGradientTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 2;
@@ -213,169 +204,160 @@
             return new THREE.CanvasTexture(canvas);
         }
 
+        function addLight() {
+            const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+            scene.add(ambientLight);
 
-		function addLight() {
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(-250, 50, 250);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+        }
 
-		    // const light = new THREE.SpotLight(0xffffff, 1);
-		    // light.position.set(250, 250, 50);
-		    // light.castShadow = true;
+        function updateGroundAndTopology(videoWidth, videoHeight) {
+            groundWidth = videoWidth;
+            groundHeight = videoHeight;
 
-		    // light.shadow.mapSize.width = 2048;
-		    // light.shadow.mapSize.height = 2048;
-		    // light.shadow.camera.near = 0.5;
-		    // light.shadow.camera.far = 1000;
-		    // scene.add(light);
+            const groundGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
+            ground.geometry.dispose();
+            ground.geometry = groundGeometry;
 
-		    const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
-		    scene.add(ambientLight);
-
-		    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-		    directionalLight.position.set(-250, 50, 250);
-		    directionalLight.castShadow = true;
-		    scene.add(directionalLight);
-		}
-
-
+            if (topologyMesh) {
+                scene.remove(topologyMesh);
+                topologyMesh.geometry.dispose();
+                topologyMesh.material.dispose();
+                topologyMesh = null;
+            }
+        }
 
         function addGround() {
-            const geometry = new THREE.PlaneGeometry(groundWidth, groundHeigth);
+            const geometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
             const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
             ground = new THREE.Mesh(geometry, material);
             ground.rotation.x = -Math.PI / 2;
-            ground.name = "groundPlane"
+            ground.name = "groundPlane";
+            ground.position.set(0, 0, 0); // Ensure the ground plane is centered
             scene.add(ground);
         }
 
+        function updateTexture(video, plane, slicePosition, mode) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
 
-function updateTexture(video, plane, slicePosition, mode) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+            function getVideoLineData(video, pos, isVertical) {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                if (isVertical) {
+                    const imageData = context.getImageData(pos, 0, 1, canvas.height);
+                    return imageData.data;
+                } else {
+                    const imageData = context.getImageData(0, pos, canvas.width, 1);
+                    return imageData.data;
+                }
+            }
 
-    function getVideoLineData(video, pos, isVertical) {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        if (isVertical) {
-            const imageData = context.getImageData(pos, 0, 1, canvas.height);
-            return imageData.data;
-        } else {
-            const imageData = context.getImageData(0, pos, canvas.width, 1);
-            return imageData.data;
+            const isVertical = mode === 'vertical';
+            const pos = Math.floor((isVertical ? video.videoWidth : video.videoHeight) * slicePosition);
+            const rgbaArray = getVideoLineData(video, pos, isVertical);
+            const gradientTexture = createGradientTextureFromArray(rgbaArray, groundWidth, groundHeight);
+            projectTextureToPlane(plane, gradientTexture);
+            updateTopology(rgbaArray, isVertical ? video.videoHeight : video.videoWidth, isVertical ? video.videoWidth : video.videoHeight, isVertical);
+        }        
+
+        let toplogyScale = 500;
+
+        function createTopologyFromArray(rgbaArray, width, height, isVertical) {
+            const shape = new THREE.Shape();
+            const extrudeSettings = {
+                steps: 1,
+                depth: groundHeight,
+                bevelEnabled: false
+            };
+
+            if (isVertical) {
+                shape.moveTo(0, 0);
+                for (let i = 0; i < height; i++) {
+                    const y = i;
+                    const index = i * 4;
+                    const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
+                    const z = grayscale / 255 * toplogyScale;
+                    shape.lineTo(z, y);
+                }
+                shape.lineTo(0, height);
+                shape.lineTo(0, 0);
+            } else {
+                shape.moveTo(0, 0);
+                for (let i = 0; i < width; i++) {
+                    const x = i;
+                    const index = i * 4;
+                    const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
+                    const z = grayscale / 255 * toplogyScale;
+                    shape.lineTo(x, z);
+                }
+                shape.lineTo(width, 0);
+                shape.lineTo(0, 0);
+            }
+
+            const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+
+            const colors = [];
+            const positions = geometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                const x = positions[i];
+                const y = positions[i + 1];
+                const z = positions[i + 2];
+                const colorIndex = isVertical ? Math.floor(y) : Math.floor(x);
+                const rgbaIndex = colorIndex * 4;
+                if (!isNaN(rgbaArray[rgbaIndex])) {
+                    colors.push(rgbaArray[rgbaIndex] / 255, rgbaArray[rgbaIndex + 1] / 255, rgbaArray[rgbaIndex + 2] / 255);
+                } else {
+                    colors.push(1, 1, 1); // Default to white if color data is invalid
+                }
+            }
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.MeshStandardMaterial({
+                vertexColors: true,
+                metalness: 0.25,
+                roughness: 0.25,
+                opacity: 0.5,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.y = 100; // Align with ground plane
+            mesh.position.z = -groundHeight / 2; // Center the topology on the ground plane
+            mesh.position.x = -groundWidth / 2; // Center the topology on the ground plane
+
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+
+            return mesh;
         }
-    }
 
-    const isVertical = mode === 'vertical';
-    const pos = Math.floor((isVertical ? video.videoWidth : video.videoHeight) * slicePosition);
-    const rgbaArray = getVideoLineData(video, pos, isVertical);
-    const gradientTexture = createGradientTextureFromArray(rgbaArray, 500, 500);
-    projectTextureToPlane(plane, gradientTexture);
-    updateTopology(rgbaArray, isVertical ? video.videoHeight : video.videoWidth, isVertical ? video.videoWidth : video.videoHeight, isVertical);
-}        
-
-let toplogyScale = 500;
-
-function createTopologyFromArray(rgbaArray, width, height, isVertical) {
-    const shape = new THREE.Shape();
-    const extrudeSettings = {
-        steps: 1,
-        depth: 500,
-        bevelEnabled: false
-    };
-
-    if (isVertical) {
-        shape.moveTo(0, 0);
-        for (let i = 0; i < height; i++) {
-            const y = i;
-            const index = i * 4;
-            const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
-            const z = grayscale / 255 * toplogyScale;
-            shape.lineTo(z, y);
+        function updateTopology(rgbaArray, width, height, isVertical) {
+            if (!topologyMesh) {
+                topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
+                topologyMesh.name = "topologyMesh";
+                scene.add(topologyMesh);
+            } else {
+                scene.remove(topologyMesh);
+                topologyMesh.geometry.dispose();
+                topologyMesh.material.dispose();
+                topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
+                topologyMesh.name = "topologyMesh";
+                scene.add(topologyMesh);
+            }
         }
-        shape.lineTo(0, height);
-        shape.lineTo(0, 0);
-    } else {
-        shape.moveTo(0, 0);
-        for (let i = 0; i < width; i++) {
-            const x = i;
-            const index = i * 4;
-            const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
-            const z = grayscale / 255 * toplogyScale;
-            shape.lineTo(x, z);
-        }
-        shape.lineTo(width, 0);
-        shape.lineTo(0, 0);
-    }
-
-    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-
-    // Apply vertex colors
-    const position = geometry.attributes.position;
-    const colors = [];
-    for (let i = 0; i < position.count; i++) {
-        const x = Math.floor(position.getX(i));
-        const y = Math.floor(position.getY(i));
-        const z = Math.floor(position.getZ(i));
-        const colorIndex = isVertical ? y : x;
-        const rgbaIndex = colorIndex * 4;
-        colors.push(
-            rgbaArray[rgbaIndex] / 255,
-            rgbaArray[rgbaIndex + 1] / 255,
-            rgbaArray[rgbaIndex + 2] / 255
-        );
-    }
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-    const material = new THREE.MeshStandardMaterial({
-        vertexColors: true,
-        metalness: 0.25,
-        roughness: 0.25,
-        
-        transparent: true,
-        opacity: 0.5, // Adjust the value between 0 (completely transparent) and 1 (completely opaque)
-
-        wireframe: false
-    });
-
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.y = 50;
-    mesh.position.z = -250;
-    mesh.position.x = -250;
-
-    // Enable shadows
-    mesh.castShadow = false;
-    mesh.receiveShadow = false;
-
-    return mesh;
-}
-
-
-
-
-
-function updateTopology(rgbaArray, width, height, isVertical) {
-    if (!topologyMesh) {
-        topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
-        topologyMesh.name = "topologyMesh";
-        scene.add(topologyMesh);
-    } else {
-        scene.remove(topologyMesh);
-        topologyMesh.geometry.dispose();
-        topologyMesh.material.dispose();
-        topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
-        topologyMesh.name = "topologyMesh";
-        scene.add(topologyMesh);
-    }
-}
-
-
-
 
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
             renderer.render(scene, camera);
         }
-        
+
         function init() {
             scene = new THREE.Scene();
             scene.background = createGradientTexture();
@@ -392,17 +374,16 @@ function updateTopology(rgbaArray, width, height, isVertical) {
             }
 
             addLight();
-            
             addGround();
-			
-			// Initialize GUI controllers
-			gui = new GUI();
-			params = {
-			    slicePosition: 0.5,
-			    mode: 'horizontal'
-			};
-			slicePositionController = gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
-			modeController = gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
+            
+            // Initialize GUI controllers
+            gui = new GUI();
+            params = {
+                slicePosition: 0.5,
+                mode: 'horizontal'
+            };
+            slicePositionController = gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
+            modeController = gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
             animate();
             window.addEventListener('resize', () => {
                 camera.aspect = window.innerWidth / window.innerHeight;
@@ -411,74 +392,75 @@ function updateTopology(rgbaArray, width, height, isVertical) {
             });
         }
 
-		// Event listeners for video element
-		function getPosition(event, video, isVertical) {
-		    const rect = video.getBoundingClientRect();
-		    const x = event.clientX - rect.left;
-		    const y = event.clientY - rect.top;
-		    return isVertical ? x / rect.width : y / rect.height;
-		}
-		        
-		document.addEventListener('DOMContentLoaded', init);
+        // Event listeners for video element
+        function getPosition(event, video, isVertical) {
+            const rect = video.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            return isVertical ? x / rect.width : y / rect.height;
+        }
+                
+        document.addEventListener('DOMContentLoaded', init);
 
-		document.getElementById('webcamButton').addEventListener('click', () => {
-		    const video = document.getElementById('webcamVideo');
-		    const sliceIndicator = document.getElementById('sliceIndicator');
-		    video.style.display = 'block';
-		    sliceIndicator.style.display = 'block';
+        document.getElementById('webcamButton').addEventListener('click', () => {
+            const video = document.getElementById('webcamVideo');
+            const sliceIndicator = document.getElementById('sliceIndicator');
+            video.style.display = 'block';
+            sliceIndicator.style.display = 'block';
 
-		    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-		        video.srcObject = stream;
+            navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+                video.srcObject = stream;
 
-		        video.onloadedmetadata = () => {
-		            const plane = scene.getObjectByName("groundPlane");
+                video.onloadedmetadata = () => {
+                    updateGroundAndTopology(video.videoWidth, video.videoHeight);
 
-		            function animateTexture() {
-		                updateTexture(video, plane, params.slicePosition, params.mode);
-		                if (params.mode === 'horizontal') {
-		                    sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * (video.clientHeight / video.videoHeight)) + 'px';
-		                    sliceIndicator.style.left = '20px';
-		                    sliceIndicator.style.width = '320px';
-		                    sliceIndicator.style.height = '2px';
-		                } else {
-		                    sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * (video.clientWidth / video.videoWidth)) + 'px';
-		                    sliceIndicator.style.top = '40px';
-		                    sliceIndicator.style.width = '2px';
-		                    sliceIndicator.style.height = '240px';
-		                }
-		                requestAnimationFrame(animateTexture);
-		            }
-		            animateTexture();
-		        };
+                    const plane = scene.getObjectByName("groundPlane");
 
-		        function updateSlicePosition(event) {
-		            params.slicePosition = getPosition(event, video, params.mode === 'vertical');
-		            slicePositionController.updateDisplay();
-		        }
+                    function animateTexture() {
+                        updateTexture(video, plane, params.slicePosition, params.mode);
+                        if (params.mode === 'horizontal') {
+                            sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * (video.clientHeight / video.videoHeight)) + 'px';
+                            sliceIndicator.style.left = '20px';
+                            sliceIndicator.style.width = video.videoWidth + 'px';
+                            sliceIndicator.style.height = '2px';
+                        } else {
+                            sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * (video.clientWidth / video.videoWidth)) + 'px';
+                            sliceIndicator.style.top = '40px';
+                            sliceIndicator.style.width = '2px';
+                            sliceIndicator.style.height = video.videoHeight + 'px';
+                        }
+                        requestAnimationFrame(animateTexture);
+                    }
+                    animateTexture();
+                };
 
-		        video.addEventListener('mousemove', updateSlicePosition);
-		        video.addEventListener('touchmove', (event) => {
-		            const touch = event.touches[0];
-		            updateSlicePosition(touch);
-		        }, { passive: true });
+                function updateSlicePosition(event) {
+                    params.slicePosition = getPosition(event, video, params.mode === 'vertical');
+                    slicePositionController.updateDisplay();
+                }
 
-		        video.addEventListener('click', updateSlicePosition);
-		        video.addEventListener('touchstart', (event) => {
-		            const touch = event.touches[0];
-		            updateSlicePosition(touch);
-		        }, { passive: true });
+                video.addEventListener('mousemove', updateSlicePosition);
+                video.addEventListener('touchmove', (event) => {
+                    const touch = event.touches[0];
+                    updateSlicePosition(touch);
+                }, { passive: true });
 
-		    }).catch(error => {
-		        console.error('Error accessing webcam:', error);
-		    });
-		});
+                video.addEventListener('click', updateSlicePosition);
+                video.addEventListener('touchstart', (event) => {
+                    const touch = event.touches[0];
+                    updateSlicePosition(touch);
+                }, { passive: true });
 
-	    document.getElementById('exportButton').addEventListener('click', () => {
-	        exportGLTF(scene);
-	    });		
+            }).catch(error => {
+                console.error('Error accessing webcam:', error);
+            });
+        });
+
+        document.getElementById('exportButton').addEventListener('click', () => {
+            exportGLTF(scene);
+        });
 
     </script>
-
 
 </body>
 </html>
