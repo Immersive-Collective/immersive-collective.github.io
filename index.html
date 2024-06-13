@@ -44,16 +44,8 @@
             position: absolute;
             bottom: 1rem;
             right: 1rem;
-            padding: 0.3rem 0.6rem;
-            font-family: 'Avenir', sans-serif;
-            font-size: 0.8rem;
-            color: white;
-            border: 1px solid white;
-            background-color: rgba(0,0,0,.85);
-            cursor: pointer;
             display: flex;
             align-items: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         #exportButton img {
             height: 1rem; /* Adjust size as needed */
@@ -67,17 +59,8 @@
             position: absolute;
             left: 50%;
             transform: translate(-50%, -50%);
-            padding: 1rem 1.8rem;
-            font-family: 'Avenir', sans-serif;
-            font-size: 1rem;
-            color: white;
-            border: 0px solid white;
-            border-radius: 1rem;
-            background-color: rgba(0, 0, 0, .25);
-            cursor: pointer;
             display: flex;
             align-items: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         #webcamButton img {
@@ -99,6 +82,18 @@
             transform: none;
         }
 
+        .ui-but {
+            padding: 0.9rem 1.6rem;
+            font-family: 'Avenir', sans-serif;
+            font-size: 0.9rem;
+            color: white;
+            border: 0px solid white;
+            border-radius: 1rem;
+            background-color: rgba(0, 0, 0, .25);
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
 
     </style>
 </head>
@@ -110,12 +105,12 @@
         <div class="logo-text">Immersive Collective</div>
     </div>
     
-<button id="webcamButton">Start Webcam
+<button id="webcamButton" class="ui-but">Start Webcam
     <img src="images/webcam.svg" alt="Webcam Icon">
 </button>
 
 
-    <button id="exportButton">Export GLTF
+    <button id="exportButton" class="ui-but">Export GLTF
         <img src="images/3d.svg" alt="Export GLB">      
     </button>    
     
