@@ -105,25 +105,18 @@
 </head>
 
 <body>
-    
     <div class="logo">
         <img src="images/xray-view.svg" alt="Logo Icon">
         <div class="logo-text">Immersive Collective</div>
     </div>
-    
-<button id="webcamButton" class="ui-but">Start
-    <img src="images/webcam.svg" alt="Webcam Icon">
-</button>
-
-
+    <button id="webcamButton" class="ui-but">Start
+        <img src="images/webcam.svg" alt="Webcam Icon">
+    </button>
     <button id="exportButton" class="ui-but">Export
-        <img src="images/3d.svg" alt="Export GLB">      
-    </button>    
-    
+        <img src="images/3d.svg" alt="Export GLB">
+    </button>
     <video id="webcamVideo" autoplay playsinline></video>
-    
     <div id="sliceIndicator" class="slice-indicator"></div>
-    
     <script type="importmap">
         {
             "imports": {
@@ -134,7 +127,6 @@
             }
         }
     </script>
-
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -343,7 +335,7 @@
             });
 
             const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.y = 0; // Align with ground plane
+            mesh.position.y = 1; // Align with ground plane
             mesh.position.z = -groundHeight / 2; // Center the topology on the ground plane
             mesh.position.x = -groundWidth / 2; // Center the topology on the ground plane
 
@@ -420,121 +412,118 @@
                 
         document.addEventListener('DOMContentLoaded', init);
 
-let animationId;
-let isWebcamActive = false;
+        let animationId;
+        let isWebcamActive = false;
 
 
-document.getElementById('webcamButton').addEventListener('click', () => {
-    const video = document.getElementById('webcamVideo');
-    const sliceIndicator = document.getElementById('sliceIndicator');
-    const webcamButton = document.getElementById('webcamButton');
+        document.getElementById('webcamButton').addEventListener('click', () => {
+            const video = document.getElementById('webcamVideo');
+            const sliceIndicator = document.getElementById('sliceIndicator');
+            const webcamButton = document.getElementById('webcamButton');
 
-    
-    if (isWebcamActive) {
-        // Stop the camera feed
-        const stream = video.srcObject;
-        const tracks = stream.getTracks();
-        tracks.forEach(track => track.stop());
-        video.srcObject = null;
+            
+            if (isWebcamActive) {
+                // Stop the camera feed
+                const stream = video.srcObject;
+                const tracks = stream.getTracks();
+                tracks.forEach(track => track.stop());
+                video.srcObject = null;
 
-        // Change button text
-        webcamButton.innerHTML = 'Start <img src="images/webcam.svg" alt="Webcam Icon">';
+                // Change button text
+                webcamButton.innerHTML = 'Start <img src="images/webcam.svg" alt="Webcam Icon">';
 
-        // Hide video and slice indicator
-        video.style.display = 'none';
-        sliceIndicator.style.display = 'none';
+                // Hide video and slice indicator
+                video.style.display = 'none';
+                sliceIndicator.style.display = 'none';
 
-        // Set webcam active state to false
-        isWebcamActive = false;
+                // Set webcam active state to false
+                isWebcamActive = false;
 
-        // Cancel the animation
-        cancelAnimationFrame(animationId);
+                // Cancel the animation
+                cancelAnimationFrame(animationId);
 
-    } else {
+            } else {
 
-        // Start the camera feed
-        navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-            video.srcObject = stream;
+                // Start the camera feed
+                navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+                    video.srcObject = stream;
 
-            video.onloadedmetadata = () => {
-
-
-                if (!webcamButton.classList.contains('active')) {
-                        webcamButton.classList.add('active');
-                }
+                    video.onloadedmetadata = () => {
 
 
-                const scaleFactor = 0.25; // Adjust as needed to fit your layout
+                        if (!webcamButton.classList.contains('active')) {
+                                webcamButton.classList.add('active');
+                        }
 
-                video.style.width = `${video.videoWidth * scaleFactor}px`;
-                video.style.height = `${video.videoHeight * scaleFactor}px`;
 
-                sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+                        const scaleFactor = 0.25; // Adjust as needed to fit your layout
 
-                // Set webcam active state to true
-                isWebcamActive = true;
+                        video.style.width = `${video.videoWidth * scaleFactor}px`;
+                        video.style.height = `${video.videoHeight * scaleFactor}px`;
 
-                webcamButton.innerHTML = 'Stop <img src="images/webcam.svg" alt="Webcam Icon">';
-
-                video.style.display = 'block';
-                sliceIndicator.style.display = 'block';
-
-                updateGroundAndTopology(video.videoWidth, video.videoHeight);
-
-                const plane = scene.getObjectByName("groundPlane");
-
-                function animateTexture() {
-                    if (!isWebcamActive) {
-                        return;
-                    }
-                    updateTexture(video, plane, params.slicePosition, params.mode);
-                    if (params.mode === 'horizontal') {
-                        sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * scaleFactor) + 'px';
-                        sliceIndicator.style.left = '20px';
-                        sliceIndicator.style.height = '2px';
                         sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
-                    } else {
-                        sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * scaleFactor) + 'px';
-                        sliceIndicator.style.top = '40px';
-                        sliceIndicator.style.width = '2px';
-                        sliceIndicator.style.height = `${video.videoHeight * scaleFactor}px`;
+
+                        // Set webcam active state to true
+                        isWebcamActive = true;
+
+                        webcamButton.innerHTML = 'Stop <img src="images/webcam.svg" alt="Webcam Icon">';
+
+                        video.style.display = 'block';
+                        sliceIndicator.style.display = 'block';
+
+                        updateGroundAndTopology(video.videoWidth, video.videoHeight);
+
+                        const plane = scene.getObjectByName("groundPlane");
+
+                        function animateTexture() {
+                            if (!isWebcamActive) {
+                                return;
+                            }
+                            updateTexture(video, plane, params.slicePosition, params.mode);
+                            if (params.mode === 'horizontal') {
+                                sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * scaleFactor) + 'px';
+                                sliceIndicator.style.left = '20px';
+                                sliceIndicator.style.height = '2px';
+                                sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+                            } else {
+                                sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * scaleFactor) + 'px';
+                                sliceIndicator.style.top = '40px';
+                                sliceIndicator.style.width = '2px';
+                                sliceIndicator.style.height = `${video.videoHeight * scaleFactor}px`;
+                            }
+                            animationId = requestAnimationFrame(animateTexture);
+                        }
+                        animateTexture();
+                    };
+
+                    function updateSlicePosition(event) {
+                        params.slicePosition = getPosition(event, video, params.mode === 'vertical');
+                        slicePositionController.updateDisplay();
                     }
-                    animationId = requestAnimationFrame(animateTexture);
-                }
-                animateTexture();
-            };
 
-            function updateSlicePosition(event) {
-                params.slicePosition = getPosition(event, video, params.mode === 'vertical');
-                slicePositionController.updateDisplay();
+                    video.addEventListener('mousemove', updateSlicePosition);
+                    video.addEventListener('touchmove', (event) => {
+                        const touch = event.touches[0];
+                        updateSlicePosition(touch);
+                    }, { passive: true });
+
+                    video.addEventListener('click', updateSlicePosition);
+                    video.addEventListener('touchstart', (event) => {
+                        const touch = event.touches[0];
+                        updateSlicePosition(touch);
+                    }, { passive: true });
+
+                }).catch(error => {
+                    console.error('Error accessing webcam:', error);
+                });
             }
-
-            video.addEventListener('mousemove', updateSlicePosition);
-            video.addEventListener('touchmove', (event) => {
-                const touch = event.touches[0];
-                updateSlicePosition(touch);
-            }, { passive: true });
-
-            video.addEventListener('click', updateSlicePosition);
-            video.addEventListener('touchstart', (event) => {
-                const touch = event.touches[0];
-                updateSlicePosition(touch);
-            }, { passive: true });
-
-        }).catch(error => {
-            console.error('Error accessing webcam:', error);
         });
-    }
-});
-
-
-
 
         document.getElementById('exportButton').addEventListener('click', () => {
             exportGLTF(scene);
         });
 
     </script>
-
 </body>
+
 </html>
