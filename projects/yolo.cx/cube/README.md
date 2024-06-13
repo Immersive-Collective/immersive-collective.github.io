@@ -1,5 +1,7 @@
 ### Documentation for Cube Functions
 
+These methods are available on window, can be used for the widget purposes.
+
 #### Function: `seededRandom`
 
 ```javascript
@@ -106,3 +108,136 @@ Creates a grid of cubes with specified rows and columns.
 - `addSingleCube(size, position, color)`: Adds a single cube with specified size, position, and color.
 
 These functions use the `seededRandom` function for generating pseudo-random numbers to position and color the cubes, ensuring consistent results across different executions with the same seed value. The `addCubes` function arranges cubes in a circular pattern, while the `addCubesGrid` function arranges them in a grid.
+
+
+Sure, here is the documentation for the functions `addSingleCube` and `addSingleCubeR`:
+
+### Documentation for Cube Functions
+
+#### Function: `addSingleCube`
+
+```javascript
+function addSingleCube(size, position, color, random) {
+    let scene = playground;
+
+    let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(position.x, position.y, position.z);
+    let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+
+    let sx, sy, sz;
+    if (!random) {
+        sx = size.x;
+        sy = size.y;
+        sz = size.z;
+    } else {
+        sx = size.x;
+        sy = size.y;
+        sz = size.z;        
+    }
+
+    const bodyGeometry = new THREE.BoxGeometry(sx, sy, sz); 
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
+    const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    
+    bodyMesh.castShadow = true;
+    bodyMesh.receiveShadow = true;
+
+    bodyMesh.type = "cb";
+    rigidBody.type = "cb";
+
+    scene.add(bodyMesh);
+
+    let colliderDesc = RAPIER.ColliderDesc.cuboid(sx / 2, sy / 2, sz / 2);
+    let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
+
+    window.rigidBodies.push(rigidBody);
+    window.threeCubes.push(bodyMesh);
+}
+
+window.addSingleCube = addSingleCube;
+```
+
+**Description**:
+Adds a single cube to the scene with specified size, position, and color.
+
+**Parameters**:
+- `size` (object): The dimensions of the cube (x, y, z).
+- `position` (object): The position of the cube (x, y, z).
+- `color` (number): The color of the cube.
+- `random` (boolean): A flag to determine if the size should be randomized.
+
+**Internal Variables**:
+- `scene` (object): The scene to which the cube is added.
+- `rigidBodyDesc` (object): The RAPIER description of the rigid body.
+- `rigidBody` (object): The created rigid body.
+- `sx`, `sy`, `sz` (number): The dimensions of the cube.
+- `bodyGeometry` (object): The geometry of the cube.
+- `bodyMaterial` (object): The material of the cube.
+- `bodyMesh` (object): The Three.js mesh representing the cube.
+- `colliderDesc` (object): The RAPIER description of the collider.
+- `collider` (object): The created collider.
+
+#### Function: `addSingleCubeR`
+
+```javascript
+function addSingleCubeR(size, position, color, random) {
+    let scene = playground;
+
+    let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(position.x, position.y, position.z);
+    let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+
+    let sx, sy, sz;
+    if (!random) {
+        sx = size.x * Math.random();
+        sy = size.y * Math.random();
+        sz = size.z * Math.random();
+    } else {
+        sx = size.x;
+        sy = size.y;
+        sz = size.z;        
+    }
+
+    const bodyGeometry = new THREE.BoxGeometry(sx, sy, sz); 
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
+    const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    
+    bodyMesh.castShadow = true;
+    bodyMesh.receiveShadow = true;
+
+    bodyMesh.type = "cb";
+    rigidBody.type = "cb";
+
+    scene.add(bodyMesh);
+
+    let colliderDesc = RAPIER.ColliderDesc.cuboid(sx / 2, sy / 2, sz / 2);
+    let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
+
+    window.rigidBodies.push(rigidBody);
+    window.threeCubes.push(bodyMesh);
+}
+
+window.addSingleCubeR = addSingleCubeR;
+```
+
+**Description**:
+Adds a single cube to the scene with specified size, position, and color, with optional randomization of the size.
+
+**Parameters**:
+- `size` (object): The dimensions of the cube (x, y, z).
+- `position` (object): The position of the cube (x, y, z).
+- `color` (number): The color of the cube.
+- `random` (boolean): A flag to determine if the size should be randomized.
+
+**Internal Variables**:
+- `scene` (object): The scene to which the cube is added.
+- `rigidBodyDesc` (object): The RAPIER description of the rigid body.
+- `rigidBody` (object): The created rigid body.
+- `sx`, `sy`, `sz` (number): The dimensions of the cube.
+- `bodyGeometry` (object): The geometry of the cube.
+- `bodyMaterial` (object): The material of the cube.
+- `bodyMesh` (object): The Three.js mesh representing the cube.
+- `colliderDesc` (object): The RAPIER description of the collider.
+- `collider` (object): The created collider.
+
+**Key Differences Between `addSingleCube` and `addSingleCubeR`**:
+- `addSingleCube` adds a cube with fixed size unless the `random` flag is set.
+- `addSingleCubeR` adds a cube with randomized size components unless the `random` flag is set.
