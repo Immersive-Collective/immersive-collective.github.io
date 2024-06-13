@@ -94,6 +94,12 @@
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
+        .custom-gui {
+            position: absolute !important;
+            top: 0 !important;
+            right: 0 !important;
+            margin: 0 !important;
+        }
 
     </style>
 </head>
@@ -388,6 +394,8 @@
             
             // Initialize GUI controllers
             gui = new GUI();
+            gui.domElement.classList.add('custom-gui');
+
             params = {
                 slicePosition: 0.5,
                 mode: 'horizontal'
