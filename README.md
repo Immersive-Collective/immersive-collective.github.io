@@ -1,4 +1,4 @@
-**Principles**
+**Principles of Immersive Collective**
 
 1. **Autonomy in Development**:
    I am committed to working on projects where I have complete control and freedom over the development process. I prioritize my own creative and technical direction over contributing to externally managed SDKs or projects.
