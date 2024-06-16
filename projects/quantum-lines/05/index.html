@@ -141,7 +141,110 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'; // Optional for additional effects
-import { ChromaticAberrationShader } from 'three/addons/shaders/ChromaticAberrationShader.js';
+
+import { CopyShader } from 'three/addons/shaders/CopyShader.js';
+import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+
+
+
+const ChromaticAberrationShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'amount': { value: 0.0001 },
+        'angle': {  value: 0 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float amount;
+        uniform float angle;
+        varying vec2 vUv;
+        void main() {
+            vec2 offset = amount * vec2(cos(angle), sin(angle));
+            vec4 color = vec4(
+                texture2D(tDiffuse, vUv + offset).r,
+                texture2D(tDiffuse, vUv).g,
+                texture2D(tDiffuse, vUv - offset).b,
+                1.0
+            );
+            gl_FragColor = color;
+        }
+    `
+};
+
+const FilmGrainShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'time': { value: 0 },
+        'noiseIntensity': { value: 0.05 },
+        'noiseSpeed': { value: 0.02 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float noiseIntensity;
+        uniform float noiseSpeed;
+        varying vec2 vUv;
+        void main() {
+            vec4 color = texture2D(tDiffuse, vUv);
+            float grain = fract(sin(dot(vUv.xy + time * noiseSpeed, vec2(12.9898, 78.233))) * 43758.5453);
+            color.rgb += grain * noiseIntensity;
+            gl_FragColor = color;
+        }
+    `
+};
+
+
+const LensDistortionShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'baseIor': { value: 1.0 },
+        'bandOffset': { value: 0.01 },
+        'jitterIntensity': { value: 0.0 },
+        'jitterOffset': { value: 0.0 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float baseIor;
+        uniform float bandOffset;
+        uniform float jitterIntensity;
+        uniform float jitterOffset;
+        varying vec2 vUv;
+        vec2 barrelDistortion(vec2 coord, float k) {
+            vec2 coordCentered = coord - 0.5;
+            float dist = dot(coordCentered, coordCentered);
+            return coordCentered * (1.0 + k * dist) + 0.5;
+        }
+        void main() {
+            vec2 uv = vUv;
+            uv = barrelDistortion(uv, baseIor);
+            vec4 color = texture2D(tDiffuse, uv);
+            gl_FragColor = color;
+        }
+    `
+};
+
 
 
 function exportGLTF(scene) {
@@ -171,6 +274,16 @@ let cameraNear = 0.1;
 let cameraFar = 10000;
 
 let scaleFactor = 0.45;
+
+let bloomPass
+
+bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.01,  // Reduced strength
+    0.01,  // Adjust radius
+    0.01   // Higher threshold
+);
+
 
 function saveCameraParams() {
     const cameraParams = {
@@ -293,7 +406,52 @@ function addGround() {
     instancedMesh.position.set(0, 0, 0); // Center the planes
     instancedMesh.name = "groundPlane";
     scene.add(instancedMesh);
+
+    // Add 1 to 3 additional ground planes at random positions and rotations
+    const additionalPlanesCount = 5;//Math.floor(Math.random() * 3) + 1;
+
+    for (let k = 0; k < additionalPlanesCount; k++) {
+        
+        const randomX = (Math.random() - 0.5) * 2 * groundWidth * halfCols;
+        const randomZ = (Math.random() - 0.5) * 2 * groundHeight;
+        const randomRotation = Math.random() * Math.PI * 2;
+
+        const randomMatrix = new THREE.Matrix4();
+        randomMatrix.setPosition(randomX, 0, randomZ);
+        randomMatrix.multiply(new THREE.Matrix4().makeRotationY(randomRotation));
+
+        const randomPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+        randomPlane.applyMatrix4(randomMatrix);
+        randomPlane.scale.set(1,100,1)
+        scene.add(randomPlane);
+    }
 }
+
+
+// function addGround() {
+//     const rows = 1;
+//     const cols = 20; // Total number of planes (including the central one)
+//     const halfCols = Math.floor(cols / 2); // Half of the columns to distribute on each side
+
+//     const planeGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
+//     const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+//     const count = rows * cols;
+//     const instancedMesh = new THREE.InstancedMesh(planeGeometry, planeMaterial, count);
+
+//     let index = 0;
+//     for (let i = 0; i < rows; i++) {
+//         for (let j = -halfCols; j <= halfCols; j++) {
+//             const matrix = new THREE.Matrix4();
+//             matrix.setPosition(j * groundWidth, 0, i * groundHeight);
+//             instancedMesh.setMatrixAt(index, matrix);
+//             index++;
+//         }
+//     }
+//     instancedMesh.rotation.x = -Math.PI / 2;
+//     instancedMesh.position.set(0, 0, 0); // Center the planes
+//     instancedMesh.name = "groundPlane";
+//     scene.add(instancedMesh);
+// }
 
 
 function updateTexture(video, plane, slicePosition, mode) {
@@ -424,6 +582,31 @@ function cloneTopologyMesh() {
         scene.add(clonedMesh);
     }
 }
+
+
+function cloneTopologyMeshMulti() {
+    const existingClones = scene.children.filter(obj => obj.name && obj.name.startsWith("clonedTopologyMesh"));
+    existingClones.forEach(clone => {
+        scene.remove(clone);
+        if (clone.geometry) clone.geometry.dispose();
+        if (clone.material) clone.material.dispose();
+    });
+
+    if (topologyMesh) {
+        const cols = 20; // Total number of planes (including the central one)
+        const halfCols = Math.floor(cols / 2); // Half of the columns to distribute on each side
+
+        for (let j = -halfCols; j <= halfCols; j++) {
+            const clonedMesh = topologyMesh.clone();
+            clonedMesh.position.y = 1; // Slightly above the ground plane
+            clonedMesh.position.x = j * groundWidth; // Distribute on each side
+            clonedMesh.position.z = -groundHeight / 2; // Center the topology on the ground plane
+            clonedMesh.name = "clonedTopologyMesh_" + j;
+            scene.add(clonedMesh);
+        }
+    }
+}
+
 
 
 function updateTopology(rgbaArray, width, height, isVertical) {
@@ -674,17 +857,31 @@ function updateVideoPlanePosition(positionPercentage) {
     }
 }                
 
+
+let time = 0;
 function animate() {
     requestAnimationFrame(animate);
+
+    time += params.noiseSpeed;
+    filmGrainPass.uniforms['time'].value = time;
+    filmGrainPass.uniforms['noiseSpeed'].value = params.noiseSpeed;
+    filmGrainPass.uniforms['noiseIntensity'].value = params.noiseIntensity;
+
+
     controls.update();
-    renderer.render(scene, camera);
+    composer.render();
 }
 
-function init() {
 
+let composer
+let filmGrainPass;
+
+function init() {
     scene = new THREE.Scene();
     scene.background = createGradientTexture();
+    
     addFog(); 
+
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, cameraNear, cameraFar);
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -700,24 +897,61 @@ function init() {
     addLight();
     addGround();
 
-    
     // Initialize GUI controllers
     gui = new GUI();
     gui.domElement.classList.add('custom-gui');
 
     params = {
         slicePosition: 0.5,
-        mode: 'horizontal'
+        mode: 'horizontal',
+        noiseSpeed: 0.02,
+        noiseIntensity: 0.05        
     };
     slicePositionController = gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
     modeController = gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
+    gui.add(params, 'noiseSpeed', 0, 0.1).name('Noise Speed').step(0.001);
+    gui.add(params, 'noiseIntensity', 0, 1).name('Noise Intensity').step(0.01);
+
+
+    // Setup EffectComposer
+    composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    // Add chromatic aberration pass
+    const chromaticAberrationPass = new ShaderPass(ChromaticAberrationShader);
+    chromaticAberrationPass.uniforms['amount'].value = 0.0015; // Adjust the amount of chromatic aberration
+    composer.addPass(chromaticAberrationPass);
+
+
+    // Add lens distortion pass
+    const lensDistortionPass = new ShaderPass(LensDistortionShader);
+    lensDistortionPass.uniforms['baseIor'].value = 1.003;
+    lensDistortionPass.uniforms['bandOffset'].value = -0.02;
+    lensDistortionPass.uniforms['jitterIntensity'].value = 0.001;
+    composer.addPass(lensDistortionPass);
+
+    // Add film grain pass
+    filmGrainPass = new ShaderPass(FilmGrainShader);
+    filmGrainPass.uniforms['noiseIntensity'].value = params.noiseIntensity;
+    filmGrainPass.uniforms['noiseSpeed'].value = params.noiseSpeed;
+    composer.addPass(filmGrainPass);
+
+    //composer.addPass(bloomPass);
+
+
     animate();
+
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight); // Update composer size on resize
     });
 }
+
+
+
 
 // Event listeners for video element
 function getPosition(event, video, isVertical) {

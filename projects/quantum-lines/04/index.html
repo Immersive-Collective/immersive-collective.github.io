@@ -141,7 +141,76 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'; // Optional for additional effects
-import { ChromaticAberrationShader } from 'three/addons/shaders/ChromaticAberrationShader.js';
+
+import { CopyShader } from 'three/addons/shaders/CopyShader.js';
+import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+
+
+
+const ChromaticAberrationShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'amount': { value: 0.0001 },
+        'angle': {  value: 0 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float amount;
+        uniform float angle;
+        varying vec2 vUv;
+        void main() {
+            vec2 offset = amount * vec2(cos(angle), sin(angle));
+            vec4 color = vec4(
+                texture2D(tDiffuse, vUv + offset).r,
+                texture2D(tDiffuse, vUv).g,
+                texture2D(tDiffuse, vUv - offset).b,
+                1.0
+            );
+            gl_FragColor = color;
+        }
+    `
+};
+
+const FilmGrainShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'time': { value: 0.0 },
+        'intensity': { value: 0.05 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float intensity;
+        varying vec2 vUv;
+        float rand(vec2 co){
+            return fract(sin(dot(co.xy,vec2(12.9898,78.233))) * 43758.5453);
+        }
+        void main() {
+            vec4 color = texture2D(tDiffuse, vUv);
+            float grain = rand(vUv + time) * 2.0 - 1.0;
+            color.rgb += grain * intensity;
+            gl_FragColor = color;
+        }
+    `
+};
+
+
+
 
 
 function exportGLTF(scene) {
@@ -171,6 +240,16 @@ let cameraNear = 0.1;
 let cameraFar = 10000;
 
 let scaleFactor = 0.45;
+
+let bloomPass
+
+bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.01,  // Reduced strength
+    0.01,  // Adjust radius
+    0.01   // Higher threshold
+);
+
 
 function saveCameraParams() {
     const cameraParams = {
@@ -426,6 +505,31 @@ function cloneTopologyMesh() {
 }
 
 
+function cloneTopologyMeshMulti() {
+    const existingClones = scene.children.filter(obj => obj.name && obj.name.startsWith("clonedTopologyMesh"));
+    existingClones.forEach(clone => {
+        scene.remove(clone);
+        if (clone.geometry) clone.geometry.dispose();
+        if (clone.material) clone.material.dispose();
+    });
+
+    if (topologyMesh) {
+        const cols = 20; // Total number of planes (including the central one)
+        const halfCols = Math.floor(cols / 2); // Half of the columns to distribute on each side
+
+        for (let j = -halfCols; j <= halfCols; j++) {
+            const clonedMesh = topologyMesh.clone();
+            clonedMesh.position.y = 1; // Slightly above the ground plane
+            clonedMesh.position.x = j * groundWidth; // Distribute on each side
+            clonedMesh.position.z = -groundHeight / 2; // Center the topology on the ground plane
+            clonedMesh.name = "clonedTopologyMesh_" + j;
+            scene.add(clonedMesh);
+        }
+    }
+}
+
+
+
 function updateTopology(rgbaArray, width, height, isVertical) {
 
     if (!topologyMesh) {
@@ -677,14 +781,18 @@ function updateVideoPlanePosition(positionPercentage) {
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
-    renderer.render(scene, camera);
+    composer.render();
 }
 
-function init() {
 
+let composer;
+
+function init() {
     scene = new THREE.Scene();
     scene.background = createGradientTexture();
+    
     addFog(); 
+
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, cameraNear, cameraFar);
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -700,7 +808,6 @@ function init() {
     addLight();
     addGround();
 
-    
     // Initialize GUI controllers
     gui = new GUI();
     gui.domElement.classList.add('custom-gui');
@@ -711,13 +818,33 @@ function init() {
     };
     slicePositionController = gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
     modeController = gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
+
+    // Setup EffectComposer
+    composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+
+    // Add chromatic aberration pass
+    const chromaticAberrationPass = new ShaderPass(ChromaticAberrationShader);
+    chromaticAberrationPass.uniforms['amount'].value = 0.0015; // Adjust the amount of chromatic aberration
+    composer.addPass(chromaticAberrationPass);
+
+
+    //composer.addPass(bloomPass);
+
+
     animate();
+
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight); // Update composer size on resize
     });
 }
+
+
+
 
 // Event listeners for video element
 function getPosition(event, video, isVertical) {
