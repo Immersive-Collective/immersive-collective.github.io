@@ -105,156 +105,189 @@
 </head>
 
 <body>
-    <div class="logo">
-        <img src="images/xray-view.svg" alt="Logo Icon">
-        <div class="logo-text">Immersive Collective</div>
-    </div>
-    <button id="webcamButton" class="ui-but">Start
-        <img src="images/webcam.svg" alt="Webcam Icon">
-    </button>
-    <button id="exportButton" class="ui-but">Export
-        <img src="images/3d.svg" alt="Export GLB">
-    </button>
-    <video id="webcamVideo" autoplay playsinline></video>
-    <div id="sliceIndicator" class="slice-indicator"></div>
+<div class="logo">
+    <img src="images/xray-view.svg" alt="Logo Icon">
+    <div class="logo-text">Immersive Collective</div>
+</div>
+<button id="webcamButton" class="ui-but">Start
+    <img src="images/webcam.svg" alt="Webcam Icon">
+</button>
+<button id="exportButton" class="ui-but">Export
+    <img src="images/3d.svg" alt="Export GLB">
+</button>
+<video id="webcamVideo" autoplay playsinline></video>
+<div id="sliceIndicator" class="slice-indicator"></div>
 
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three/examples/jsm/",
-                "dat.gui": "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js",
-                "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three/examples/jsm/exporters/GLTFExporter.js"
-            }
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three/examples/jsm/",
+            "dat.gui": "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js",
+            "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three/examples/jsm/exporters/GLTFExporter.js"
         }
-    </script>
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+    }
+</script>
 
-        function exportGLTF(scene) {
-            const exporter = new GLTFExporter();
-            exporter.parse(scene, function (result) {
-                const output = JSON.stringify(result, null, 2);
-                const blob = new Blob([output], { type: 'application/json' });
-                const link = document.createElement('a');
-                link.style.display = 'none';
-                document.body.appendChild(link); // Firefox workaround, see #6594
-                link.href = URL.createObjectURL(blob);
-                link.download = 'scene.glb';
-                link.click();
-            });
+<script type="module">
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+function exportGLTF(scene) {
+    const exporter = new GLTFExporter();
+    exporter.parse(scene, function (result) {
+        const output = JSON.stringify(result, null, 2);
+        const blob = new Blob([output], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.style.display = 'none';
+        document.body.appendChild(link); // Firefox workaround, see #6594
+        link.href = URL.createObjectURL(blob);
+        link.download = 'scene.glb';
+        link.click();
+    });
+}
+
+let scene, camera, controls, renderer;
+let ground, gui, params;
+let topologyMesh;
+let slicePositionController, modeController;
+
+let groundWidth = 500;
+let groundHeight = 500;
+
+// camera clipping
+let cameraNear = 0.1;
+let cameraFar = 10000;
+
+let scaleFactor = 0.45;
+
+function saveCameraParams() {
+    const cameraParams = {
+        position: camera.position.toArray(),
+        target: controls.target.toArray()
+    };
+    localStorage.setItem('cameraParams', JSON.stringify(cameraParams));
+}
+function loadCameraParams() {
+    const cameraParams = JSON.parse(localStorage.getItem('cameraParams'));
+    if (cameraParams) {
+        camera.position.fromArray(cameraParams.position);
+        controls.target.fromArray(cameraParams.target);
+        controls.update();
+    }
+}
+function createGradientTextureFromArray(rgbaArray, width, height) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    const imageData = context.createImageData(width, height);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const index = (y * width + x) * 4;
+            const rgbaIndex = (x % (rgbaArray.length / 4)) * 4;
+            imageData.data[index] = rgbaArray[rgbaIndex];       // R
+            imageData.data[index + 1] = rgbaArray[rgbaIndex + 1]; // G
+            imageData.data[index + 2] = rgbaArray[rgbaIndex + 2]; // B
+            imageData.data[index + 3] = rgbaArray[rgbaIndex + 3]; // A
         }
-        
-        let scene, camera, controls, renderer;
-        let ground, gui, params;
-        let topologyMesh;
-        let slicePositionController, modeController;
+    }
+    context.putImageData(imageData, 0, 0);
+    return new THREE.CanvasTexture(canvas);
+}
 
-        let groundWidth = 500;
-        let groundHeight = 500;
+function projectTextureToPlane(plane, texture) {
+    plane.material.map = texture;
+    plane.material.transparent = true;
+    plane.material.opacity = 0.45;
+    plane.material.needsUpdate = true;
+    plane.scale.set(1, 150, 1);
 
-        // camera clipping
-        let cameraNear = 0.1;
-        let cameraFar = 10000;
+}
 
-        let scaleFactor = 0.45;
+function createGradientTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2;
+    canvas.height = 2;
+    const context = canvas.getContext('2d');
+    const gradient = context.createLinearGradient(0, 0, 0, 2);
+    gradient.addColorStop(0, '#1a2a6c');
+    gradient.addColorStop(1, '#b21f1f');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 2, 2);
+    return new THREE.CanvasTexture(canvas);
+}
 
-        function saveCameraParams() {
-            const cameraParams = {
-                position: camera.position.toArray(),
-                target: controls.target.toArray()
-            };
-            localStorage.setItem('cameraParams', JSON.stringify(cameraParams));
+
+function addFog() {
+    // Color, near distance, and far distance of the fog
+    const fogColor = 0xb0698b; // Adjust the color as needed
+    const fogNear = 1;
+    const fogFar = 1500;
+
+    scene.fog = new THREE.Fog(fogColor, fogNear, fogFar);
+}
+
+
+function addLight() {
+    const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(-250, 50, 250);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
+}
+
+function updateGroundAndTopology(videoWidth, videoHeight) {
+    groundWidth = videoWidth;
+    groundHeight = videoHeight;
+
+    const groundGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
+
+    if (ground && ground.geometry) {
+        ground.geometry.dispose();
+        ground.geometry = groundGeometry;
+    }
+
+    if (topologyMesh) {
+        scene.remove(topologyMesh);
+        topologyMesh.geometry.dispose();
+        topologyMesh.material.dispose();
+        topologyMesh = null;
+    }
+}
+
+
+function addGround() {
+    const rows = 1;
+    const cols = 20; // Total number of planes (including the central one)
+    const halfCols = Math.floor(cols / 2); // Half of the columns to distribute on each side
+
+    const planeGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
+    const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    const count = rows * cols;
+    const instancedMesh = new THREE.InstancedMesh(planeGeometry, planeMaterial, count);
+
+    let index = 0;
+    for (let i = 0; i < rows; i++) {
+        for (let j = -halfCols; j <= halfCols; j++) {
+            const matrix = new THREE.Matrix4();
+            matrix.setPosition(j * groundWidth, 0, i * groundHeight);
+            instancedMesh.setMatrixAt(index, matrix);
+            index++;
         }
-        function loadCameraParams() {
-            const cameraParams = JSON.parse(localStorage.getItem('cameraParams'));
-            if (cameraParams) {
-                camera.position.fromArray(cameraParams.position);
-                controls.target.fromArray(cameraParams.target);
-                controls.update();
-            }
-        }
-        function createGradientTextureFromArray(rgbaArray, width, height) {
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const context = canvas.getContext('2d');
-            const imageData = context.createImageData(width, height);
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
-                    const index = (y * width + x) * 4;
-                    const rgbaIndex = (x % (rgbaArray.length / 4)) * 4;
-                    imageData.data[index] = rgbaArray[rgbaIndex];       // R
-                    imageData.data[index + 1] = rgbaArray[rgbaIndex + 1]; // G
-                    imageData.data[index + 2] = rgbaArray[rgbaIndex + 2]; // B
-                    imageData.data[index + 3] = rgbaArray[rgbaIndex + 3]; // A
-                }
-            }
-            context.putImageData(imageData, 0, 0);
-            return new THREE.CanvasTexture(canvas);
-        }
-        
-        function projectTextureToPlane(plane, texture) {
-            plane.material.map = texture;
-            plane.material.transparent = true;
-            plane.material.opacity = 0.5;
-            plane.material.needsUpdate = true;
-            plane.scale.set(1, 100, 1);
+    }
+    instancedMesh.rotation.x = -Math.PI / 2;
+    instancedMesh.position.set(0, 0, 0); // Center the planes
+    instancedMesh.name = "groundPlane";
+    scene.add(instancedMesh);
+}
 
-        }
-
-        function createGradientTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 2;
-            canvas.height = 2;
-            const context = canvas.getContext('2d');
-            const gradient = context.createLinearGradient(0, 0, 0, 2);
-            gradient.addColorStop(0, '#1a2a6c');
-            gradient.addColorStop(1, '#b21f1f');
-            context.fillStyle = gradient;
-            context.fillRect(0, 0, 2, 2);
-            return new THREE.CanvasTexture(canvas);
-        }
-
-        function addLight() {
-            const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
-            scene.add(ambientLight);
-
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-            directionalLight.position.set(-250, 50, 250);
-            directionalLight.castShadow = true;
-            scene.add(directionalLight);
-        }
-
-        function updateGroundAndTopology(videoWidth, videoHeight) {
-            groundWidth = videoWidth;
-            groundHeight = videoHeight;
-
-            const groundGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
-            ground.geometry.dispose();
-            ground.geometry = groundGeometry;
-
-            if (topologyMesh) {
-                scene.remove(topologyMesh);
-                topologyMesh.geometry.dispose();
-                topologyMesh.material.dispose();
-                topologyMesh = null;
-            }
-        }
-
-        function addGround() {
-            const geometry = new THREE.PlaneGeometry(groundWidth, groundHeight*3);
-            const material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-            ground = new THREE.Mesh(geometry, material);
-            ground.rotation.x = -Math.PI / 2;
-            ground.name = "groundPlane";
-            ground.position.set(0, 0, 0); // Ensure the ground plane is centered
-            scene.add(ground);
-        }
 
 function updateTexture(video, plane, slicePosition, mode) {
     const canvas = document.createElement('canvas');
@@ -293,139 +326,141 @@ function updateTexture(video, plane, slicePosition, mode) {
     projectTextureToPlane(plane, gradientTexture);
     updateTopology(rgbaArray, isVertical ? video.videoHeight : video.videoWidth, isVertical ? video.videoWidth : video.videoHeight, isVertical);
 }
-       
 
-        let toplogyScale = 500;
 
-        function createTopologyFromArray(rgbaArray, width, height, isVertical) {
-            const shape = new THREE.Shape();
-            const extrudeSettings = {
-                steps: 1,
-                depth: 100,
-                bevelEnabled: false
-            };
+let toplogyScale = 500;
 
-            if (isVertical) {
-                shape.moveTo(0, 0);
-                for (let i = 0; i < height; i++) {
-                    const y = i;
-                    const index = i * 4;
-                    const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
-                    const z = grayscale / 255 * toplogyScale;
-                    shape.lineTo(z, y);
-                }
-                shape.lineTo(0, height);
-                shape.lineTo(0, 0);
-            } else {
-                shape.moveTo(0, 0);
-                for (let i = 0; i < width; i++) {
-                    const x = i;
-                    const index = i * 4;
-                    const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
-                    const z = grayscale / 255 * toplogyScale;
-                    shape.lineTo(x, z);
-                }
-                shape.lineTo(width, 0);
-                shape.lineTo(0, 0);
-            }
+function createTopologyFromArray(rgbaArray, width, height, isVertical) {
+    const shape = new THREE.Shape();
+    const extrudeSettings = {
+        steps: 1,
+        depth: 100,
+        bevelEnabled: false
+    };
 
-            const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-
-            const colors = [];
-            const positions = geometry.attributes.position.array;
-            for (let i = 0; i < positions.length; i += 3) {
-                const x = positions[i];
-                const y = positions[i + 1];
-                const z = positions[i + 2];
-                const colorIndex = isVertical ? Math.floor(y) : Math.floor(x);
-                const rgbaIndex = colorIndex * 4;
-                if (!isNaN(rgbaArray[rgbaIndex])) {
-                    colors.push(rgbaArray[rgbaIndex] / 255, rgbaArray[rgbaIndex + 1] / 255, rgbaArray[rgbaIndex + 2] / 255);
-                } else {
-                    colors.push(1, 1, 1); // Default to white if color data is invalid
-                }
-            }
-            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-
-            const material = new THREE.MeshStandardMaterial({
-                vertexColors: true,
-                metalness: 0.25,
-                roughness: 0.25,
-                opacity: 0.5,
-                transparent: true,
-                side: THREE.DoubleSide
-            });
-
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.y = 1; // Align with ground plane
-            mesh.position.z = -groundHeight / 2; // Center the topology on the ground plane
-            mesh.position.x = -groundWidth / 2; // Center the topology on the ground plane
-
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-
-            return mesh;
+    if (isVertical) {
+        shape.moveTo(0, 0);
+        for (let i = 0; i < height; i++) {
+            const y = i;
+            const index = i * 4;
+            const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
+            const z = grayscale / 255 * toplogyScale;
+            shape.lineTo(z, y);
         }
-
-        function cloneTopologyMesh() {
-            const existingClone = scene.getObjectByName("clonedTopologyMesh");
-            if (existingClone) {
-                scene.remove(existingClone);
-                if (existingClone.geometry) existingClone.geometry.dispose();
-                if (existingClone.material) existingClone.material.dispose();
-            }
-
-            if (topologyMesh) {
-                const clonedMesh = topologyMesh.clone();
-                clonedMesh.position.y = -0.2; // Place it slightly below the ground plane
-                clonedMesh.position.z = -140; // Place it slightly below the ground plane
-                clonedMesh.name = "clonedTopologyMesh";
-                clonedMesh.rotation.x = (2*Math.PI / 2)
-                scene.add(clonedMesh);
-            }
+        shape.lineTo(0, height);
+        shape.lineTo(0, 0);
+    } else {
+        shape.moveTo(0, 0);
+        for (let i = 0; i < width; i++) {
+            const x = i;
+            const index = i * 4;
+            const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
+            const z = grayscale / 255 * toplogyScale;
+            shape.lineTo(x, z);
         }
+        shape.lineTo(width, 0);
+        shape.lineTo(0, 0);
+    }
 
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
 
-        function updateTopology(rgbaArray, width, height, isVertical) {
-
-            if (!topologyMesh) {
-                topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
-                topologyMesh.name = "topologyMesh";
-                scene.add(topologyMesh);
-            } else {
-                scene.remove(topologyMesh);
-                topologyMesh.geometry.dispose();
-                topologyMesh.material.dispose();
-                topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
-                topologyMesh.name = "topologyMesh";
-                scene.add(topologyMesh);
-
-                //updateAudioFilterFromTopology(topologyMesh)
-            }
-            cloneTopologyMesh(); // Add this line to clone the topology mesh
-
+    const colors = [];
+    const positions = geometry.attributes.position.array;
+    for (let i = 0; i < positions.length; i += 3) {
+        const x = positions[i];
+        const y = positions[i + 1];
+        const z = positions[i + 2];
+        const colorIndex = isVertical ? Math.floor(y) : Math.floor(x);
+        const rgbaIndex = colorIndex * 4;
+        if (!isNaN(rgbaArray[rgbaIndex])) {
+            colors.push(rgbaArray[rgbaIndex] / 255, rgbaArray[rgbaIndex + 1] / 255, rgbaArray[rgbaIndex + 2] / 255);
+        } else {
+            colors.push(1, 1, 1); // Default to white if color data is invalid
         }
+    }
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
 
-        function addVideoPlane(video) {
-            const videoTexture = new THREE.VideoTexture(video);
-            const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
-            const videoPlaneGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
-            const videoPlane = new THREE.Mesh(videoPlaneGeometry, videoMaterial);
-            //videoPlane.rotation.x = -Math.PI / 2;
-            videoPlane.position.set(0, 1, 0); // Slightly above the ground plane
-            videoPlane.name = "videoFeed";
-            scene.add(videoPlane);
-        }
+    const material = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        metalness: 0.25,
+        roughness: 0.25,
+        opacity: 0.45,
+        transparent: true,
+        side: THREE.DoubleSide
+    });
 
-        function addVideoCircle(video) {
-            const videoTexture = new THREE.VideoTexture(video);
-            const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
-            const circleGeometry = new THREE.CircleGeometry(Math.min(groundWidth, groundHeight) / 2, 6);
-            const videoCircle = new THREE.Mesh(circleGeometry, videoMaterial);
-            videoCircle.position.set(0, 500, 0); // Slightly above the ground plane
-            videoCircle.name = "videoCircle";
-            scene.add(videoCircle);
-        }
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.y = 1; // Align with ground plane
+    mesh.position.z = -groundHeight / 2; // Center the topology on the ground plane
+    mesh.position.x = -groundWidth / 2; // Center the topology on the ground plane
+
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    return mesh;
+}
+
+function cloneTopologyMesh() {
+    const existingClone = scene.getObjectByName("clonedTopologyMesh");
+    if (existingClone) {
+        scene.remove(existingClone);
+        if (existingClone.geometry) existingClone.geometry.dispose();
+        if (existingClone.material) existingClone.material.dispose();
+    }
+
+    if (topologyMesh) {
+        const clonedMesh = topologyMesh.clone();
+        clonedMesh.position.y = -0.2; // Place it slightly below the ground plane
+        clonedMesh.position.z = -140; // Place it slightly below the ground plane
+        clonedMesh.name = "clonedTopologyMesh";
+        clonedMesh.rotation.x = (2*Math.PI / 2)
+        scene.add(clonedMesh);
+    }
+}
+
+
+function updateTopology(rgbaArray, width, height, isVertical) {
+
+    if (!topologyMesh) {
+        topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
+        topologyMesh.name = "topologyMesh";
+        scene.add(topologyMesh);
+    } else {
+        scene.remove(topologyMesh);
+        topologyMesh.geometry.dispose();
+        topologyMesh.material.dispose();
+        topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
+        topologyMesh.name = "topologyMesh";
+        scene.add(topologyMesh);
+
+        //updateAudioFilterFromTopology(topologyMesh)
+    }
+    cloneTopologyMesh(); // Add this line to clone the topology mesh
+
+}
+
+function addVideoPlane(video) {
+    const videoTexture = new THREE.VideoTexture(video);
+    const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+    const videoPlaneGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
+    const videoPlane = new THREE.Mesh(videoPlaneGeometry, videoMaterial);
+    //videoPlane.rotation.x = -Math.PI / 2;
+    videoPlane.position.set(0, 1, 0); // Slightly above the ground plane
+    videoPlane.name = "videoFeed";
+    scene.add(videoPlane);
+}
+
+function addVideoCircle(video) {
+    const videoTexture = new THREE.VideoTexture(video);
+    const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+    const circleGeometry = new THREE.CircleGeometry(Math.min(groundWidth, groundHeight) / 2, 6);
+    const videoCircle = new THREE.Mesh(circleGeometry, videoMaterial);
+    videoCircle.position.set(0, 500
+
+, 0); // Slightly above the ground plane
+    videoCircle.name = "videoCircle";
+    scene.add(videoCircle);
+}
 
 function createDelayedVideoTextures(video, count, delay) {
     const videoTextures = [];
@@ -447,6 +482,7 @@ function createDelayedVideoTextures(video, count, delay) {
     }
     return videoTextures;
 }
+
 
 function addHexagonWallWithDelays(video, posX = 0, posY = 0, posZ = 0, rows = 6, cols = 6, cellSize = 200, delay = 500) {
     const hexagonCount = rows * cols; // Total number of hexagons
@@ -482,8 +518,6 @@ function addHexagonWallWithDelays(video, posX = 0, posY = 0, posZ = 0, rows = 6,
 
     scene.add(instancedMesh);
 }
-
-
 
 
 function addHexagonWallLines(video, posX = 0, posY = 0, posZ = 0, rows = 6, cols = 6, cellSize = 200) {
@@ -569,15 +603,6 @@ function addHexagonWall(video, posX = 0, posY = 0, posZ = 0, layers = 3, cellSiz
 }
 
 
-
-
-
-
-
-
-
-
-
 function addOctahedron(video) {
     const videoTexture = new THREE.VideoTexture(video);
     const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
@@ -626,77 +651,79 @@ function addOctahedron(video) {
     }
 
     const octahedron = new THREE.Mesh(geometry, videoMaterial);
-    octahedron.position.set(0, -1000, 0); // Adjust position as needed
+    octahedron.position.set(0, -1000, 0); // Adjust position as
+
+ needed
     octahedron.name = "octahedron";
     scene.add(octahedron);
 }
 
+function updateVideoPlanePosition(positionPercentage) {
+    const videoPlane = scene.getObjectByName("videoFeed");
+    if (videoPlane) {
+        videoPlane.position.z = (positionPercentage - 0.5) * groundHeight; 
+        videoPlane.position.y = (positionPercentage - 0.5) * groundHeight; // Move 
+        // Move horizontally based on percentage
+    }
+}                
 
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
 
+function init() {
 
-        function updateVideoPlanePosition(positionPercentage) {
-            const videoPlane = scene.getObjectByName("videoFeed");
-            if (videoPlane) {
-                videoPlane.position.z = (positionPercentage - 0.5) * groundHeight; 
-                videoPlane.position.y = (positionPercentage - 0.5) * groundHeight; // Move 
-                // Move horizontally based on percentage
-            }
-        }                
+    scene = new THREE.Scene();
+    scene.background = createGradientTexture();
+    addFog(); 
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, cameraNear, cameraFar);
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    controls = new OrbitControls(camera, renderer.domElement);
+    loadCameraParams();
+    controls.addEventListener('change', saveCameraParams);
+    if (!localStorage.getItem('cameraParams')) {
+        camera.position.set(0, 50, 100);
+        controls.update();
+    }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        }
+    addLight();
+    addGround();
 
-        function init() {
-            scene = new THREE.Scene();
-            scene.background = createGradientTexture();
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, cameraNear, cameraFar);
-            renderer = new THREE.WebGLRenderer();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
-            controls = new OrbitControls(camera, renderer.domElement);
-            loadCameraParams();
-            controls.addEventListener('change', saveCameraParams);
-            if (!localStorage.getItem('cameraParams')) {
-                camera.position.set(0, 50, 100);
-                controls.update();
-            }
+    
+    // Initialize GUI controllers
+    gui = new GUI();
+    gui.domElement.classList.add('custom-gui');
 
-            addLight();
-            addGround();
-            
-            // Initialize GUI controllers
-            gui = new GUI();
-            gui.domElement.classList.add('custom-gui');
+    params = {
+        slicePosition: 0.5,
+        mode: 'horizontal'
+    };
+    slicePositionController = gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
+    modeController = gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
+    animate();
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+}
 
-            params = {
-                slicePosition: 0.5,
-                mode: 'horizontal'
-            };
-            slicePositionController = gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
-            modeController = gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
-            animate();
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-        }
+// Event listeners for video element
+function getPosition(event, video, isVertical) {
+    const rect = video.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    return isVertical ? x / rect.width : y / rect.height;
+}
+        
+document.addEventListener('DOMContentLoaded', init);
 
-        // Event listeners for video element
-        function getPosition(event, video, isVertical) {
-            const rect = video.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-            return isVertical ? x / rect.width : y / rect.height;
-        }
-                
-        document.addEventListener('DOMContentLoaded', init);
-
-        let animationId;
-        let isWebcamActive = false;
+let animationId;
+let isWebcamActive = false;
 
 
 document.getElementById('webcamButton').addEventListener('click', () => {
@@ -816,9 +843,9 @@ document.getElementById('webcamButton').addEventListener('click', () => {
 });
 
 
-        document.getElementById('exportButton').addEventListener('click', () => {
-            exportGLTF(scene);
-        });
+document.getElementById('exportButton').addEventListener('click', () => {
+    exportGLTF(scene);
+});
 
 
     </script>
