@@ -20,7 +20,8 @@ video {
     border-radius: 1rem; 
     display: none;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
-    filter: grayscale(20%) sepia(20%) brightness(90%) contrast(150%) saturate(120%) hue-rotate(15deg) drop-shadow(2px 4px 6px black);
+filter: grayscale(20%) sepia(50%) brightness(90%) contrast(150%) saturate(120%) hue-rotate(-10deg) drop-shadow(2px 4px 6px black);
+
 }
 video::before, video::after {
     content: '';
@@ -426,11 +427,14 @@ function addFog() {
 }
 
 function addLight() {
-    const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 5);
     scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
     directionalLight.position.set(-250, 50, 250);
     directionalLight.castShadow = true;
+
     scene.add(directionalLight);
 }
 
@@ -544,7 +548,7 @@ function updateTexture(video, plane, slicePosition, mode) {
     updateTopology(rgbaArray, isVertical ? video.videoHeight : video.videoWidth, isVertical ? video.videoWidth : video.videoHeight, isVertical);
 }
 
-let toplogyScale = 1000;
+let toplogyScale = 2500;
 
 function createTopologyFromArray(rgbaArray, width, height, isVertical) {
     const shape = new THREE.Shape();
@@ -1055,6 +1059,76 @@ function updateVideoPlanePosition(positionPercentage) {
     }
 }   
 
+
+let userActive = true;
+let idleTimer;
+const idleTimeout = 5000; // 5 seconds of inactivity
+
+function resetIdleTimer() {
+    userActive = true;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+        userActive = false;
+    }, idleTimeout);
+}
+
+function startIdleTimer() {
+    //window.addEventListener('mousemove', resetIdleTimer, false);
+    window.addEventListener('mousedown', resetIdleTimer, false);
+    window.addEventListener('keydown', resetIdleTimer, false);
+    window.addEventListener('touchstart', resetIdleTimer, false);
+    window.addEventListener('touchmove', resetIdleTimer, false);
+    resetIdleTimer();
+}
+
+function moveCamera() {
+    const time = performance.now() * 0.0002; // Adjust speed by changing the multiplier
+    const radiusX = 2500;
+    const radiusZ = 2300;
+    const height = 500;
+    const verticalOscillation = 1000;
+    
+    // Elliptical motion
+    const posX = Math.cos(time) * radiusX;
+    const posZ = Math.sin(time * 1.5) * radiusZ; // Different frequency for elliptical path
+    const posY = height + Math.sin(time * 2) * verticalOscillation;
+
+    camera.position.set(posX, posY, posZ);
+
+    // Target adjustment
+    const targetX = Math.cos(time + 0.1) * radiusX;
+    const targetZ = Math.sin(time * 1.5 + 0.1) * radiusZ;
+    const targetY = height + Math.sin(time * 2 + 0.1) * verticalOscillation;
+
+    camera.lookAt(new THREE.Vector3(500, targetY, 500));
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    time += params.noiseSpeed;
+    filmGrainPass.uniforms['time'].value = time;
+    filmGrainPass.uniforms['noiseSpeed'].value = params.noiseSpeed;
+    filmGrainPass.uniforms['noiseIntensity'].value = params.noiseIntensity;
+    chromaticAberrationPass.enabled = params.enableChromaticAberration;
+    lensDistortionPass.enabled = params.enableLensDistortion;
+    filmGrainPass.enabled = params.enableFilmGrain;
+    controls.update();
+    if (!userActive) {
+        moveCamera();
+    }
+    composer.render();
+    animateOctahedrons();
+}
+
+
+
+
+
+
+
+
+
+
 function init() {
     scene = new THREE.Scene();
     scene.background = createGradientTexture();
@@ -1125,23 +1199,25 @@ function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
         composer.setSize(window.innerWidth, window.innerHeight); // Update composer size on resize
     });
+
+    startIdleTimer();
 }
 
-function animate() {
-    requestAnimationFrame(animate);
-    time += params.noiseSpeed;
-    filmGrainPass.uniforms['time'].value = time;
-    filmGrainPass.uniforms['noiseSpeed'].value = params.noiseSpeed;
-    filmGrainPass.uniforms['noiseIntensity'].value = params.noiseIntensity;
-    chromaticAberrationPass.enabled = params.enableChromaticAberration;
-    lensDistortionPass.enabled = params.enableLensDistortion;
-    filmGrainPass.enabled = params.enableFilmGrain;
-    controls.update();
-    composer.render();
+// function animate() {
+//     requestAnimationFrame(animate);
+//     time += params.noiseSpeed;
+//     filmGrainPass.uniforms['time'].value = time;
+//     filmGrainPass.uniforms['noiseSpeed'].value = params.noiseSpeed;
+//     filmGrainPass.uniforms['noiseIntensity'].value = params.noiseIntensity;
+//     chromaticAberrationPass.enabled = params.enableChromaticAberration;
+//     lensDistortionPass.enabled = params.enableLensDistortion;
+//     filmGrainPass.enabled = params.enableFilmGrain;
+//     controls.update();
+//     composer.render();
 
-    //animateOctahedron();
-    animateOctahedrons();
-}
+//     //animateOctahedron();
+//     animateOctahedrons();
+// }
 
 // Event listeners for video element
 function getPosition(event, video, isVertical) {
@@ -1155,8 +1231,8 @@ function getPosition(event, video, isVertical) {
 let animationId;
 let isWebcamActive = false;
 
-document.getElementById('webcamButton').addEventListener('click', () => {
 
+document.getElementById('webcamButton').addEventListener('click', () => {
     const video = document.getElementById('webcamVideo');
     const sliceIndicator = document.getElementById('sliceIndicator');
     const webcamButton = document.getElementById('webcamButton');
@@ -1171,6 +1247,9 @@ document.getElementById('webcamButton').addEventListener('click', () => {
         sliceIndicator.style.display = 'none';
         isWebcamActive = false;
         cancelAnimationFrame(animationId);
+        scene.remove(instancedOctahedrons); // Remove octahedrons
+        instancedOctahedrons = null;
+        octahedrons.length = 0; // Clear the octahedron array
     } else {
         navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
             video.srcObject = stream;
@@ -1186,15 +1265,7 @@ document.getElementById('webcamButton').addEventListener('click', () => {
                 video.style.display = 'block';
                 sliceIndicator.style.display = 'block';
                 updateGroundAndTopology(video.videoWidth, video.videoHeight);
-                // addVideoPlane(video); 
-                // addVideoCircle(video);
-                
-
-                //addOctahedron(video)
-                addOctahedrons(video)
-                
-                // //addHexagonWallLines(video, 0, 1500, 0, 3, 3, 100); 
-                // addHexagonWall(video, 0, 1500, 0, 3, 100); 
+                addOctahedrons(video); // Add octahedrons
                 const plane = scene.getObjectByName("groundPlane");
 
                 function updateSliceIndicatorOrientation() {
@@ -1213,7 +1284,7 @@ document.getElementById('webcamButton').addEventListener('click', () => {
                         return;
                     }
                     updateTexture(video, plane, params.slicePosition, params.mode);
-                    updateVideoPlanePosition(params.slicePosition); 
+                    updateVideoPlanePosition(params.slicePosition);
                     updateSliceIndicatorOrientation();
                     if (params.mode === 'horizontal') {
                         sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * scaleFactor) + 'px';
@@ -1228,27 +1299,6 @@ document.getElementById('webcamButton').addEventListener('click', () => {
                     }
                     animationId = requestAnimationFrame(animateTexture);
                 }
-                                
-
-                // function animateTexture() {
-                //     if (!isWebcamActive) {
-                //         return;
-                //     }
-                //     updateTexture(video, plane, params.slicePosition, params.mode);
-                //     updateVideoPlanePosition(params.slicePosition); 
-                //     if (params.mode === 'horizontal') {
-                //         sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * scaleFactor) + 'px';
-                //         sliceIndicator.style.left = '20px';
-                //         sliceIndicator.style.height = '2px';
-                //         sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
-                //     } else {
-                //         sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * scaleFactor) + 'px';
-                //         sliceIndicator.style.top = '40px';
-                //         sliceIndicator.style.width = '2px';
-                //         sliceIndicator.style.height = `${video.videoHeight * scaleFactor}px`;
-                //     }
-                //     animationId = requestAnimationFrame(animateTexture);
-                // }
 
                 animateTexture();
             };
@@ -1289,6 +1339,122 @@ document.getElementById('webcamButton').addEventListener('click', () => {
         });
     }
 });
+
+
+// document.getElementById('webcamButton').addEventListener('click', () => {
+
+//     const video = document.getElementById('webcamVideo');
+//     const sliceIndicator = document.getElementById('sliceIndicator');
+//     const webcamButton = document.getElementById('webcamButton');
+//     let isMouseDown = false;
+//     if (isWebcamActive) {
+//         const stream = video.srcObject;
+//         const tracks = stream.getTracks();
+//         tracks.forEach(track => track.stop());
+//         video.srcObject = null;
+//         webcamButton.innerHTML = 'Start <img src="images/webcam.svg" alt="Webcam Icon">';
+//         video.style.display = 'none';
+//         sliceIndicator.style.display = 'none';
+//         isWebcamActive = false;
+//         cancelAnimationFrame(animationId);
+//     } else {
+//         navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+//             video.srcObject = stream;
+//             video.onloadedmetadata = () => {
+//                 if (!webcamButton.classList.contains('active')) {
+//                     webcamButton.classList.add('active');
+//                 }
+//                 video.style.width = `${video.videoWidth * scaleFactor}px`;
+//                 video.style.height = `${video.videoHeight * scaleFactor}px`;
+//                 sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+//                 isWebcamActive = true;
+//                 webcamButton.innerHTML = 'Stop <img src="images/webcam.svg" alt="Webcam Icon">';
+//                 video.style.display = 'block';
+//                 sliceIndicator.style.display = 'block';
+//                 updateGroundAndTopology(video.videoWidth, video.videoHeight);
+//                 // addVideoPlane(video); 
+//                 // addVideoCircle(video);
+                
+
+//                 //addOctahedron(video)
+//                 addOctahedrons(video)
+                
+//                 // //addHexagonWallLines(video, 0, 1500, 0, 3, 3, 100); 
+//                 // addHexagonWall(video, 0, 1500, 0, 3, 100); 
+//                 const plane = scene.getObjectByName("groundPlane");
+
+//                 function updateSliceIndicatorOrientation() {
+//                     const sliceIndicator = document.getElementById('sliceIndicator');
+//                     if (params.mode === 'horizontal') {
+//                         sliceIndicator.classList.remove('vertical');
+//                         sliceIndicator.classList.add('horizontal');
+//                     } else {
+//                         sliceIndicator.classList.remove('horizontal');
+//                         sliceIndicator.classList.add('vertical');
+//                     }
+//                 }
+
+//                 function animateTexture() {
+//                     if (!isWebcamActive) {
+//                         return;
+//                     }
+//                     updateTexture(video, plane, params.slicePosition, params.mode);
+//                     updateVideoPlanePosition(params.slicePosition); 
+//                     updateSliceIndicatorOrientation();
+//                     if (params.mode === 'horizontal') {
+//                         sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * scaleFactor) + 'px';
+//                         sliceIndicator.style.left = '20px';
+//                         sliceIndicator.style.height = '2px';
+//                         sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+//                     } else {
+//                         sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * scaleFactor) + 'px';
+//                         sliceIndicator.style.top = '40px';
+//                         sliceIndicator.style.width = '2px';
+//                         sliceIndicator.style.height = `${video.videoHeight * scaleFactor}px`;
+//                     }
+//                     animationId = requestAnimationFrame(animateTexture);
+//                 }
+
+
+//                 animateTexture();
+//             };
+//             function updateSlicePosition(event) {
+//                 let pos = getPosition(event, video, params.mode === 'vertical');
+//                 pos = Math.max(0, Math.min(1, pos)); // Clamp the position between 0 and 1
+//                 params.slicePosition = pos;
+//                 slicePositionController.updateDisplay();
+//             }
+//             video.addEventListener('mousedown', (event) => {
+//                 isMouseDown = true;
+//                 updateSlicePosition(event);
+//             });
+//             window.addEventListener('mouseup', () => {
+//                 isMouseDown = false;
+//             });
+//             window.addEventListener('mousemove', (event) => {
+//                 if (isMouseDown) {
+//                     updateSlicePosition(event);
+//                 }
+//             });
+//             video.addEventListener('touchstart', (event) => {
+//                 isMouseDown = true;
+//                 const touch = event.touches[0];
+//                 updateSlicePosition(touch);
+//             }, { passive: true });
+//             video.addEventListener('touchmove', (event) => {
+//                 if (isMouseDown) {
+//                     const touch = event.touches[0];
+//                     updateSlicePosition(touch);
+//                 }
+//             }, { passive: true });
+//             video.addEventListener('touchend', () => {
+//                 isMouseDown = false;
+//             });
+//         }).catch(error => {
+//             console.error('Error accessing webcam:', error);
+//         });
+//     }
+// });
 
 document.getElementById('exportButton').addEventListener('click', () => {
     exportGLTF(scene);
