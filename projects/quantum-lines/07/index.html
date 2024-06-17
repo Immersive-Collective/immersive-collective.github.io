@@ -70,6 +70,8 @@ video::after {
     font-size: 10px;
     color: white;
 }
+
+
 #exportButton {
     position: absolute;
     bottom: 1rem;
@@ -77,6 +79,7 @@ video::after {
     display: flex;
     align-items: center;
 }
+
 #exportButton img {
     height: 1rem; /* Adjust size as needed */
     margin-left: 10px; /* Space between text and image */
@@ -84,6 +87,25 @@ video::after {
 #exportButton:hover {
     background-color: rgba(0,0,0,0.5);
 }
+
+
+#fullscreenButton {
+    position: absolute;
+    bottom: 1rem;
+    right: 9rem;
+    display: flex;
+    align-items: center;
+}
+
+#fullscreenButton img {
+    height: 1rem; /* Adjust size as needed */
+    margin-left: 10px; /* Space between text and image */
+}
+#fullscreenButton:hover {
+    background-color: rgba(0,0,0,0.5);
+}
+
+
 #webcamButton {
     position: absolute;
     left: 50%;
@@ -136,10 +158,18 @@ video::after {
 <button id="webcamButton" class="ui-but">Start
     <img src="images/webcam.svg" alt="Webcam Icon">
 </button>
+
 <button id="exportButton" class="ui-but">Export
     <img src="images/3d.svg" alt="Export GLB">
 </button>
+
+<button id="fullscreenButton" class="ui-but">Fullscreen
+    <img src="images/fullscreen.svg" alt="Fullscreen">
+</button>
+
+
 <video id="webcamVideo" autoplay playsinline></video>
+
 <div id="sliceIndicator" class="slice-indicator"></div>
 
 <script type="importmap">
@@ -881,7 +911,7 @@ function addHexagonWall(video, posX = 0, posY = 0, posZ = 0, layers = 3, cellSiz
 
 
 let instancedOctahedrons;
-const octahedronCount = 1000; // Number of octahedrons
+const octahedronCount = 5000; // Number of octahedrons
 const octahedronBaseSpeed = 0.5;
 const verticalBaseSpeed = 0.003; // Base speed of vertical oscillation
 const octahedronBaseRotationSpeed = 0.001;
@@ -925,14 +955,25 @@ function animateOctahedrons() {
 
 function addOctahedrons(video) {
     const videoTexture = new THREE.VideoTexture(video);
-    const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+    
+    //const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
 
-    const geometry = new THREE.OctahedronGeometry(1, 0); // Use scale to adjust size later
+    const videoMaterial = new THREE.MeshBasicMaterial({ 
+        map: videoTexture, 
+        side: THREE.FrontSide, // or THREE.BackSide for the opposite side
+        transparent: true, 
+        opacity: 0.7 // Adjust opacity as needed
+    });
+
+
+    const geometry = new THREE.OctahedronGeometry(1, 2); // Use scale to adjust size later
 
     instancedOctahedrons = new THREE.InstancedMesh(geometry, videoMaterial, octahedronCount);
 
     for (let i = 0; i < octahedronCount; i++) {
-        const size = 10 + Math.random() * 30;
+
+        const size = 0.1 + Math.random() * 80;
+        
         const angleOffset = Math.random() * Math.PI * 2;
         const dummy = new THREE.Object3D();
 
@@ -955,8 +996,8 @@ function addOctahedrons(video) {
             centerX: octahedronCenterX,
             centerY: octahedronCenterY,
             centerZ: octahedronCenterZ,
-            radiusX: octahedronBaseRadiusX + Math.random() * 200 - 100,
-            radiusZ: octahedronBaseRadiusZ + Math.random() * 200 - 100,
+            radiusX: octahedronBaseRadiusX + Math.random() * 1000 - 100,
+            radiusZ: octahedronBaseRadiusZ + Math.random() * 2000 - 100,
             verticalRadius: verticalBaseRadius + Math.random() * 50 - 25,
             scale: size
         };
@@ -969,7 +1010,56 @@ function addOctahedrons(video) {
 
 
 
+function openCurrentPageFullscreen() {
+  var elem = document.documentElement;
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  } else if (elem.mozRequestFullScreen) { /* Firefox */
+    elem.mozRequestFullScreen();
+  } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
+    elem.webkitRequestFullscreen();
+  } else if (elem.msRequestFullscreen) { /* IE/Edge */
+    elem.msRequestFullscreen();
+  }
+}
 
+function toggleFullscreen() {
+
+  var elem = document.documentElement;
+  if (
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  ) {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      document.mozCancelFullScreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+    document.getElementById("fullscreenButton").innerHTML = `Fullscreen <img src="images/fullscreen.svg" alt="Fullscreen">`;
+  } else {
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+    } else if (elem.mozRequestFullScreen) {
+      elem.mozRequestFullScreen();
+    } else if (elem.webkitRequestFullscreen) {
+      elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) {
+      elem.msRequestFullscreen();
+    }
+    document.getElementById("fullscreenButton").innerHTML = `Exit Fullscreen <img src="images/fullscreen.svg" alt="Fullscreen">`;
+  }
+
+}
+
+document.getElementById("fullscreenButton").addEventListener("click",()=> {
+    toggleFullscreen();
+})
 
 
 
@@ -1100,7 +1190,7 @@ function moveCamera() {
     const targetZ = Math.sin(time * 1.5 + 0.1) * radiusZ;
     const targetY = height + Math.sin(time * 2 + 0.1) * verticalOscillation;
 
-    camera.lookAt(new THREE.Vector3(500, targetY, 500));
+    camera.lookAt(new THREE.Vector3(targetX, targetY, 500));
 }
 
 function animate() {
@@ -1242,6 +1332,7 @@ document.getElementById('webcamButton').addEventListener('click', () => {
         const tracks = stream.getTracks();
         tracks.forEach(track => track.stop());
         video.srcObject = null;
+
         webcamButton.innerHTML = 'Start <img src="images/webcam.svg" alt="Webcam Icon">';
         video.style.display = 'none';
         sliceIndicator.style.display = 'none';
@@ -1265,7 +1356,9 @@ document.getElementById('webcamButton').addEventListener('click', () => {
                 video.style.display = 'block';
                 sliceIndicator.style.display = 'block';
                 updateGroundAndTopology(video.videoWidth, video.videoHeight);
+                
                 addOctahedrons(video); // Add octahedrons
+                
                 const plane = scene.getObjectByName("groundPlane");
 
                 function updateSliceIndicatorOrientation() {
