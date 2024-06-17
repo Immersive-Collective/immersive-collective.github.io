@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Immersive Collective: Slicing</title>
+
+<style>
+body { font-family: "Avenir"; border: 0; padding:0; margin: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+canvas { display: block; }
+video { 
+    position: absolute; 
+    top: 40px; 
+    left: 20px; 
+    width: 320px; 
+    height: auto; /* Example scaled size */
+    border-radius: 1rem; 
+    display: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+filter: grayscale(20%) sepia(50%) brightness(90%) contrast(150%) saturate(120%) hue-rotate(-10deg) drop-shadow(2px 4px 6px black);
+
+}
+video::before, video::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+video::before {
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.5) 100%);
+    border-radius: inherit;
+}
+video::after {
+    background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(0,0,0,0.5) 100%);
+    border-radius: inherit;
+}
+.slice-indicator {
+    position: absolute;
+    top: 0;
+    left: 20px;
+    width: 320px; /* Match the video width */
+    height: 2px;
+    display: none;
+}
+.slice-indicator.horizontal {
+    background: linear-gradient(to right, transparent, white, transparent);
+}
+.slice-indicator.vertical {
+    background: linear-gradient(to bottom, transparent, white, transparent);
+}
+.logo {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    align-items: center;
+}
+.logo img {
+    height: 20px; /* Adjust size as needed */
+    margin-right: 10px; /* Space between image and text */
+}
+.logo-text {
+    font-family: Avenir, Roboto, Arial, sans-serif;
+    font-size: 10px;
+    color: white;
+}
+#exportButton {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    display: flex;
+    align-items: center;
+}
+#exportButton img {
+    height: 1rem; /* Adjust size as needed */
+    margin-left: 10px; /* Space between text and image */
+}
+#exportButton:hover {
+    background-color: rgba(0,0,0,0.5);
+}
+#webcamButton {
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+}
+#webcamButton img {
+    height: 1rem;
+    /* Adjust size as needed */
+    margin-left: 10px;
+    /* Space between text and image */
+}
+#webcamButton:hover {
+    background-color: rgba(0, 0, 0, 0.5);
+}
+#webcamButton.active {
+    bottom: 1rem;
+    left: 1rem;
+    width: auto;
+    height: auto;
+    transform: none;
+}
+.ui-but {
+    padding: 0.9rem 1.6rem;
+    font-family: 'Avenir', sans-serif;
+    font-size: 0.9rem;
+    color: white;
+    border: 0px solid white;
+    border-radius: 1rem;
+    background-color: rgba(0, 0, 0, .25);
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.custom-gui {
+    position: absolute !important;
+    top: 0 !important;
+    right: 0 !important;
+    margin: 0 !important;
+}
+</style>
+
+</head>
+
+<body>
+<div class="logo">
+    <img src="images/xray-view.svg" alt="Logo Icon">
+    <div class="logo-text">Immersive Collective</div>
+</div>
+<button id="webcamButton" class="ui-but">Start
+    <img src="images/webcam.svg" alt="Webcam Icon">
+</button>
+<button id="exportButton" class="ui-but">Export
+    <img src="images/3d.svg" alt="Export GLB">
+</button>
+<video id="webcamVideo" autoplay playsinline></video>
+<div id="sliceIndicator" class="slice-indicator"></div>
+
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three/examples/jsm/",
+            "dat.gui": "https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js",
+            "three/addons/exporters/GLTFExporter.js": "https://unpkg.com/three/examples/jsm/exporters/GLTFExporter.js"
+        }
+    }
+</script>
+
+<script type="module">
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'; // Optional for additional effects
+import { CopyShader } from 'three/addons/shaders/CopyShader.js';
+import { GammaCorrectionShader } from 'three/addons/shaders/GammaCorrectionShader.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+
+const ChromaticAberrationShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'amount': { value: 0.0001 },
+        'angle': {  value: 0 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float amount;
+        uniform float angle;
+        varying vec2 vUv;
+        void main() {
+            vec2 offset = amount * vec2(cos(angle), sin(angle));
+            vec4 color = vec4(
+                texture2D(tDiffuse, vUv + offset).r,
+                texture2D(tDiffuse, vUv).g,
+                texture2D(tDiffuse, vUv - offset).b,
+                1.0
+            );
+            gl_FragColor = color;
+        }
+    `
+};
+
+const FilmGrainShader = {
+    uniforms: {
+        'tDiffuse': { value: null },
+        'time': { value: 0 },
+        'noiseIntensity': { value: 0.05 },
+        'noiseSpeed': { value: 0.02 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float time;
+        uniform float noiseIntensity;
+        uniform float noiseSpeed;
+        varying vec2 vUv;
+        void main() {
+            vec4 color = texture2D(tDiffuse, vUv);
+            float grain = fract(sin(dot(vUv.xy + time * noiseSpeed, vec2(12.9898, 78.233))) * 43758.5453);
+            color.rgb += grain * noiseIntensity;
+            gl_FragColor = color;
+        }
+    `
+};
+
+const LensDistortionShader = {
+    defines: {
+        BAND_MODE: 2,
+        CHROMA_SAMPLES: 1,
+    },
+    uniforms: {
+        tDiffuse: { value: null },
+        baseIor: { value: 0.075 },
+        bandOffset: { value: 0.003 },
+        jitterIntensity: { value: 1.0 },
+        jitterOffset: { value: 0.0 },
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        varying vec3 viewDir;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+            viewDir = normalize( ( modelViewMatrix * vec4( position, 1.0 ) ).xyz );
+        }
+    `,
+    fragmentShader: `
+        varying vec2 vUv;
+        varying vec3 viewDir;
+        uniform float baseIor;
+        uniform float bandOffset;
+        uniform float jitterIntensity;
+        uniform float jitterOffset;
+        uniform sampler2D tDiffuse;
+        #include <common>
+        void main() {
+            vec3 normal = vec3( ( 2.0 * vUv - vec2( 1.0 ) ), 1.0 );
+            normal.z = 1.0;
+            normal = normalize( normal );
+            vec3 color;
+            #if BAND_MODE == 0
+            vec3 refracted = refract( vec3( 0.0, 0.0, - 1.0 ), normal, baseIor );
+            color = texture2D( tDiffuse, vUv + refracted.xy ).rgb;
+            #else
+            float index, randValue, offsetValue;
+            float r, g, b, r_ior, g_ior, b_ior;
+            vec3 r_refracted, g_refracted, b_refracted;
+            vec4 r_sample, g_sample, b_sample;
+            #if BAND_MODE == 2
+            float y, c, v, y_ior, c_ior, v_ior;
+            vec3 y_refracted, c_refracted, v_refracted;
+            vec4 y_sample, c_sample, v_sample;
+            #endif
+            for ( int i = 0; i < CHROMA_SAMPLES; i ++ ) {
+                index = float( i );
+                randValue = rand( sin( index + 1. ) * gl_FragCoord.xy + vec2( jitterOffset, - jitterOffset ) ) - 0.5;
+                offsetValue = index / float( CHROMA_SAMPLES ) + randValue * jitterIntensity;
+                #if BAND_MODE == 1
+                randValue *= 2.0;
+                #endif
+                r_ior = 1.0 + bandOffset * ( 0.0 + offsetValue );
+                g_ior = 1.0 + bandOffset * ( 2.0 + offsetValue );
+                b_ior = 1.0 + bandOffset * ( 4.0 + offsetValue );
+                r_refracted = refract( vec3( 0.0, 0.0, - 1.0 ), normal, baseIor / r_ior );
+                g_refracted = refract( vec3( 0.0, 0.0, - 1.0 ), normal, baseIor / g_ior );
+                b_refracted = refract( vec3( 0.0, 0.0, - 1.0 ), normal, baseIor / b_ior );
+                r_sample = texture2D( tDiffuse, vUv + r_refracted.xy );
+                g_sample = texture2D( tDiffuse, vUv + g_refracted.xy );
+                b_sample = texture2D( tDiffuse, vUv + b_refracted.xy );
+                #if BAND_MODE == 2
+                y_ior = 1.0 + bandOffset * ( 1.0 + offsetValue );
+                c_ior = 1.0 + bandOffset * ( 3.0 + offsetValue );
+                v_ior = 1.0 + bandOffset * ( 5.0 + offsetValue );
+                y_refracted = refract( vec3( 0.0, 0.0, - 1.0 ), normal, baseIor / y_ior );
+                c_refracted = refract( vec3( 0.0, 0.0, - 1.0 ), normal, baseIor / c_ior );
+                v_refracted = refract( vec3( 0.0, 0.0, - 1.0 ), normal, baseIor / v_ior );
+                y_sample = texture2D( tDiffuse, vUv + y_refracted.xy );
+                c_sample = texture2D( tDiffuse, vUv + c_refracted.xy );
+                v_sample = texture2D( tDiffuse, vUv + v_refracted.xy );
+                r = r_sample.r / 2.0;
+                y = ( 2.0 * y_sample.r + 2.0 * y_sample.g - y_sample.b ) / 6.0;
+                g = g_sample.g / 2.0;
+                c = ( 2.0 * c_sample.g + 2.0 * c_sample.b - c_sample.r ) / 6.0;
+                b = b_sample.b / 2.0;
+                v = ( 2.0 * v_sample.b + 2.0 * v_sample.r - v_sample.g ) / 6.0;
+                color.r += r + ( 2.0 * v + 2.0 * y - c ) / 3.0;
+                color.g += g + ( 2.0 * y + 2.0 * c - v ) / 3.0;
+                color.b += b + ( 2.0 * c + 2.0 * v - y ) / 3.0;
+                #else
+                color.r += r_sample.r;
+                color.g += g_sample.g;
+                color.b += b_sample.b;
+                #endif
+            }
+            color /= float( CHROMA_SAMPLES );
+            #endif
+            gl_FragColor = vec4( color, 1.0 );
+        }
+    `,
+};
+
+function exportGLTF(scene) {
+    const exporter = new GLTFExporter();
+    exporter.parse(scene, function (result) {
+        const output = JSON.stringify(result, null, 2);
+        const blob = new Blob([output], { type: 'application/json' });
+        const link = document.createElement('a');
+        link.style.display = 'none';
+        document.body.appendChild(link); // Firefox workaround, see #6594
+        link.href = URL.createObjectURL(blob);
+        link.download = 'scene.glb';
+        link.click();
+    });
+}
+
+let scene, camera, controls, renderer;
+let ground, gui, params;
+let topologyMesh;
+let slicePositionController, modeController;
+let groundWidth = 500;
+let groundHeight = 500;
+
+// camera clipping
+let cameraNear = 0.1;
+let cameraFar = 10000;
+let scaleFactor = 0.35;
+let bloomPass;
+let composer
+let filmGrainPass, gammaPass, fxaaPass, chromaticAberrationPass, lensDistortionPass
+let time = 0;
+
+bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.01,  // Reduced strength
+    0.01,  // Adjust radius
+    0.01   // Higher threshold
+);
+
+function saveCameraParams() {
+    const cameraParams = {
+        position: camera.position.toArray(),
+        target: controls.target.toArray()
+    };
+    localStorage.setItem('cameraParams', JSON.stringify(cameraParams));
+}
+
+function loadCameraParams() {
+    const cameraParams = JSON.parse(localStorage.getItem('cameraParams'));
+    if (cameraParams) {
+        camera.position.fromArray(cameraParams.position);
+        controls.target.fromArray(cameraParams.target);
+        controls.update();
+    }
+}
+
+function createGradientTextureFromArray(rgbaArray, width, height) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    const imageData = context.createImageData(width, height);
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const index = (y * width + x) * 4;
+            const rgbaIndex = (x % (rgbaArray.length / 4)) * 4;
+            imageData.data[index] = rgbaArray[rgbaIndex];       // R
+            imageData.data[index + 1] = rgbaArray[rgbaIndex + 1]; // G
+            imageData.data[index + 2] = rgbaArray[rgbaIndex + 2]; // B
+            imageData.data[index + 3] = rgbaArray[rgbaIndex + 3]; // A
+        }
+    }
+    context.putImageData(imageData, 0, 0);
+    return new THREE.CanvasTexture(canvas);
+}
+
+function projectTextureToPlane(plane, texture) {
+    plane.material.map = texture;
+    plane.material.transparent = true;
+    plane.material.opacity = 0.45;
+    plane.material.needsUpdate = true;
+    plane.scale.set(1, 150, 1);
+}
+
+function createGradientTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2;
+    canvas.height = 2;
+    const context = canvas.getContext('2d');
+    const gradient = context.createLinearGradient(0, 0, 0, 2);
+    gradient.addColorStop(0, '#1a2a6c');
+    gradient.addColorStop(1, '#b21f1f');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 2, 2);
+    return new THREE.CanvasTexture(canvas);
+}
+
+function addFog() {
+    // Color, near distance, and far distance of the fog
+    const fogColor = 0xb0698b; // Adjust the color as needed
+    const fogNear = 100;
+    const fogFar = 1900;
+    scene.fog = new THREE.Fog(fogColor, fogNear, fogFar);
+}
+
+function addLight() {
+
+    const ambientLight = new THREE.AmbientLight(0x404040, 5);
+    scene.add(ambientLight);
+    
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 10);
+    directionalLight.position.set(-250, 50, 250);
+    directionalLight.castShadow = true;
+
+    scene.add(directionalLight);
+}
+
+function updateGroundAndTopology(videoWidth, videoHeight) {
+    groundWidth = videoWidth;
+    groundHeight = videoHeight;
+    const groundGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
+    if (ground && ground.geometry) {
+        ground.geometry.dispose();
+        ground.geometry = groundGeometry;
+    }
+    if (topologyMesh) {
+        scene.remove(topologyMesh);
+        topologyMesh.geometry.dispose();
+        topologyMesh.material.dispose();
+        topologyMesh = null;
+    }
+}
+
+function addGround() {
+    const rows = 1;
+    const cols = 20; // Total number of planes (including the central one)
+    const halfCols = Math.floor(cols / 2); // Half of the columns to distribute on each side
+    const planeGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
+    const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    const count = rows * cols;
+    const instancedMesh = new THREE.InstancedMesh(planeGeometry, planeMaterial, count);
+    let index = 0;
+    for (let i = 0; i < rows; i++) {
+        for (let j = -halfCols; j <= halfCols; j++) {
+            const matrix = new THREE.Matrix4();
+            matrix.setPosition(j * groundWidth, 0, i * groundHeight);
+            instancedMesh.setMatrixAt(index, matrix);
+            index++;
+        }
+    }
+    instancedMesh.rotation.x = -Math.PI / 2;
+    instancedMesh.position.set(0, 0, 0); // Center the planes
+    instancedMesh.name = "groundPlane";
+    scene.add(instancedMesh);
+    // Add 1 to 3 additional ground planes at random positions and rotations
+    const additionalPlanesCount = 5;//Math.floor(Math.random() * 3) + 1;
+    for (let k = 0; k < additionalPlanesCount; k++) {
+        const randomX = (Math.random() - 0.5) * 2 * groundWidth * halfCols;
+        const randomZ = (Math.random() - 0.5) * 2 * groundHeight;
+        const randomRotation = Math.random() * Math.PI * 2;
+        const randomMatrix = new THREE.Matrix4();
+        randomMatrix.setPosition(randomX, 0, randomZ);
+        randomMatrix.multiply(new THREE.Matrix4().makeRotationY(randomRotation));
+        const randomPlane = new THREE.Mesh(planeGeometry, planeMaterial);
+        randomPlane.applyMatrix4(randomMatrix);
+        randomPlane.scale.set(1,100,1)
+        scene.add(randomPlane);
+    }
+}
+
+function addGroundLegacy() {
+    const rows = 1;
+    const cols = 20; // Total number of planes (including the central one)
+    const halfCols = Math.floor(cols / 2); // Half of the columns to distribute on each side
+    const planeGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
+    const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    const count = rows * cols;
+    const instancedMesh = new THREE.InstancedMesh(planeGeometry, planeMaterial, count);
+    let index = 0;
+    for (let i = 0; i < rows; i++) {
+        for (let j = -halfCols; j <= halfCols; j++) {
+            const matrix = new THREE.Matrix4();
+            matrix.setPosition(j * groundWidth, 0, i * groundHeight);
+            instancedMesh.setMatrixAt(index, matrix);
+            index++;
+        }
+    }
+    instancedMesh.rotation.x = -Math.PI / 2;
+    instancedMesh.position.set(0, 0, 0); // Center the planes
+    instancedMesh.name = "groundPlane";
+    scene.add(instancedMesh);
+}
+
+function updateTexture(video, plane, slicePosition, mode) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    function getVideoLineData(video, pos, isVertical) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (isVertical) {
+            const imageData = context.getImageData(pos, 0, 1, canvas.height);
+            return imageData.data;
+        } else {
+            const imageData = context.getImageData(0, pos, canvas.width, 1);
+            return imageData.data;
+        }
+    }
+    const isVertical = mode === 'vertical';
+    const pos = Math.floor((isVertical ? video.videoWidth : video.videoHeight) * slicePosition);
+    const rgbaArray = getVideoLineData(video, pos, isVertical);
+    // Change specific range of colors to transparent
+    const threshold = 200; // Adjust the brightness threshold as needed
+    for (let i = 0; i < rgbaArray.length; i += 4) {
+        const r = rgbaArray[i];
+        const g = rgbaArray[i + 1];
+        const b = rgbaArray[i + 2];
+        const brightness = (r + g + b) / 3;
+        if (brightness > threshold) {
+            rgbaArray[i + 3] = 0; // Set alpha to 0 to make the pixel transparent
+        }
+    }
+    const gradientTexture = createGradientTextureFromArray(rgbaArray, groundWidth, groundHeight);
+    projectTextureToPlane(plane, gradientTexture);
+    updateTopology(rgbaArray, isVertical ? video.videoHeight : video.videoWidth, isVertical ? video.videoWidth : video.videoHeight, isVertical);
+}
+
+let toplogyScale = 2500;
+
+function createTopologyFromArray(rgbaArray, width, height, isVertical) {
+    const shape = new THREE.Shape();
+    const extrudeSettings = {
+        steps: 1,
+        depth: 100,
+        bevelEnabled: false
+    };
+    if (isVertical) {
+        shape.moveTo(0, 0);
+        for (let i = 0; i < height; i++) {
+            const y = i;
+            const index = i * 4;
+            const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
+            const z = grayscale / 255 * toplogyScale;
+            shape.lineTo(z, y);
+        }
+        shape.lineTo(0, height);
+        shape.lineTo(0, 0);
+    } else {
+        shape.moveTo(0, 0);
+        for (let i = 0; i < width; i++) {
+            const x = i;
+            const index = i * 4;
+            const grayscale = (rgbaArray[index] * 0.299 + rgbaArray[index + 1] * 0.587 + rgbaArray[index + 2] * 0.114) || 0;
+            const z = grayscale / 255 * toplogyScale;
+            shape.lineTo(x, z);
+        }
+        shape.lineTo(width, 0);
+        shape.lineTo(0, 0);
+    }
+    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    const colors = [];
+    const positions = geometry.attributes.position.array;
+    for (let i = 0; i < positions.length; i += 3) {
+        const x = positions[i];
+        const y = positions[i + 1];
+        const z = positions[i + 2];
+        const colorIndex = isVertical ? Math.floor(y) : Math.floor(x);
+        const rgbaIndex = colorIndex * 4;
+        if (!isNaN(rgbaArray[rgbaIndex])) {
+            colors.push(rgbaArray[rgbaIndex] / 255, rgbaArray[rgbaIndex + 1] / 255, rgbaArray[rgbaIndex + 2] / 255);
+        } else {
+            colors.push(1, 1, 1); // Default to white if color data is invalid
+        }
+    }
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    const material = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        metalness: 0.25,
+        roughness: 0.25,
+        opacity: 0.45,
+        transparent: true,
+        side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.y = 1; // Align with ground plane
+    mesh.position.z = -groundHeight / 2; // Center the topology on the ground plane
+    mesh.position.x = -groundWidth / 2; // Center the topology on the ground plane
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+}
+
+function cloneTopologyMesh() {
+    const existingClone = scene.getObjectByName("clonedTopologyMesh");
+    if (existingClone) {
+        scene.remove(existingClone);
+        if (existingClone.geometry) existingClone.geometry.dispose();
+        if (existingClone.material) existingClone.material.dispose();
+    }
+    if (topologyMesh) {
+        const clonedMesh = topologyMesh.clone();
+        clonedMesh.position.y = -0.2; // Place it slightly below the ground plane
+        clonedMesh.position.z = -140; // Place it slightly below the ground plane
+        clonedMesh.name = "clonedTopologyMesh";
+        clonedMesh.rotation.x = (2*Math.PI / 2)
+        scene.add(clonedMesh);
+    }
+}
+
+function cloneTopologyMeshMulti() {
+    const existingClones = scene.children.filter(obj => obj.name && obj.name.startsWith("clonedTopologyMesh"));
+    existingClones.forEach(clone => {
+        scene.remove(clone);
+        if (clone.geometry) clone.geometry.dispose();
+        if (clone.material) clone.material.dispose();
+    });
+    if (topologyMesh) {
+        const cols = 20; // Total number of planes (including the central one)
+        const halfCols = Math.floor(cols / 2); // Half of the columns to distribute on each side
+        for (let j = -halfCols; j <= halfCols; j++) {
+            const clonedMesh = topologyMesh.clone();
+            clonedMesh.position.y = 1; // Slightly above the ground plane
+            clonedMesh.position.x = j * groundWidth; // Distribute on each side
+            clonedMesh.position.z = -groundHeight / 2; // Center the topology on the ground plane
+            clonedMesh.name = "clonedTopologyMesh_" + j;
+            scene.add(clonedMesh);
+        }
+    }
+}
+
+function updateTopology(rgbaArray, width, height, isVertical) {
+    if (!topologyMesh) {
+        topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
+        topologyMesh.name = "topologyMesh";
+        scene.add(topologyMesh);
+    } else {
+        scene.remove(topologyMesh);
+        topologyMesh.geometry.dispose();
+        topologyMesh.material.dispose();
+        topologyMesh = createTopologyFromArray(rgbaArray, width, height, isVertical);
+        topologyMesh.name = "topologyMesh";
+        scene.add(topologyMesh);
+    }
+    cloneTopologyMesh(); // Add this line to clone the topology mesh
+}
+
+function addVideoPlane(video) {
+    const videoTexture = new THREE.VideoTexture(video);
+    const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+    const videoPlaneGeometry = new THREE.PlaneGeometry(groundWidth, groundHeight);
+    const videoPlane = new THREE.Mesh(videoPlaneGeometry, videoMaterial);
+    //videoPlane.rotation.x = -Math.PI / 2;
+    videoPlane.position.set(0, 1, 0); // Slightly above the ground plane
+    videoPlane.name = "videoFeed";
+    scene.add(videoPlane);
+}
+
+function addVideoCircle(video) {
+    const videoTexture = new THREE.VideoTexture(video);
+    const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+    const circleGeometry = new THREE.CircleGeometry(Math.min(groundWidth, groundHeight) / 2, 6);
+    const videoCircle = new THREE.Mesh(circleGeometry, videoMaterial);
+    videoCircle.position.set(0, 500
+, 0); // Slightly above the ground plane
+    videoCircle.name = "videoCircle";
+    scene.add(videoCircle);
+}
+
+function createDelayedVideoTextures(video, count, delay) {
+    const videoTextures = [];
+    for (let i = 0; i < count; i++) {
+        const videoClone = video.cloneNode(true);
+        videoClone.muted = true; // Mute the cloned videos
+        videoClone.currentTime = 0;
+        // Create a video texture
+        const videoTexture = new THREE.VideoTexture(videoClone);
+        videoTexture.needsUpdate = true;
+        // Delay the start of the video playback
+        setTimeout(() => {
+            videoClone.play();
+        }, i * delay);
+        videoTextures.push(videoTexture);
+    }
+    return videoTextures;
+}
+
+function addHexagonWallWithDelays(video, posX = 0, posY = 0, posZ = 0, rows = 6, cols = 6, cellSize = 200, delay = 500) {
+    const hexagonCount = rows * cols; // Total number of hexagons
+    const videoTextures = createDelayedVideoTextures(video, hexagonCount, delay);
+    const hexagonGeometry = new THREE.CircleGeometry(cellSize, 6); // Radius set to cellSize, 6 segments for hexagon
+    const instancedMesh = new THREE.InstancedMesh(hexagonGeometry, new THREE.MeshBasicMaterial(), hexagonCount);
+    const hexagonWidth = cellSize * Math.sqrt(3); // Width of a hexagon (distance between two opposite vertices)
+    const hexagonHeight = cellSize * 2; // Height of a hexagon (distance between two parallel sides)
+    let index = 0;
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            const offsetX = col * hexagonWidth * 0.75;
+            const offsetY = row * hexagonHeight * 0.866 + (col % 2 === 0 ? 0 : hexagonHeight * 0.433); // 0.866 is sqrt(3)/2, 0.433 is sqrt(3)/4
+            const matrix = new THREE.Matrix4();
+            matrix.setPosition(offsetX, offsetY, 0); // Adjust the z position if needed
+            // Assign a unique material with the corresponding video texture
+            const material = new THREE.MeshBasicMaterial({ map: videoTextures[index], side: THREE.DoubleSide });
+            instancedMesh.setMaterialAt(index, material);
+            instancedMesh.setMatrixAt(index, matrix);
+            index++;
+        }
+    }
+    // Center the wall
+    const centerX = (cols - 1) * hexagonWidth * 0.75 / 2;
+    const centerY = (rows - 1) * hexagonHeight * 0.866 / 2;
+    instancedMesh.position.set(posX - centerX, posY - centerY, posZ);
+    scene.add(instancedMesh);
+}
+
+function addHexagonWallLines(video, posX = 0, posY = 0, posZ = 0, rows = 6, cols = 6, cellSize = 200) {
+    const videoTexture = new THREE.VideoTexture(video);
+    const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+    const hexagonGeometry = new THREE.CircleGeometry(cellSize, 6); // Radius set to cellSize, 6 segments for hexagon
+    const hexagonWidth = 1.5 * cellSize; // Width of a hexagon (distance between two opposite vertices in adjacent columns)
+    const hexagonHeight = Math.sqrt(3) * cellSize; // Height of a hexagon (distance between two parallel sides)
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            const offsetX = col * hexagonWidth;
+            const offsetY = row * hexagonHeight + (col % 2 === 0 ? 0 : hexagonHeight / 2); // Corrected offset for bee hive pattern
+            const hexagonMesh = new THREE.Mesh(hexagonGeometry, videoMaterial);
+            hexagonMesh.position.set(posX + offsetX, posY + offsetY, posZ);
+            scene.add(hexagonMesh);
+        }
+    }
+}
+
+function addHexagonWall(video, posX = 0, posY = 0, posZ = 0, layers = 3, cellSize = 200) {
+    const videoTexture = new THREE.VideoTexture(video);
+    const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+    const hexagonGeometry = new THREE.CircleGeometry(cellSize, 6); // Radius set to cellSize, 6 segments for hexagon
+    const hexagonWidth = cellSize * Math.sqrt(3); // Horizontal distance between hexagon centers
+    const hexagonHeight = cellSize * 1.5; // Vertical distance between hexagon centers
+    // Directions for the six possible moves in a hexagon grid
+    const directions = [
+        [1, 0], [0.5, Math.sqrt(3) / 2], [-0.5, Math.sqrt(3) / 2],
+        [-1, 0], [-0.5, -Math.sqrt(3) / 2], [0.5, -Math.sqrt(3) / 2]
+    ];
+    // Function to add a hexagon at a specific position with a debug number
+    function addHexagon(x, y, z, number) {
+        const hexagonMesh = new THREE.Mesh(hexagonGeometry, videoMaterial);
+        // Add number to the hexagon for debugging
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 256;
+        const context = canvas.getContext('2d');
+        context.clearRect(0, 0, canvas.width, canvas.height); // Ensure the background is transparent
+        context.fillStyle = "yellow";
+        context.font = "48px Arial";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(number, canvas.width / 2, canvas.height / 2);
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide, transparent: true });
+        const textMesh = new THREE.Mesh(hexagonGeometry, material);
+        textMesh.position.set(0, 0, 1);
+        hexagonMesh.add(textMesh);
+        hexagonMesh.position.set(x, y, z);
+        scene.add(hexagonMesh);
+    }
+    let number = 0;
+    let x = posX;
+    let y = posY;
+    // Start with the central hexagon
+    addHexagon(x, y, posZ, number++);
+    for (let layer = 1; layer <= layers; layer++) {
+        x += directions[4][0] * hexagonWidth;
+        y += directions[4][1] * hexagonHeight;
+        for (let direction = 0; direction < 6; direction++) {
+            for (let step = 0; step < layer; step++) {
+                addHexagon(x, y, posZ, number++);
+                x += directions[direction][0] * hexagonWidth;
+                y += directions[direction][1] * hexagonHeight;
+            }
+        }
+    }
+}
+
+
+
+// let octahedron;
+// let octahedronAngle = 0;
+// const octahedronSpeed = 0.01;
+// const octahedronRotationSpeed = 0.01;
+// const octahedronCenterX = 0, octahedronCenterY = 500, octahedronCenterZ = 0;
+// const octahedronRadiusX = 1000, octahedronRadiusZ = 800;
+
+// function animateOctahedron() {
+
+//     if(!scene.getObjectByName("octahedron")) return;
+
+//     // Update position to follow an elliptical path
+//     octahedronAngle += octahedronSpeed;
+//     octahedron.position.x = octahedronCenterX + octahedronRadiusX * Math.cos(octahedronAngle);
+//     octahedron.position.z = octahedronCenterZ + octahedronRadiusZ * Math.sin(octahedronAngle);
+//     octahedron.position.y = octahedronCenterY + 100 * Math.sin(octahedronAngle * 2); // Vertical oscillation
+
+//     // Rotate the octahedron
+//     octahedron.rotation.x += octahedronRotationSpeed;
+//     octahedron.rotation.y += octahedronRotationSpeed;
+//     octahedron.rotation.z += octahedronRotationSpeed;
+
+// }
+
+// function addOctahedron(video) {
+//     const videoTexture = new THREE.VideoTexture(video);
+//     const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+//     const geometry = new THREE.OctahedronGeometry(200, 2); // Change precision level here
+    
+//     // Check if geometry has an index
+//     if (geometry.index) {
+//         // Indexed geometry (with detail level > 0)
+//         const uvs = [];
+//         const positionCount = geometry.attributes.position.count;
+//         // Define a standard UV mapping for a single face (triangle)
+//         const faceUVs = [
+//             0, 0,  // Vertex 1 UV
+//             1, 0,  // Vertex 2 UV
+//             0.5, 1 // Vertex 3 UV
+//         ];
+//         // Apply UV mapping for each vertex
+//         for (let i = 0; i < positionCount; i += 3) {
+//             uvs.push(...faceUVs);
+//         }
+//         // Update the geometry's UV attribute
+//         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+//     } else {
+//         // Non-indexed geometry
+//         const uvs = [];
+//         const positionCount = geometry.attributes.position.count;
+//         // Define a standard UV mapping for a single face (triangle)
+//         const faceUVs = [
+//             0, 0,  // Vertex 1 UV
+//             1, 0,  // Vertex 2 UV
+//             0.5, 1 // Vertex 3 UV
+//         ];
+//         // Apply UV mapping for each vertex
+//         for (let i = 0; i < positionCount; i += 3) {
+//             uvs.push(...faceUVs);
+//         }
+//         // Update the geometry's UV attribute
+//         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+//     }
+    
+//     octahedron = new THREE.Mesh(geometry, videoMaterial);
+//     octahedron.position.set(octahedronCenterX, octahedronCenterY, octahedronCenterZ);
+//     octahedron.name = "octahedron";
+//     scene.add(octahedron);
+// }
+
+
+
+
+
+
+let instancedOctahedrons;
+const octahedronCount = 1000; // Number of octahedrons
+const octahedronBaseSpeed = 0.5;
+const verticalBaseSpeed = 0.003; // Base speed of vertical oscillation
+const octahedronBaseRotationSpeed = 0.001;
+const octahedronBaseRadiusX = 1300, octahedronBaseRadiusZ = 1000;
+const verticalBaseRadius = 800; // Base amplitude of vertical oscillation
+const octahedronCenterX = 0, octahedronCenterY = 500, octahedronCenterZ = 0;
+
+const octahedrons = [];
+
+function animateOctahedrons() {
+
+    if (!instancedOctahedrons) return; 
+
+
+    const dummy = new THREE.Object3D();
+
+    octahedrons.forEach((octa, i) => {
+        // Update angles for elliptical and vertical paths
+        octa.angle += octa.speed;
+        octa.verticalAngle += octa.verticalSpeed;
+
+        // Update position to follow a complex path
+        dummy.position.x = octa.centerX + octa.radiusX * Math.cos(octa.angle);
+        dummy.position.z = octa.centerZ + octa.radiusZ * Math.sin(octa.angle);
+        dummy.position.y = octa.centerY + octa.verticalRadius * Math.sin(octa.verticalAngle);
+
+        // Rotate the octahedron
+        dummy.rotation.x = octa.initialRotation.x + octa.rotationSpeed;
+        dummy.rotation.y = octa.initialRotation.y + octa.rotationSpeed;
+        dummy.rotation.z = octa.initialRotation.z + octa.rotationSpeed;
+
+        // Scale the octahedron
+        dummy.scale.set(octa.scale, octa.scale, octa.scale);
+
+        dummy.updateMatrix();
+        instancedOctahedrons.setMatrixAt(i, dummy.matrix);
+    });
+
+    instancedOctahedrons.instanceMatrix.needsUpdate = true;
+}
+
+function addOctahedrons(video) {
+    const videoTexture = new THREE.VideoTexture(video);
+    const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+
+    const geometry = new THREE.OctahedronGeometry(1, 0); // Use scale to adjust size later
+
+    instancedOctahedrons = new THREE.InstancedMesh(geometry, videoMaterial, octahedronCount);
+
+    for (let i = 0; i < octahedronCount; i++) {
+        const size = 10 + Math.random() * 30;
+        const angleOffset = Math.random() * Math.PI * 2;
+        const dummy = new THREE.Object3D();
+
+        dummy.position.set(octahedronBaseRadiusX * Math.cos(angleOffset), octahedronCenterY, octahedronBaseRadiusZ * Math.sin(angleOffset));
+        dummy.scale.set(size, size, size);
+        dummy.updateMatrix();
+        instancedOctahedrons.setMatrixAt(i, dummy.matrix);
+
+        const octa = {
+            angle: angleOffset,
+            verticalAngle: Math.random() * Math.PI * 2, // Start with a random vertical angle
+            speed: (octahedronBaseSpeed + Math.random() * 0.01) / size, // Speed inversely proportional to size
+            verticalSpeed: (verticalBaseSpeed + Math.random() * 0.01) / size, // Vertical speed inversely proportional to size
+            rotationSpeed: octahedronBaseRotationSpeed / size * 4, // Rotation speed inversely proportional to size
+            initialRotation: {
+                x: Math.random() * Math.PI * 1.5,
+                y: Math.random() * Math.PI * 2,
+                z: Math.random() * Math.PI * 2
+            },
+            centerX: octahedronCenterX,
+            centerY: octahedronCenterY,
+            centerZ: octahedronCenterZ,
+            radiusX: octahedronBaseRadiusX + Math.random() * 200 - 100,
+            radiusZ: octahedronBaseRadiusZ + Math.random() * 200 - 100,
+            verticalRadius: verticalBaseRadius + Math.random() * 50 - 25,
+            scale: size
+        };
+
+        octahedrons.push(octa);
+    }
+
+    scene.add(instancedOctahedrons);
+}
+
+
+
+
+
+
+
+// let octahedron;
+// let octahedronAngle = 0;
+// let verticalAngle = 0;
+// const octahedronSpeed = 0.01;
+// const verticalSpeed = 0.02; // Speed of vertical oscillation
+// const octahedronRotationSpeed = 0.01;
+// const octahedronCenterX = 0, octahedronCenterY = 500, octahedronCenterZ = 0;
+// const octahedronRadiusX = 1000, octahedronRadiusZ = 800;
+// const verticalRadius = 200; // Amplitude of vertical oscillation
+
+// function animateOctahedron() {
+//     if (!scene.getObjectByName("octahedron")) return;
+
+//     // Update angles for elliptical and vertical paths
+//     octahedronAngle += octahedronSpeed;
+//     verticalAngle += verticalSpeed;
+
+//     // Update position to follow a complex path
+//     octahedron.position.x = octahedronCenterX + octahedronRadiusX * Math.cos(octahedronAngle);
+//     octahedron.position.z = octahedronCenterZ + octahedronRadiusZ * Math.sin(octahedronAngle);
+//     octahedron.position.y = octahedronCenterY + verticalRadius * Math.sin(verticalAngle);
+
+//     // Rotate the octahedron
+//     octahedron.rotation.x += octahedronRotationSpeed;
+//     octahedron.rotation.y += octahedronRotationSpeed;
+//     octahedron.rotation.z += octahedronRotationSpeed;
+// }
+
+// function addOctahedron(video) {
+//     const videoTexture = new THREE.VideoTexture(video);
+//     const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+//     const geometry = new THREE.OctahedronGeometry(100, 0); // Change precision level here
+    
+//     // Check if geometry has an index
+//     if (geometry.index) {
+//         // Indexed geometry (with detail level > 0)
+//         const uvs = [];
+//         const positionCount = geometry.attributes.position.count;
+//         // Define a standard UV mapping for a single face (triangle)
+//         const faceUVs = [
+//             0, 0,  // Vertex 1 UV
+//             1, 0,  // Vertex 2 UV
+//             0.5, 1 // Vertex 3 UV
+//         ];
+//         // Apply UV mapping for each vertex
+//         for (let i = 0; i < positionCount; i += 3) {
+//             uvs.push(...faceUVs);
+//         }
+//         // Update the geometry's UV attribute
+//         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+//     } else {
+//         // Non-indexed geometry
+//         const uvs = [];
+//         const positionCount = geometry.attributes.position.count;
+//         // Define a standard UV mapping for a single face (triangle)
+//         const faceUVs = [
+//             0, 0,  // Vertex 1 UV
+//             1, 0,  // Vertex 2 UV
+//             0.5, 1 // Vertex 3 UV
+//         ];
+//         // Apply UV mapping for each vertex
+//         for (let i = 0; i < positionCount; i += 3) {
+//             uvs.push(...faceUVs);
+//         }
+//         // Update the geometry's UV attribute
+//         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+//     }
+    
+//     octahedron = new THREE.Mesh(geometry, videoMaterial);
+//     octahedron.position.set(octahedronCenterX, octahedronCenterY, octahedronCenterZ);
+//     octahedron.name = "octahedron";
+//     scene.add(octahedron);
+// }
+
+
+
+
+function updateVideoPlanePosition(positionPercentage) {
+    const videoPlane = scene.getObjectByName("videoFeed");
+    if (videoPlane) {
+        videoPlane.position.z = (positionPercentage - 0.5) * groundHeight; 
+        videoPlane.position.y = (positionPercentage - 0.5) * groundHeight; // Move 
+        // Move horizontally based on percentage
+    }
+}   
+
+
+let userActive = true;
+let idleTimer;
+const idleTimeout = 5000; // 5 seconds of inactivity
+
+function resetIdleTimer() {
+    userActive = true;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+        userActive = false;
+    }, idleTimeout);
+}
+
+function startIdleTimer() {
+    //window.addEventListener('mousemove', resetIdleTimer, false);
+    window.addEventListener('mousedown', resetIdleTimer, false);
+    window.addEventListener('keydown', resetIdleTimer, false);
+    window.addEventListener('touchstart', resetIdleTimer, false);
+    window.addEventListener('touchmove', resetIdleTimer, false);
+    resetIdleTimer();
+}
+
+function moveCamera() {
+    const time = performance.now() * 0.0002; // Adjust speed by changing the multiplier
+    const radiusX = 2500;
+    const radiusZ = 2300;
+    const height = 500;
+    const verticalOscillation = 1000;
+    
+    // Elliptical motion
+    const posX = Math.cos(time) * radiusX;
+    const posZ = Math.sin(time * 1.5) * radiusZ; // Different frequency for elliptical path
+    const posY = height + Math.sin(time * 2) * verticalOscillation;
+
+    camera.position.set(posX, posY, posZ);
+
+    // Target adjustment
+    const targetX = Math.cos(time + 0.1) * radiusX;
+    const targetZ = Math.sin(time * 1.5 + 0.1) * radiusZ;
+    const targetY = height + Math.sin(time * 2 + 0.1) * verticalOscillation;
+
+    camera.lookAt(new THREE.Vector3(500, targetY, 500));
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    time += params.noiseSpeed;
+    filmGrainPass.uniforms['time'].value = time;
+    filmGrainPass.uniforms['noiseSpeed'].value = params.noiseSpeed;
+    filmGrainPass.uniforms['noiseIntensity'].value = params.noiseIntensity;
+    chromaticAberrationPass.enabled = params.enableChromaticAberration;
+    lensDistortionPass.enabled = params.enableLensDistortion;
+    filmGrainPass.enabled = params.enableFilmGrain;
+    controls.update();
+    if (!userActive) {
+        moveCamera();
+    }
+    composer.render();
+    animateOctahedrons();
+}
+
+
+
+
+
+
+
+
+
+
+function init() {
+    scene = new THREE.Scene();
+    scene.background = createGradientTexture();
+    addFog();
+
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, cameraNear, cameraFar);
+    renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+    controls = new OrbitControls(camera, renderer.domElement);
+    loadCameraParams();
+    controls.addEventListener('change', saveCameraParams);
+    if (!localStorage.getItem('cameraParams')) {
+        camera.position.set(0, 50, 100);
+        controls.update();
+    }
+    addLight();
+    addGround();
+    gui = new GUI();
+    gui.domElement.classList.add('custom-gui');
+    params = {
+        slicePosition: 0.5,
+        mode: 'horizontal',
+        noiseSpeed: 0.02,
+        noiseIntensity: 0.05,
+        enableChromaticAberration: true,
+        enableLensDistortion: true,
+        enableFilmGrain: true,
+        samples: 7 // Add this line
+    };
+    slicePositionController = gui.add(params, 'slicePosition', 0, 1).name('Slice Position').step(0.01);
+    modeController = gui.add(params, 'mode', ['horizontal', 'vertical']).name('Mode');
+    gui.add(params, 'noiseSpeed', 0, 0.1).name('Noise Speed').step(0.001);
+    gui.add(params, 'noiseIntensity', 0, 1).name('Noise Intensity').step(0.01);
+    gui.add(params, 'enableChromaticAberration').name('Chromatic Aberration');
+    gui.add(params, 'enableLensDistortion').name('Lens Distortion');
+    gui.add(params, 'enableFilmGrain').name('Film Grain');
+    gui.add(params, 'samples', 1, 20).name('Samples').step(1).onChange(value => {
+        lensDistortionPass.material.defines.CHROMA_SAMPLES = value;
+        lensDistortionPass.material.needsUpdate = true;
+    });
+    // Setup EffectComposer
+    composer = new EffectComposer(renderer);
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass);
+    // Add chromatic aberration pass
+    chromaticAberrationPass = new ShaderPass(ChromaticAberrationShader);
+    chromaticAberrationPass.uniforms['amount'].value = 0.0015; // Adjust the amount of chromatic aberration
+    composer.addPass(chromaticAberrationPass);
+    // Add lens distortion pass
+    lensDistortionPass = new ShaderPass(LensDistortionShader);
+    lensDistortionPass.uniforms['baseIor'].value = 1.003;
+    lensDistortionPass.uniforms['bandOffset'].value = -0.02;
+    lensDistortionPass.uniforms['jitterIntensity'].value = 0.001;
+    composer.addPass(lensDistortionPass);
+    // Add film grain pass
+    filmGrainPass = new ShaderPass(FilmGrainShader);
+    filmGrainPass.uniforms['noiseIntensity'].value = params.noiseIntensity;
+    filmGrainPass.uniforms['noiseSpeed'].value = params.noiseSpeed;
+    composer.addPass(filmGrainPass);
+    gammaPass = new ShaderPass(GammaCorrectionShader);
+    fxaaPass = new ShaderPass(FXAAShader);
+    composer.addPass(fxaaPass);
+    animate();
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight); // Update composer size on resize
+    });
+
+    startIdleTimer();
+}
+
+// function animate() {
+//     requestAnimationFrame(animate);
+//     time += params.noiseSpeed;
+//     filmGrainPass.uniforms['time'].value = time;
+//     filmGrainPass.uniforms['noiseSpeed'].value = params.noiseSpeed;
+//     filmGrainPass.uniforms['noiseIntensity'].value = params.noiseIntensity;
+//     chromaticAberrationPass.enabled = params.enableChromaticAberration;
+//     lensDistortionPass.enabled = params.enableLensDistortion;
+//     filmGrainPass.enabled = params.enableFilmGrain;
+//     controls.update();
+//     composer.render();
+
+//     //animateOctahedron();
+//     animateOctahedrons();
+// }
+
+// Event listeners for video element
+function getPosition(event, video, isVertical) {
+    const rect = video.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    return isVertical ? x / rect.width : y / rect.height;
+}
+
+
+let animationId;
+let isWebcamActive = false;
+
+
+document.getElementById('webcamButton').addEventListener('click', () => {
+    const video = document.getElementById('webcamVideo');
+    const sliceIndicator = document.getElementById('sliceIndicator');
+    const webcamButton = document.getElementById('webcamButton');
+    let isMouseDown = false;
+    if (isWebcamActive) {
+        const stream = video.srcObject;
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+        video.srcObject = null;
+        webcamButton.innerHTML = 'Start <img src="images/webcam.svg" alt="Webcam Icon">';
+        video.style.display = 'none';
+        sliceIndicator.style.display = 'none';
+        isWebcamActive = false;
+        cancelAnimationFrame(animationId);
+        scene.remove(instancedOctahedrons); // Remove octahedrons
+        instancedOctahedrons = null;
+        octahedrons.length = 0; // Clear the octahedron array
+    } else {
+        navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                if (!webcamButton.classList.contains('active')) {
+                    webcamButton.classList.add('active');
+                }
+                video.style.width = `${video.videoWidth * scaleFactor}px`;
+                video.style.height = `${video.videoHeight * scaleFactor}px`;
+                sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+                isWebcamActive = true;
+                webcamButton.innerHTML = 'Stop <img src="images/webcam.svg" alt="Webcam Icon">';
+                video.style.display = 'block';
+                sliceIndicator.style.display = 'block';
+                updateGroundAndTopology(video.videoWidth, video.videoHeight);
+                addOctahedrons(video); // Add octahedrons
+                const plane = scene.getObjectByName("groundPlane");
+
+                function updateSliceIndicatorOrientation() {
+                    const sliceIndicator = document.getElementById('sliceIndicator');
+                    if (params.mode === 'horizontal') {
+                        sliceIndicator.classList.remove('vertical');
+                        sliceIndicator.classList.add('horizontal');
+                    } else {
+                        sliceIndicator.classList.remove('horizontal');
+                        sliceIndicator.classList.add('vertical');
+                    }
+                }
+
+                function animateTexture() {
+                    if (!isWebcamActive) {
+                        return;
+                    }
+                    updateTexture(video, plane, params.slicePosition, params.mode);
+                    updateVideoPlanePosition(params.slicePosition);
+                    updateSliceIndicatorOrientation();
+                    if (params.mode === 'horizontal') {
+                        sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * scaleFactor) + 'px';
+                        sliceIndicator.style.left = '20px';
+                        sliceIndicator.style.height = '2px';
+                        sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+                    } else {
+                        sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * scaleFactor) + 'px';
+                        sliceIndicator.style.top = '40px';
+                        sliceIndicator.style.width = '2px';
+                        sliceIndicator.style.height = `${video.videoHeight * scaleFactor}px`;
+                    }
+                    animationId = requestAnimationFrame(animateTexture);
+                }
+
+                animateTexture();
+            };
+            function updateSlicePosition(event) {
+                let pos = getPosition(event, video, params.mode === 'vertical');
+                pos = Math.max(0, Math.min(1, pos)); // Clamp the position between 0 and 1
+                params.slicePosition = pos;
+                slicePositionController.updateDisplay();
+            }
+            video.addEventListener('mousedown', (event) => {
+                isMouseDown = true;
+                updateSlicePosition(event);
+            });
+            window.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            });
+            window.addEventListener('mousemove', (event) => {
+                if (isMouseDown) {
+                    updateSlicePosition(event);
+                }
+            });
+            video.addEventListener('touchstart', (event) => {
+                isMouseDown = true;
+                const touch = event.touches[0];
+                updateSlicePosition(touch);
+            }, { passive: true });
+            video.addEventListener('touchmove', (event) => {
+                if (isMouseDown) {
+                    const touch = event.touches[0];
+                    updateSlicePosition(touch);
+                }
+            }, { passive: true });
+            video.addEventListener('touchend', () => {
+                isMouseDown = false;
+            });
+        }).catch(error => {
+            console.error('Error accessing webcam:', error);
+        });
+    }
+});
+
+
+// document.getElementById('webcamButton').addEventListener('click', () => {
+
+//     const video = document.getElementById('webcamVideo');
+//     const sliceIndicator = document.getElementById('sliceIndicator');
+//     const webcamButton = document.getElementById('webcamButton');
+//     let isMouseDown = false;
+//     if (isWebcamActive) {
+//         const stream = video.srcObject;
+//         const tracks = stream.getTracks();
+//         tracks.forEach(track => track.stop());
+//         video.srcObject = null;
+//         webcamButton.innerHTML = 'Start <img src="images/webcam.svg" alt="Webcam Icon">';
+//         video.style.display = 'none';
+//         sliceIndicator.style.display = 'none';
+//         isWebcamActive = false;
+//         cancelAnimationFrame(animationId);
+//     } else {
+//         navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+//             video.srcObject = stream;
+//             video.onloadedmetadata = () => {
+//                 if (!webcamButton.classList.contains('active')) {
+//                     webcamButton.classList.add('active');
+//                 }
+//                 video.style.width = `${video.videoWidth * scaleFactor}px`;
+//                 video.style.height = `${video.videoHeight * scaleFactor}px`;
+//                 sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+//                 isWebcamActive = true;
+//                 webcamButton.innerHTML = 'Stop <img src="images/webcam.svg" alt="Webcam Icon">';
+//                 video.style.display = 'block';
+//                 sliceIndicator.style.display = 'block';
+//                 updateGroundAndTopology(video.videoWidth, video.videoHeight);
+//                 // addVideoPlane(video); 
+//                 // addVideoCircle(video);
+                
+
+//                 //addOctahedron(video)
+//                 addOctahedrons(video)
+                
+//                 // //addHexagonWallLines(video, 0, 1500, 0, 3, 3, 100); 
+//                 // addHexagonWall(video, 0, 1500, 0, 3, 100); 
+//                 const plane = scene.getObjectByName("groundPlane");
+
+//                 function updateSliceIndicatorOrientation() {
+//                     const sliceIndicator = document.getElementById('sliceIndicator');
+//                     if (params.mode === 'horizontal') {
+//                         sliceIndicator.classList.remove('vertical');
+//                         sliceIndicator.classList.add('horizontal');
+//                     } else {
+//                         sliceIndicator.classList.remove('horizontal');
+//                         sliceIndicator.classList.add('vertical');
+//                     }
+//                 }
+
+//                 function animateTexture() {
+//                     if (!isWebcamActive) {
+//                         return;
+//                     }
+//                     updateTexture(video, plane, params.slicePosition, params.mode);
+//                     updateVideoPlanePosition(params.slicePosition); 
+//                     updateSliceIndicatorOrientation();
+//                     if (params.mode === 'horizontal') {
+//                         sliceIndicator.style.top = (40 + video.videoHeight * params.slicePosition * scaleFactor) + 'px';
+//                         sliceIndicator.style.left = '20px';
+//                         sliceIndicator.style.height = '2px';
+//                         sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
+//                     } else {
+//                         sliceIndicator.style.left = (20 + video.videoWidth * params.slicePosition * scaleFactor) + 'px';
+//                         sliceIndicator.style.top = '40px';
+//                         sliceIndicator.style.width = '2px';
+//                         sliceIndicator.style.height = `${video.videoHeight * scaleFactor}px`;
+//                     }
+//                     animationId = requestAnimationFrame(animateTexture);
+//                 }
+
+
+//                 animateTexture();
+//             };
+//             function updateSlicePosition(event) {
+//                 let pos = getPosition(event, video, params.mode === 'vertical');
+//                 pos = Math.max(0, Math.min(1, pos)); // Clamp the position between 0 and 1
+//                 params.slicePosition = pos;
+//                 slicePositionController.updateDisplay();
+//             }
+//             video.addEventListener('mousedown', (event) => {
+//                 isMouseDown = true;
+//                 updateSlicePosition(event);
+//             });
+//             window.addEventListener('mouseup', () => {
+//                 isMouseDown = false;
+//             });
+//             window.addEventListener('mousemove', (event) => {
+//                 if (isMouseDown) {
+//                     updateSlicePosition(event);
+//                 }
+//             });
+//             video.addEventListener('touchstart', (event) => {
+//                 isMouseDown = true;
+//                 const touch = event.touches[0];
+//                 updateSlicePosition(touch);
+//             }, { passive: true });
+//             video.addEventListener('touchmove', (event) => {
+//                 if (isMouseDown) {
+//                     const touch = event.touches[0];
+//                     updateSlicePosition(touch);
+//                 }
+//             }, { passive: true });
+//             video.addEventListener('touchend', () => {
+//                 isMouseDown = false;
+//             });
+//         }).catch(error => {
+//             console.error('Error accessing webcam:', error);
+//         });
+//     }
+// });
+
+document.getElementById('exportButton').addEventListener('click', () => {
+    exportGLTF(scene);
+});
+
+
+document.addEventListener('DOMContentLoaded', init);
+
+
+</script>
+</body>
+</html>
