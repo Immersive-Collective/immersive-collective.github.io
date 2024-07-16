@@ -12,14 +12,57 @@
             height: 100vh;
             margin: 0;
             background-color: #f4f4f4;
+            overflow: hidden;
         }
-        .poster {
-            max-width: 100%;
-            height: auto;
+        .carousel {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            scroll-snap-type: x mandatory;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+        .carousel img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            scroll-snap-align: center;
         }
     </style>
 </head>
 <body>
-    <img src="images/poster2.webp" alt="WebXR PWA App Poster" class="poster">
+    <div class="carousel">
+        <img src="images/poster1.webp" alt="Poster 1">
+        <img src="images/poster2.webp" alt="Poster 2">
+        <img src="images/poster3.webp" alt="Poster 3">
+        <img src="images/poster4.webp" alt="Poster 4">
+    </div>
+    <script>
+        document.querySelector('.carousel').addEventListener('wheel', function(event) {
+            if (event.deltaY !== 0) {
+                event.preventDefault();
+                this.scrollLeft += event.deltaY;
+            }
+        });
+
+        let isTouchpad = false;
+        document.querySelector('.carousel').addEventListener('scroll', function(event) {
+            console.log('Scroll event detected');
+        });
+
+        document.querySelector('.carousel').addEventListener('touchmove', function(event) {
+            console.log('Touchmove event detected');
+        });
+
+        document.querySelector('.carousel').addEventListener('wheel', function(event) {
+            if (event.deltaY !== 0) {
+                event.preventDefault();
+                this.scrollLeft += event.deltaY;
+                isTouchpad = true;
+                console.log('Touchpad detected');
+            }
+        });
+    </script>
 </body>
 </html>
