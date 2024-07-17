@@ -1,0 +1,28 @@
+name: Auto Merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  auto-merge:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Configure Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 
+'github-actions[bot]@users.noreply.github.com'
+
+      - name: Merge to Main
+        run: |
+          git checkout main
+          git merge ${{ github.event.pull_request.head.ref }}
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
