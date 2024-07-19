@@ -82,7 +82,8 @@ video::after {
 
 #exportButton img {
     height: 1rem; /* Adjust size as needed */
-    margin-left: 10px; /* Space between text and image */
+    /*margin-left: 10px;*/ 
+    /* Space between text and image */
 }
 #exportButton:hover {
     background-color: rgba(0,0,0,0.5);
@@ -92,14 +93,15 @@ video::after {
 #fullscreenButton {
     position: absolute;
     bottom: 1rem;
-    right: 9rem;
+    right: 6rem;
     display: flex;
     align-items: center;
 }
 
 #fullscreenButton img {
     height: 1rem; /* Adjust size as needed */
-    margin-left: 10px; /* Space between text and image */
+   /* margin-left: 10px; */
+    /* Space between text and image */
 }
 #fullscreenButton:hover {
     background-color: rgba(0,0,0,0.5);
@@ -116,7 +118,7 @@ video::after {
 #webcamButton img {
     height: 1rem;
     /* Adjust size as needed */
-    margin-left: 10px;
+/*    margin-left: 10px;*/
     /* Space between text and image */
 }
 #webcamButton:hover {
@@ -155,15 +157,15 @@ video::after {
     <img src="images/xray-view.svg" alt="Logo Icon">
     <div class="logo-text">Immersive Collective</div>
 </div>
-<button id="webcamButton" class="ui-but">Start
+<button id="webcamButton" class="ui-but">
     <img src="images/webcam.svg" alt="Webcam Icon">
 </button>
 
-<button id="exportButton" class="ui-but">Export
+<button id="exportButton" class="ui-but">
     <img src="images/3d.svg" alt="Export GLB">
 </button>
 
-<button id="fullscreenButton" class="ui-but">Fullscreen
+<button id="fullscreenButton" class="ui-but">
     <img src="images/fullscreen.svg" alt="Fullscreen">
 </button>
 
@@ -835,115 +837,34 @@ function addHexagonWall(video, posX = 0, posY = 0, posZ = 0, layers = 3, cellSiz
 
 
 
-// let octahedron;
-// let octahedronAngle = 0;
-// const octahedronSpeed = 0.01;
-// const octahedronRotationSpeed = 0.01;
-// const octahedronCenterX = 0, octahedronCenterY = 500, octahedronCenterZ = 0;
-// const octahedronRadiusX = 1000, octahedronRadiusZ = 800;
-
-// function animateOctahedron() {
-
-//     if(!scene.getObjectByName("octahedron")) return;
-
-//     // Update position to follow an elliptical path
-//     octahedronAngle += octahedronSpeed;
-//     octahedron.position.x = octahedronCenterX + octahedronRadiusX * Math.cos(octahedronAngle);
-//     octahedron.position.z = octahedronCenterZ + octahedronRadiusZ * Math.sin(octahedronAngle);
-//     octahedron.position.y = octahedronCenterY + 100 * Math.sin(octahedronAngle * 2); // Vertical oscillation
-
-//     // Rotate the octahedron
-//     octahedron.rotation.x += octahedronRotationSpeed;
-//     octahedron.rotation.y += octahedronRotationSpeed;
-//     octahedron.rotation.z += octahedronRotationSpeed;
-
-// }
-
-// function addOctahedron(video) {
-//     const videoTexture = new THREE.VideoTexture(video);
-//     const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
-//     const geometry = new THREE.OctahedronGeometry(200, 2); // Change precision level here
-    
-//     // Check if geometry has an index
-//     if (geometry.index) {
-//         // Indexed geometry (with detail level > 0)
-//         const uvs = [];
-//         const positionCount = geometry.attributes.position.count;
-//         // Define a standard UV mapping for a single face (triangle)
-//         const faceUVs = [
-//             0, 0,  // Vertex 1 UV
-//             1, 0,  // Vertex 2 UV
-//             0.5, 1 // Vertex 3 UV
-//         ];
-//         // Apply UV mapping for each vertex
-//         for (let i = 0; i < positionCount; i += 3) {
-//             uvs.push(...faceUVs);
-//         }
-//         // Update the geometry's UV attribute
-//         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-//     } else {
-//         // Non-indexed geometry
-//         const uvs = [];
-//         const positionCount = geometry.attributes.position.count;
-//         // Define a standard UV mapping for a single face (triangle)
-//         const faceUVs = [
-//             0, 0,  // Vertex 1 UV
-//             1, 0,  // Vertex 2 UV
-//             0.5, 1 // Vertex 3 UV
-//         ];
-//         // Apply UV mapping for each vertex
-//         for (let i = 0; i < positionCount; i += 3) {
-//             uvs.push(...faceUVs);
-//         }
-//         // Update the geometry's UV attribute
-//         geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-//     }
-    
-//     octahedron = new THREE.Mesh(geometry, videoMaterial);
-//     octahedron.position.set(octahedronCenterX, octahedronCenterY, octahedronCenterZ);
-//     octahedron.name = "octahedron";
-//     scene.add(octahedron);
-// }
-
-
-
-
-
-
 let instancedOctahedrons;
-const octahedronCount = 5000; // Number of octahedrons
+const octahedronCount = 100;
 const octahedronBaseSpeed = 0.5;
-const verticalBaseSpeed = 0.003; // Base speed of vertical oscillation
+const verticalBaseSpeed = 0.003;
 const octahedronBaseRotationSpeed = 0.001;
 const octahedronBaseRadiusX = 1300, octahedronBaseRadiusZ = 1000;
-const verticalBaseRadius = 800; // Base amplitude of vertical oscillation
+const verticalBaseRadius = 800;
 const octahedronCenterX = 0, octahedronCenterY = 500, octahedronCenterZ = 0;
 
 const octahedrons = [];
 
 function animateOctahedrons() {
-
-    if (!instancedOctahedrons) return; 
-
+    if (!instancedOctahedrons) return;
 
     const dummy = new THREE.Object3D();
 
     octahedrons.forEach((octa, i) => {
-        // Update angles for elliptical and vertical paths
         octa.angle += octa.speed;
         octa.verticalAngle += octa.verticalSpeed;
 
-        // Update position to follow a complex path
         dummy.position.x = octa.centerX + octa.radiusX * Math.cos(octa.angle);
         dummy.position.z = octa.centerZ + octa.radiusZ * Math.sin(octa.angle);
         dummy.position.y = octa.centerY + octa.verticalRadius * Math.sin(octa.verticalAngle);
 
-        // Rotate the octahedron
         dummy.rotation.x = octa.initialRotation.x + octa.rotationSpeed;
         dummy.rotation.y = octa.initialRotation.y + octa.rotationSpeed;
         dummy.rotation.z = octa.initialRotation.z + octa.rotationSpeed;
 
-        // Scale the octahedron
         dummy.scale.set(octa.scale, octa.scale, octa.scale);
 
         dummy.updateMatrix();
@@ -955,25 +876,20 @@ function animateOctahedrons() {
 
 function addOctahedrons(video) {
     const videoTexture = new THREE.VideoTexture(video);
-    
-    //const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
 
     const videoMaterial = new THREE.MeshBasicMaterial({ 
         map: videoTexture, 
-        side: THREE.FrontSide, // or THREE.BackSide for the opposite side
+        side: THREE.FrontSide,
         transparent: true, 
-        opacity: 0.7 // Adjust opacity as needed
+        opacity: 0.7 
     });
 
-
-    const geometry = new THREE.OctahedronGeometry(1, 2); // Use scale to adjust size later
+    const geometry = new THREE.OctahedronGeometry(1, 3);
 
     instancedOctahedrons = new THREE.InstancedMesh(geometry, videoMaterial, octahedronCount);
 
     for (let i = 0; i < octahedronCount; i++) {
-
         const size = 0.1 + Math.random() * 80;
-        
         const angleOffset = Math.random() * Math.PI * 2;
         const dummy = new THREE.Object3D();
 
@@ -984,10 +900,10 @@ function addOctahedrons(video) {
 
         const octa = {
             angle: angleOffset,
-            verticalAngle: Math.random() * Math.PI * 2, // Start with a random vertical angle
-            speed: (octahedronBaseSpeed + Math.random() * 0.01) / size, // Speed inversely proportional to size
-            verticalSpeed: (verticalBaseSpeed + Math.random() * 0.01) / size, // Vertical speed inversely proportional to size
-            rotationSpeed: octahedronBaseRotationSpeed / size * 4, // Rotation speed inversely proportional to size
+            verticalAngle: Math.random() * Math.PI * 2,
+            speed: (octahedronBaseSpeed + Math.random() * 0.01) / size,
+            verticalSpeed: (verticalBaseSpeed + Math.random() * 0.01) / size,
+            rotationSpeed: octahedronBaseRotationSpeed / size * 4,
             initialRotation: {
                 x: Math.random() * Math.PI * 1.5,
                 y: Math.random() * Math.PI * 2,
@@ -1005,8 +921,134 @@ function addOctahedrons(video) {
         octahedrons.push(octa);
     }
 
+    // Add a few static octahedrons
+    for (let i = 0; i < 10; i++) {
+        const size = 50 + Math.random() * 100;
+        const angleOffset = Math.random() * Math.PI * 2;
+        const distanceOffset = 2500 + Math.random() * 500;
+        const staticDummy = new THREE.Object3D();
+
+        staticDummy.position.set(distanceOffset * Math.cos(angleOffset), octahedronCenterY, distanceOffset * Math.sin(angleOffset));
+        staticDummy.scale.set(size, size, size);
+        staticDummy.updateMatrix();
+        instancedOctahedrons.setMatrixAt(octahedronCount + i, staticDummy.matrix);
+
+        const staticOcta = {
+            rotationSpeed: octahedronBaseRotationSpeed / size,
+            initialRotation: {
+                x: Math.random() * Math.PI * 2,
+                y: Math.random() * Math.PI * 2,
+                z: Math.random() * Math.PI * 2
+            },
+            scale: size
+        };
+
+        octahedrons.push(staticOcta);
+    }
+
     scene.add(instancedOctahedrons);
 }
+
+
+
+
+// let instancedOctahedrons;
+// const octahedronCount = 5000; // Number of octahedrons
+// const octahedronBaseSpeed = 0.5;
+// const verticalBaseSpeed = 0.003; // Base speed of vertical oscillation
+// const octahedronBaseRotationSpeed = 0.001;
+// const octahedronBaseRadiusX = 1300, octahedronBaseRadiusZ = 1000;
+// const verticalBaseRadius = 800; // Base amplitude of vertical oscillation
+// const octahedronCenterX = 0, octahedronCenterY = 500, octahedronCenterZ = 0;
+
+// const octahedrons = [];
+
+// function animateOctahedrons() {
+
+//     if (!instancedOctahedrons) return; 
+
+
+//     const dummy = new THREE.Object3D();
+
+//     octahedrons.forEach((octa, i) => {
+//         // Update angles for elliptical and vertical paths
+//         octa.angle += octa.speed;
+//         octa.verticalAngle += octa.verticalSpeed;
+
+//         // Update position to follow a complex path
+//         dummy.position.x = octa.centerX + octa.radiusX * Math.cos(octa.angle);
+//         dummy.position.z = octa.centerZ + octa.radiusZ * Math.sin(octa.angle);
+//         dummy.position.y = octa.centerY + octa.verticalRadius * Math.sin(octa.verticalAngle);
+
+//         // Rotate the octahedron
+//         dummy.rotation.x = octa.initialRotation.x + octa.rotationSpeed;
+//         dummy.rotation.y = octa.initialRotation.y + octa.rotationSpeed;
+//         dummy.rotation.z = octa.initialRotation.z + octa.rotationSpeed;
+
+//         // Scale the octahedron
+//         dummy.scale.set(octa.scale, octa.scale, octa.scale);
+
+//         dummy.updateMatrix();
+//         instancedOctahedrons.setMatrixAt(i, dummy.matrix);
+//     });
+
+//     instancedOctahedrons.instanceMatrix.needsUpdate = true;
+// }
+
+// function addOctahedrons(video) {
+//     const videoTexture = new THREE.VideoTexture(video);
+    
+//     //const videoMaterial = new THREE.MeshBasicMaterial({ map: videoTexture, side: THREE.DoubleSide });
+
+//     const videoMaterial = new THREE.MeshBasicMaterial({ 
+//         map: videoTexture, 
+//         side: THREE.FrontSide, // or THREE.BackSide for the opposite side
+//         transparent: true, 
+//         opacity: 0.7 // Adjust opacity as needed
+//     });
+
+
+//     const geometry = new THREE.OctahedronGeometry(1, 2); // Use scale to adjust size later
+
+//     instancedOctahedrons = new THREE.InstancedMesh(geometry, videoMaterial, octahedronCount);
+
+//     for (let i = 0; i < octahedronCount; i++) {
+
+//         const size = 0.1 + Math.random() * 80;
+        
+//         const angleOffset = Math.random() * Math.PI * 2;
+//         const dummy = new THREE.Object3D();
+
+//         dummy.position.set(octahedronBaseRadiusX * Math.cos(angleOffset), octahedronCenterY, octahedronBaseRadiusZ * Math.sin(angleOffset));
+//         dummy.scale.set(size, size, size);
+//         dummy.updateMatrix();
+//         instancedOctahedrons.setMatrixAt(i, dummy.matrix);
+
+//         const octa = {
+//             angle: angleOffset,
+//             verticalAngle: Math.random() * Math.PI * 2, // Start with a random vertical angle
+//             speed: (octahedronBaseSpeed + Math.random() * 0.01) / size, // Speed inversely proportional to size
+//             verticalSpeed: (verticalBaseSpeed + Math.random() * 0.01) / size, // Vertical speed inversely proportional to size
+//             rotationSpeed: octahedronBaseRotationSpeed / size * 4, // Rotation speed inversely proportional to size
+//             initialRotation: {
+//                 x: Math.random() * Math.PI * 1.5,
+//                 y: Math.random() * Math.PI * 2,
+//                 z: Math.random() * Math.PI * 2
+//             },
+//             centerX: octahedronCenterX,
+//             centerY: octahedronCenterY,
+//             centerZ: octahedronCenterZ,
+//             radiusX: octahedronBaseRadiusX + Math.random() * 1000 - 100,
+//             radiusZ: octahedronBaseRadiusZ + Math.random() * 2000 - 100,
+//             verticalRadius: verticalBaseRadius + Math.random() * 50 - 25,
+//             scale: size
+//         };
+
+//         octahedrons.push(octa);
+//     }
+
+//     scene.add(instancedOctahedrons);
+// }
 
 
 
@@ -1041,7 +1083,7 @@ function toggleFullscreen() {
     } else if (document.msExitFullscreen) {
       document.msExitFullscreen();
     }
-    document.getElementById("fullscreenButton").innerHTML = `Fullscreen <img src="images/fullscreen.svg" alt="Fullscreen">`;
+    document.getElementById("fullscreenButton").innerHTML = `<img src="images/fullscreen.svg" alt="Fullscreen">`;
   } else {
     if (elem.requestFullscreen) {
       elem.requestFullscreen();
@@ -1052,7 +1094,7 @@ function toggleFullscreen() {
     } else if (elem.msRequestFullscreen) {
       elem.msRequestFullscreen();
     }
-    document.getElementById("fullscreenButton").innerHTML = `Exit Fullscreen <img src="images/fullscreen.svg" alt="Fullscreen">`;
+    document.getElementById("fullscreenButton").innerHTML = `<img src="images/fullscreen.svg" alt="Fullscreen">`;
   }
 
 }
@@ -1190,7 +1232,12 @@ function moveCamera() {
     const targetZ = Math.sin(time * 1.5 + 0.1) * radiusZ;
     const targetY = height + Math.sin(time * 2 + 0.1) * verticalOscillation;
 
-    camera.lookAt(new THREE.Vector3(targetX, targetY, 500));
+    // camera.lookAt(new THREE.Vector3(targetX, targetY, 500));
+
+
+    camera.lookAt(new THREE.Vector3(targetX, targetY, targetZ));
+
+
 }
 
 function animate() {
@@ -1333,7 +1380,7 @@ document.getElementById('webcamButton').addEventListener('click', () => {
         tracks.forEach(track => track.stop());
         video.srcObject = null;
 
-        webcamButton.innerHTML = 'Start <img src="images/webcam.svg" alt="Webcam Icon">';
+        webcamButton.innerHTML = '<img src="images/webcam.svg" alt="Webcam Icon">';
         video.style.display = 'none';
         sliceIndicator.style.display = 'none';
         isWebcamActive = false;
@@ -1352,7 +1399,7 @@ document.getElementById('webcamButton').addEventListener('click', () => {
                 video.style.height = `${video.videoHeight * scaleFactor}px`;
                 sliceIndicator.style.width = `${video.videoWidth * scaleFactor}px`;
                 isWebcamActive = true;
-                webcamButton.innerHTML = 'Stop <img src="images/webcam.svg" alt="Webcam Icon">';
+                webcamButton.innerHTML = '<img src="images/webcam.svg" alt="Webcam Icon">';
                 video.style.display = 'block';
                 sliceIndicator.style.display = 'block';
                 updateGroundAndTopology(video.videoWidth, video.videoHeight);
