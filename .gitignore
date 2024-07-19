@@ -43,6 +43,11 @@ build/Release
 
 # Dependency directories
 node_modules/
+
+# But not in the local-folder
+!projects/xr-hack/fruitmania/rapier/node_modules/
+
+
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)
