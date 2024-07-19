@@ -1,0 +1,150 @@
+{
+    "file_path": "ZERO-1R.glb",
+    "original_file_size": 2360048,
+    "scenes_info": [
+        {
+            "name": "Scene",
+            "objects": [
+                "Armature_Idle",
+                "Object_10.001",
+                "Object_11.001",
+                "Object_12.001",
+                "Object_6.001",
+                "Object_7.001",
+                "Object_8.001",
+                "Object_9.001",
+                "Cube",
+                "Light",
+                "Camera",
+                "Icosphere"
+            ]
+        }
+    ],
+    "meshes_info": [
+        {
+            "name": "02_1_01 - Default_0.002",
+            "vertices": 2365,
+            "faces": 4405,
+            "materials": [
+                "01_-_Default.002"
+            ]
+        },
+        {
+            "name": "02_1_02 - Default_0.002",
+            "vertices": 576,
+            "faces": 856,
+            "materials": [
+                "02_-_Default.002"
+            ]
+        },
+        {
+            "name": "02_1_03 - Default_0.002",
+            "vertices": 1256,
+            "faces": 1948,
+            "materials": [
+                "03_-_Default.002"
+            ]
+        },
+        {
+            "name": "02_1_04 - Default_0.002",
+            "vertices": 2195,
+            "faces": 3514,
+            "materials": [
+                "04_-_Default.002"
+            ]
+        },
+        {
+            "name": "02_1_05 - Default_0.002",
+            "vertices": 4895,
+            "faces": 8644,
+            "materials": [
+                "05_-_Default.002"
+            ]
+        },
+        {
+            "name": "02_1_06 - Default_0.002",
+            "vertices": 175,
+            "faces": 266,
+            "materials": [
+                "06_-_Default.002"
+            ]
+        },
+        {
+            "name": "02_1_07 - Default_0.002",
+            "vertices": 13595,
+            "faces": 20734,
+            "materials": [
+                "07_-_Default.002"
+            ]
+        },
+        {
+            "name": "Cube",
+            "vertices": 8,
+            "faces": 6,
+            "materials": [
+                "Material"
+            ]
+        },
+        {
+            "name": "Icosphere",
+            "vertices": 42,
+            "faces": 80,
+            "materials": []
+        }
+    ],
+    "materials_info": [
+        {
+            "name": "Material",
+            "base_color": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+            ]
+        }
+    ],
+    "animations_info": [
+        {
+            "name": "Armature|mixamo.com|Layer0.002_Armature_Idle",
+            "frame_range": [
+                0.8000000715255737,
+                24.0
+            ]
+        },
+        {
+            "name": "idle_Armature_Idle",
+            "frame_range": [
+                0.8000000715255737,
+                400.0
+            ]
+        },
+        {
+            "name": "jump_Armature_Idle",
+            "frame_range": [
+                0.8000000715255737,
+                49.599998474121094
+            ]
+        },
+        {
+            "name": "run_Armature_Idle",
+            "frame_range": [
+                0.8000000715255737,
+                18.399999618530273
+            ]
+        },
+        {
+            "name": "walk_Armature_Idle",
+            "frame_range": [
+                0.8000000715255737,
+                24.0
+            ]
+        }
+    ],
+    "camera_info": {
+        "location": [
+            2.911074161529541,
+            -2.6317648887634277,
+            3.007497549057007
+        ]
+    }
+}

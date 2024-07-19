@@ -1,0 +1,3179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>WebXR Emitter Application</title>
+    
+    <style>
+        body { margin: 0; }
+        
+        canvas { display: block; }
+
+        #guiOverlayInput {
+            position: absolute;
+            width: min-content;
+            display: none;
+            top: 8px;
+            left: 8px;
+            z-index: 1001;
+        }
+
+        #guiHolderWrap {
+            border: 1px solid #ffffff2b;
+            max-height: 90vh;
+            /* Adjust this value as needed */
+            overflow-y: auto;
+            border-radius: 0.5rem;
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+
+        }
+
+        #guiOverlayBar {
+            color: black;
+            font-size: 0.5rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            background-color: none;
+            width: -webkit-fill-available;
+            text-align: center;
+            border-radius: 0.2rem;
+        }
+
+        #guiOverlayBar:hover {
+            color: initial;
+            background: linear-gradient(145deg, #f5f5f5, #e0e0e0, #9e9e9e, #757575, #616161, #424242, #212121);
+
+        }
+
+        #guiCloudsOverlayInput {
+            position: absolute;
+            width: min-content;
+            display: none;
+            top: 50px;
+            right: 50px;
+        }
+
+        #guiCloudsOverlayBar {
+            color: black;
+            font-size: 0.5rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            background-color: none;
+            width: -webkit-fill-available;
+            text-align: center;
+            border-radius: 0.2rem;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            border-bottom: 1px solid black;
+        }
+
+        #guiCloudsOverlayBar:hover {
+            background-color: rgba(255, 255, 255, 0.95);
+            color: initial;
+        }        
+        
+        /* Control Pad */
+        .custom-vr-button {
+            background: #0000003b;
+            border: 1px solid rgba(255, 255, 255, 0);
+            border-radius: 50%;
+            display: block;
+            width: 53px;
+            height: 53px;
+            position: fixed;
+            bottom: 53px;
+            left: 20px;
+            padding: 0.25rem;
+            margin: 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .display-block {
+            display: block !important;
+        }
+
+        .custom-vr-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            /* Slight background color on hover */
+            transform: scale(1.1);
+            /* Slightly larger on hover */
+        }
+
+        .custom-vr-button:active {
+            background-color: rgba(255, 255, 255, 0.3);
+            /* Slightly more intense background on active */
+            border-color: rgba(255, 255, 255, 0.7);
+            /* More intense border on active */
+            transform: scale(0.95);
+            /* Slightly smaller on active (click) */
+        }
+
+
+    </style>
+</head>
+
+<body>
+
+<div id="guiOverlayInput">
+    <div id="guiOverlayBar"></div>
+    <div class="guiSettings">
+        <div id="guiHolderWrap">
+            <div id="guiHolder"></div>
+        </div>
+    </div>
+</div>
+
+<script type="importmap">
+    {
+    "imports": {
+        "three": "/node_modules/three/build/three.module.js",
+        "three/addons/": "/node_modules/three/examples/jsm/",
+        "rapier": "/node_modules/@dimforge/rapier3d-compat/rapier.es.js"
+        }
+    }
+</script>
+
+
+<script type="module">
+
+
+/* 
+
+    Imports
+    ----------------------------------------------- 
+
+    */    
+
+
+import * as THREE from 'three';
+import { XRButton } from 'three/addons/webxr/XRButton.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';  
+
+import { XRHandModelFactory } from 'three/addons/webxr/XRHandModelFactory.js';
+
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { GUI } from 'https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm';    
+import RAPIER from 'rapier';
+
+
+/* 
+
+    Variables
+    ----------------------------------------------- 
+
+    */
+
+let scene, camera, renderer
+// let controller1, controller2;
+// let controllerGrip1, controllerGrip2;
+
+const guiInstances = new Map();
+
+
+
+
+
+/* 
+
+    Emitters
+    ----------------------------------------------- 
+
+    */
+
+
+const storedEmitters = [];
+
+
+/* Emitters */
+function cubeEmitter({ x = 0, y = 3, z = 0, ...params } = {}, interTime = 2000) {
+    let position = { x, y, z };
+    let geometryParams = params;
+    let currentGeometry = geometryParams.geometryType;
+
+    let intervalId = null;
+    let producedCubes = [];
+    let isActive = false;
+
+    function start() {
+        if (isActive) return;
+        isActive = true;
+        intervalId = setInterval(() => {
+            const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+            const random = geometryParams.randomSizes;
+            const sizeVector = random
+                ? new THREE.Vector3(
+                    Math.random() * geometryParams.sx,
+                    Math.random() * geometryParams.sy,
+                    Math.random() * geometryParams.sz
+                )
+                : new THREE.Vector3(geometryParams.sx, geometryParams.sy, geometryParams.sz);
+            const cubePosition = new THREE.Vector3(position.x, position.y, position.z);
+            const cube = addSingleObject(currentGeometry, { ...geometryParams, sx: sizeVector.x, sy: sizeVector.y, sz: sizeVector.z }, cubePosition, color, random);
+            producedCubes.push(cube);
+        }, interTime);
+    }
+
+    function pause() {
+        if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+            isActive = false;
+        }
+    }
+
+    function reset() {
+        pause();
+        producedCubes.forEach(({ mesh, rigidBody, collider }) => {
+            if (mesh) {
+                scene.remove(mesh);
+                const meshIndex = window.threeCubes.indexOf(mesh);
+                if (meshIndex > -1) {
+                    window.threeCubes.splice(meshIndex, 1);
+                }
+            }
+            if (myRapierWorld && rigidBody) {
+                myRapierWorld.removeCollider(collider, true);
+                myRapierWorld.removeRigidBody(rigidBody, true);
+                const rigidBodyIndex = window.rigidBodies.indexOf(rigidBody);
+                if (rigidBodyIndex > -1) {
+                    window.rigidBodies.splice(rigidBodyIndex, 1);
+                }
+            }
+        });
+        producedCubes = [];
+    }
+
+    function setPosition(newPosition) {
+        position = newPosition;
+    }
+
+    function setGeometryParams(newParams) {
+        geometryParams = { ...geometryParams, ...newParams };
+    }
+
+    function setGeometryType(type) {
+        currentGeometry = type;
+    }
+
+    function setIntervalTime(newIntervalTime) {
+        interTime = newIntervalTime;
+        if (isActive) {
+            pause();
+            start();
+        }
+    }
+
+    function setRandomSizes(value) {
+        geometryParams.randomSizes = value;
+    }
+
+    function addSingleObject(type, params, position, color, random) {
+        let geometry;
+
+        switch (type) {
+            case 'BoxGeometry':
+                geometry = new THREE.BoxGeometry(params.sx, params.sy, params.sz);
+                break;
+            case 'SphereGeometry':
+                geometry = new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
+                break;
+            case 'CapsuleGeometry':
+                geometry = new THREE.CapsuleGeometry(params.radius, params.length, params.capSegments, params.radialSegments);
+                break;
+            case 'CircleGeometry':
+                geometry = new THREE.CircleGeometry(params.radius, params.segments, params.thetaStart, params.thetaLength);
+                break;
+            case 'ConeGeometry':
+                geometry = new THREE.ConeGeometry(params.radius, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
+                break;
+            case 'CylinderGeometry':
+                geometry = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
+                break;
+            case 'DodecahedronGeometry':
+                geometry = new THREE.DodecahedronGeometry(params.radius, params.detail);
+                break;
+            case 'IcosahedronGeometry':
+                geometry = new THREE.IcosahedronGeometry(params.radius, params.detail);
+                break;
+            case 'OctahedronGeometry':
+                geometry = new THREE.OctahedronGeometry(params.radius, params.detail);
+                break;
+            case 'PlaneGeometry':
+                geometry = new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments);
+                break;
+            case 'RingGeometry':
+                geometry = new THREE.RingGeometry(params.innerRadius, params.outerRadius, params.thetaSegments, params.phiSegments, params.thetaStart, params.thetaLength);
+                break;
+            case 'TetrahedronGeometry':
+                geometry = new THREE.TetrahedronGeometry(params.radius, params.detail);
+                break;
+            case 'TorusGeometry':
+                geometry = new THREE.TorusGeometry(params.radius, params.tube, params.radialSegments, params.tubularSegments, params.arc);
+                break;
+            case 'TorusKnotGeometry':
+                geometry = new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q);
+                break;
+            default:
+                geometry = new THREE.BoxGeometry(params.sx, params.sy, params.sz);
+                break;
+        }
+
+        const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
+        const bodyMesh = new THREE.Mesh(geometry, bodyMaterial);
+
+        bodyMesh.position.copy(position);
+        bodyMesh.castShadow = true;
+        bodyMesh.receiveShadow = true;
+
+        bodyMesh.type = "cb";
+
+        scene.add(bodyMesh);
+
+        let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(position.x, position.y, position.z);
+
+
+        let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+
+        let colliderDesc;
+        if (type === 'BoxGeometry') {
+            colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2);
+        } else if (['SphereGeometry', 'DodecahedronGeometry', 'IcosahedronGeometry', 'OctahedronGeometry', 'TetrahedronGeometry'].includes(type)) {
+            const radius = params.radius;
+            colliderDesc = RAPIER.ColliderDesc.ball(radius);
+        } else if (type === 'CapsuleGeometry') {
+            const radius = params.radius;
+            colliderDesc = RAPIER.ColliderDesc.capsule(radius, params.length / 2);
+        } else if (type === 'CylinderGeometry') {
+            colliderDesc = RAPIER.ColliderDesc.cylinder(params.height / 2, params.radiusTop);
+        } else if (type === 'ConeGeometry') {
+            colliderDesc = RAPIER.ColliderDesc.cone(params.height / 2, params.radius);
+        } else {
+            colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2);
+        }
+
+        let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
+
+        rigidBody.type = "cb";
+
+        window.rigidBodies.push(rigidBody);
+        window.threeCubes.push(bodyMesh);
+
+        return { mesh: bodyMesh, rigidBody: rigidBody, collider: collider };
+    }
+
+    return {
+        start,
+        pause,
+        reset,
+        setPosition,
+        setGeometryParams,
+        setGeometryType,
+        setIntervalTime,
+        setRandomSizes
+    };
+}
+
+window.cubeEmitter = cubeEmitter;
+
+/* Emitters GUI */
+
+function initEmittersEdit(guiKey) {
+    const container = document.getElementById("guiHolder");
+
+    const gui = new GUI({ width: 350, container: container });
+    guiInstances.set(guiKey, gui);
+
+    const emitters = [];
+
+    function addEmitter() {
+        const emitterParams = {
+            id: generateUniqueId(),
+            x: 0,
+            y: 3,
+            z: 0,
+            sx: 1,
+            sy: 1,
+            sz: 1,
+            randomSizes: false,
+            geometryType: 'BoxGeometry',
+            interval: 500
+        };
+
+        const folder = gui.addFolder('Add Emitter');
+
+        folder.add(emitterParams, 'geometryType', [
+            'BoxGeometry', 'SphereGeometry', 'CapsuleGeometry', 'CircleGeometry', 'ConeGeometry',
+            'CylinderGeometry', 'DodecahedronGeometry', 'IcosahedronGeometry', 'OctahedronGeometry', 'PlaneGeometry',
+            'RingGeometry', 'TetrahedronGeometry', 'TorusGeometry', 'TorusKnotGeometry'
+        ]).name('Geometry Type');
+
+        folder.add({ create: () => createEmitter(emitterParams) }, 'create').name('Create Emitter');
+        folder.open();
+    }
+
+    function createEmitter(params) {
+        const index = emitters.length;
+        const emitter = cubeEmitter(params);
+        emitters.push({ emitter, params });
+        storedEmitters.push(params); // Store parameters
+
+        const folder = gui.addFolder(`Emitter ${params.id}`);
+        folder.add(params, 'x', -30, 30).name('X').onChange(() => {
+            emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+            updatePreviewMeshPosition(emitter.previewMesh, params);
+        });
+        folder.add(params, 'y', 0, 30).name('Y').onChange(() => {
+            emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+            updatePreviewMeshPosition(emitter.previewMesh, params);
+        });
+        folder.add(params, 'z', -30, 30).name('Z').onChange(() => {
+            emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+            updatePreviewMeshPosition(emitter.previewMesh, params);
+        });
+
+        folder.add(params, 'randomSizes').name('Random Sizes').onChange(() => emitter.setRandomSizes(params.randomSizes));
+        folder.add(params, 'interval', 1, 5000).name('Interval (ms)').onChange(() => emitter.setIntervalTime(params.interval));
+
+        addGeometrySpecificParams(folder, params, emitter);
+
+        folder.add({ start: () => startEmitter(index) }, 'start').name('Start');
+        folder.add({ pause: () => pauseEmitter(index) }, 'pause').name('Pause');
+        folder.add({ reset: () => resetEmitter(index, emitter.previewMesh) }, 'reset').name('Reset');
+        folder.add({ exportEmitter: () => exportEmitter(params) }, 'exportEmitter').name('Export Emitter');
+
+        folder.open();
+
+        emitter.previewMesh = createStaticPreview(params);
+    }
+
+    function addGeometrySpecificParams(folder, params, emitter) {
+        switch (params.geometryType) {
+            case 'BoxGeometry':
+                folder.add(params, 'sx', 0.01, 3).name('Width').onChange(() => {
+                    emitter.setGeometryParams({ sx: params.sx });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'sy', 0.01, 3).name('Height').onChange(() => {
+                    emitter.setGeometryParams({ sy: params.sy });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'sz', 0.01, 3).name('Depth').onChange(() => {
+                    emitter.setGeometryParams({ sz: params.sz });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                break;
+            case 'SphereGeometry':
+            case 'CapsuleGeometry':
+            case 'DodecahedronGeometry':
+            case 'IcosahedronGeometry':
+            case 'OctahedronGeometry':
+            case 'TetrahedronGeometry':
+                params.radius = params.radius || 1;
+                folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
+                    emitter.setGeometryParams({ radius: params.radius });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                if (params.geometryType === 'SphereGeometry') {
+                    params.widthSegments = params.widthSegments || 32;
+                    params.heightSegments = params.heightSegments || 16;
+                    folder.add(params, 'widthSegments', 3, 64).name('Width Segments').onChange(() => {
+                        emitter.setGeometryParams({ widthSegments: params.widthSegments });
+                        updatePreviewMeshGeometry(emitter.previewMesh, params);
+                    });
+                    folder.add(params, 'heightSegments', 2, 32).name('Height Segments').onChange(() => {
+                        emitter.setGeometryParams({ heightSegments: params.heightSegments });
+                        updatePreviewMeshGeometry(emitter.previewMesh, params);
+                    });
+                } else if (params.geometryType === 'CapsuleGeometry') {
+                    params.length = params.length || 1;
+                    params.capSegments = params.capSegments || 4;
+                    params.radialSegments = params.radialSegments || 8;
+                    folder.add(params, 'length', 0.01, 3).name('Length').onChange(() => {
+                        emitter.setGeometryParams({ length: params.length });
+                        updatePreviewMeshGeometry(emitter.previewMesh, params);
+                    });
+                    folder.add(params, 'capSegments', 2, 32).name('Cap Segments').onChange(() => {
+                        emitter.setGeometryParams({ capSegments: params.capSegments });
+                        updatePreviewMeshGeometry(emitter.previewMesh, params);
+                    });
+                    folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
+                        emitter.setGeometryParams({ radialSegments: params.radialSegments });
+                        updatePreviewMeshGeometry(emitter.previewMesh, params);
+                    });
+                }
+                break;
+            case 'CircleGeometry':
+                params.radius = params.radius || 1;
+                params.segments = params.segments || 32;
+                params.thetaStart = params.thetaStart || 0;
+                params.thetaLength = params.thetaLength || Math.PI * 2;
+                folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
+                    emitter.setGeometryParams({ radius: params.radius });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'segments', 3, 64).name('Segments').onChange(() => {
+                    emitter.setGeometryParams({ segments: params.segments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
+                    emitter.setGeometryParams({ thetaStart: params.thetaStart });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
+                    emitter.setGeometryParams({ thetaLength: params.thetaLength });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                break;
+            case 'ConeGeometry':
+                params.radius = params.radius || 1;
+                params.height = params.height || 1;
+                params.radialSegments = params.radialSegments || 32;
+                params.heightSegments = params.heightSegments || 1;
+                params.openEnded = params.openEnded || false;
+                params.thetaStart = params.thetaStart || 0;
+                params.thetaLength = params.thetaLength || Math.PI * 2;
+                folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
+                    emitter.setGeometryParams({ radius: params.radius });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'height', 0.01, 3).name('Height').onChange(() => {
+                    emitter.setGeometryParams({ height: params.height });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
+                    emitter.setGeometryParams({ radialSegments: params.radialSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'heightSegments', 1, 32).name('Height Segments').onChange(() => {
+                    emitter.setGeometryParams({ heightSegments: params.heightSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'openEnded').name('Open Ended').onChange(() => {
+                    emitter.setGeometryParams({ openEnded: params.openEnded });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
+                    emitter.setGeometryParams({ thetaStart: params.thetaStart });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
+                    emitter.setGeometryParams({ thetaLength: params.thetaLength });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                break;
+            case 'CylinderGeometry':
+                params.radiusTop = params.radiusTop || 1;
+                params.radiusBottom = params.radiusBottom || 1;
+                params.height = params.height || 1;
+                params.radialSegments = params.radialSegments || 32;
+                params.heightSegments = params.heightSegments || 1;
+                params.openEnded = params.openEnded || false;
+                params.thetaStart = params.thetaStart || 0;
+                params.thetaLength = params.thetaLength || Math.PI * 2;
+                folder.add(params, 'radiusTop', 0.01, 3).name('Radius Top').onChange(() => {
+                    emitter.setGeometryParams({ radiusTop: params.radiusTop });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'radiusBottom', 0.01, 3).name('Radius Bottom').onChange(() => {
+                    emitter.setGeometryParams({ radiusBottom: params.radiusBottom });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'height', 0.01, 3).name('Height').onChange(() => {
+                    emitter.setGeometryParams({ height: params.height });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
+                    emitter.setGeometryParams({ radialSegments: params.radialSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'heightSegments', 1, 32).name('Height Segments').onChange(() => {
+                    emitter.setGeometryParams({ heightSegments: params.heightSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'openEnded').name('Open Ended').onChange(() => {
+                    emitter.setGeometryParams({ openEnded: params.openEnded });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
+                    emitter.setGeometryParams({ thetaStart: params.thetaStart });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
+                    emitter.setGeometryParams({ thetaLength: params.thetaLength });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                break;
+            case 'PlaneGeometry':
+                params.width = params.width || 1;
+                params.height = params.height || 1;
+                params.widthSegments = params.widthSegments || 1;
+                params.heightSegments = params.heightSegments || 1;
+                folder.add(params, 'width', 0.01, 3).name('Width').onChange(() => {
+                    emitter.setGeometryParams({ width: params.width });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'height', 0.01, 3).name('Height').onChange(() => {
+                    emitter.setGeometryParams({ height: params.height });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'widthSegments', 1, 32).name('Width Segments').onChange(() => {
+                    emitter.setGeometryParams({ widthSegments: params.widthSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'heightSegments', 1, 32).name('Height Segments').onChange(() => {
+                    emitter.setGeometryParams({ heightSegments: params.heightSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                break;
+            case 'RingGeometry':
+                params.innerRadius = params.innerRadius || 0.5;
+                params.outerRadius = params.outerRadius || 1;
+                params.thetaSegments = params.thetaSegments || 32;
+                params.phiSegments = params.phiSegments || 1;
+                params.thetaStart = params.thetaStart || 0;
+                params.thetaLength = params.thetaLength || Math.PI * 2;
+                folder.add(params, 'innerRadius', 0.01, 3).name('Inner Radius').onChange(() => {
+                    emitter.setGeometryParams({ innerRadius: params.innerRadius });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'outerRadius', 0.01, 3).name('Outer Radius').onChange(() => {
+                    emitter.setGeometryParams({ outerRadius: params.outerRadius });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'thetaSegments', 3, 64).name('Theta Segments').onChange(() => {
+                    emitter.setGeometryParams({ thetaSegments: params.thetaSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'phiSegments', 1, 32).name('Phi Segments').onChange(() => {
+                    emitter.setGeometryParams({ phiSegments: params.phiSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
+                    emitter.setGeometryParams({ thetaStart: params.thetaStart });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
+                    emitter.setGeometryParams({ thetaLength: params.thetaLength });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                break;
+            case 'TorusGeometry':
+                params.radius = params.radius || 1;
+                params.tube = params.tube || 0.4;
+                params.radialSegments = params.radialSegments || 12;
+                params.tubularSegments = params.tubularSegments || 48;
+                params.arc = params.arc || Math.PI * 2;
+                folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
+                    emitter.setGeometryParams({ radius: params.radius });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'tube', 0.01, 3).name('Tube').onChange(() => {
+                    emitter.setGeometryParams({ tube: params.tube });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
+                    emitter.setGeometryParams({ radialSegments: params.radialSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'tubularSegments', 3, 64).name('Tubular Segments').onChange(() => {
+                    emitter.setGeometryParams({ tubularSegments: params.tubularSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'arc', 0, Math.PI * 2).name('Arc').onChange(() => {
+                    emitter.setGeometryParams({ arc: params.arc });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                break;
+            case 'TorusKnotGeometry':
+                params.radius = params.radius || 1;
+                params.tube = params.tube || 0.4;
+                params.tubularSegments = params.tubularSegments || 64;
+                params.radialSegments = params.radialSegments || 8;
+                params.p = params.p || 2;
+                params.q = params.q || 3;
+                folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
+                    emitter.setGeometryParams({ radius: params.radius });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'tube', 0.01, 3).name('Tube').onChange(() => {
+                    emitter.setGeometryParams({ tube: params.tube });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'tubularSegments', 3, 64).name('Tubular Segments').onChange(() => {
+                    emitter.setGeometryParams({ tubularSegments: params.tubularSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
+                    emitter.setGeometryParams({ radialSegments: params.radialSegments });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'p', 1, 10).name('P').onChange(() => {
+                    emitter.setGeometryParams({ p: params.p });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                folder.add(params, 'q', 1, 10).name('Q').onChange(() => {
+                    emitter.setGeometryParams({ q: params.q });
+                    updatePreviewMeshGeometry(emitter.previewMesh, params);
+                });
+                break;
+            default:
+                break;
+        }
+    }
+
+    function createStaticPreview(params) {
+        const color = new THREE.Color(1, 0, 0); // Red color for edges
+        const geometry = createGeometry(params.geometryType, params);
+        const edges = new THREE.EdgesGeometry(geometry);
+        const material = new THREE.LineBasicMaterial({ color: color });
+        const previewMesh = new THREE.LineSegments(edges, material);
+
+        previewMesh.position.set(params.x, params.y, params.z);
+        scene.add(previewMesh);
+
+        return previewMesh;
+    }
+
+    function createGeometry(type, params) {
+        switch (type) {
+            case 'BoxGeometry':
+                return new THREE.BoxGeometry(params.sx, params.sy, params.sz);
+            case 'SphereGeometry':
+                return new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
+            case 'CapsuleGeometry':
+                return new THREE.CapsuleGeometry(params.radius, params.length, params.capSegments, params.radialSegments);
+            case 'CircleGeometry':
+                return new THREE.CircleGeometry(params.radius, params.segments, params.thetaStart, params.thetaLength);
+            case 'ConeGeometry':
+                return new THREE.ConeGeometry(params.radius, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
+            case 'CylinderGeometry':
+                return new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
+            case 'DodecahedronGeometry':
+                return new THREE.DodecahedronGeometry(params.radius, params.detail);
+            case 'IcosahedronGeometry':
+                return new THREE.IcosahedronGeometry(params.radius, params.detail);
+            case 'OctahedronGeometry':
+                return new THREE.OctahedronGeometry(params.radius, params.detail);
+            case 'PlaneGeometry':
+                return new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments);
+            case 'RingGeometry':
+                return new THREE.RingGeometry(params.innerRadius, params.outerRadius, params.thetaSegments, params.phiSegments, params.thetaStart, params.thetaLength);
+            case 'TetrahedronGeometry':
+                return new THREE.TetrahedronGeometry(params.radius, params.detail);
+            case 'TorusGeometry':
+                return new THREE.TorusGeometry(params.radius, params.tube, params.radialSegments, params.tubularSegments, params.arc);
+            case 'TorusKnotGeometry':
+                return new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q);
+            default:
+                return new THREE.BoxGeometry(params.sx, params.sy, params.sz);
+        }
+    }
+
+    function updatePreviewMeshGeometry(previewMesh, params) {
+        const newGeometry = createGeometry(params.geometryType, params);
+        const edges = new THREE.EdgesGeometry(newGeometry);
+        previewMesh.geometry.dispose();
+        previewMesh.geometry = edges;
+    }
+
+    function updatePreviewMeshPosition(previewMesh, params) {
+        previewMesh.position.set(params.x, params.y, params.z);
+    }
+
+    function startEmitter(index) {
+        if (emitters[index]) {
+            emitters[index].emitter.start();
+        }
+    }
+
+    function pauseEmitter(index) {
+        if (emitters[index]) {
+            emitters[index].emitter.pause();
+        }
+    }
+
+    function resetEmitter(index, previewMesh) {
+        if (emitters[index]) {
+            emitters[index].emitter.reset();
+            scene.remove(previewMesh);
+            emitters[index].emitter.previewMesh = createStaticPreview(emitters[index].params);
+        }
+    }
+
+    function exportEmitter(params) {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(params));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", `emitter_${params.id}.json`);
+        document.body.appendChild(downloadAnchorNode);
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+    }
+
+    function importEmitter() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = e => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = event => {
+                const importedParams = JSON.parse(event.target.result);
+                createEmitter(importedParams);
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+    gui.add({ importEmitter: importEmitter }, 'importEmitter').name('Import Emitter');
+
+    //gui.add({ close: () => toggleEmittersEditGUI() }, 'close').name('CLOSE');
+
+    addEmitter();
+
+    storedEmitters.forEach(params => createEmitter(params)); // Recreate emitters
+
+    makePanelDraggable(document.getElementById("guiOverlayInput"), document.getElementById("guiOverlayBar"));
+}
+
+function generateUniqueId() {
+    return 'emitter-' + Math.random().toString(36).substr(2, 9);
+}
+
+function toggleEmittersEditGUI() {
+    if (guiInstances.has('emittersEditGUI')) {
+        guiInstances.get('emittersEditGUI').destroy();
+        guiInstances.delete('emittersEditGUI');
+    } else {
+        initEmittersEdit('emittersEditGUI');
+    }
+}
+
+window.toggleEmittersEditGUI = toggleEmittersEditGUI;
+
+
+
+
+
+/* 
+
+    World / Ground
+    ----------------------------------------------- 
+
+    */
+
+
+
+let groundHeight = 0;
+let gravity = { x: 0.0, y: -2, z: 0.0 };
+let eventQueue
+
+window.myRapierWorld
+
+window.rigidBodies = window.rigidBodies || [];
+window.threeCubes = window.threeCubes || [];
+
+let obstacles = [];
+let groundObjects = [];
+
+let ground = "/static/models/grounds/simple-ground-1.glb";
+
+
+
+/* 
+
+    Init Rapier
+    ----------------------------------------------- 
+
+    */
+
+
+
+
+function updateRapier() {
+
+    if (window.myRapierWorld && window.rigidBodies) {
+        //window.myRapierWorld.step();
+        window.myRapierWorld.step(window.eventQueue);
+        //console.log(window.rigidBodies)
+
+        for(let i = 0; i < window.rigidBodies.length; i++) {
+            if(window.rigidBodies[i].bodyType() == 0) {
+                let position = window.rigidBodies[i].translation();
+                window.threeCubes[i].position.set(position.x, position.y, position.z);
+                // Add this part to update the rotation
+                let rotation = window.rigidBodies[i].rotation(); // Assuming the rotation method returns a quaternion
+                window.threeCubes[i].quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
+            }
+        }
+
+        logRapierEvents()
+        //updateRigidBodies();
+        //updateDummyAvatar();
+    }
+}
+
+
+function logRapierEvents() {
+    window.eventQueue.drainCollisionEvents((handle1, handle2, started) => {
+        const object1Data = window.handleToObjectMap.get(handle1);
+        const object2Data = window.handleToObjectMap.get(handle2);
+
+        if (object1Data && object2Data) {
+            const name1 = object1Data.name || 'Unnamed Object 1';
+            const name2 = object2Data.name || 'Unnamed Object 2';
+
+            // Use getWorldPosition to get the actual world position of the objects
+            const worldPosition1 = new THREE.Vector3();
+            const worldPosition2 = new THREE.Vector3();
+            object1Data.object.getWorldPosition(worldPosition1);
+            object2Data.object.getWorldPosition(worldPosition2);
+
+            // console.log(`Collision ${started ? 'started' : 'ended'} between ${name1} and ${name2}`);
+            //console.log(`Position of ${name1}: x=${worldPosition1.x}, y=${worldPosition1.y}, z=${worldPosition1.z}`);
+            //console.log(`Position of ${name2}: x=${worldPosition2.x}, y=${worldPosition2.y}, z=${worldPosition2.z}`);
+
+            if (started) {
+
+
+                //makeExplosion(worldPosition2);
+                
+
+
+                //console.log(`Hit ${name1}: ${worldPosition1.x}, ${worldPosition1.y}, ${worldPosition1.z}`);
+                //console.log(`Target ${name2}: ${worldPosition2.x}, ${worldPosition2.y}, ${worldPosition2.z}`);
+                console.log(`Hit | ${name2} => ${name1} | :${Math.floor(worldPosition2.x)}, ${Math.floor(worldPosition2.y)}, ${Math.floor(worldPosition2.z)}`);
+
+
+                // hit sound
+                // fxPip({
+                //     frequency: 200 - Math.random()*100,
+                //     volume: 1,
+                //     duration: 100,
+                //     type: 'square',
+                //     fadeInPercent: 0,
+                //     fadeOutPercent: 90,
+                //     filterType: 'bandpass',
+                //     filterFrequency: 1000,
+                //     filterQ: 10
+                // }); 
+
+                // Play positional sound
+
+
+                // SoundManager.playPositionalSound('blip', worldPosition2, {
+                //     initialFrequency: 50 - Math.random() * 10,
+                //     volume: 1,
+                //     duration: 0.05,
+                //     type: 'square',
+                //     fadeInPercent: 0,
+                //     fadeOutPercent: 90,
+                //     filterType: 'bandpass',
+                //     filterFrequency: 50,
+                //     filterQ: 10
+                // });
+
+
+
+            }
+        } else {
+            //console.log("Could not find object data for one or both handles.");
+        }
+    });
+}
+
+
+let world 
+
+async function initRapier() {
+    
+    console.log("initRapier, gravity", gravity);
+
+    await RAPIER.init();
+
+    world = new RAPIER.World(gravity);
+
+    eventQueue = new RAPIER.EventQueue(true);
+
+
+    loadStaticGroundModel(ground);
+
+}
+
+
+window.objectRigidBodyMap = new Map();
+
+
+function needsColliderUpdate(threeObject) {
+    // Implement logic to determine if the collider needs to be updated
+    // This could be based on comparing the current scale with the original scale
+}
+
+function updateColliderForScale(threeObject, rigidBody) {
+    // Remove the old collider from the rigid body
+    // ...
+
+    // Create a new collider with the updated scale
+    // This will typically involve creating a new shape (e.g., TriMesh) with the scaled geometry
+    // and then attaching it to the rigid body
+    // ...
+}
+
+
+function updateRigidBodies() {
+
+    window.objectRigidBodyMap.forEach((rigidBody, threeObject) => {
+        // Get world position and quaternion
+        const worldPosition = new THREE.Vector3();
+        const worldQuaternion = new THREE.Quaternion();
+
+        threeObject.getWorldPosition(worldPosition);
+        threeObject.getWorldQuaternion(worldQuaternion);
+
+        // Update position and rotation in Rapier
+        rigidBody.setTranslation(worldPosition, true);
+        rigidBody.setRotation({ w: worldQuaternion.w, x: worldQuaternion.x, y: worldQuaternion.y, z: worldQuaternion.z });
+
+
+        if (needsColliderUpdate(threeObject)) {
+            // Remove old collider and create a new one with updated scale
+            updateColliderForScale(threeObject, rigidBody);
+        }        
+
+        //console.log("updateRigidBodies", worldPosition, worldQuaternion);
+    });
+
+}
+
+
+
+/* 
+
+    Loaders
+    ----------------------------------------------- 
+
+    */
+
+
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('/static/libs/draco/');
+const loader = new GLTFLoader();
+loader.setDRACOLoader(dracoLoader);
+
+
+function loadStaticGroundModel(ground) {
+
+
+    loader.load(ground, gltf => {
+
+        let mesh = gltf.scene
+        mesh.name = "PAD"
+        mesh.ignore = true;
+
+        scene.add(mesh);
+
+        mesh.rotation.y = 0;
+        groundObjects.push(mesh)
+
+        gltf.scene.traverse(item => {
+            if (item.isMesh) {
+            // if (item.isMesh && Array.isArray(item.material)) {
+            //     item.material.forEach(mat => {
+            //         console.log(mat.name)
+            //         if (mat.name === "Material.002") {
+            //             waterMaterial = mat; // Store the reference
+            //         }
+            //     });
+            // }
+            // if (Array.isArray(item.material)) {
+            //     item.material.forEach((mat, index) => {
+            //         console.log(`Material ${index} on mesh ${item.name}:`, mat.name);
+            //             if (mat.name === "Material.001") {
+            //                 console.log("material")
+            //                 waterMaterial = mat; // Store the reference
+            //             }
+            //     });
+            // } else {
+            //     // Single material
+            //     // console.log("Single material on mesh", item.name, ":", item.material.name);
+            //             if (item.material.name === "Material.003") {
+            //                 //console.log("material")
+            //                 waterMaterial = item.material; // Store the reference
+            //                 window.waterMaterial = waterMaterial;
+            //             }                    
+            // }
+                //console.log("isMesh:", item.name)
+                const geometry = item.geometry;
+                item.castShadow = true;     // allows the node to cast shadows
+                item.receiveShadow = true;                 
+                // swap material for refractions
+                // item.material = new THREE.MeshPhongMaterial({ 
+                //     transparent: true,  opacity: 0.1, 
+                //     color: 0xFFFFFF
+                //     //color: 0xFFFFFF, envMap: envMap1, refractionRatio: 0.98, reflectivity: 0.98
+                // });
+                //item.material = shaderMaterial;
+                console.log(geometry)
+                const vertices = geometry.attributes.position.array;
+                const indices = geometry.index.array;
+                const trimesh = new RAPIER.TriMesh(vertices, indices);
+                //console.log('TriMesh created successfully', trimesh);
+                //console.log('Vertices length:', vertices.length);
+                //console.log('Indices length:', indices.length);
+                let groundColliderDesc = RAPIER.ColliderDesc.trimesh(trimesh)
+                    .setDensity(100)
+                    .setTranslation(0, groundHeight, 0)
+                    .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
+                // this part is a kind of hack...
+                groundColliderDesc.shape.indices = indices;
+                groundColliderDesc.shape.vertices = vertices;
+                let groundCollider = world.createCollider(groundColliderDesc);
+                window.groundColliderHandle = groundCollider.handle;
+
+                window.myRapierWorld = world;
+                
+                window.eventQueue = eventQueue;
+                item.material.wireframe = false;
+                
+                //teleportTargets.push(item);
+            }
+
+            //setTimeout(connectWebSocket, 1000);
+
+
+        })
+
+
+    })
+
+}
+
+
+/* 
+
+    Env Map
+    ----------------------------------------------- 
+
+    */
+
+let envMaterial;
+let pmremGenerator, envMap
+let backgroundBlurriness = 0.2;
+let backgroundIntensity = 1
+
+
+function addEnvMap() {
+
+
+
+    let filePath = '/static/models/environments/hdr/beach.hdr';
+
+    const fileExtension = filePath.split('.').pop().toLowerCase();
+
+    let loader;
+
+    // Choose the loader based on the file extension
+    if (fileExtension === 'hdr') {
+        loader = new RGBELoader();
+    } else {
+        loader = new THREE.TextureLoader();
+    }
+
+    loader.load(filePath, function(texture) {
+
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+
+
+        // Special handling for HDR textures
+        if (fileExtension === 'hdr') {
+
+
+            texture.mapping = THREE.EquirectangularReflectionMapping;
+            scene.background = texture;
+        } else {
+            // For non-HDR images, use a CubeTexture if needed
+            const renderTarget = new THREE.WebGLCubeRenderTarget(texture.image.height);
+            renderTarget.fromEquirectangularTexture(renderer, texture);
+            texture = renderTarget.texture;
+            scene.background = texture;
+        }
+
+        // Apply to materials as envMap
+        envMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffffff,
+            metalness: 0.7,
+            roughness: 0.3,
+            envMap: texture
+        });
+
+        // Example: Add a sphere to the scene
+        const sphereGeometry = new THREE.SphereGeometry(40, 120, 80);
+        const sphere = new THREE.Mesh(sphereGeometry, envMaterial);
+        //scene.add(sphere);
+
+        scene.backgroundBlurriness = backgroundBlurriness;
+        scene.backgroundIntensity = backgroundIntensity;
+
+
+        // ENV
+        // - ON -
+        pmremGenerator = new THREE.PMREMGenerator(renderer);
+        pmremGenerator.compileEquirectangularShader();
+        envMap = pmremGenerator.fromEquirectangular(texture).texture;
+        scene.environment = envMap;
+
+        texture.dispose(); // Optional: Dispose the original texture to free memory
+        pmremGenerator.dispose(); // Dispose PMREMGenerator when done
+
+    });
+
+}
+
+window.addEnvMap = addEnvMap
+
+
+function changeEnvMap(filePath) {
+    let renderer = renderer;
+
+    // Determine the file extension
+    const fileExtension = filePath.split('.').pop().toLowerCase();
+
+    let loader;
+
+    // Choose the loader based on the file extension
+    if (fileExtension === 'hdr') {
+        loader = new RGBELoader();
+    } else {
+        loader = new THREE.TextureLoader();
+    }
+
+    loader.load(filePath, function(texture) {
+        // Special handling for HDR textures
+        if (fileExtension === 'hdr') {
+            texture.mapping = THREE.EquirectangularReflectionMapping;
+            scene.background = texture;
+        } else {
+            // For non-HDR images, use a CubeTexture if needed
+            const renderTarget = new THREE.WebGLCubeRenderTarget(texture.image.height);
+            renderTarget.fromEquirectangularTexture(renderer, texture);
+            scene.background = renderTarget.texture;
+        }
+    });
+}
+
+window.changeEnvMap = changeEnvMap;
+
+
+
+
+/* 
+
+    Restore Camera
+    ----------------------------------------------- 
+
+    */
+
+let controlsUpdateAllow = true;
+
+function controlsUpdate() {
+    if(controlsUpdateAllow) {
+        controls.update()
+    }
+}
+window.controlsUpdateAllow = controlsUpdateAllow;
+
+
+function restoreCameraPosition() {
+
+     let camData;
+
+    if (localStorage.getItem("cameraPositions")) {
+   
+            let data = JSON.parse(localStorage.getItem("cameraPositions"));
+
+
+            console.log("restoreCameraPosition",data)
+
+
+            camData = data[data.length - 1];
+
+            camera.position.copy(new THREE.Vector3().copy(camData.camera.position));
+            camera.rotation.set(camData.camera.rotation.x, camData.camera.rotation.y, camData.camera.rotation.z);
+            if (controls) {
+                controls.target.copy(new THREE.Vector3().copy(camData.controls.target));
+            }
+            console.log("-- 2. Setting camera from localStorage data:", camData);
+
+    }
+
+    controlsUpdate();
+
+}
+
+
+function saveCameraPosition() {
+
+    if (cameraAnimated) return;
+    console.log("saveCameraPosition");
+
+    const cameraData = {
+        position: camera.position.clone(),
+        rotation: camera.rotation.clone(),
+    };
+    const controlsData = { target: controls.target.clone() };
+
+    console.log("controlsData:", controlsData);
+
+    // Store data in localStorage
+    localStorage.setItem("cameraData", JSON.stringify(cameraData));
+    localStorage.setItem("controlsData", JSON.stringify(controlsData));
+    cameraPositions.push({ camera: cameraData, controls: controlsData });
+    localStorage.setItem("cameraPositions", JSON.stringify(cameraPositions));
+
+}
+
+
+
+
+
+
+
+
+/* 
+
+    Init Controlllers
+    ----------------------------------------------- 
+
+    */
+
+
+
+/* Light settings */
+
+const modelsCastShadow = true;
+const lightShadowMapSizeF = 10;
+
+const tronLegacyColors = {
+    
+    deepBlack: 0x0a0a0a,
+    greyMetallic: 0x6f6f6f,
+    darkGrey: 0x1c1c1c,
+    
+    brightBlue: 0x00d9ff,
+    brightOrange: 0xff3700,
+    pureWhite: 0xffffff,
+
+    almostBlack: 0x1a1a1a,
+    digitalBlue: 0x0057ff,
+};
+
+
+
+/* Teleportation - Controllers */
+
+
+
+window.myRapierWorld
+window.rigidBodies = window.rigidBodies || [];
+window.threeCubes = window.threeCubes || [];
+
+
+/* 
+
+    Controllers 
+
+
+    */
+
+
+
+async function checkVRHeadsetAvailability() {
+    if (navigator.xr) {
+        try {
+            // Check if 'immersive-vr' mode is supported
+            const isSupported = await navigator.xr.isSessionSupported('immersive-vr');
+            return isSupported;
+        } catch (error) {
+            console.log("Error checking VR headset availability:", error);
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+let renderPostprocessing = false;
+window.renderPostprocessing = renderPostprocessing;
+
+
+
+async function setupCustomVRButton() {
+    const vrAvailable = await checkVRHeadsetAvailability();
+    if (vrAvailable) {
+        const customVrButton = document.createElement('button');
+        customVrButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <style>
+                @keyframes blink {
+                  0%, 100% { opacity: 1; }
+                  50% { opacity: 0.5; }
+                }
+                .blink {
+                  animation: blink 4s linear infinite;
+                }
+              </style>
+        <g fill="rgba(255,255,255,0.75)" fill-rule="evenodd" clip-rule="evenodd"><path class="blink" d="M10 7.5c0-.3.2-.5.5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5z" fill="#99FF00"/><path class="blink" d="M3 7c0-1.1.9-2 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-1 1.8c-1 3.8-4.1 6.7-8 6.7-3.9 0-7-2.9-8-6.7A2 2 0 0 1 3 11zm2-1h14c.6 0 1 .4 1 1v4c0 .6-.4 1-1 1h-3.3a1 1 0 0 1-.3 0l-2.5-.8a3 3 0 0 0-1.8 0l-2.5.8H5a1 1 0 0 1-1-1V7c0-.6.4-1 1-1zm.2 7c1 3.3 3.6 5.5 6.8 5.5 3.2 0 5.8-2.2 6.8-5.5h-3.1a2 2 0 0 1-.6 0l-2.5-.8a2 2 0 0 0-1.2 0l-2.5.7a2 2 0 0 1-.6.1z" fill="#99FF00"/><path class="blink" d="M10 14.5c.3 0 .5.2.5.5l.3.3 1.2.2 1.2-.2.3-.2V15a.5.5 0 0 1 1 0c0 .6-.4 1-.9 1.2-.4.2-1 .3-1.6.3s-1.2-.1-1.6-.3c-.5-.3-.9-.6-.9-1.2 0-.3.2-.5.5-.5z" fill="#99FF00"/></g></svg>
+        `; // Or use an <img> tag for a custom icon
+        customVrButton.classList.add('custom-vr-button');
+        customVrButton.id = "customVrButton";
+
+        // Custom styling
+
+        customVrButton.addEventListener('click', () => {
+
+            renderPostprocessing = false;
+            // Logic to start VR session
+            renderer.xr.enabled = true;
+
+            const sessionInit = {
+                optionalFeatures: ['local-floor', 'bounded-floor'],
+                requiredFeatures: ['hand-tracking']
+            };
+
+            // const sessionInit = { optionalFeatures: ['local-floor', 'bounded-floor'] };
+
+            navigator.xr.requestSession('immersive-vr', sessionInit).then((session) => {
+                renderer.xr.setSession(session);
+            });
+        });
+
+        document.body.appendChild(customVrButton);
+
+        document.querySelector('.custom-vr-button').classList.add('display-block')
+
+    }
+}
+
+
+setupCustomVRButton()
+
+
+
+    //----
+    // Updated part: Add sessionInit parameter with hand-tracking
+    // See - https://github.com/immersive-web/webxr/issues/1358#issuecomment-1941838121
+    // moved to   customVrButton  
+    // const sessionInit = {
+    //     optionalFeatures: [],
+    //     requiredFeatures: ['hand-tracking']
+    // };
+
+    // document.body.appendChild(VRButton.createButton(renderer, sessionInit));
+
+
+
+let raycaster = new THREE.Raycaster();
+
+const teleportTargets = [];
+
+let hand1, hand2;
+let controller1, controller2;
+let controllerGrip1, controllerGrip2;
+
+let controllers = [];
+let dummyMatrix;
+
+const handModels = {
+    left: null,
+    right: null,
+};
+let handModelFactory;
+let conS = [];
+
+let teleportMode = false;
+let teleportRing;
+let cameraContainer
+let activeController
+
+
+
+/*  ---------------------------------------------------  */
+
+
+let controller1QuaternionDisplay, controller2QuaternionDisplay;
+
+function setupControllerDisplays() {
+
+    function createQuaternionDisplay(controller) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 100;  // Adjusted width for single column
+        canvas.height = 100;
+        const context = canvas.getContext('2d');
+        context.fillStyle = 'orange';
+        context.font = '18px monofonto';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.1), material);
+        plane.position.set(0, 0, 0.15); // Adjust position as needed
+
+        controller.add(plane);
+        
+        return { canvas, texture, plane };
+    }
+
+    controller1QuaternionDisplay = createQuaternionDisplay(controller1);
+    controller2QuaternionDisplay = createQuaternionDisplay(controller2);
+}
+
+function refreshControllerInfo() {
+    const lineSpace = 18; // Adjust this value to change the space between lines
+
+    function formatValue(value) {
+        return (value >= 0 ? ' ' : '') + value.toFixed(2); // Add space if positive
+    }
+
+    function updateDisplay(controller, display, mode) {
+        const quaternion = controller.getWorldQuaternion(new THREE.Quaternion());
+        const lines = [
+            `M: ${mode.substr(0,6)}`,
+            `x:${formatValue(quaternion.x)}`,
+            `y:${formatValue(quaternion.y)}`,
+            `z:${formatValue(quaternion.z)}`,
+            `w:${formatValue(quaternion.w)}`
+        ];
+        const context = display.canvas.getContext('2d');
+        context.clearRect(0, 0, display.canvas.width, display.canvas.height);
+        context.fillStyle = 'blue'; // Color for the mode text
+        context.fillText(lines[0], display.canvas.width / 2, 15); // Display the mode
+
+        lines.slice(1).forEach((value, index) => {
+            context.fillStyle = value.includes('-') ? 'green' : 'orange'; // Orange for positive, green for negative
+            context.fillText(value, display.canvas.width / 2, 15 + ((index + 1) * lineSpace));
+        });
+
+        display.texture.needsUpdate = true;
+    }
+
+    updateDisplay(controller1, controller1QuaternionDisplay, currentMode);
+    updateDisplay(controller2, controller2QuaternionDisplay, currentMode);
+}
+
+
+
+
+
+
+
+/*  ---------------------------------------------------  */
+
+function generateRayTexture() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+
+    // Create a gradient that starts fading to transparent immediately
+    const gradient = ctx.createLinearGradient(0, 0, 0, 64);
+    gradient.addColorStop(0, "rgba(255, 0, 0, 1)"); // Fully opaque at the start
+    gradient.addColorStop(0.1, "rgba(255, 0, 0, 0)"); // Start fading out almost immediately
+
+    // The rest of the gradient is transparent
+    gradient.addColorStop(1, "rgba(255, 0, 0, 0)"); // Fully transparent towards the end
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 64, 64);
+
+    return canvas;
+}
+
+function generatePointerTexture() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+
+    const ctx = canvas.getContext("2d");
+
+    ctx.beginPath();
+    ctx.arc(32, 32, 29, 0, 2 * Math.PI);
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.fillStyle = "white";
+    ctx.fill();
+
+    return canvas;
+}
+
+
+function getCameraPosition() {
+    const cameraPosition = new THREE.Vector3();
+    renderer.xr.getCamera(camera).getWorldPosition(cameraPosition);
+    return cameraPosition;
+}
+
+
+
+function addBallTrajectory() {
+
+    console.log(" - addBallTrajectory")
+
+    // Remove existing line if any
+
+    if (window.ballTrajectory) {
+        scene.remove(window.ballTrajectory);
+    }
+
+    let cameraPosition = getCameraPosition();
+    let leftHand = renderer.xr.getController(0); // 0 is usually the left hand
+    let leftHandPosition = new THREE.Vector3();
+    leftHand.getWorldPosition(leftHandPosition);
+
+    // Create the line to visualize this vector
+    const lineGeometry = new THREE.BufferGeometry().setFromPoints([leftHandPosition, cameraPosition]);
+    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
+    const line = new THREE.Line(lineGeometry, lineMaterial);
+
+    window.ballTrajectory = line;
+
+    // Add line to the scene
+    scene.add(window.ballTrajectory);
+
+}
+
+
+
+function initControllers() {
+    console.log(" -------- initControllers")
+
+    addBallTrajectory();
+
+    const rayTexture = new THREE.CanvasTexture(generateRayTexture());
+    rayTexture.needsUpdate = true;
+
+    const material = new THREE.MeshBasicMaterial({
+        map: rayTexture,
+        transparent: true,
+        side: THREE.DoubleSide,
+        alphaTest: 0.05,
+    });
+
+    const geometry = new THREE.BoxGeometry(0.005, 0.005, 20);
+    geometry.translate(0, 0, -10.01);
+
+    const uvAttribute = geometry.getAttribute("uv");
+    for (let i = 0; i < uvAttribute.count; i++) {
+        uvAttribute.setXY(i, i % 2, Math.floor(i / 4) % 2);
+    }
+
+    const linesHelper = new THREE.Mesh(geometry, material);
+    linesHelper.rotation.z = 5 * (Math.PI / 4);
+    linesHelper.ignore = true;
+
+    const spriteMaterial = new THREE.SpriteMaterial({
+        map: new THREE.CanvasTexture(generatePointerTexture()),
+        sizeAttenuation: false,
+        depthTest: false,
+    });
+
+    const pointer = new THREE.Sprite(spriteMaterial);
+    pointer.scale.set(0.015, 0.015, 1);
+    pointer.renderOrder = Infinity;    
+
+    controller1 = renderer.xr.getController(0);
+    controller1.name = "controller1";
+    scene.add(controller1);
+
+    controller2 = renderer.xr.getController(1);
+    controller2.name = "controller2";
+    scene.add(controller2);
+
+    const controllerModelFactory = new XRControllerModelFactory();
+    handModelFactory = new XRHandModelFactory();
+
+    console.log(" - - - - - - - - -handModelFactory:", handModelFactory);
+
+    controllerGrip1 = renderer.xr.getControllerGrip(0);
+    controllerGrip1.add(
+        controllerModelFactory.createControllerModel(controllerGrip1),
+    );
+    scene.add(controllerGrip1);
+
+    hand1 = renderer.xr.getHand(0);
+    hand1.name = "hand1";
+    hand1.userData.currentHandModel = 0;
+    scene.add(hand1);
+
+    console.log(" - - - - - - - - -hand1", hand1);
+
+    handModels.left = [handModelFactory.createHandModel(hand1, "mesh")];
+    const model1 = handModels.left[0];
+    model1.visible = true;
+
+    hand1.add(model1);
+
+    hand1.addEventListener("pinchend", function () {
+        console.log("hand1 pinched");
+        handlePinch(hand1);
+
+    });
+
+    controllerGrip2 = renderer.xr.getControllerGrip(1);
+    controllerGrip2.add(
+        controllerModelFactory.createControllerModel(controllerGrip2),
+    );
+    scene.add(controllerGrip2);
+
+    hand2 = renderer.xr.getHand(1);
+    hand2.name = "hand2";    
+    hand2.userData.currentHandModel = 2;
+    scene.add(hand2);
+
+    handModels.right = [handModelFactory.createHandModel(hand2, "mesh")];
+    const model2 = handModels.right[0];
+    model2.visible = true;
+    hand2.add(model2);
+
+    hand2.addEventListener("pinchend", function () {
+        console.log("hand2 pinched");
+        handlePinch(hand2);
+    });
+
+    window.hand1 = hand1;
+    window.hand2 = hand2;
+
+    /* rings */
+
+    // Define the geometry and material for the wearable torus
+    const torusGeometry = new THREE.TorusGeometry(0.06, 0.005, 16, 100); // Adjust the size as needed
+    const torusMaterial = new THREE.MeshBasicMaterial({ color: tronLegacyColors.brightBlue }); // Green color for visibility
+
+    controller1.addEventListener("connected", function (e) {
+        
+        console.log("Controller 1 connected!", e.data);
+        
+        if (e.data.gamepad !== null) {
+            if (conS.filter((obj) => obj.id === 0).length === 0) {
+                conS.push({
+                    id: 0,
+                    data: e.data,
+                });
+            }
+        }
+    });
+
+    controller2.addEventListener("connected", function (event) {
+        
+        console.log("Controller 2 connected!", event.data);
+        if (event.data.gamepad !== null) {
+            if (conS.filter((obj) => obj.id === 1).length === 0) {
+                conS.push({
+                    id: 1,
+                    data: event.data,
+                });
+            }
+        }
+    });
+
+    controllers.push(controller1);
+    controllers.push(controller2);
+
+    controllers.forEach((controller) => {
+
+        const simpleRayGeometry = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0, 0),
+            new THREE.Vector3(0, 0, -10),
+        ]);
+        
+        const simpleRay = new THREE.Line(
+            simpleRayGeometry,
+            new THREE.LineBasicMaterial({ color: 0xffffff, visible: true }),
+        ); // Invisible for visual purposes
+        
+        controller.simpleRay = simpleRay; // Attach the simpleRay to the controller
+        controller.add(simpleRay); // Add the simpleRay to the controller object
+        simpleRay.ignore = true;
+    });
+
+    controllers.forEach((controller) => {
+        const ray = linesHelper.clone();
+        ray.ignore = true;
+        const point = pointer.clone();
+        point.ignore = true;
+        controller.add(ray, point);
+        controller.ray = ray;
+        controller.point = point;
+    });
+
+    const discRadius = 0.25;
+    const discMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff0000,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.25,
+    });
+    const discGeometry = new THREE.CircleGeometry(discRadius, 32);
+
+    controllers.forEach((controller) => {
+        const disc = new THREE.Mesh(discGeometry, discMaterial);
+        disc.visible = false; // Initially invisible
+        disc.ignore = true;
+        controller.disc = disc; // Store the disc as a property of the controller
+        scene.add(disc);
+
+        // Create and add the ring
+        const ring = new THREE.Mesh(torusGeometry, torusMaterial);
+        controller.ring = ring;
+        ring.ignore = true;
+        ring.position.set(0, 0, 0.15); // Adjust position relative to the controller
+        ring.rotation.set(0, 0, 0); // Adjust rotation if needed
+        controller.add(ring); // Attach the ring directly to the controller
+    });
+
+    dummyMatrix = new THREE.Matrix4();
+    raycaster = new THREE.Raycaster();
+
+    const teleportRingGeometry = new THREE.RingGeometry(0.23, 0.25, 64);
+    const teleportRingMaterial = new THREE.MeshBasicMaterial({ color: tronLegacyColors.brightBlue, side: THREE.DoubleSide });
+    teleportRing = new THREE.Mesh(teleportRingGeometry, teleportRingMaterial);
+    teleportRing.rotation.x = -Math.PI / 2; // Rotate to lay flat on the ground
+    teleportRing.visible = false; // Initially invisible
+    teleportRing.ignore = true;
+
+    scene.add(teleportRing);
+
+    cameraContainer = new THREE.Object3D();
+    scene.add(cameraContainer);
+    
+    cameraContainer.add(camera);
+
+    /* parent controllers to the container */
+    cameraContainer.add(controller1);
+    cameraContainer.add(controller2);  
+
+    cameraContainer.add(hand1);
+    cameraContainer.add(hand2);
+
+    cameraContainer.add(model1);
+    cameraContainer.add(model2);
+
+    cameraContainer.add(controllerGrip1);
+    cameraContainer.add(controllerGrip2);
+
+    function onControllerSelectStart(controller) {
+        if (currentMode !== 'teleportation') return;
+
+        const tempMatrix = new THREE.Matrix4();
+        tempMatrix.identity().extractRotation(controller.matrixWorld);
+
+        raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+        raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+        const intersects = raycaster.intersectObjects(teleportTargets, false);
+
+        if (intersects.length > 0) {
+            teleportMode = true;
+            activeController = controller;
+            teleportRing.visible = true;
+            teleportRing.position.copy(intersects[0].point);
+            teleportRing.position.y += 0.03; // Adjust if necessary
+        }
+    }
+
+    function performTeleportation() {
+        if (currentMode === 'teleportation' && teleportMode) {
+            const teleportDestination = new THREE.Vector3();
+            teleportRing.getWorldPosition(teleportDestination);
+
+            cameraContainer.position.copy(teleportDestination);
+
+            teleportMode = false;
+            teleportRing.visible = false;
+            activeController = null;
+        }
+    }
+
+    controller1.addEventListener('selectstart', function () {
+        if (currentMode === 'teleportation') {
+            onControllerSelectStart(controller1);
+        } else if (currentMode === 'weapon') {
+            shootBallFromController(controller1);
+            broadcastXRUser();
+        }
+        handlePinch(controller1);
+    });
+
+    controller1.addEventListener('selectend', function () {
+        if (currentMode === 'teleportation' && teleportMode) {
+            performTeleportation();
+        }
+    });
+
+    controller2.addEventListener('selectstart', function () {
+        if (currentMode === 'teleportation') {
+            onControllerSelectStart(controller2);
+        } else if (currentMode === 'weapon') {
+            shootBallFromController(controller2);
+            broadcastXRUser();
+        }
+        handlePinch(controller2);
+    });
+
+    controller2.addEventListener('selectend', function () {
+        if (currentMode === 'teleportation' && teleportMode) {
+            performTeleportation();
+        }
+    });
+
+    setupControllerDisplays();
+}
+
+
+function updateRaycasting() {
+    controllers.forEach((controller) => {
+        const simpleRay = controller.simpleRay;
+        raycaster.ray.origin.setFromMatrixPosition(simpleRay.matrixWorld);
+        const rayDirection = new THREE.Vector3(0, 0, -1).applyMatrix4(simpleRay.matrixWorld);
+        rayDirection.sub(raycaster.ray.origin).normalize();
+        raycaster.ray.direction.copy(rayDirection);
+
+        const intersects = raycaster.intersectObjects(teleportTargets, false);
+        const intersectsWithGUI = intersects.some(intersect => intersect.object.isGUI);
+        
+        if (intersectsWithGUI) {
+            if (currentMode !== 'gui') {
+                previousMode = currentMode;
+                currentMode = 'gui';
+                teleportMode = false;
+            }
+            return; // Skip further processing to avoid teleportation while interacting with GUI
+        }
+
+        if (currentMode === 'gui') {
+            currentMode = previousMode;
+            teleportMode = false;
+        }
+
+        if (currentMode !== 'gui') {
+            if (intersects.length > 0) {
+                const closestIntersection = intersects[0];
+                processIntersection(closestIntersection, controller);
+            } else {
+                controller.disc.visible = false;
+                controller.point.visible = false;
+            }
+        }
+    });
+}
+
+
+
+function handlePinch(controller) {
+
+    const intersections = raycaster.intersectObjects(scene.children, true);
+    console.log("handlePinched");
+
+    intersections.forEach(intersection => {
+        if (intersection.object) {
+            //console.log("👆 Intersected Object:", intersection.object.name);
+            traverseAndLog(intersection.object);
+        }
+    });
+}
+
+
+
+function traverseAndLog(object, level = 0) {
+    const indent = ' '.repeat(level * 2); // Create an indent based on the level
+    let output = `${indent}${object.type} - ${object.name}`;
+
+    if (object.userData && Object.keys(object.userData).length > 0) {
+        output += ` | userData: ${JSON.stringify(object.userData)}`;
+    }
+
+    if (object.data && Object.keys(object.data).length > 0) {
+        output += ` | data: ${JSON.stringify(object.data)}`;
+    }
+
+    console.log(output);
+
+    if (object.parent) {
+        console.log(`${indent}  Parent: ${object.parent.type} - ${object.parent.name}`);
+    }
+
+    object.children.forEach(child => {
+        traverseAndLog(child, level + 1);
+    });
+}
+
+
+
+
+
+
+function processIntersection(intersection, controller) {
+    const intersectPoint = intersection.point;
+    const intersectNormal = intersection.face.normal;
+
+    const disc = controller.disc;
+    const offsetDistance = 0.01;
+    const offsetPoint = intersectPoint.clone().add(intersectNormal.multiplyScalar(offsetDistance));
+    disc.position.copy(offsetPoint);
+    disc.lookAt(offsetPoint.x + intersectNormal.x, offsetPoint.y + intersectNormal.y, offsetPoint.z + intersectNormal.z);
+    disc.visible = true;
+
+    teleportRing.position.copy(intersectPoint);
+    teleportRing.position.y += 0.03;
+
+    controller.worldToLocal(intersectPoint);
+    controller.point.position.copy(intersectPoint);
+    controller.point.visible = true;
+
+    const distance = raycaster.ray.origin.distanceTo(intersectPoint);
+    const maxScale = 0.05;
+    let scale = maxScale / distance;
+    controller.point.scale.set(scale, scale, 1);
+
+    if (intersection.object.userData.file_type == "note") {
+        intersection.object.material.color.set(0x00ff00); // Change color for testing
+        console.log("Info spot detected:", intersection.object);
+    }
+}
+
+/* Teleportation / Weapon */
+
+
+
+let currentMode = 'teleportation'; // Initial mode
+const collisionThreshold = 0.05; // Threshold for ring collision, adjust as needed
+
+let isColliding = false;
+let collisionCooldown = false;
+const cooldownTime = 100; // Cooldown time in milliseconds (1 second)
+
+
+function startCooldown() {
+    collisionCooldown = true;
+    setTimeout(() => {
+        collisionCooldown = false;
+    }, cooldownTime);
+}
+
+function updateRingColors() {
+    const newColor = (currentMode === 'teleportation') ? tronLegacyColors.brightBlue : tronLegacyColors.brightOrange; 
+    controller1.ring.material.color.set(new THREE.Color(newColor));
+    controller2.ring.material.color.set(new THREE.Color(newColor));
+
+    // Toggle visibility of helper lines and points based on the current mode
+    const helpersVisible = currentMode === 'weapon';
+    controllers.forEach(controller => {
+        controller.ray.visible = helpersVisible;
+        controller.point.visible = helpersVisible;
+    });
+}
+
+
+function getLastCharAsDigit(str) {
+    if (str.length === 0) {
+        return null; // or an appropriate default value
+    }
+    const lastChar = str.charAt(str.length - 1);
+    const digit = parseInt(lastChar, 10);
+    if (isNaN(digit)) {
+        return null; // or handle non-digit characters as needed
+    }
+    return digit;
+}
+
+
+function switchMode() {
+    
+    currentMode = (currentMode === 'teleportation') ? 'weapon' : 'teleportation';
+
+    updateRingColors();
+    //console.log("Switched to mode:", currentMode);
+
+    // Ring changing Sound
+    fxPip({
+        frequency: 140,
+        volume: 0.5,
+        duration: 1000,
+        fadeInPercent: 2, // 20% of the total duration for fade-in
+        fadeOutPercent: 70 // 30% of the total duration for fade-out
+    });
+
+}
+
+
+
+function checkRingCollision() {
+
+    if (!renderer.xr.isPresenting) {
+        // console.log(" - - - no - - - ");
+        return;
+    }
+
+    refreshControllerInfo();    
+
+    function isControllerPointingUpwards(controller, thresholdAngle) {
+        const worldUp = new THREE.Vector3(0, 1, 0);
+        const controllerDirection = new THREE.Vector3(0, 0, -1); // Forward direction in controller's local space
+        controllerDirection.applyQuaternion(controller.getWorldQuaternion(new THREE.Quaternion()));
+
+        const angleToUp = controllerDirection.angleTo(worldUp) * (180 / Math.PI);
+        return angleToUp <= thresholdAngle;
+    }
+
+    const thresholdAngle = 30; // Angle threshold in degrees to determine if pointing upwards
+
+    controller1.ring.visible = isControllerPointingUpwards(controller1, thresholdAngle);
+    controller2.ring.visible = isControllerPointingUpwards(controller2, thresholdAngle);
+
+
+    // Check if both controller rings are defined and visible
+    if (controller1 && controller1.ring && controller2 && controller2.ring &&
+        controller1.ring.visible && controller2.ring.visible) {
+        
+        // Get world positions of the rings
+        const ring1WorldPosition = new THREE.Vector3();
+        const ring2WorldPosition = new THREE.Vector3();
+        controller1.ring.getWorldPosition(ring1WorldPosition);
+        controller2.ring.getWorldPosition(ring2WorldPosition);
+
+        // Check for ring collision using world positions
+        const distance = ring1WorldPosition.distanceTo(ring2WorldPosition);
+
+        if (distance < collisionThreshold && !isColliding && !collisionCooldown) {
+            isColliding = true;
+            switchMode();
+            startCooldown(); // Start the cooldown period
+        } else if (distance >= collisionThreshold && isColliding) {
+            isColliding = false; // Rings are no longer colliding
+        }
+    }
+
+}
+
+
+
+/* Shooting balls */
+
+function shootBallFromXRBroadcast(data) {
+
+    //createAndShootBall(startPosition, targetPosition, radius, color, density, speedFactor) {
+
+    let color = tronLegacyColors.brightOrange;
+    let radius = 0.15 + Math.random() * 0.01;
+    let density = 5;
+    let speedFactor = 22;    
+
+    const startPosition = data.startPosition;
+    const targetPosition = data.targetPosition
+
+    // Calculate direction from start to target position
+    let direction = new THREE.Vector3().subVectors(targetPosition, startPosition).normalize();
+
+    // Create the rigid body description and set its properties
+    let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(startPosition.x, startPosition.y, startPosition.z)
+        .setLinvel(direction.x * speedFactor, direction.y * speedFactor, direction.z * speedFactor);
+    let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+
+    // Create the sphere geometry and material
+    const sphereGeometry = new THREE.SphereGeometry(radius);
+    const sphereMaterial = new THREE.MeshStandardMaterial({ color: color });
+    const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    sphereMesh.position.copy(startPosition);
+
+    scene.add(sphereMesh);
+
+    // Create the collider
+    let colliderDesc = RAPIER.ColliderDesc.ball(radius).setDensity(density);
+    myRapierWorld.createCollider(colliderDesc, rigidBody);
+
+    // Store the rigid body and mesh for future reference
+    window.rigidBodies.push(rigidBody);
+    window.threeCubes.push(sphereMesh);
+
+}
+
+
+
+function shootBallFromBroadcast(data) {
+
+
+    const cameraPosition = new THREE.Vector3(data.cameraPosition.x, data.cameraPosition.y, data.cameraPosition.z);
+    const cameraDirection = new THREE.Vector3(data.cameraDirection.x, data.cameraDirection.y, data.cameraDirection.z);
+
+    const offsetDistance = 0.25; // Adjust as needed to clear the avatar
+    const startPosition = new THREE.Vector3().copy(cameraPosition).addScaledVector(cameraDirection, offsetDistance);
+
+    let color = tronLegacyColors.brightOrange;
+    let radius = 0.15 + Math.random() * 0.01;
+    let density = 5;
+    let speedFactor = 22;
+
+    let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(startPosition.x, startPosition.y, startPosition.z)
+        .setLinvel(cameraDirection.x * speedFactor, cameraDirection.y * speedFactor, cameraDirection.z * speedFactor);
+
+    // let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+    //                       .setTranslation(cameraPosition.x, cameraPosition.y, cameraPosition.z)
+    //                       .setLinvel(cameraDirection.x * speedFactor, cameraDirection.y * speedFactor, cameraDirection.z * speedFactor);
+
+    let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+
+    // Create the visual representation of the ball
+    const sphereGeometry = new THREE.SphereGeometry(radius, 16, 12);
+    const myBallMaterial = new THREE.MeshStandardMaterial({ color: color });
+    const sphereMesh = new THREE.Mesh(sphereGeometry, myBallMaterial);
+    
+    scene.add(sphereMesh);
+
+    // Create the collider
+    let colliderDesc = RAPIER.ColliderDesc.ball(radius*1.05).setDensity(density);
+    let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
+
+    // Update global arrays
+    window.colliderHandles.push(collider.handle);
+    window.rigidBodies.push(rigidBody);
+    window.threeCubes.push(sphereMesh); // Consider renaming this array for clarity
+
+}
+
+
+
+// Sphere Core
+const cacheSphereGeometry = new THREE.SphereGeometry(0.2,16,12);
+
+
+
+
+function addBallFromCamera(radius, color, offsetY = 0.2, density = 1, speedFactor = 25) {
+
+
+    const cameraPosition = camera.position;
+    const cameraDirection = new THREE.Vector3();
+
+    camera.getWorldDirection(cameraDirection);
+    cameraDirection.y += offsetY;
+    cameraDirection.normalize();
+
+
+    let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+                          .setTranslation(cameraPosition.x, cameraPosition.y, cameraPosition.z)
+                          .setLinvel(cameraDirection.x * speedFactor, cameraDirection.y * speedFactor, cameraDirection.z * speedFactor);
+    let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+
+    //let texture = texturesCache[Math.floor(Math.random() * texturesCache.length)].texture;
+
+      // Sphere Core
+      // const sphereGeometry = new THREE.SphereGeometry(radius,16,12);
+
+    const sphereGeometry = cacheSphereGeometry;  
+
+
+      // const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
+      
+      const myBallMaterial = new THREE.MeshStandardMaterial({ color: color });
+        // ------
+
+      const sphereMesh = new THREE.Mesh(sphereGeometry, myBallMaterial);
+
+      sphereMesh.name = "b-fc"
+
+      scene.add(sphereMesh);
+
+      // Create the collider
+      let colliderDesc = RAPIER.ColliderDesc.ball(radius*1.05).setDensity(density)
+      let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
+      // Save the collider handle
+      window.colliderHandles = window.colliderHandles || [];
+      window.colliderHandles.push(collider.handle); 
+      // Push the rigid body and the Three.js sphere to the global arrays:
+
+
+        // Store the mapping from collider handle to the THREE.js object
+        window.handleToObjectMap = window.handleToObjectMap || new Map();
+        window.handleToObjectMap.set(collider.handle, {
+            object: sphereMesh,
+            name: sphereMesh.name
+        });
+
+      window.rigidBodies.push(rigidBody);
+      window.threeCubes.push(sphereMesh);  // Consider renaming this array for clarity
+
+      // ws
+      // ---------------
+
+    //console.log(" - --> broadcastObjectChange", model_uuid, value, propName, valueToSend)
+    const message = {
+        type: "broadcastBallFromCamera",
+        world_uuid: place.uuid,
+        world_name: place.name,
+        client_uuid: client_uuid,
+        cameraPosition: { x: cameraPosition.x, y: cameraPosition.y, z: cameraPosition.z },
+        cameraDirection: { x: cameraDirection.x, y: cameraDirection.y, z: cameraDirection.z }
+    };
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+    } else {
+        console.warn('WebSocket is not open. Cannot request the model.');
+    }
+
+
+    fxPip({
+        frequency: Math.random()*100+400,
+        volume: 1,
+        duration: 50,
+        type: 'sine',
+        fadeInPercent: 0,
+        fadeOutPercent: 90,
+        filterType: 'bandpass',
+        filterFrequency: 100,
+        filterQ: 10
+    });    
+
+
+}
+
+window.addBallFromCamera = addBallFromCamera;
+
+
+
+function shootBall() {
+
+    console.log("shootBall - Spacebar released!");
+
+    let ballSize = 0.2 + Math.random() * 0.005;
+    let density = 1;
+    let speedFactor = 100;
+
+    addBallFromCamera(ballSize, 0xFF3322, 0.1, density, speedFactor)
+
+
+    console.log("shootBall",ballSize,density,speedFactor);
+    
+    //addBallFromShotLineEnd(ballSize, colorsSet[Math.floor(Math.random()*colorsSet.length)], 0.1, 1)
+    //au.playAudioFromFile(au.findSounds(audioData, "kick2")[0])
+
+
+    game.balls +=1;
+
+}
+
+window.shootBall = shootBall;
+
+
+
+function shootBallFromController(controller) {
+
+    //console.log("shootBallFromController:", controller);
+
+    // The size, density, and speed factor for the ball
+    let ballSize = 0.12 + Math.random() * 0.01;
+    let density = 5;
+    let speedFactor = 30;
+
+    // Get the world position of the controller
+    const controllerWorldPosition = new THREE.Vector3();
+    controller.getWorldPosition(controllerWorldPosition);
+
+    // Get the world position of the point sprite
+    const pointSpriteWorldPosition = new THREE.Vector3();
+    controller.point.getWorldPosition(pointSpriteWorldPosition);
+
+    // Create and shoot the ball towards the point sprite
+    createAndShootBall(controllerWorldPosition, pointSpriteWorldPosition, ballSize, tronLegacyColors.brightBlue, density, speedFactor);
+
+    game.balls +=1;
+
+}
+
+
+function createAndShootBall(startPosition, targetPosition, radius, color, density, speedFactor) {
+
+    let direction = new THREE.Vector3().subVectors(targetPosition, startPosition).normalize();
+
+    let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(startPosition.x, startPosition.y, startPosition.z);
+
+    console.log("Parent object:", cameraContainer.parent);
+
+    if (cameraContainer.parent) {
+        let parentRigidBody = cameraContainer.parent.rigidBody;
+        if (parentRigidBody) {
+            let parentVelocity = parentRigidBody.linvel();
+            console.log("Parent velocity:", parentVelocity);
+
+            rigidBodyDesc.setLinvel(
+                direction.x * speedFactor + parentVelocity.x,
+                direction.y * speedFactor + parentVelocity.y,
+                direction.z * speedFactor + parentVelocity.z
+            );
+        } else {
+            console.log("Parent object has no rigidBody.");
+            rigidBodyDesc.setLinvel(direction.x * speedFactor, direction.y * speedFactor, direction.z * speedFactor);
+        }
+    } else {
+        rigidBodyDesc.setLinvel(direction.x * speedFactor, direction.y * speedFactor, direction.z * speedFactor);
+    }
+
+    let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+
+    const sphereGeometry = new THREE.SphereGeometry(radius);
+    const sphereMaterial = new THREE.MeshStandardMaterial({ color: color });
+    const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    sphereMesh.position.copy(startPosition);
+
+    sphereMesh.name = "ball-xr";
+
+    scene.add(sphereMesh);
+
+    let colliderDesc = RAPIER.ColliderDesc.ball(radius).setDensity(density);
+    let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
+
+    window.handleToObjectMap = window.handleToObjectMap || new Map();
+    window.handleToObjectMap.set(collider.handle, {
+        object: sphereMesh,
+        name: sphereMesh.name
+    });
+
+    window.rigidBodies.push(rigidBody);
+    window.threeCubes.push(sphereMesh);
+
+    const message = {
+        type: "broadcastBallFromXRCamera",
+        world_uuid: place.uuid,
+        world_name: place.name,
+        client_uuid: client_uuid,
+        startPosition: startPosition,
+        targetPosition: targetPosition
+    };
+
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+    } else {
+        console.log('WebSocket is not open. Cannot request the model.');
+    }
+
+
+    playFX("shoot1", 10);
+
+
+}
+
+
+/*
+
+    Sound Manager
+
+        */
+
+
+
+const SoundManager = (function() {
+    const listener = new THREE.AudioListener();
+    const audioLoader = new THREE.AudioLoader();
+
+    const sounds = {
+        blip: function(options) {
+            const sound = new THREE.PositionalAudio(listener);
+            const audioCtx = listener.context;
+            const oscillator = audioCtx.createOscillator();
+            oscillator.type = options.type || 'sine';
+            oscillator.frequency.setValueAtTime(options.initialFrequency || 440, audioCtx.currentTime);
+
+            const gainNode = audioCtx.createGain();
+            const volume = options.volume || 0.5;
+            const duration = (options.duration || 1) * 1000; // Total duration in milliseconds
+            const fadeInDuration = Math.min(duration * (options.fadeInPercent || 0) / 100, duration);
+            const fadeOutDuration = Math.min(duration * (options.fadeOutPercent || 0) / 100, duration - fadeInDuration);
+
+            // Start with 0 volume for fade-in
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime); 
+            gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + fadeInDuration / 1000); // Fade-in
+
+            if (options.filterType) {
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = options.filterType;
+                filter.frequency.setValueAtTime(options.filterFrequency || 1000, audioCtx.currentTime);
+                filter.Q.value = options.filterQ || 1;
+                oscillator.connect(filter);
+                filter.connect(gainNode);
+            } else {
+                oscillator.connect(gainNode);
+            }
+
+            gainNode.connect(audioCtx.destination);
+            sound.setNodeSource(gainNode);
+
+            this.configureSound(sound, options);
+
+            oscillator.start();
+
+            if (fadeOutDuration > 0) {
+                const fadeOutStartTime = (duration - fadeOutDuration) / 1000;
+                gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + fadeOutStartTime);
+            }
+
+            setTimeout(() => {
+                oscillator.stop();
+                sound.disconnect();
+            }, duration); 
+
+            return sound;
+        },
+
+        // Other sound functions...
+
+        configureSound: function(sound, options) {
+            sound.setVolume(options.volume || 0.5);
+            sound.setRefDistance(options.refDistance || 1);
+            sound.setRolloffFactor(options.rolloffFactor || 1);
+            sound.setDistanceModel(options.distanceModel || 'linear');
+            sound.setMaxDistance(options.maxDistance || 1000);
+            if (options.object3D) {
+                options.object3D.add(sound);
+            }
+        },
+
+        playPositionalSound: function(soundType, position, options = {}) {
+            const sound = this.playSound(soundType, options);
+            if (sound) {
+                sound.position.copy(position);
+                if (sound.context) {
+                    sound.context.listener.setPosition(position.x, position.y, position.z);
+                }
+                sound.play();
+            }
+        },
+
+        playSound: function(name, options) {
+            if (sounds[name]) {
+                return sounds[name].call(this, options);
+            } else {
+                console.error('Sound not found:', name);
+            }
+        },
+
+        applySoundToObject: function(object3D, soundType, options = {}) {
+            options.object3D = object3D;
+            this.playSound(soundType, options);
+        },
+
+        playUISound: function(options) {
+            const sound = new THREE.Audio(listener);
+
+            audioLoader.load(options.soundFile, function(buffer) {
+                sound.setBuffer(buffer);
+                sound.setLoop(options.loop || false);
+                sound.setVolume(options.volume || 0.5);
+                sound.play();
+            });
+
+            return sound;
+        },
+
+        playGeneratedSound: function(options) {
+            const audioCtx = listener.context;
+            const oscillator = audioCtx.createOscillator();
+            oscillator.type = options.type || 'sine';
+            oscillator.frequency.setValueAtTime(options.frequency || 440, audioCtx.currentTime); // Frequency in Hz
+
+            const gainNode = audioCtx.createGain();
+            const volume = options.volume || 0.5;
+
+            const duration = options.duration || 1000; // Total duration in milliseconds
+            const fadeInDuration = Math.min(duration * (options.fadeInPercent || 0) / 100, duration);
+            const fadeOutDuration = Math.min(duration * (options.fadeOutPercent || 0) / 100, duration - fadeInDuration);
+
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Start with 0 volume for fade-in
+            gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + fadeInDuration / 1000); // Fade-in
+
+            if (options.filterType) {
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = options.filterType;
+                filter.frequency.setValueAtTime(options.filterFrequency || 1000, audioCtx.currentTime);
+                filter.Q.value = options.filterQ || 1;
+                oscillator.connect(filter);
+                filter.connect(gainNode);
+            } else {
+                oscillator.connect(gainNode);
+            }
+
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.start();
+
+            if (fadeOutDuration > 0) {
+                const fadeOutStartTime = (duration - fadeOutDuration) / 1000;
+                gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + fadeOutStartTime);
+            }
+
+            setTimeout(() => {
+                oscillator.stop();
+            }, duration); // Duration in milliseconds
+
+            return oscillator;
+        }
+    };
+
+    return {
+        listener: listener,
+
+        playSound: function(name, options) {
+            if (sounds[name]) {
+                return sounds[name].call(this, options);
+            } else {
+                console.error('Sound not found:', name);
+            }
+        },
+
+        applySoundToObject: function(object3D, soundType, options = {}) {
+            options.object3D = object3D;
+            this.playSound(soundType, options);
+        },
+
+        playUISound: function(options) {
+            return sounds.playUISound(options);
+        },
+
+        playGeneratedSound: function(options) {
+            return sounds.playGeneratedSound(options);
+        },
+
+        playPositionalSound: function(soundType, position, options = {}) {
+            return sounds.playPositionalSound(soundType, position, options);
+        }
+    };
+})();
+
+
+
+
+
+function fxPip({
+    frequency = 100,
+    volume = 0.25,
+    duration = 1000,
+    type = 'sine',
+    fadeInPercent = 0,
+    fadeOutPercent = 0,
+    filterType = null,
+    filterFrequency = 1000
+} = {}) {
+    SoundManager.playGeneratedSound({
+        type: type,
+        frequency: frequency,
+        volume: volume,
+        duration: duration,
+        fadeInPercent: fadeInPercent,
+        fadeOutPercent: fadeOutPercent,
+        filterType: filterType,
+        filterFrequency: filterFrequency
+    });
+}
+
+window.fxPip = fxPip;
+
+
+
+const soundPresets = {
+    "shoot1":
+        {
+            "initialFrequency": 20,
+            "volume": 0.259,
+            "duration": 0.1323,
+            "type": "square",
+            "fadeInPercent": 0.1,
+            "fadeOutPercent": 20.1,
+            "filterType": "highpass",
+            "filterFrequency": 739.26,
+            "filterQ": 13.5718,
+            "loop": true,
+            "interval": 0.392
+        },
+    "message-in": {
+        "initialFrequency": 615.78,
+        "volume": 0.389,
+        "duration": 0.3038,
+        "type": "square",
+        "fadeInPercent": 18.3,
+        "fadeOutPercent": 28.3,
+        "filterType": "bandpass",
+        "filterFrequency": 3556.44,
+        "filterQ": 1.5124,
+        "loop": false,
+        "interval": 0.3038
+    },
+    "message-out": {
+        "initialFrequency": 415.78,
+        "volume": 0.389,
+        "duration": 0.3038,
+        "type": "square",
+        "fadeInPercent": 34.3,
+        "fadeOutPercent": 8.3,
+        "filterType": "bandpass",
+        "filterFrequency": 3556.44,
+        "filterQ": 1.5124,
+        "loop": false,
+        "interval": 0.3038
+    },
+
+    "plain": {
+        "initialFrequency": 440,
+        "volume": 0.5,
+        "duration": 0.1911,
+        "type": "sine",
+        "fadeInPercent": 1.3,
+        "fadeOutPercent": 16,
+        "filterType": "none",
+        "filterFrequency": 1000,
+        "filterQ": 1,
+        "loop": false,
+        "interval": 1
+        }
+};
+
+function playFX(presetName, seed = 0) {
+    const preset = soundPresets[presetName];
+    if (preset) {
+
+        const randomFactor = Math.random()*seed - Math.random()*seed;
+        // Use the seed to modify frequency and other parameters if needed
+        //const randomFactor = seed !== 0 ? (Math.sin(seed) * 0.5 + 0.5) : 1; // Generate a deterministic random factor based on the seed
+
+        fxPip({
+            frequency: preset.initialFrequency + randomFactor,
+            volume: preset.volume,
+            duration: preset.duration * 1000, // Convert to milliseconds if needed
+            type: preset.type,
+            fadeInPercent: preset.fadeInPercent,
+            fadeOutPercent: preset.fadeOutPercent,
+            filterType: preset.filterType,
+            filterFrequency: preset.filterFrequency // Apply randomness
+        });
+    } else {
+        console.error(`Preset "${presetName}" not found.`);
+    }
+}
+
+
+window.playFX = playFX;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// function initControllers() {
+
+
+//     container.appendChild(VRButton.createButton(renderer));
+
+
+
+//     // Controllers
+//     const controllerModelFactory = new XRControllerModelFactory();
+
+//     controller1 = renderer.xr.getController(0);
+//     controller1.addEventListener('selectstart', onSelectStart);
+//     controller1.addEventListener('selectend', onSelectEnd);
+//     scene.add(controller1);
+
+//     controller2 = renderer.xr.getController(1);
+//     controller2.addEventListener('selectstart', onSelectStart);
+//     controller2.addEventListener('selectend', onSelectEnd);
+//     scene.add(controller2);
+
+//     controllerGrip1 = renderer.xr.getControllerGrip(0);
+//     controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+//     scene.add(controllerGrip1);
+
+//     controllerGrip2 = renderer.xr.getControllerGrip(1);
+//     controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+
+//     scene.add(controllerGrip2);
+
+
+
+// }
+
+
+const container = document.createElement('div');
+document.body.appendChild(container);
+
+let cameraAnimated = false;
+let cameraPositions = [];
+
+
+/* 
+
+    Init Scene
+    ----------------------------------------------- 
+
+    */
+
+function initScene() {
+
+
+    // Scene setup
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.z = 5;
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.xr.enabled = true;
+
+
+
+    container.appendChild(renderer.domElement);      
+
+
+    // Lights
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 10, 7.5);
+    scene.add(light);
+
+
+    // document.body.appendChild(renderer.domElement);
+    // document.body.appendChild(VRButton.createButton(renderer));
+
+
+
+    // ORBIT CONTROLS
+
+    let isOrbitControlActive = false
+    let lastInteractionTime = Date.now();
+    const orbitControlDeactivationDelay = 300; 
+
+    const controls = new OrbitControls(camera, container);
+
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.1;
+
+    controls.minPolarAngle = 0;
+    //controls.autoRotate = false;
+
+    //controls.maxPolarAngle = Math.PI / 2.1; // This is already the default, means camera can't go more than 90 degrees.
+    controls.minDistance = 0.25; // The closest the camera can get to the target
+    controls.maxDistance = 1274210; // The farthest the camera can be from the target
+
+        // ---
+        controls.maxPolarAngle = Math.PI / 1.99; // This is already the default, means camera can't go more than 90 degrees.        
+        
+        // controls.minDistance = 0.5; // The closest the camera can get to the target
+        // controls.maxDistance = 150; // The farthest the camera can be from the target
+
+    function debounce(func, wait) {
+        let timeout;
+        return function (...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+    }
+
+    const debouncedSave = debounce(saveCameraPosition, 300); // 300ms delay
+
+    controls.addEventListener("end", () => {
+        setTimeout(() => {
+            
+        }, orbitControlDeactivationDelay);
+        isOrbitControlActive = false;
+
+        debouncedSave();
+    });
+
+    controls.addEventListener("change", () => {
+
+        //controls.needsUpdate = true;
+
+        //updateControls();  // Call updateControls on each change
+        
+        debouncedSave();   // Debounced call to save the camera position
+
+        // Other updates...
+        // updateDummyAvatar();
+        updateRigidBodies();
+    });
+
+    window.controls = controls;
+
+
+}
+
+
+/* 
+
+    Helpers
+    ----------------------------------------------- 
+
+    */
+
+
+function addHelpers() {
+
+    let visible = true;
+
+    const helperLayer = new THREE.Layers();
+    helperLayer.set(1); // Set to layer 1, different from the default layer 0
+
+    // GridHelper
+    const size = 500;
+    const divisions = 20;
+    const gridHelper = new THREE.GridHelper(size, divisions, 0x333333, 0xFFFFFF00);
+    gridHelper.name = "gridHelper"
+    gridHelper.layers.enable(1); // Assign to layer 1
+    gridHelper.ignore = true
+    gridHelper.position.set(0,-0.01,0)
+    gridHelper.visible = visible;
+    
+    scene.add(gridHelper);
+
+    // Create an AxesHelper
+    const axesHelper = new THREE.AxesHelper(100); // 5 is the size of the axes
+    axesHelper.ignore = true;
+    axesHelper.name = "axesHelper";
+    axesHelper.visible = visible;
+
+    scene.add(axesHelper);
+
+}
+
+
+
+/* 
+
+    Init
+    ----------------------------------------------- 
+
+    */
+
+
+
+function init() {
+
+
+    initScene();
+
+    initRapier();
+
+    restoreCameraPosition();    
+
+    //addHelpers();
+
+    addEnvMap();
+
+    animate();
+
+    toggleEmittersEditGUI();
+
+    initControllers();
+
+
+}
+
+
+
+/* 
+
+    Animate
+    ----------------------------------------------- 
+
+    */
+
+
+function animate() {
+
+    renderer.setAnimationLoop(render);
+
+
+}
+
+
+
+/* 
+
+    Render Loop
+    ----------------------------------------------- 
+
+    */
+
+function render() {
+
+    // if (myRapierWorld) {
+    //     myRapierWorld.step();
+    // }
+
+
+    //console.log("render")
+
+    updateRapier()
+
+
+    renderer.render(scene, camera);
+}
+
+
+
+
+
+
+function onSelectStart(event) {
+    const controller = event.target;
+    const intersections = getIntersections(controller);
+    if (intersections.length > 0) {
+        const intersection = intersections[0];
+        controller.userData.selected = intersection.object;
+    }
+}
+
+function onSelectEnd(event) {
+    const controller = event.target;
+    if (controller.userData.selected !== undefined) {
+        const object = controller.userData.selected;
+        object.material.emissive.b = 0;
+        controller.userData.selected = undefined;
+    }
+}
+
+function getIntersections(controller) {
+    const tempMatrix = new THREE.Matrix4();
+    tempMatrix.identity().extractRotation(controller.matrixWorld);
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+    raycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+    return raycaster.intersectObjects(scene.children, false);
+}
+
+
+
+/* 
+
+    GUIs draggable window
+    ----------------------------------------------- 
+
+    */
+
+function makePanelDraggable(element, dragHandle) {
+    
+    let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+    dragHandle.onmousedown = dragMouseDown;
+
+    function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        // Get the mouse cursor position at startup:
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        // Call a function whenever the cursor moves:
+        document.onmousemove = elementDrag;
+        element.style.zIndex += 1;
+    }
+    function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        // Calculate the new cursor position:
+        pos1 = pos3 - e.clientX;
+        pos2 = pos4 - e.clientY;
+        pos3 = e.clientX;
+        pos4 = e.clientY;
+        // Set the element's new position:
+        element.style.top = (element.offsetTop - pos2) + "px";
+        element.style.left = (element.offsetLeft - pos1) + "px";
+    }
+    function closeDragElement() {
+        // Stop moving when mouse button is released:
+        document.onmouseup = null;
+        document.onmousemove = null;
+    }
+    // display it
+    element.style.display = "block";
+}
+window.makePanelDraggable = makePanelDraggable;
+
+
+
+/* 
+
+    Window Resize Update
+    ----------------------------------------------- 
+
+    */
+
+let resizeTimeout;
+
+function onWindowResize() {
+
+    clearTimeout(resizeTimeout);
+
+    resizeTimeout = setTimeout(() => {
+
+        const width = document.documentElement.clientWidth;
+        const height = document.documentElement.clientHeight;
+
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+
+     }, 200); 
+
+}
+
+
+/* 
+
+    DOM Loaded - execute init()
+    ----------------------------------------------- 
+
+    */
+
+
+document.addEventListener("DOMContentLoaded", function() {
+
+    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('orientationchange', onWindowResize);
+
+    init();
+
+});
+
+
+
+</script>
+
+
+
+
+</body>
+
+</html>
