@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+
     <title>WebXR Emitter Application</title>
 
     <link rel="icon" href="./static/images/yolo-icon-256x256.png">
@@ -86,21 +90,29 @@
         }
         .custom-vr-button:hover {
             background-color: rgba(255, 255, 255, 0.2);
-            /* Slight background color on hover */
             transform: scale(1.1);
-            /* Slightly larger on hover */
         }
         .custom-vr-button:active {
             background-color: rgba(255, 255, 255, 0.3);
-            /* Slightly more intense background on active */
             border-color: rgba(255, 255, 255, 0.7);
-            /* More intense border on active */
             transform: scale(0.95);
-            /* Slightly smaller on active (click) */
         }
     </style>
 
-    <script defer src="https://analytics.mielniczuk.com/script.js" data-website-id="33076180-1c51-4617-b67b-b91b5e1f8cf8"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            try {
+                var script = document.createElement('script');
+                script.defer = true;
+                script.src = "https://analytics.mielniczuk.com/script.js";
+                script.setAttribute('data-website-id', '33076180-1c51-4617-b67b-b91b5e1f8cf8');
+                document.head.appendChild(script);
+            } catch (error) {
+                console.error('Analytics script failed to load', error);
+            }
+        });
+    </script>
+
 
 </head>
 
@@ -141,7 +153,9 @@
 
 
 import * as THREE from 'three';
+
 import { XRButton } from 'three/addons/webxr/XRButton.js';
+
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';  
@@ -1136,7 +1150,8 @@ function loadStaticGroundModel(ground) {
                 window.eventQueue = eventQueue;
                 item.material.wireframe = false;
                 
-                //teleportTargets.push(item);
+                // this enabled that ground is a subject to teleportation
+                teleportTargets.push(item);
             }
 
             //setTimeout(connectWebSocket, 1000);
@@ -1410,7 +1425,9 @@ window.renderPostprocessing = renderPostprocessing;
 
 
 async function setupCustomVRButton() {
+
     const vrAvailable = await checkVRHeadsetAvailability();
+    
     if (vrAvailable) {
         const customVrButton = document.createElement('button');
         customVrButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1441,6 +1458,11 @@ async function setupCustomVRButton() {
                 requiredFeatures: ['hand-tracking']
             };
 
+            // const sessionInit = {
+            //         optionalFeatures: [ 'depth-sensing', 'local-floor' ],
+            //         depthSensing: { 'usagePreference': [ 'gpu-optimized' ], dataFormatPreference: [] 
+            //     }}
+
             // const sessionInit = { optionalFeatures: ['local-floor', 'bounded-floor'] };
 
             navigator.xr.requestSession('immersive-vr', sessionInit).then((session) => {
@@ -1456,7 +1478,7 @@ async function setupCustomVRButton() {
 }
 
 
-setupCustomVRButton()
+// setupCustomVRButton()
 
 
 
@@ -1560,6 +1582,20 @@ function refreshControllerInfo() {
     updateDisplay(controller1, controller1QuaternionDisplay, currentMode);
     updateDisplay(controller2, controller2QuaternionDisplay, currentMode);
 }
+
+
+/*  ---------------------------------------------------  */
+
+/* Web Sockets - placeholders */
+
+
+function broadcastXRUser() {
+
+}
+
+
+
+
 
 
 
@@ -1883,6 +1919,9 @@ function initControllers() {
     }
 
     function performTeleportation() {
+
+        console.log("performTeleportation",currentMode,teleportMode)
+
         if (currentMode === 'teleportation' && teleportMode) {
             const teleportDestination = new THREE.Vector3();
             teleportRing.getWorldPosition(teleportDestination);
@@ -2322,20 +2361,22 @@ function addBallFromCamera(radius, color, offsetY = 0.2, density = 1, speedFacto
       // ---------------
 
     //console.log(" - --> broadcastObjectChange", model_uuid, value, propName, valueToSend)
-    const message = {
-        type: "broadcastBallFromCamera",
-        world_uuid: place.uuid,
-        world_name: place.name,
-        client_uuid: client_uuid,
-        cameraPosition: { x: cameraPosition.x, y: cameraPosition.y, z: cameraPosition.z },
-        cameraDirection: { x: cameraDirection.x, y: cameraDirection.y, z: cameraDirection.z }
-    };
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(message));
-    } else {
-        console.warn('WebSocket is not open. Cannot request the model.');
-    }
+
+    // const message = {
+    //     type: "broadcastBallFromCamera",
+    //     world_uuid: place.uuid,
+    //     world_name: place.name,
+    //     client_uuid: client_uuid,
+    //     cameraPosition: { x: cameraPosition.x, y: cameraPosition.y, z: cameraPosition.z },
+    //     cameraDirection: { x: cameraDirection.x, y: cameraDirection.y, z: cameraDirection.z }
+    // };
+
+    // if (ws && ws.readyState === WebSocket.OPEN) {
+    //     ws.send(JSON.stringify(message));
+    // } else {
+    //     console.warn('WebSocket is not open. Cannot request the model.');
+    // }
 
 
     fxPip({
@@ -2374,7 +2415,7 @@ function shootBall() {
     //au.playAudioFromFile(au.findSounds(audioData, "kick2")[0])
 
 
-    game.balls +=1;
+    //game.balls +=1;
 
 }
 
@@ -2402,7 +2443,7 @@ function shootBallFromController(controller) {
     // Create and shoot the ball towards the point sprite
     createAndShootBall(controllerWorldPosition, pointSpriteWorldPosition, ballSize, tronLegacyColors.brightBlue, density, speedFactor);
 
-    game.balls +=1;
+    //game.balls +=1;
 
 }
 
@@ -2457,20 +2498,20 @@ function createAndShootBall(startPosition, targetPosition, radius, color, densit
     window.rigidBodies.push(rigidBody);
     window.threeCubes.push(sphereMesh);
 
-    const message = {
-        type: "broadcastBallFromXRCamera",
-        world_uuid: place.uuid,
-        world_name: place.name,
-        client_uuid: client_uuid,
-        startPosition: startPosition,
-        targetPosition: targetPosition
-    };
+    // const message = {
+    //     type: "broadcastBallFromXRCamera",
+    //     world_uuid: place.uuid,
+    //     world_name: place.name,
+    //     client_uuid: client_uuid,
+    //     startPosition: startPosition,
+    //     targetPosition: targetPosition
+    // };
 
-    if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(message));
-    } else {
-        console.log('WebSocket is not open. Cannot request the model.');
-    }
+    // if (ws.readyState === WebSocket.OPEN) {
+    //     ws.send(JSON.stringify(message));
+    // } else {
+    //     console.log('WebSocket is not open. Cannot request the model.');
+    // }
 
 
     playFX("shoot1", 10);
@@ -2786,47 +2827,6 @@ window.playFX = playFX;
 
 
 
-
-
-
-
-
-
-
-// function initControllers() {
-
-
-//     container.appendChild(VRButton.createButton(renderer));
-
-
-
-//     // Controllers
-//     const controllerModelFactory = new XRControllerModelFactory();
-
-//     controller1 = renderer.xr.getController(0);
-//     controller1.addEventListener('selectstart', onSelectStart);
-//     controller1.addEventListener('selectend', onSelectEnd);
-//     scene.add(controller1);
-
-//     controller2 = renderer.xr.getController(1);
-//     controller2.addEventListener('selectstart', onSelectStart);
-//     controller2.addEventListener('selectend', onSelectEnd);
-//     scene.add(controller2);
-
-//     controllerGrip1 = renderer.xr.getControllerGrip(0);
-//     controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
-//     scene.add(controllerGrip1);
-
-//     controllerGrip2 = renderer.xr.getControllerGrip(1);
-//     controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
-
-//     scene.add(controllerGrip2);
-
-
-
-// }
-
-
 const container = document.createElement('div');
 document.body.appendChild(container);
 
@@ -2846,6 +2846,10 @@ function initScene() {
 
     // Scene setup
     scene = new THREE.Scene();
+    // solid background color
+    // you can add background from addEnvMap() 
+    scene.background = new THREE.Color( 0x505050 );
+
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 5;
 
@@ -2928,6 +2932,16 @@ function initScene() {
     });
 
     window.controls = controls;
+
+
+    // XR Button - if yo uwant to test mixed reality
+    // document.body.appendChild( XRButton.createButton( renderer, {
+    //     'optionalFeatures': [ 'depth-sensing' ],
+    //     'depthSensing': { 'usagePreference': [ 'gpu-optimized' ], 'dataFormatPreference': [] }
+    // } ) ); 
+
+
+    setupCustomVRButton()     
 
 
 }
@@ -3037,6 +3051,9 @@ function render() {
 
 
     //console.log("render")
+
+    controlsUpdate()
+
 
     updateRapier();
 
