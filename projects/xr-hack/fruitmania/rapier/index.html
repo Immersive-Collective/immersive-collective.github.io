@@ -1,20 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
     <title>WebXR Emitter Application</title>
-
     <link rel="icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wcAAgAB/rdqWkAAAAAASUVORK5CYII=">
-    
-    
     <style>
         body { margin: 0; }
-        
         canvas { display: block; }
-
         #guiOverlayInput {
             position: absolute;
             width: min-content;
@@ -23,7 +16,6 @@
             left: 8px;
             z-index: 1001;
         }
-
         #guiHolderWrap {
             border: 1px solid #ffffff2b;
             max-height: 90vh;
@@ -32,9 +24,7 @@
             border-radius: 0.5rem;
             backdrop-filter: blur(2px);
             -webkit-backdrop-filter: blur(2px);
-
         }
-
         #guiOverlayBar {
             color: black;
             font-size: 0.5rem;
@@ -45,13 +35,10 @@
             text-align: center;
             border-radius: 0.2rem;
         }
-
         #guiOverlayBar:hover {
             color: initial;
             background: linear-gradient(145deg, #f5f5f5, #e0e0e0, #9e9e9e, #757575, #616161, #424242, #212121);
-
         }
-
         #guiCloudsOverlayInput {
             position: absolute;
             width: min-content;
@@ -59,7 +46,6 @@
             top: 50px;
             right: 50px;
         }
-
         #guiCloudsOverlayBar {
             color: black;
             font-size: 0.5rem;
@@ -73,12 +59,10 @@
             border-bottom-right-radius: 0;
             border-bottom: 1px solid black;
         }
-
         #guiCloudsOverlayBar:hover {
             background-color: rgba(255, 255, 255, 0.95);
             color: initial;
         }        
-        
         /* Control Pad */
         .custom-vr-button {
             background: #0000003b;
@@ -95,18 +79,15 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-
         .display-block {
             display: block !important;
         }
-
         .custom-vr-button:hover {
             background-color: rgba(255, 255, 255, 0.2);
             /* Slight background color on hover */
             transform: scale(1.1);
             /* Slightly larger on hover */
         }
-
         .custom-vr-button:active {
             background-color: rgba(255, 255, 255, 0.3);
             /* Slightly more intense background on active */
@@ -115,10 +96,11 @@
             transform: scale(0.95);
             /* Slightly smaller on active (click) */
         }
-
-
     </style>
 </head>
+
+
+
 
 <body>
 
@@ -1658,6 +1640,7 @@ function addBallTrajectory() {
 
 
 function initControllers() {
+
     console.log(" -------- initControllers")
 
     addBallTrajectory();
@@ -1984,15 +1967,16 @@ function updateRaycasting() {
 
 function handlePinch(controller) {
 
-    const intersections = raycaster.intersectObjects(scene.children, true);
-    console.log("handlePinched");
+    // const intersections = raycaster.intersectObjects(scene.children, true);
+    console.log("handlePinch, control", controller);
 
-    intersections.forEach(intersection => {
-        if (intersection.object) {
-            //console.log("👆 Intersected Object:", intersection.object.name);
-            traverseAndLog(intersection.object);
-        }
-    });
+    // intersections.forEach(intersection => {
+    //     if (intersection.object) {
+    //         //console.log("👆 Intersected Object:", intersection.object.name);
+    //         traverseAndLog(intersection.object);
+    //     }
+    // });
+
 }
 
 
@@ -2170,7 +2154,19 @@ function checkRingCollision() {
 
 
 
-/* Shooting balls */
+
+
+
+
+/* 
+
+
+    Shooting balls 
+    -------------------------------------
+
+
+    */
+
 
 function shootBallFromXRBroadcast(data) {
 
@@ -2383,7 +2379,7 @@ window.shootBall = shootBall;
 
 function shootBallFromController(controller) {
 
-    //console.log("shootBallFromController:", controller);
+    console.log("shootBallFromController:", controller);
 
     // The size, density, and speed factor for the ball
     let ballSize = 0.12 + Math.random() * 0.01;
@@ -3037,7 +3033,11 @@ function render() {
 
     //console.log("render")
 
-    updateRapier()
+    updateRapier();
+
+    updateRaycasting();
+
+    checkRingCollision();
 
 
     renderer.render(scene, camera);
