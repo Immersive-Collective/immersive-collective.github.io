@@ -245,7 +245,94 @@ const guiInstances = new Map();
 
 
 
+/* 
 
+    Emitters - Config
+    ----------------------------------------------- 
+
+    */
+
+
+const geometryConfig = {
+    BoxGeometry: {
+        defaultParams: { sx: 1, sy: 1, sz: 1 },
+        params: ['sx', 'sy', 'sz'],
+        create: params => new THREE.BoxGeometry(params.sx, params.sy, params.sz)
+    },
+    SphereGeometry: {
+        defaultParams: { radius: 1, widthSegments: 32, heightSegments: 16 },
+        params: ['radius', 'widthSegments', 'heightSegments'],
+        create: params => new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments)
+    },
+    CapsuleGeometry: {
+        defaultParams: { radius: 1, length: 1, capSegments: 4, radialSegments: 8 },
+        params: ['radius', 'length', 'capSegments', 'radialSegments'],
+        create: params => new THREE.CapsuleGeometry(params.radius, params.length, params.capSegments, params.radialSegments)
+    },
+    CircleGeometry: {
+        defaultParams: { radius: 1, segments: 32, thetaStart: 0, thetaLength: Math.PI * 2 },
+        params: ['radius', 'segments', 'thetaStart', 'thetaLength'],
+        create: params => new THREE.CircleGeometry(params.radius, params.segments, params.thetaStart, params.thetaLength)
+    },
+    ConeGeometry: {
+        defaultParams: { radius: 1, height: 1, radialSegments: 32, heightSegments: 1, openEnded: false, thetaStart: 0, thetaLength: Math.PI * 2 },
+        params: ['radius', 'height', 'radialSegments', 'heightSegments', 'openEnded', 'thetaStart', 'thetaLength'],
+        create: params => new THREE.ConeGeometry(params.radius, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength)
+    },
+    CylinderGeometry: {
+        defaultParams: { radiusTop: 1, radiusBottom: 1, height: 1, radialSegments: 32, heightSegments: 1, openEnded: false, thetaStart: 0, thetaLength: Math.PI * 2 },
+        params: ['radiusTop', 'radiusBottom', 'height', 'radialSegments', 'heightSegments', 'openEnded', 'thetaStart', 'thetaLength'],
+        create: params => new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength)
+    },
+    DodecahedronGeometry: {
+        defaultParams: { radius: 1, detail: 0 },
+        params: ['radius', 'detail'],
+        create: params => new THREE.DodecahedronGeometry(params.radius, params.detail)
+    },
+    IcosahedronGeometry: {
+        defaultParams: { radius: 1, detail: 0 },
+        params: ['radius', 'detail'],
+        create: params => new THREE.IcosahedronGeometry(params.radius, params.detail)
+    },
+    OctahedronGeometry: {
+        defaultParams: { radius: 1, detail: 0 },
+        params: ['radius', 'detail'],
+        create: params => new THREE.OctahedronGeometry(params.radius, params.detail)
+    },
+    PlaneGeometry: {
+        defaultParams: { width: 1, height: 1, widthSegments: 1, heightSegments: 1 },
+        params: ['width', 'height', 'widthSegments', 'heightSegments'],
+        create: params => new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments)
+    },
+    RingGeometry: {
+        defaultParams: { innerRadius: 0.5, outerRadius: 1, thetaSegments: 32, phiSegments: 1, thetaStart: 0, thetaLength: Math.PI * 2 },
+        params: ['innerRadius', 'outerRadius', 'thetaSegments', 'phiSegments', 'thetaStart', 'thetaLength'],
+        create: params => new THREE.RingGeometry(params.innerRadius, params.outerRadius, params.thetaSegments, params.phiSegments, params.thetaStart, params.thetaLength)
+    },
+    TetrahedronGeometry: {
+        defaultParams: { radius: 1, detail: 0 },
+        params: ['radius', 'detail'],
+        create: params => new THREE.TetrahedronGeometry(params.radius, params.detail)
+    },
+    TorusGeometry: {
+        defaultParams: { radius: 1, tube: 0.4, radialSegments: 12, tubularSegments: 48, arc: Math.PI * 2 },
+        params: ['radius', 'tube', 'radialSegments', 'tubularSegments', 'arc'],
+        create: params => new THREE.TorusGeometry(params.radius, params.tube, params.radialSegments, params.tubularSegments, params.arc)
+    },
+    TorusKnotGeometry: {
+        defaultParams: { radius: 1, tube: 0.4, tubularSegments: 64, radialSegments: 8, p: 2, q: 3 },
+        params: ['radius', 'tube', 'tubularSegments', 'radialSegments', 'p', 'q'],
+        create: params => new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q)
+    }
+};
+
+
+/* 
+
+    Emitters - Emitter
+    ----------------------------------------------- 
+
+    */
 
 
 const storedEmitters = [];
@@ -335,55 +422,7 @@ function cubeEmitter({ x = 0, y = 3, z = 0, id, ...params } = {}, interTime = 20
     }
 
     function addSingleObject(type, params, position, color, random) {
-        let geometry;
-
-        switch (type) {
-            case 'BoxGeometry':
-                geometry = new THREE.BoxGeometry(params.sx, params.sy, params.sz);
-                break;
-            case 'SphereGeometry':
-                geometry = new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
-                break;
-            case 'CapsuleGeometry':
-                geometry = new THREE.CapsuleGeometry(params.radius, params.length, params.capSegments, params.radialSegments);
-                break;
-            case 'CircleGeometry':
-                geometry = new THREE.CircleGeometry(params.radius, params.segments, params.thetaStart, params.thetaLength);
-                break;
-            case 'ConeGeometry':
-                geometry = new THREE.ConeGeometry(params.radius, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
-                break;
-            case 'CylinderGeometry':
-                geometry = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
-                break;
-            case 'DodecahedronGeometry':
-                geometry = new THREE.DodecahedronGeometry(params.radius, params.detail);
-                break;
-            case 'IcosahedronGeometry':
-                geometry = new THREE.IcosahedronGeometry(params.radius, params.detail);
-                break;
-            case 'OctahedronGeometry':
-                geometry = new THREE.OctahedronGeometry(params.radius, params.detail);
-                break;
-            case 'PlaneGeometry':
-                geometry = new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments);
-                break;
-            case 'RingGeometry':
-                geometry = new THREE.RingGeometry(params.innerRadius, params.outerRadius, params.thetaSegments, params.phiSegments, params.thetaStart, params.thetaLength);
-                break;
-            case 'TetrahedronGeometry':
-                geometry = new THREE.TetrahedronGeometry(params.radius, params.detail);
-                break;
-            case 'TorusGeometry':
-                geometry = new THREE.TorusGeometry(params.radius, params.tube, params.radialSegments, params.tubularSegments, params.arc);
-                break;
-            case 'TorusKnotGeometry':
-                geometry = new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q);
-                break;
-            default:
-                geometry = new THREE.BoxGeometry(params.sx, params.sy, params.sz);
-                break;
-        }
+        const geometry = geometryConfig[type].create(params);
 
         const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
         const bodyMesh = new THREE.Mesh(geometry, bodyMaterial);
@@ -449,7 +488,15 @@ function cubeEmitter({ x = 0, y = 3, z = 0, id, ...params } = {}, interTime = 20
 
 window.cubeEmitter = cubeEmitter;
 
-/* Emitters GUI */
+
+
+/* 
+
+    Emitters GUI 
+
+                    */
+
+
 
 function initEmittersEdit(guiKey) {
     const container = document.getElementById("guiHolder");
@@ -465,27 +512,26 @@ function initEmittersEdit(guiKey) {
             x: 0,
             y: 3,
             z: 0,
-            sx: 1,
-            sy: 1,
-            sz: 1,
-            randomSizes: false,
+            ...geometryConfig.BoxGeometry.defaultParams, // default geometry
             geometryType: 'BoxGeometry',
-            interval: 500
+            interval: 500,
+            randomSizes: false
         };
 
         const folder = gui.addFolder('Add Emitter');
 
-        folder.add(emitterParams, 'geometryType', [
-            'BoxGeometry', 'SphereGeometry', 'CapsuleGeometry', 'CircleGeometry', 'ConeGeometry',
-            'CylinderGeometry', 'DodecahedronGeometry', 'IcosahedronGeometry', 'OctahedronGeometry', 'PlaneGeometry',
-            'RingGeometry', 'TetrahedronGeometry', 'TorusGeometry', 'TorusKnotGeometry'
-        ]).name('Geometry Type');
+        folder.add(emitterParams, 'geometryType', Object.keys(geometryConfig)).name('Geometry Type').onChange((newGeometryType) => {
+            Object.assign(emitterParams, geometryConfig[newGeometryType].defaultParams);
+        });
 
         folder.add({ create: () => createEmitter(emitterParams) }, 'create').name('Create Emitter');
         folder.open();
     }
 
     function createEmitter(params) {
+        const emitterId = generateUniqueId();
+        params.id = emitterId;
+
         const index = emitters.length;
         const emitter = cubeEmitter(params);
         emitters.push({ emitter, params });
@@ -513,7 +559,7 @@ function initEmittersEdit(guiKey) {
         folder.add({ start: () => startEmitter(index) }, 'start').name('Start');
         folder.add({ pause: () => pauseEmitter(index) }, 'pause').name('Pause');
         folder.add({ reset: () => resetEmitter(index, emitter.previewMesh) }, 'reset').name('Reset');
-        folder.add({ exportEmitter: () => exportEmitter(params) }, 'exportEmitter').name('Export Emitter');
+        folder.add({ exportEmitter: () => exportEmitter(emitterId) }, 'exportEmitter').name('Export Emitter');
 
         folder.open();
 
@@ -521,278 +567,16 @@ function initEmittersEdit(guiKey) {
     }
 
     function addGeometrySpecificParams(folder, params, emitter) {
-        switch (params.geometryType) {
-            case 'BoxGeometry':
-                folder.add(params, 'sx', 0.01, 3).name('Width').onChange(() => {
-                    emitter.setGeometryParams({ sx: params.sx });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'sy', 0.01, 3).name('Height').onChange(() => {
-                    emitter.setGeometryParams({ sy: params.sy });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'sz', 0.01, 3).name('Depth').onChange(() => {
-                    emitter.setGeometryParams({ sz: params.sz });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                break;
-            case 'SphereGeometry':
-            case 'CapsuleGeometry':
-            case 'DodecahedronGeometry':
-            case 'IcosahedronGeometry':
-            case 'OctahedronGeometry':
-            case 'TetrahedronGeometry':
-                params.radius = params.radius || 1;
-                folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
-                    emitter.setGeometryParams({ radius: params.radius });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                if (params.geometryType === 'SphereGeometry') {
-                    params.widthSegments = params.widthSegments || 32;
-                    params.heightSegments = params.heightSegments || 16;
-                    folder.add(params, 'widthSegments', 3, 64).name('Width Segments').onChange(() => {
-                        emitter.setGeometryParams({ widthSegments: params.widthSegments });
-                        updatePreviewMeshGeometry(emitter.previewMesh, params);
-                    });
-                    folder.add(params, 'heightSegments', 2, 32).name('Height Segments').onChange(() => {
-                        emitter.setGeometryParams({ heightSegments: params.heightSegments });
-                        updatePreviewMeshGeometry(emitter.previewMesh, params);
-                    });
-                } else if (params.geometryType === 'CapsuleGeometry') {
-                    params.length = params.length || 1;
-                    params.capSegments = params.capSegments || 4;
-                    params.radialSegments = params.radialSegments || 8;
-                    folder.add(params, 'length', 0.01, 3).name('Length').onChange(() => {
-                        emitter.setGeometryParams({ length: params.length });
-                        updatePreviewMeshGeometry(emitter.previewMesh, params);
-                    });
-                    folder.add(params, 'capSegments', 2, 32).name('Cap Segments').onChange(() => {
-                        emitter.setGeometryParams({ capSegments: params.capSegments });
-                        updatePreviewMeshGeometry(emitter.previewMesh, params);
-                    });
-                    folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
-                        emitter.setGeometryParams({ radialSegments: params.radialSegments });
-                        updatePreviewMeshGeometry(emitter.previewMesh, params);
-                    });
-                }
-                break;
-            case 'CircleGeometry':
-                params.radius = params.radius || 1;
-                params.segments = params.segments || 32;
-                params.thetaStart = params.thetaStart || 0;
-                params.thetaLength = params.thetaLength || Math.PI * 2;
-                folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
-                    emitter.setGeometryParams({ radius: params.radius });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'segments', 3, 64).name('Segments').onChange(() => {
-                    emitter.setGeometryParams({ segments: params.segments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
-                    emitter.setGeometryParams({ thetaStart: params.thetaStart });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
-                    emitter.setGeometryParams({ thetaLength: params.thetaLength });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                break;
-            case 'ConeGeometry':
-                params.radius = params.radius || 1;
-                params.height = params.height || 1;
-                params.radialSegments = params.radialSegments || 32;
-                params.heightSegments = params.heightSegments || 1;
-                params.openEnded = params.openEnded || false;
-                params.thetaStart = params.thetaStart || 0;
-                params.thetaLength = params.thetaLength || Math.PI * 2;
-                folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
-                    emitter.setGeometryParams({ radius: params.radius });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'height', 0.01, 3).name('Height').onChange(() => {
-                    emitter.setGeometryParams({ height: params.height });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
-                    emitter.setGeometryParams({ radialSegments: params.radialSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'heightSegments', 1, 32).name('Height Segments').onChange(() => {
-                    emitter.setGeometryParams({ heightSegments: params.heightSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'openEnded').name('Open Ended').onChange(() => {
-                    emitter.setGeometryParams({ openEnded: params.openEnded });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
-                    emitter.setGeometryParams({ thetaStart: params.thetaStart });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
-                    emitter.setGeometryParams({ thetaLength: params.thetaLength });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                break;
-            case 'CylinderGeometry':
-                params.radiusTop = params.radiusTop || 1;
-                params.radiusBottom = params.radiusBottom || 1;
-                params.height = params.height || 1;
-                params.radialSegments = params.radialSegments || 32;
-                params.heightSegments = params.heightSegments || 1;
-                params.openEnded = params.openEnded || false;
-                params.thetaStart = params.thetaStart || 0;
-                params.thetaLength = params.thetaLength || Math.PI * 2;
-                folder.add(params, 'radiusTop', 0.01, 3).name('Radius Top').onChange(() => {
-                    emitter.setGeometryParams({ radiusTop: params.radiusTop });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'radiusBottom', 0.01, 3).name('Radius Bottom').onChange(() => {
-                    emitter.setGeometryParams({ radiusBottom: params.radiusBottom });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'height', 0.01, 3).name('Height').onChange(() => {
-                    emitter.setGeometryParams({ height: params.height });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
-                    emitter.setGeometryParams({ radialSegments: params.radialSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'heightSegments', 1, 32).name('Height Segments').onChange(() => {
-                    emitter.setGeometryParams({ heightSegments: params.heightSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'openEnded').name('Open Ended').onChange(() => {
-                    emitter.setGeometryParams({ openEnded: params.openEnded });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
-                    emitter.setGeometryParams({ thetaStart: params.thetaStart });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
-                    emitter.setGeometryParams({ thetaLength: params.thetaLength });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                break;
-            case 'PlaneGeometry':
-                params.width = params.width || 1;
-                params.height = params.height || 1;
-                params.widthSegments = params.widthSegments || 1;
-                params.heightSegments = params.heightSegments || 1;
-                folder.add(params, 'width', 0.01, 3).name('Width').onChange(() => {
-                    emitter.setGeometryParams({ width: params.width });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'height', 0.01, 3).name('Height').onChange(() => {
-                    emitter.setGeometryParams({ height: params.height });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'widthSegments', 1, 32).name('Width Segments').onChange(() => {
-                    emitter.setGeometryParams({ widthSegments: params.widthSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'heightSegments', 1, 32).name('Height Segments').onChange(() => {
-                    emitter.setGeometryParams({ heightSegments: params.heightSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                break;
-            case 'RingGeometry':
-                params.innerRadius = params.innerRadius || 0.5;
-                params.outerRadius = params.outerRadius || 1;
-                params.thetaSegments = params.thetaSegments || 32;
-                params.phiSegments = params.phiSegments || 1;
-                params.thetaStart = params.thetaStart || 0;
-                params.thetaLength = params.thetaLength || Math.PI * 2;
-                folder.add(params, 'innerRadius', 0.01, 3).name('Inner Radius').onChange(() => {
-                    emitter.setGeometryParams({ innerRadius: params.innerRadius });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'outerRadius', 0.01, 3).name('Outer Radius').onChange(() => {
-                    emitter.setGeometryParams({ outerRadius: params.outerRadius });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'thetaSegments', 3, 64).name('Theta Segments').onChange(() => {
-                    emitter.setGeometryParams({ thetaSegments: params.thetaSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'phiSegments', 1, 32).name('Phi Segments').onChange(() => {
-                    emitter.setGeometryParams({ phiSegments: params.phiSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
-                    emitter.setGeometryParams({ thetaStart: params.thetaStart });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
-                    emitter.setGeometryParams({ thetaLength: params.thetaLength });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                break;
-            case 'TorusGeometry':
-                params.radius = params.radius || 1;
-                params.tube = params.tube || 0.4;
-                params.radialSegments = params.radialSegments || 12;
-                params.tubularSegments = params.tubularSegments || 48;
-                params.arc = params.arc || Math.PI * 2;
-                folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
-                    emitter.setGeometryParams({ radius: params.radius });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'tube', 0.01, 3).name('Tube').onChange(() => {
-                    emitter.setGeometryParams({ tube: params.tube });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
-                    emitter.setGeometryParams({ radialSegments: params.radialSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'tubularSegments', 3, 64).name('Tubular Segments').onChange(() => {
-                    emitter.setGeometryParams({ tubularSegments: params.tubularSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'arc', 0, Math.PI * 2).name('Arc').onChange(() => {
-                    emitter.setGeometryParams({ arc: params.arc });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                break;
-            case 'TorusKnotGeometry':
-                params.radius = params.radius || 1;
-                params.tube = params.tube || 0.4;
-                params.tubularSegments = params.tubularSegments || 64;
-                params.radialSegments = params.radialSegments || 8;
-                params.p = params.p || 2;
-                params.q = params.q || 3;
-                folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
-                    emitter.setGeometryParams({ radius: params.radius });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'tube', 0.01, 3).name('Tube').onChange(() => {
-                    emitter.setGeometryParams({ tube: params.tube });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'tubularSegments', 3, 64).name('Tubular Segments').onChange(() => {
-                    emitter.setGeometryParams({ tubularSegments: params.tubularSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
-                    emitter.setGeometryParams({ radialSegments: params.radialSegments });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'p', 1, 10).name('P').onChange(() => {
-                    emitter.setGeometryParams({ p: params.p });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                folder.add(params, 'q', 1, 10).name('Q').onChange(() => {
-                    emitter.setGeometryParams({ q: params.q });
-                    updatePreviewMeshGeometry(emitter.previewMesh, params);
-                });
-                break;
-            default:
-                break;
-        }
+        const geometryType = params.geometryType;
+        const config = geometryConfig[geometryType];
+
+        config.params.forEach(param => {
+            folder.add(params, param, 0.01, 3).name(param.charAt(0).toUpperCase() + param.slice(1)).onChange(() => {
+                const newParams = { [param]: params[param] };
+                emitter.setGeometryParams(newParams);
+                updatePreviewMeshGeometry(emitter.previewMesh, params);
+            });
+        });
     }
 
     function createStaticPreview(params) {
@@ -809,38 +593,8 @@ function initEmittersEdit(guiKey) {
     }
 
     function createGeometry(type, params) {
-        switch (type) {
-            case 'BoxGeometry':
-                return new THREE.BoxGeometry(params.sx, params.sy, params.sz);
-            case 'SphereGeometry':
-                return new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
-            case 'CapsuleGeometry':
-                return new THREE.CapsuleGeometry(params.radius, params.length, params.capSegments, params.radialSegments);
-            case 'CircleGeometry':
-                return new THREE.CircleGeometry(params.radius, params.segments, params.thetaStart, params.thetaLength);
-            case 'ConeGeometry':
-                return new THREE.ConeGeometry(params.radius, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
-            case 'CylinderGeometry':
-                return new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
-            case 'DodecahedronGeometry':
-                return new THREE.DodecahedronGeometry(params.radius, params.detail);
-            case 'IcosahedronGeometry':
-                return new THREE.IcosahedronGeometry(params.radius, params.detail);
-            case 'OctahedronGeometry':
-                return new THREE.OctahedronGeometry(params.radius, params.detail);
-            case 'PlaneGeometry':
-                return new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments);
-            case 'RingGeometry':
-                return new THREE.RingGeometry(params.innerRadius, params.outerRadius, params.thetaSegments, params.phiSegments, params.thetaStart, params.thetaLength);
-            case 'TetrahedronGeometry':
-                return new THREE.TetrahedronGeometry(params.radius, params.detail);
-            case 'TorusGeometry':
-                return new THREE.TorusGeometry(params.radius, params.tube, params.radialSegments, params.tubularSegments, params.arc);
-            case 'TorusKnotGeometry':
-                return new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q);
-            default:
-                return new THREE.BoxGeometry(params.sx, params.sy, params.sz);
-        }
+        const config = geometryConfig[type];
+        return config.create(params);
     }
 
     function updatePreviewMeshGeometry(previewMesh, params) {
@@ -874,14 +628,17 @@ function initEmittersEdit(guiKey) {
         }
     }
 
-    function exportEmitter(params) {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(params));
-        const downloadAnchorNode = document.createElement('a');
-        downloadAnchorNode.setAttribute("href", dataStr);
-        downloadAnchorNode.setAttribute("download", `emitter_${params.id}.json`);
-        document.body.appendChild(downloadAnchorNode);
-        downloadAnchorNode.click();
-        downloadAnchorNode.remove();
+    function exportEmitter(emitterId) {
+        const params = storedEmitters.find(e => e.id === emitterId);
+        if (params) {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(params));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `emitter_${params.id}.json`);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
     }
 
     function importEmitter() {
@@ -902,14 +659,353 @@ function initEmittersEdit(guiKey) {
 
     gui.add({ importEmitter: importEmitter }, 'importEmitter').name('Import Emitter');
 
-    //gui.add({ close: () => toggleEmittersEditGUI() }, 'close').name('CLOSE');
-
     addEmitter();
 
     storedEmitters.forEach(params => createEmitter(params)); // Recreate emitters
 
     makePanelDraggable(document.getElementById("guiOverlayInput"), document.getElementById("guiOverlayBar"));
 }
+
+window.initEmittersEdit = initEmittersEdit;
+
+
+// function initEmittersEdit(guiKey) {
+//     const container = document.getElementById("guiHolder");
+
+//     const gui = new GUI({ width: 350, container: container });
+//     guiInstances.set(guiKey, gui);
+
+//     const emitters = [];
+
+//     function addEmitter() {
+//         const emitterParams = {
+//             id: generateUniqueId(),
+//             x: 0,
+//             y: 3,
+//             z: 0,
+//             ...geometryConfig.BoxGeometry.defaultParams, // default geometry
+//             geometryType: 'BoxGeometry',
+//             interval: 500,
+//             randomSizes: false
+//         };
+
+//         const folder = gui.addFolder('Add Emitter');
+
+//         folder.add(emitterParams, 'geometryType', Object.keys(geometryConfig)).name('Geometry Type').onChange((newGeometryType) => {
+//             Object.assign(emitterParams, geometryConfig[newGeometryType].defaultParams);
+//         });
+
+//         folder.add({ create: () => createEmitter(emitterParams) }, 'create').name('Create Emitter');
+//         folder.open();
+//     }
+
+//     function createEmitter(params) {
+//         const index = emitters.length;
+//         const emitter = cubeEmitter(params);
+//         emitters.push({ emitter, params });
+//         storedEmitters.push(params); // Store parameters
+
+//         const folder = gui.addFolder(`Emitter ${params.id}`);
+//         folder.add(params, 'x', -30, 30).name('X').onChange(() => {
+//             emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//             updatePreviewMeshPosition(emitter.previewMesh, params);
+//         });
+//         folder.add(params, 'y', 0, 30).name('Y').onChange(() => {
+//             emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//             updatePreviewMeshPosition(emitter.previewMesh, params);
+//         });
+//         folder.add(params, 'z', -30, 30).name('Z').onChange(() => {
+//             emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//             updatePreviewMeshPosition(emitter.previewMesh, params);
+//         });
+
+//         folder.add(params, 'randomSizes').name('Random Sizes').onChange(() => emitter.setRandomSizes(params.randomSizes));
+//         folder.add(params, 'interval', 1, 5000).name('Interval (ms)').onChange(() => emitter.setIntervalTime(params.interval));
+
+//         addGeometrySpecificParams(folder, params, emitter);
+
+//         folder.add({ start: () => startEmitter(index) }, 'start').name('Start');
+//         folder.add({ pause: () => pauseEmitter(index) }, 'pause').name('Pause');
+//         folder.add({ reset: () => resetEmitter(index, emitter.previewMesh) }, 'reset').name('Reset');
+//         folder.add({ exportEmitter: () => exportEmitter(params) }, 'exportEmitter').name('Export Emitter');
+
+//         folder.open();
+
+//         emitter.previewMesh = createStaticPreview(params);
+//     }
+
+//     function addGeometrySpecificParams(folder, params, emitter) {
+//         const geometryType = params.geometryType;
+//         const config = geometryConfig[geometryType];
+
+//         config.params.forEach(param => {
+//             folder.add(params, param, 0.01, 3).name(param.charAt(0).toUpperCase() + param.slice(1)).onChange(() => {
+//                 const newParams = { [param]: params[param] };
+//                 emitter.setGeometryParams(newParams);
+//                 updatePreviewMeshGeometry(emitter.previewMesh, params);
+//             });
+//         });
+//     }
+
+//     function createStaticPreview(params) {
+//         const color = new THREE.Color(1, 0, 0); // Red color for edges
+//         const geometry = createGeometry(params.geometryType, params);
+//         const edges = new THREE.EdgesGeometry(geometry);
+//         const material = new THREE.LineBasicMaterial({ color: color });
+//         const previewMesh = new THREE.LineSegments(edges, material);
+
+//         previewMesh.position.set(params.x, params.y, params.z);
+//         scene.add(previewMesh);
+
+//         return previewMesh;
+//     }
+
+//     function createGeometry(type, params) {
+//         const config = geometryConfig[type];
+//         return config.create(params);
+//     }
+
+//     function updatePreviewMeshGeometry(previewMesh, params) {
+//         const newGeometry = createGeometry(params.geometryType, params);
+//         const edges = new THREE.EdgesGeometry(newGeometry);
+//         previewMesh.geometry.dispose();
+//         previewMesh.geometry = edges;
+//     }
+
+//     function updatePreviewMeshPosition(previewMesh, params) {
+//         previewMesh.position.set(params.x, params.y, params.z);
+//     }
+
+//     function startEmitter(index) {
+//         if (emitters[index]) {
+//             emitters[index].emitter.start();
+//         }
+//     }
+
+//     function pauseEmitter(index) {
+//         if (emitters[index]) {
+//             emitters[index].emitter.pause();
+//         }
+//     }
+
+//     function resetEmitter(index, previewMesh) {
+//         if (emitters[index]) {
+//             emitters[index].emitter.reset();
+//             scene.remove(previewMesh);
+//             emitters[index].emitter.previewMesh = createStaticPreview(emitters[index].params);
+//         }
+//     }
+
+//     function exportEmitter(params) {
+//         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(params));
+//         const downloadAnchorNode = document.createElement('a');
+//         downloadAnchorNode.setAttribute("href", dataStr);
+//         downloadAnchorNode.setAttribute("download", `emitter_${params.id}.json`);
+//         document.body.appendChild(downloadAnchorNode);
+//         downloadAnchorNode.click();
+//         downloadAnchorNode.remove();
+//     }
+
+//     function importEmitter() {
+//         const input = document.createElement('input');
+//         input.type = 'file';
+//         input.accept = '.json';
+//         input.onchange = e => {
+//             const file = e.target.files[0];
+//             const reader = new FileReader();
+//             reader.onload = event => {
+//                 const importedParams = JSON.parse(event.target.result);
+//                 createEmitter(importedParams);
+//             };
+//             reader.readAsText(file);
+//         };
+//         input.click();
+//     }
+
+//     gui.add({ importEmitter: importEmitter }, 'importEmitter').name('Import Emitter');
+
+//     addEmitter();
+
+//     storedEmitters.forEach(params => createEmitter(params)); // Recreate emitters
+
+//     makePanelDraggable(document.getElementById("guiOverlayInput"), document.getElementById("guiOverlayBar"));
+// }
+
+// window.initEmittersEdit = initEmittersEdit;
+
+
+
+// function initEmittersEdit(guiKey) {
+//     const container = document.getElementById("guiHolder");
+
+//     const gui = new GUI({ width: 350, container: container });
+//     guiInstances.set(guiKey, gui);
+
+//     const emitters = [];
+
+//     function updateGeometryParams(folder, params, emitter) {
+//         const geometryType = params.geometryType;
+//         const config = geometryConfig[geometryType];
+
+//         config.params.forEach(param => {
+//             // Check if param already exists in folder.__controllers array
+//             if (!Array.isArray(folder.__controllers) || !folder.__controllers.some(ctrl => ctrl.property === param)) {
+//                 folder.add(params, param, 0.01, 3).name(param.charAt(0).toUpperCase() + param.slice(1)).onChange(() => {
+//                     const newParams = { [param]: params[param] };
+//                     emitter.setGeometryParams(newParams);
+//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
+//                 });
+//             }
+//         });
+//     }
+
+//     function addEmitter() {
+//         const emitterParams = {
+//             id: generateUniqueId(),
+//             x: 0,
+//             y: 3,
+//             z: 0,
+//             ...geometryConfig.BoxGeometry.defaultParams, // default geometry
+//             geometryType: 'BoxGeometry',
+//             interval: 500,
+//             randomSizes: false
+//         };
+
+//         const folder = gui.addFolder('Add Emitter');
+
+//         folder.add(emitterParams, 'geometryType', Object.keys(geometryConfig)).name('Geometry Type').onChange(() => {
+//             const geometryType = emitterParams.geometryType;
+//             Object.assign(emitterParams, geometryConfig[geometryType].defaultParams);
+//             updateGeometryParams(folder, emitterParams, null);
+//         });
+
+//         folder.add({ create: () => createEmitter(emitterParams) }, 'create').name('Create Emitter');
+//         folder.open();
+//     }
+
+//     function createEmitter(params) {
+//         const index = emitters.length;
+//         const emitter = cubeEmitter(params);
+//         emitters.push({ emitter, params });
+//         storedEmitters.push(params); // Store parameters
+
+//         const folder = gui.addFolder(`Emitter ${params.id}`);
+//         folder.add(params, 'x', -30, 30).name('X').onChange(() => {
+//             emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//             updatePreviewMeshPosition(emitter.previewMesh, params);
+//         });
+//         folder.add(params, 'y', 0, 30).name('Y').onChange(() => {
+//             emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//             updatePreviewMeshPosition(emitter.previewMesh, params);
+//         });
+//         folder.add(params, 'z', -30, 30).name('Z').onChange(() => {
+//             emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//             updatePreviewMeshPosition(emitter.previewMesh, params);
+//         });
+
+//         folder.add(params, 'randomSizes').name('Random Sizes').onChange(() => emitter.setRandomSizes(params.randomSizes));
+//         folder.add(params, 'interval', 1, 5000).name('Interval (ms)').onChange(() => emitter.setIntervalTime(params.interval));
+
+//         updateGeometryParams(folder, params, emitter);
+
+//         folder.add({ start: () => startEmitter(index) }, 'start').name('Start');
+//         folder.add({ pause: () => pauseEmitter(index) }, 'pause').name('Pause');
+//         folder.add({ reset: () => resetEmitter(index, emitter.previewMesh) }, 'reset').name('Reset');
+//         folder.add({ exportEmitter: () => exportEmitter(params) }, 'exportEmitter').name('Export Emitter');
+
+//         folder.open();
+
+//         emitter.previewMesh = createStaticPreview(params);
+//     }
+
+//     function createStaticPreview(params) {
+//         const color = new THREE.Color(1, 0, 0); // Red color for edges
+//         const geometry = createGeometry(params.geometryType, params);
+//         const edges = new THREE.EdgesGeometry(geometry);
+//         const material = new THREE.LineBasicMaterial({ color: color });
+//         const previewMesh = new THREE.LineSegments(edges, material);
+
+//         previewMesh.position.set(params.x, params.y, params.z);
+//         scene.add(previewMesh);
+
+//         return previewMesh;
+//     }
+
+//     function createGeometry(type, params) {
+//         const config = geometryConfig[type];
+//         return config.create(params);
+//     }
+
+//     function updatePreviewMeshGeometry(previewMesh, params) {
+//         const newGeometry = createGeometry(params.geometryType, params);
+//         const edges = new THREE.EdgesGeometry(newGeometry);
+//         previewMesh.geometry.dispose();
+//         previewMesh.geometry = edges;
+//     }
+
+//     function updatePreviewMeshPosition(previewMesh, params) {
+//         previewMesh.position.set(params.x, params.y, params.z);
+//     }
+
+//     function startEmitter(index) {
+//         if (emitters[index]) {
+//             emitters[index].emitter.start();
+//         }
+//     }
+
+//     function pauseEmitter(index) {
+//         if (emitters[index]) {
+//             emitters[index].emitter.pause();
+//         }
+//     }
+
+//     function resetEmitter(index, previewMesh) {
+//         if (emitters[index]) {
+//             emitters[index].emitter.reset();
+//             scene.remove(previewMesh);
+//             emitters[index].emitter.previewMesh = createStaticPreview(emitters[index].params);
+//         }
+//     }
+
+//     function exportEmitter(params) {
+//         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(params));
+//         const downloadAnchorNode = document.createElement('a');
+//         downloadAnchorNode.setAttribute("href", dataStr);
+//         downloadAnchorNode.setAttribute("download", `emitter_${params.id}.json`);
+//         document.body.appendChild(downloadAnchorNode);
+//         downloadAnchorNode.click();
+//         downloadAnchorNode.remove();
+//     }
+
+//     function importEmitter() {
+//         const input = document.createElement('input');
+//         input.type = 'file';
+//         input.accept = '.json';
+//         input.onchange = e => {
+//             const file = e.target.files[0];
+//             const reader = new FileReader();
+//             reader.onload = event => {
+//                 const importedParams = JSON.parse(event.target.result);
+//                 createEmitter(importedParams);
+//             };
+//             reader.readAsText(file);
+//         };
+//         input.click();
+//     }
+
+//     gui.add({ importEmitter: importEmitter }, 'importEmitter').name('Import Emitter');
+
+//     addEmitter();
+
+//     storedEmitters.forEach(params => createEmitter(params)); // Recreate emitters
+
+//     makePanelDraggable(document.getElementById("guiOverlayInput"), document.getElementById("guiOverlayBar"));
+// }
+
+
+
+
+
 
 function generateUniqueId() {
     return 'emitter-' + Math.random().toString(36).substr(2, 9);
@@ -926,7 +1022,15 @@ function toggleEmittersEditGUI() {
 
 window.toggleEmittersEditGUI = toggleEmittersEditGUI;
 
-/* Utility functions to manage emitters */
+
+/* 
+
+    Emitters Managers 
+
+                    */
+
+
+
 function listEmitterIds() {
     return Array.from(emittersMap.keys());
 }
@@ -952,25 +1056,116 @@ function triggerEmitterById(id, action) {
     }
 }
 
+function triggerEmittersArrayById(ids, action) {
+    ids.forEach(id => {
+        triggerEmitterById(id, action);
+    });
+}
+
 window.listEmitterIds = listEmitterIds;
 window.triggerEmitterById = triggerEmitterById;
+window.triggerEmittersArrayById = triggerEmittersArrayById;
 
 
 
 
 // /* 
 
-//     Emitters
+//     Emitters - Config
+//     ----------------------------------------------- 
+
+//     */
+
+
+// const geometryConfig = {
+//     BoxGeometry: {
+//         defaultParams: { sx: 1, sy: 1, sz: 1 },
+//         params: ['sx', 'sy', 'sz'],
+//         create: params => new THREE.BoxGeometry(params.sx, params.sy, params.sz)
+//     },
+//     SphereGeometry: {
+//         defaultParams: { radius: 1, widthSegments: 32, heightSegments: 16 },
+//         params: ['radius', 'widthSegments', 'heightSegments'],
+//         create: params => new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments)
+//     },
+//     CapsuleGeometry: {
+//         defaultParams: { radius: 1, length: 1, capSegments: 4, radialSegments: 8 },
+//         params: ['radius', 'length', 'capSegments', 'radialSegments'],
+//         create: params => new THREE.CapsuleGeometry(params.radius, params.length, params.capSegments, params.radialSegments)
+//     },
+//     CircleGeometry: {
+//         defaultParams: { radius: 1, segments: 32, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: ['radius', 'segments', 'thetaStart', 'thetaLength'],
+//         create: params => new THREE.CircleGeometry(params.radius, params.segments, params.thetaStart, params.thetaLength)
+//     },
+//     ConeGeometry: {
+//         defaultParams: { radius: 1, height: 1, radialSegments: 32, heightSegments: 1, openEnded: false, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: ['radius', 'height', 'radialSegments', 'heightSegments', 'openEnded', 'thetaStart', 'thetaLength'],
+//         create: params => new THREE.ConeGeometry(params.radius, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength)
+//     },
+//     CylinderGeometry: {
+//         defaultParams: { radiusTop: 1, radiusBottom: 1, height: 1, radialSegments: 32, heightSegments: 1, openEnded: false, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: ['radiusTop', 'radiusBottom', 'height', 'radialSegments', 'heightSegments', 'openEnded', 'thetaStart', 'thetaLength'],
+//         create: params => new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength)
+//     },
+//     DodecahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: ['radius', 'detail'],
+//         create: params => new THREE.DodecahedronGeometry(params.radius, params.detail)
+//     },
+//     IcosahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: ['radius', 'detail'],
+//         create: params => new THREE.IcosahedronGeometry(params.radius, params.detail)
+//     },
+//     OctahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: ['radius', 'detail'],
+//         create: params => new THREE.OctahedronGeometry(params.radius, params.detail)
+//     },
+//     PlaneGeometry: {
+//         defaultParams: { width: 1, height: 1, widthSegments: 1, heightSegments: 1 },
+//         params: ['width', 'height', 'widthSegments', 'heightSegments'],
+//         create: params => new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments)
+//     },
+//     RingGeometry: {
+//         defaultParams: { innerRadius: 0.5, outerRadius: 1, thetaSegments: 32, phiSegments: 1, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: ['innerRadius', 'outerRadius', 'thetaSegments', 'phiSegments', 'thetaStart', 'thetaLength'],
+//         create: params => new THREE.RingGeometry(params.innerRadius, params.outerRadius, params.thetaSegments, params.phiSegments, params.thetaStart, params.thetaLength)
+//     },
+//     TetrahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: ['radius', 'detail'],
+//         create: params => new THREE.TetrahedronGeometry(params.radius, params.detail)
+//     },
+//     TorusGeometry: {
+//         defaultParams: { radius: 1, tube: 0.4, radialSegments: 12, tubularSegments: 48, arc: Math.PI * 2 },
+//         params: ['radius', 'tube', 'radialSegments', 'tubularSegments', 'arc'],
+//         create: params => new THREE.TorusGeometry(params.radius, params.tube, params.radialSegments, params.tubularSegments, params.arc)
+//     },
+//     TorusKnotGeometry: {
+//         defaultParams: { radius: 1, tube: 0.4, tubularSegments: 64, radialSegments: 8, p: 2, q: 3 },
+//         params: ['radius', 'tube', 'tubularSegments', 'radialSegments', 'p', 'q'],
+//         create: params => new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q)
+//     }
+// };
+
+
+
+
+// /* 
+
+//     Emitters - Emitter
 //     ----------------------------------------------- 
 
 //     */
 
 
 // const storedEmitters = [];
-
+// const emittersMap = new Map();
 
 // /* Emitters */
-// function cubeEmitter({ x = 0, y = 3, z = 0, ...params } = {}, interTime = 2000) {
+// function cubeEmitter({ x = 0, y = 3, z = 0, id, ...params } = {}, interTime = 2000) {
 //     let position = { x, y, z };
 //     let geometryParams = params;
 //     let currentGeometry = geometryParams.geometryType;
@@ -1053,55 +1248,7 @@ window.triggerEmitterById = triggerEmitterById;
 //     }
 
 //     function addSingleObject(type, params, position, color, random) {
-//         let geometry;
-
-//         switch (type) {
-//             case 'BoxGeometry':
-//                 geometry = new THREE.BoxGeometry(params.sx, params.sy, params.sz);
-//                 break;
-//             case 'SphereGeometry':
-//                 geometry = new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
-//                 break;
-//             case 'CapsuleGeometry':
-//                 geometry = new THREE.CapsuleGeometry(params.radius, params.length, params.capSegments, params.radialSegments);
-//                 break;
-//             case 'CircleGeometry':
-//                 geometry = new THREE.CircleGeometry(params.radius, params.segments, params.thetaStart, params.thetaLength);
-//                 break;
-//             case 'ConeGeometry':
-//                 geometry = new THREE.ConeGeometry(params.radius, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
-//                 break;
-//             case 'CylinderGeometry':
-//                 geometry = new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
-//                 break;
-//             case 'DodecahedronGeometry':
-//                 geometry = new THREE.DodecahedronGeometry(params.radius, params.detail);
-//                 break;
-//             case 'IcosahedronGeometry':
-//                 geometry = new THREE.IcosahedronGeometry(params.radius, params.detail);
-//                 break;
-//             case 'OctahedronGeometry':
-//                 geometry = new THREE.OctahedronGeometry(params.radius, params.detail);
-//                 break;
-//             case 'PlaneGeometry':
-//                 geometry = new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments);
-//                 break;
-//             case 'RingGeometry':
-//                 geometry = new THREE.RingGeometry(params.innerRadius, params.outerRadius, params.thetaSegments, params.phiSegments, params.thetaStart, params.thetaLength);
-//                 break;
-//             case 'TetrahedronGeometry':
-//                 geometry = new THREE.TetrahedronGeometry(params.radius, params.detail);
-//                 break;
-//             case 'TorusGeometry':
-//                 geometry = new THREE.TorusGeometry(params.radius, params.tube, params.radialSegments, params.tubularSegments, params.arc);
-//                 break;
-//             case 'TorusKnotGeometry':
-//                 geometry = new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q);
-//                 break;
-//             default:
-//                 geometry = new THREE.BoxGeometry(params.sx, params.sy, params.sz);
-//                 break;
-//         }
+//         const geometry = geometryConfig[type].create(params);
 
 //         const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
 //         const bodyMesh = new THREE.Mesh(geometry, bodyMaterial);
@@ -1146,7 +1293,8 @@ window.triggerEmitterById = triggerEmitterById;
 //         return { mesh: bodyMesh, rigidBody: rigidBody, collider: collider };
 //     }
 
-//     return {
+//     const emitterInstance = {
+//         id,
 //         start,
 //         pause,
 //         reset,
@@ -1156,14 +1304,23 @@ window.triggerEmitterById = triggerEmitterById;
 //         setIntervalTime,
 //         setRandomSizes
 //     };
+
+//     if (id) {
+//         emittersMap.set(id, emitterInstance);
+//     }
+
+//     return emitterInstance;
 // }
 
 // window.cubeEmitter = cubeEmitter;
 
 
 
+// /* 
 
-// /* Emitters GUI */
+//     Emitters GUI 
+
+//                     */
 
 // function initEmittersEdit(guiKey) {
 //     const container = document.getElementById("guiHolder");
@@ -1179,21 +1336,15 @@ window.triggerEmitterById = triggerEmitterById;
 //             x: 0,
 //             y: 3,
 //             z: 0,
-//             sx: 1,
-//             sy: 1,
-//             sz: 1,
-//             randomSizes: false,
+//             ...geometryConfig.BoxGeometry.defaultParams, // default geometry
 //             geometryType: 'BoxGeometry',
-//             interval: 500
+//             interval: 500,
+//             randomSizes: false
 //         };
 
 //         const folder = gui.addFolder('Add Emitter');
 
-//         folder.add(emitterParams, 'geometryType', [
-//             'BoxGeometry', 'SphereGeometry', 'CapsuleGeometry', 'CircleGeometry', 'ConeGeometry',
-//             'CylinderGeometry', 'DodecahedronGeometry', 'IcosahedronGeometry', 'OctahedronGeometry', 'PlaneGeometry',
-//             'RingGeometry', 'TetrahedronGeometry', 'TorusGeometry', 'TorusKnotGeometry'
-//         ]).name('Geometry Type');
+//         folder.add(emitterParams, 'geometryType', Object.keys(geometryConfig)).name('Geometry Type');
 
 //         folder.add({ create: () => createEmitter(emitterParams) }, 'create').name('Create Emitter');
 //         folder.open();
@@ -1235,278 +1386,16 @@ window.triggerEmitterById = triggerEmitterById;
 //     }
 
 //     function addGeometrySpecificParams(folder, params, emitter) {
-//         switch (params.geometryType) {
-//             case 'BoxGeometry':
-//                 folder.add(params, 'sx', 0.01, 3).name('Width').onChange(() => {
-//                     emitter.setGeometryParams({ sx: params.sx });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'sy', 0.01, 3).name('Height').onChange(() => {
-//                     emitter.setGeometryParams({ sy: params.sy });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'sz', 0.01, 3).name('Depth').onChange(() => {
-//                     emitter.setGeometryParams({ sz: params.sz });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 break;
-//             case 'SphereGeometry':
-//             case 'CapsuleGeometry':
-//             case 'DodecahedronGeometry':
-//             case 'IcosahedronGeometry':
-//             case 'OctahedronGeometry':
-//             case 'TetrahedronGeometry':
-//                 params.radius = params.radius || 1;
-//                 folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
-//                     emitter.setGeometryParams({ radius: params.radius });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 if (params.geometryType === 'SphereGeometry') {
-//                     params.widthSegments = params.widthSegments || 32;
-//                     params.heightSegments = params.heightSegments || 16;
-//                     folder.add(params, 'widthSegments', 3, 64).name('Width Segments').onChange(() => {
-//                         emitter.setGeometryParams({ widthSegments: params.widthSegments });
-//                         updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                     });
-//                     folder.add(params, 'heightSegments', 2, 32).name('Height Segments').onChange(() => {
-//                         emitter.setGeometryParams({ heightSegments: params.heightSegments });
-//                         updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                     });
-//                 } else if (params.geometryType === 'CapsuleGeometry') {
-//                     params.length = params.length || 1;
-//                     params.capSegments = params.capSegments || 4;
-//                     params.radialSegments = params.radialSegments || 8;
-//                     folder.add(params, 'length', 0.01, 3).name('Length').onChange(() => {
-//                         emitter.setGeometryParams({ length: params.length });
-//                         updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                     });
-//                     folder.add(params, 'capSegments', 2, 32).name('Cap Segments').onChange(() => {
-//                         emitter.setGeometryParams({ capSegments: params.capSegments });
-//                         updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                     });
-//                     folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
-//                         emitter.setGeometryParams({ radialSegments: params.radialSegments });
-//                         updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                     });
-//                 }
-//                 break;
-//             case 'CircleGeometry':
-//                 params.radius = params.radius || 1;
-//                 params.segments = params.segments || 32;
-//                 params.thetaStart = params.thetaStart || 0;
-//                 params.thetaLength = params.thetaLength || Math.PI * 2;
-//                 folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
-//                     emitter.setGeometryParams({ radius: params.radius });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'segments', 3, 64).name('Segments').onChange(() => {
-//                     emitter.setGeometryParams({ segments: params.segments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
-//                     emitter.setGeometryParams({ thetaStart: params.thetaStart });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
-//                     emitter.setGeometryParams({ thetaLength: params.thetaLength });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 break;
-//             case 'ConeGeometry':
-//                 params.radius = params.radius || 1;
-//                 params.height = params.height || 1;
-//                 params.radialSegments = params.radialSegments || 32;
-//                 params.heightSegments = params.heightSegments || 1;
-//                 params.openEnded = params.openEnded || false;
-//                 params.thetaStart = params.thetaStart || 0;
-//                 params.thetaLength = params.thetaLength || Math.PI * 2;
-//                 folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
-//                     emitter.setGeometryParams({ radius: params.radius });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'height', 0.01, 3).name('Height').onChange(() => {
-//                     emitter.setGeometryParams({ height: params.height });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
-//                     emitter.setGeometryParams({ radialSegments: params.radialSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'heightSegments', 1, 32).name('Height Segments').onChange(() => {
-//                     emitter.setGeometryParams({ heightSegments: params.heightSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'openEnded').name('Open Ended').onChange(() => {
-//                     emitter.setGeometryParams({ openEnded: params.openEnded });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
-//                     emitter.setGeometryParams({ thetaStart: params.thetaStart });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
-//                     emitter.setGeometryParams({ thetaLength: params.thetaLength });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 break;
-//             case 'CylinderGeometry':
-//                 params.radiusTop = params.radiusTop || 1;
-//                 params.radiusBottom = params.radiusBottom || 1;
-//                 params.height = params.height || 1;
-//                 params.radialSegments = params.radialSegments || 32;
-//                 params.heightSegments = params.heightSegments || 1;
-//                 params.openEnded = params.openEnded || false;
-//                 params.thetaStart = params.thetaStart || 0;
-//                 params.thetaLength = params.thetaLength || Math.PI * 2;
-//                 folder.add(params, 'radiusTop', 0.01, 3).name('Radius Top').onChange(() => {
-//                     emitter.setGeometryParams({ radiusTop: params.radiusTop });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'radiusBottom', 0.01, 3).name('Radius Bottom').onChange(() => {
-//                     emitter.setGeometryParams({ radiusBottom: params.radiusBottom });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'height', 0.01, 3).name('Height').onChange(() => {
-//                     emitter.setGeometryParams({ height: params.height });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
-//                     emitter.setGeometryParams({ radialSegments: params.radialSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'heightSegments', 1, 32).name('Height Segments').onChange(() => {
-//                     emitter.setGeometryParams({ heightSegments: params.heightSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'openEnded').name('Open Ended').onChange(() => {
-//                     emitter.setGeometryParams({ openEnded: params.openEnded });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
-//                     emitter.setGeometryParams({ thetaStart: params.thetaStart });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
-//                     emitter.setGeometryParams({ thetaLength: params.thetaLength });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 break;
-//             case 'PlaneGeometry':
-//                 params.width = params.width || 1;
-//                 params.height = params.height || 1;
-//                 params.widthSegments = params.widthSegments || 1;
-//                 params.heightSegments = params.heightSegments || 1;
-//                 folder.add(params, 'width', 0.01, 3).name('Width').onChange(() => {
-//                     emitter.setGeometryParams({ width: params.width });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'height', 0.01, 3).name('Height').onChange(() => {
-//                     emitter.setGeometryParams({ height: params.height });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'widthSegments', 1, 32).name('Width Segments').onChange(() => {
-//                     emitter.setGeometryParams({ widthSegments: params.widthSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'heightSegments', 1, 32).name('Height Segments').onChange(() => {
-//                     emitter.setGeometryParams({ heightSegments: params.heightSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 break;
-//             case 'RingGeometry':
-//                 params.innerRadius = params.innerRadius || 0.5;
-//                 params.outerRadius = params.outerRadius || 1;
-//                 params.thetaSegments = params.thetaSegments || 32;
-//                 params.phiSegments = params.phiSegments || 1;
-//                 params.thetaStart = params.thetaStart || 0;
-//                 params.thetaLength = params.thetaLength || Math.PI * 2;
-//                 folder.add(params, 'innerRadius', 0.01, 3).name('Inner Radius').onChange(() => {
-//                     emitter.setGeometryParams({ innerRadius: params.innerRadius });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'outerRadius', 0.01, 3).name('Outer Radius').onChange(() => {
-//                     emitter.setGeometryParams({ outerRadius: params.outerRadius });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'thetaSegments', 3, 64).name('Theta Segments').onChange(() => {
-//                     emitter.setGeometryParams({ thetaSegments: params.thetaSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'phiSegments', 1, 32).name('Phi Segments').onChange(() => {
-//                     emitter.setGeometryParams({ phiSegments: params.phiSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'thetaStart', 0, Math.PI * 2).name('Theta Start').onChange(() => {
-//                     emitter.setGeometryParams({ thetaStart: params.thetaStart });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'thetaLength', 0, Math.PI * 2).name('Theta Length').onChange(() => {
-//                     emitter.setGeometryParams({ thetaLength: params.thetaLength });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 break;
-//             case 'TorusGeometry':
-//                 params.radius = params.radius || 1;
-//                 params.tube = params.tube || 0.4;
-//                 params.radialSegments = params.radialSegments || 12;
-//                 params.tubularSegments = params.tubularSegments || 48;
-//                 params.arc = params.arc || Math.PI * 2;
-//                 folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
-//                     emitter.setGeometryParams({ radius: params.radius });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'tube', 0.01, 3).name('Tube').onChange(() => {
-//                     emitter.setGeometryParams({ tube: params.tube });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
-//                     emitter.setGeometryParams({ radialSegments: params.radialSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'tubularSegments', 3, 64).name('Tubular Segments').onChange(() => {
-//                     emitter.setGeometryParams({ tubularSegments: params.tubularSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'arc', 0, Math.PI * 2).name('Arc').onChange(() => {
-//                     emitter.setGeometryParams({ arc: params.arc });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 break;
-//             case 'TorusKnotGeometry':
-//                 params.radius = params.radius || 1;
-//                 params.tube = params.tube || 0.4;
-//                 params.tubularSegments = params.tubularSegments || 64;
-//                 params.radialSegments = params.radialSegments || 8;
-//                 params.p = params.p || 2;
-//                 params.q = params.q || 3;
-//                 folder.add(params, 'radius', 0.01, 3).name('Radius').onChange(() => {
-//                     emitter.setGeometryParams({ radius: params.radius });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'tube', 0.01, 3).name('Tube').onChange(() => {
-//                     emitter.setGeometryParams({ tube: params.tube });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'tubularSegments', 3, 64).name('Tubular Segments').onChange(() => {
-//                     emitter.setGeometryParams({ tubularSegments: params.tubularSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'radialSegments', 3, 64).name('Radial Segments').onChange(() => {
-//                     emitter.setGeometryParams({ radialSegments: params.radialSegments });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'p', 1, 10).name('P').onChange(() => {
-//                     emitter.setGeometryParams({ p: params.p });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 folder.add(params, 'q', 1, 10).name('Q').onChange(() => {
-//                     emitter.setGeometryParams({ q: params.q });
-//                     updatePreviewMeshGeometry(emitter.previewMesh, params);
-//                 });
-//                 break;
-//             default:
-//                 break;
-//         }
+//         const geometryType = params.geometryType;
+//         const config = geometryConfig[geometryType];
+
+//         config.params.forEach(param => {
+//             folder.add(params, param, 0.01, 3).name(param.charAt(0).toUpperCase() + param.slice(1)).onChange(() => {
+//                 const newParams = { [param]: params[param] };
+//                 emitter.setGeometryParams(newParams);
+//                 updatePreviewMeshGeometry(emitter.previewMesh, params);
+//             });
+//         });
 //     }
 
 //     function createStaticPreview(params) {
@@ -1523,38 +1412,8 @@ window.triggerEmitterById = triggerEmitterById;
 //     }
 
 //     function createGeometry(type, params) {
-//         switch (type) {
-//             case 'BoxGeometry':
-//                 return new THREE.BoxGeometry(params.sx, params.sy, params.sz);
-//             case 'SphereGeometry':
-//                 return new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments);
-//             case 'CapsuleGeometry':
-//                 return new THREE.CapsuleGeometry(params.radius, params.length, params.capSegments, params.radialSegments);
-//             case 'CircleGeometry':
-//                 return new THREE.CircleGeometry(params.radius, params.segments, params.thetaStart, params.thetaLength);
-//             case 'ConeGeometry':
-//                 return new THREE.ConeGeometry(params.radius, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
-//             case 'CylinderGeometry':
-//                 return new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength);
-//             case 'DodecahedronGeometry':
-//                 return new THREE.DodecahedronGeometry(params.radius, params.detail);
-//             case 'IcosahedronGeometry':
-//                 return new THREE.IcosahedronGeometry(params.radius, params.detail);
-//             case 'OctahedronGeometry':
-//                 return new THREE.OctahedronGeometry(params.radius, params.detail);
-//             case 'PlaneGeometry':
-//                 return new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments);
-//             case 'RingGeometry':
-//                 return new THREE.RingGeometry(params.innerRadius, params.outerRadius, params.thetaSegments, params.phiSegments, params.thetaStart, params.thetaLength);
-//             case 'TetrahedronGeometry':
-//                 return new THREE.TetrahedronGeometry(params.radius, params.detail);
-//             case 'TorusGeometry':
-//                 return new THREE.TorusGeometry(params.radius, params.tube, params.radialSegments, params.tubularSegments, params.arc);
-//             case 'TorusKnotGeometry':
-//                 return new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q);
-//             default:
-//                 return new THREE.BoxGeometry(params.sx, params.sy, params.sz);
-//         }
+//         const config = geometryConfig[type];
+//         return config.create(params);
 //     }
 
 //     function updatePreviewMeshGeometry(previewMesh, params) {
@@ -1616,14 +1475,13 @@ window.triggerEmitterById = triggerEmitterById;
 
 //     gui.add({ importEmitter: importEmitter }, 'importEmitter').name('Import Emitter');
 
-//     //gui.add({ close: () => toggleEmittersEditGUI() }, 'close').name('CLOSE');
-
 //     addEmitter();
 
 //     storedEmitters.forEach(params => createEmitter(params)); // Recreate emitters
 
 //     makePanelDraggable(document.getElementById("guiOverlayInput"), document.getElementById("guiOverlayBar"));
 // }
+
 
 // function generateUniqueId() {
 //     return 'emitter-' + Math.random().toString(36).substr(2, 9);
@@ -1641,42 +1499,48 @@ window.triggerEmitterById = triggerEmitterById;
 // window.toggleEmittersEditGUI = toggleEmittersEditGUI;
 
 
+// /* 
+
+//     Emitters Managers 
+
+//                     */
 
 
-// function triggerEmitterById(id, command) {
-//     const emitterData = storedEmitters.find(emitter => emitter.id === id);
-//     if (emitterData) {
-//         const emitter = cubeEmitter(emitterData);
-//         switch (command) {
-//             case 'start':
-//                 emitter.start();
-//                 console.log(`Emitter with ID ${id} started.`);
-//                 break;
-//             case 'pause':
-//                 emitter.pause();
-//                 console.log(`Emitter with ID ${id} paused.`);
-//                 break;
-//             case 'reset':
-//                 emitter.reset();
-//                 console.log(`Emitter with ID ${id} reset.`);
-//                 break;
-//             default:
-//                 console.error(`Invalid command: ${command}`);
-//                 break;
-//         }
-//     } else {
+
+// function listEmitterIds() {
+//     return Array.from(emittersMap.keys());
+// }
+
+// function triggerEmitterById(id, action) {
+//     const emitter = emittersMap.get(id);
+//     if (!emitter) {
 //         console.error(`Emitter with ID ${id} not found.`);
+//         return;
+//     }
+//     switch(action) {
+//         case 'start':
+//             emitter.start();
+//             break;
+//         case 'pause':
+//             emitter.pause();
+//             break;
+//         case 'reset':
+//             emitter.reset();
+//             break;
+//         default:
+//             console.error(`Invalid action: ${action}`);
 //     }
 // }
 
-// window.triggerEmitterById = triggerEmitterById;
-
-// function listEmitterIds() {
-//     return storedEmitters.map(emitter => emitter.id);
+// function triggerEmittersArrayById(ids, action) {
+//     ids.forEach(id => {
+//         triggerEmitterById(id, action);
+//     });
 // }
 
 // window.listEmitterIds = listEmitterIds;
-
+// window.triggerEmitterById = triggerEmitterById;
+// window.triggerEmittersArrayById = triggerEmittersArrayById;
 
 
 /* 
