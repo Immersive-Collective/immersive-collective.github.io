@@ -891,7 +891,7 @@ window.threeCubes = window.threeCubes || [];
 let obstacles = [];
 let groundObjects = [];
 
-let ground = "static/models/grounds/simple-ground-1.glb";
+let ground = "static/models/grounds/simple-ground-2.glb";
 
 
 
@@ -1174,15 +1174,15 @@ function loadStaticGroundModel(ground) {
 
 let envMaterial;
 let pmremGenerator, envMap
-let backgroundBlurriness = 0.2;
+let backgroundBlurriness = 0;
 let backgroundIntensity = 1
 
 
 function addEnvMap() {
 
 
-
-    let filePath = './static/models/environments/hdr/beach.hdr';
+    let filePath = './static/models/environments/space-gen1.webp';
+    //let filePath = './static/models/environments/hdr/beach.hdr';
 
     const fileExtension = filePath.split('.').pop().toLowerCase();
 

@@ -1,5 +1,20 @@
 .DS_Store
 
+*.psd
+*.mp4
+*.tar
+*.gz
+*.zip
+*.exe
+*.dll
+*.so
+*.dylib
+*.avi
+*.rar
+*.7z
+*.blend
+*.blend*
+
 
 # Logs
 logs
