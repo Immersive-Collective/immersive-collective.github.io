@@ -258,6 +258,13 @@ const guiInstances = new Map();
 
 
 
+/* 
+
+    Emitter - Geometries Config
+    ----------------------------------------------- 
+
+    */
+
 const geometryConfig = {
     BoxGeometry: {
         defaultParams: { sx: 1, sy: 1, sz: 1 },
@@ -396,15 +403,12 @@ const geometryConfig = {
             { name: 'tube', min: 0.01, max: 1 },
             { name: 'tubularSegments', min: 3, max: 128, step: 1 },
             { name: 'radialSegments', min: 3, max: 64, step: 1 },
-            { name: 'p', min: 1, max: 10, step: 1 },
-            { name: 'q', min: 1, max: 10, step: 1 }
+            { name: 'p', min: 1, max: 20, step: 1 },
+            { name: 'q', min: 1, max: 20, step: 1 }
         ],
         create: params => new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q)
     }
 };
-
-
-
 
 /* 
 
@@ -631,6 +635,7 @@ function createEmitter(params) {
     folder.add({ pause: () => pauseEmitter(index) }, 'pause').name('Pause');
     folder.add({ reset: () => resetEmitter(index, emitter.previewMesh) }, 'reset').name('Reset');
     folder.add({ exportEmitter: () => exportEmitter(emitterId) }, 'exportEmitter').name('Export Emitter');
+    folder.add({ removeEmitter: () => removeEmitter(index, folder) }, 'removeEmitter').name('Remove Emitter');
 
     folder.open();
 
@@ -651,6 +656,34 @@ function exportEmitter(emitterId) {
     }
 }
 
+function exportAllEmitters() {
+    const updatedStoredEmitters = emitters.map(({ params }) => ({ ...params }));
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(updatedStoredEmitters));
+    const now = new Date().toISOString().replace(/[:.]/g, '-');
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `emitters_${now}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+
+function importEmitters() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = event => {
+            const importedParams = JSON.parse(event.target.result);
+            importedParams.forEach(params => createEmitter(params));
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
 
 function addGeometrySpecificParams(folder, params, emitter) {
     const geometryType = params.geometryType;
@@ -700,7 +733,6 @@ function updatePreviewMeshPosition(previewMesh, params) {
     previewMesh.position.set(params.x, params.y, params.z);
 }
 
-
 function startEmitter(index) {
     if (emitters[index]) {
         emitters[index].emitter.start();
@@ -721,6 +753,16 @@ function resetEmitter(index, previewMesh) {
     }
 }
 
+function removeEmitter(index, folder) {
+    if (emitters[index]) {
+        emitters[index].emitter.reset();
+        scene.remove(emitters[index].emitter.previewMesh);
+        folder.destroy();
+        emitters.splice(index, 1);
+        storedEmitters.splice(index, 1);
+    }
+}
+
 function importEmitter() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -737,6 +779,8 @@ function importEmitter() {
     input.click();
 }
 
+gui.add({ importEmitters: importEmitters }, 'importEmitters').name('Load Emitters');
+gui.add({ exportAllEmitters: exportAllEmitters }, 'exportAllEmitters').name('Export All Emitters');
 gui.add({ importEmitter: importEmitter }, 'importEmitter').name('Import Emitter');
 
 addEmitter();
@@ -803,6 +847,1185 @@ function triggerEmittersArrayById(ids, action) {
 window.listEmitterIds = listEmitterIds;
 window.triggerEmitterById = triggerEmitterById;
 window.triggerEmittersArrayById = triggerEmittersArrayById;
+
+
+
+
+// /* 
+
+//     Emitter - Geometries Config
+//     ----------------------------------------------- 
+
+//     */
+
+// const geometryConfig = {
+//     BoxGeometry: {
+//         defaultParams: { sx: 1, sy: 1, sz: 1 },
+//         params: [
+//             { name: 'sx', min: 0.01, max: 3 },
+//             { name: 'sy', min: 0.01, max: 3 },
+//             { name: 'sz', min: 0.01, max: 3 }
+//         ],
+//         create: params => new THREE.BoxGeometry(params.sx, params.sy, params.sz)
+//     },
+//     SphereGeometry: {
+//         defaultParams: { radius: 1, widthSegments: 32, heightSegments: 16 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'widthSegments', min: 3, max: 64, step: 1 },
+//             { name: 'heightSegments', min: 2, max: 32, step: 1 }
+//         ],
+//         create: params => new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments)
+//     },
+//     CapsuleGeometry: {
+//         defaultParams: { radius: 1, length: 1, capSegments: 4, radialSegments: 8 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'length', min: 0.01, max: 3 },
+//             { name: 'capSegments', min: 1, max: 10, step: 1 },
+//             { name: 'radialSegments', min: 3, max: 32, step: 1 }
+//         ],
+//         create: params => new THREE.CapsuleGeometry(params.radius, params.length, params.capSegments, params.radialSegments)
+//     },
+//     CircleGeometry: {
+//         defaultParams: { radius: 1, segments: 32, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'segments', min: 3, max: 64, step: 1 },
+//             { name: 'thetaStart', min: 0, max: Math.PI * 2 },
+//             { name: 'thetaLength', min: 0, max: Math.PI * 2 }
+//         ],
+//         create: params => new THREE.CircleGeometry(params.radius, params.segments, params.thetaStart, params.thetaLength)
+//     },
+//     ConeGeometry: {
+//         defaultParams: { radius: 1, height: 1, radialSegments: 32, heightSegments: 1, openEnded: false, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'height', min: 0.01, max: 3 },
+//             { name: 'radialSegments', min: 3, max: 64, step: 1 },
+//             { name: 'heightSegments', min: 1, max: 32, step: 1 },
+//             { name: 'openEnded', min: 0, max: 1 },
+//             { name: 'thetaStart', min: 0, max: Math.PI * 2 },
+//             { name: 'thetaLength', min: 0, max: Math.PI * 2 }
+//         ],
+//         create: params => new THREE.ConeGeometry(params.radius, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength)
+//     },
+//     CylinderGeometry: {
+//         defaultParams: { radiusTop: 1, radiusBottom: 1, height: 1, radialSegments: 32, heightSegments: 1, openEnded: false, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: [
+//             { name: 'radiusTop', min: 0.01, max: 3 },
+//             { name: 'radiusBottom', min: 0.01, max: 3 },
+//             { name: 'height', min: 0.01, max: 3 },
+//             { name: 'radialSegments', min: 3, max: 64, step: 1 },
+//             { name: 'heightSegments', min: 1, max: 32, step: 1 },
+//             { name: 'openEnded', min: 0, max: 1 },
+//             { name: 'thetaStart', min: 0, max: Math.PI * 2 },
+//             { name: 'thetaLength', min: 0, max: Math.PI * 2 }
+//         ],
+//         create: params => new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength)
+//     },
+//     DodecahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'detail', min: 0, max: 5, step: 1 }
+//         ],
+//         create: params => new THREE.DodecahedronGeometry(params.radius, params.detail)
+//     },
+//     IcosahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'detail', min: 0, max: 5, step: 1 }
+//         ],
+//         create: params => new THREE.IcosahedronGeometry(params.radius, params.detail)
+//     },
+//     OctahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'detail', min: 0, max: 5, step: 1 }
+//         ],
+//         create: params => new THREE.OctahedronGeometry(params.radius, params.detail)
+//     },
+//     PlaneGeometry: {
+//         defaultParams: { width: 1, height: 1, widthSegments: 1, heightSegments: 1 },
+//         params: [
+//             { name: 'width', min: 0.01, max: 3 },
+//             { name: 'height', min: 0.01, max: 3 },
+//             { name: 'widthSegments', min: 1, max: 32, step: 1 },
+//             { name: 'heightSegments', min: 1, max: 32, step: 1 }
+//         ],
+//         create: params => new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments)
+//     },
+//     RingGeometry: {
+//         defaultParams: { innerRadius: 0.5, outerRadius: 1, thetaSegments: 32, phiSegments: 1, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: [
+//             { name: 'innerRadius', min: 0.01, max: 3 },
+//             { name: 'outerRadius', min: 0.01, max: 3 },
+//             { name: 'thetaSegments', min: 3, max: 64, step: 1 },
+//             { name: 'phiSegments', min: 1, max: 32, step: 1 },
+//             { name: 'thetaStart', min: 0, max: Math.PI * 2 },
+//             { name: 'thetaLength', min: 0, max: Math.PI * 2 }
+//         ],
+//         create: params => new THREE.RingGeometry(params.innerRadius, params.outerRadius, params.thetaSegments, params.phiSegments, params.thetaStart, params.thetaLength)
+//     },
+//     TetrahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'detail', min: 0, max: 5, step: 1 }
+//         ],
+//         create: params => new THREE.TetrahedronGeometry(params.radius, params.detail)
+//     },
+//     TorusGeometry: {
+//         defaultParams: { radius: 1, tube: 0.4, radialSegments: 12, tubularSegments: 48, arc: Math.PI * 2 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'tube', min: 0.01, max: 1 },
+//             { name: 'radialSegments', min: 3, max: 64, step: 1 },
+//             { name: 'tubularSegments', min: 3, max: 128, step: 1 },
+//             { name: 'arc', min: 0, max: Math.PI * 2 }
+//         ],
+//         create: params => new THREE.TorusGeometry(params.radius, params.tube, params.radialSegments, params.tubularSegments, params.arc)
+//     },
+//     TorusKnotGeometry: {
+//         defaultParams: { radius: 1, tube: 0.4, tubularSegments: 64, radialSegments: 8, p: 2, q: 3 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'tube', min: 0.01, max: 1 },
+//             { name: 'tubularSegments', min: 3, max: 128, step: 1 },
+//             { name: 'radialSegments', min: 3, max: 64, step: 1 },
+//             { name: 'p', min: 1, max: 20, step: 1 },
+//             { name: 'q', min: 1, max: 20, step: 1 }
+//         ],
+//         create: params => new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q)
+//     }
+// };
+
+// /* 
+
+//     Emitters - Emitter
+//     ----------------------------------------------- 
+
+//     */
+
+// const storedEmitters = [];
+// const emittersMap = new Map();
+
+// /* Emitters */
+// function cubeEmitter({ x = 0, y = 3, z = 0, id, ...params } = {}, interTime = 2000) {
+//     let position = { x, y, z };
+//     let geometryParams = params;
+//     let currentGeometry = geometryParams.geometryType;
+
+//     let intervalId = null;
+//     let producedCubes = [];
+//     let isActive = false;
+
+//     function start() {
+//         if (isActive) return;
+//         isActive = true;
+//         intervalId = setInterval(() => {
+//             const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+//             const random = geometryParams.randomSizes;
+//             const sizeVector = random
+//                 ? new THREE.Vector3(
+//                     Math.random() * geometryParams.sx,
+//                     Math.random() * geometryParams.sy,
+//                     Math.random() * geometryParams.sz
+//                 )
+//                 : new THREE.Vector3(geometryParams.sx, geometryParams.sy, geometryParams.sz);
+//             const cubePosition = new THREE.Vector3(position.x, position.y, position.z);
+//             const cube = addSingleObject(currentGeometry, { ...geometryParams, sx: sizeVector.x, sy: sizeVector.y, sz: sizeVector.z }, cubePosition, color, random);
+//             producedCubes.push(cube);
+//         }, interTime);
+//     }
+
+//     function pause() {
+//         if (intervalId) {
+//             clearInterval(intervalId);
+//             intervalId = null;
+//             isActive = false;
+//         }
+//     }
+
+//     function reset() {
+//         pause();
+//         producedCubes.forEach(({ mesh, rigidBody, collider }) => {
+//             if (mesh) {
+//                 scene.remove(mesh);
+//                 const meshIndex = window.threeCubes.indexOf(mesh);
+//                 if (meshIndex > -1) {
+//                     window.threeCubes.splice(meshIndex, 1);
+//                 }
+//             }
+//             if (myRapierWorld && rigidBody) {
+//                 myRapierWorld.removeCollider(collider, true);
+//                 myRapierWorld.removeRigidBody(rigidBody, true);
+//                 const rigidBodyIndex = window.rigidBodies.indexOf(rigidBody);
+//                 if (rigidBodyIndex > -1) {
+//                     window.rigidBodies.splice(rigidBodyIndex, 1);
+//                 }
+//             }
+//         });
+//         producedCubes = [];
+//     }
+
+//     function setPosition(newPosition) {
+//         position = newPosition;
+//     }
+
+//     function setGeometryParams(newParams) {
+//         geometryParams = { ...geometryParams, ...newParams };
+//     }
+
+//     function setGeometryType(type) {
+//         currentGeometry = type;
+//     }
+
+//     function setIntervalTime(newIntervalTime) {
+//         interTime = newIntervalTime;
+//         if (isActive) {
+//             pause();
+//             start();
+//         }
+//     }
+
+//     function setRandomSizes(value) {
+//         geometryParams.randomSizes = value;
+//     }
+
+//     function addSingleObject(type, params, position, color, random) {
+//         const geometry = geometryConfig[type].create(params);
+
+//         const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
+//         const bodyMesh = new THREE.Mesh(geometry, bodyMaterial);
+
+//         bodyMesh.position.copy(position);
+//         bodyMesh.castShadow = true;
+//         bodyMesh.receiveShadow = true;
+
+//         bodyMesh.type = "cb";
+
+//         scene.add(bodyMesh);
+
+//         let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(position.x, position.y, position.z);
+
+//         let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+
+//         let colliderDesc;
+//         if (type === 'BoxGeometry') {
+//             colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2);
+//         } else if (['SphereGeometry', 'DodecahedronGeometry', 'IcosahedronGeometry', 'OctahedronGeometry', 'TetrahedronGeometry'].includes(type)) {
+//             const radius = params.radius;
+//             colliderDesc = RAPIER.ColliderDesc.ball(radius);
+//         } else if (type === 'CapsuleGeometry') {
+//             const radius = params.radius;
+//             colliderDesc = RAPIER.ColliderDesc.capsule(radius, params.length / 2);
+//         } else if (type === 'CylinderGeometry') {
+//             colliderDesc = RAPIER.ColliderDesc.cylinder(params.height / 2, params.radiusTop);
+//         } else if (type === 'ConeGeometry') {
+//             colliderDesc = RAPIER.ColliderDesc.cone(params.height / 2, params.radius);
+//         } else {
+//             colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2);
+//         }
+
+//         let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
+
+//         rigidBody.type = "cb";
+
+//         window.rigidBodies.push(rigidBody);
+//         window.threeCubes.push(bodyMesh);
+
+//         return { mesh: bodyMesh, rigidBody: rigidBody, collider: collider };
+//     }
+
+//     const emitterInstance = {
+//         id,
+//         start,
+//         pause,
+//         reset,
+//         setPosition,
+//         setGeometryParams,
+//         setGeometryType,
+//         setIntervalTime,
+//         setRandomSizes
+//     };
+
+//     if (id) {
+//         emittersMap.set(id, emitterInstance);
+//     }
+
+//     return emitterInstance;
+// }
+
+// window.cubeEmitter = cubeEmitter;
+
+// /* Emitters GUI */
+
+// function initEmittersEdit(guiKey) {
+//     const container = document.getElementById("guiHolder");
+
+//     const gui = new GUI({ width: 350, container: container });
+//     guiInstances.set(guiKey, gui);
+
+//     const emitters = [];
+
+//     function addEmitter() {
+//         const emitterParams = {
+//             id: generateUniqueId(),
+//             x: 0,
+//             y: 0,
+//             z: 0,
+//             ...geometryConfig.BoxGeometry.defaultParams, // default geometry
+//             geometryType: 'BoxGeometry',
+//             interval: 500,
+//             randomSizes: false
+//         };
+
+//         const folder = gui.addFolder('Add Emitter');
+
+//         folder.add(emitterParams, 'geometryType', Object.keys(geometryConfig)).name('Geometry Type').onChange((newGeometryType) => {
+//             Object.assign(emitterParams, geometryConfig[newGeometryType].defaultParams);
+//             emitterParams.geometryType = newGeometryType;
+//         });
+
+//         folder.add({ create: () => createEmitter({ ...emitterParams }) }, 'create').name('Create Emitter');
+//         folder.open();
+//     }
+
+// function createEmitter(params) {
+//     const emitterId = generateUniqueId();
+//     params.id = emitterId;
+
+//     const index = emitters.length;
+//     const emitter = cubeEmitter({ ...params });
+//     emitter.setIntervalTime(params.interval); // Ensure interval time is set before starting the emitter
+//     emitters.push({ emitter, params });
+//     storedEmitters.push({ ...params }); // Store parameters
+
+//     const folder = gui.addFolder(`Emitter ${params.id}`);
+//     folder.add(params, 'x', -30, 30).name('X').onChange(() => {
+//         emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//         updatePreviewMeshPosition(emitter.previewMesh, params);
+//     });
+//     folder.add(params, 'y', 0, 30).name('Y').onChange(() => {
+//         emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//         updatePreviewMeshPosition(emitter.previewMesh, params);
+//     });
+//     folder.add(params, 'z', -30, 30).name('Z').onChange(() => {
+//         emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//         updatePreviewMeshPosition(emitter.previewMesh, params);
+//     });
+
+//     folder.add(params, 'randomSizes').name('Random Sizes').onChange(() => emitter.setRandomSizes(params.randomSizes));
+//     folder.add(params, 'interval', 1, 5000).name('Interval (ms)').onChange(() => emitter.setIntervalTime(params.interval));
+
+//     addGeometrySpecificParams(folder, params, emitter);
+
+//     folder.add({ start: () => startEmitter(index) }, 'start').name('Start');
+//     folder.add({ pause: () => pauseEmitter(index) }, 'pause').name('Pause');
+//     folder.add({ reset: () => resetEmitter(index, emitter.previewMesh) }, 'reset').name('Reset');
+//     folder.add({ exportEmitter: () => exportEmitter(emitterId) }, 'exportEmitter').name('Export Emitter');
+//     folder.add({ removeEmitter: () => removeEmitter(index, folder) }, 'removeEmitter').name('Remove Emitter');
+
+//     folder.open();
+
+//     emitter.previewMesh = createStaticPreview(params);
+// }
+
+// function exportEmitter(emitterId) {
+//     const emitterObj = emitters.find(e => e.emitter.id === emitterId);
+//     if (emitterObj) {
+//         const params = emitterObj.params;
+//         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(params));
+//         const downloadAnchorNode = document.createElement('a');
+//         downloadAnchorNode.setAttribute("href", dataStr);
+//         downloadAnchorNode.setAttribute("download", `emitter_${params.id}.json`);
+//         document.body.appendChild(downloadAnchorNode);
+//         downloadAnchorNode.click();
+//         downloadAnchorNode.remove();
+//     }
+// }
+
+// function exportAllEmitters() {
+//     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(storedEmitters));
+//     const now = new Date().toISOString().replace(/[:.]/g, '-');
+//     const downloadAnchorNode = document.createElement('a');
+//     downloadAnchorNode.setAttribute("href", dataStr);
+//     downloadAnchorNode.setAttribute("download", `emitters_${now}.json`);
+//     document.body.appendChild(downloadAnchorNode);
+//     downloadAnchorNode.click();
+//     downloadAnchorNode.remove();
+// }
+
+// function importEmitters() {
+//     const input = document.createElement('input');
+//     input.type = 'file';
+//     input.accept = '.json';
+//     input.onchange = e => {
+//         const file = e.target.files[0];
+//         const reader = new FileReader();
+//         reader.onload = event => {
+//             const importedParams = JSON.parse(event.target.result);
+//             importedParams.forEach(params => createEmitter(params));
+//         };
+//         reader.readAsText(file);
+//     };
+//     input.click();
+// }
+
+// function addGeometrySpecificParams(folder, params, emitter) {
+//     const geometryType = params.geometryType;
+//     const config = geometryConfig[geometryType];
+
+//     config.params.forEach(param => {
+//         const controller = folder.add(params, param.name, param.min, param.max).name(param.name.charAt(0).toUpperCase() + param.name.slice(1));
+        
+//         if (param.step) {
+//             controller.step(param.step); // Ensure integer parameters use integer steps
+//         }
+
+//         controller.onChange(() => {
+//             const newParams = { [param.name]: params[param.name] };
+//             emitter.setGeometryParams(newParams);
+//             updatePreviewMeshGeometry(emitter.previewMesh, params);
+//         });
+//     });
+// }
+
+// function createStaticPreview(params) {
+//     const color = new THREE.Color(1, 0, 0); // Red color for edges
+//     const geometry = createGeometry(params.geometryType, params);
+//     const edges = new THREE.EdgesGeometry(geometry);
+//     const material = new THREE.LineBasicMaterial({ color: color });
+//     const previewMesh = new THREE.LineSegments(edges, material);
+
+//     previewMesh.position.set(params.x, params.y, params.z);
+//     scene.add(previewMesh);
+
+//     return previewMesh;
+// }
+
+// function createGeometry(type, params) {
+//     const config = geometryConfig[type];
+//     return config.create(params);
+// }
+
+// function updatePreviewMeshGeometry(previewMesh, params) {
+//     const newGeometry = createGeometry(params.geometryType, params);
+//     const edges = new THREE.EdgesGeometry(newGeometry);
+//     previewMesh.geometry.dispose();
+//     previewMesh.geometry = edges;
+// }
+
+// function updatePreviewMeshPosition(previewMesh, params) {
+//     previewMesh.position.set(params.x, params.y, params.z);
+// }
+
+// function startEmitter(index) {
+//     if (emitters[index]) {
+//         emitters[index].emitter.start();
+//     }
+// }
+
+// function pauseEmitter(index) {
+//     if (emitters[index]) {
+//         emitters[index].emitter.pause();
+//     }
+// }
+
+// function resetEmitter(index, previewMesh) {
+//     if (emitters[index]) {
+//         emitters[index].emitter.reset();
+//         scene.remove(previewMesh);
+//         emitters[index].emitter.previewMesh = createStaticPreview(emitters[index].params);
+//     }
+// }
+
+// function removeEmitter(index, folder) {
+//     if (emitters[index]) {
+//         emitters[index].emitter.reset();
+//         folder.destroy();
+//         emitters.splice(index, 1);
+//         storedEmitters.splice(index, 1);
+//     }
+// }
+
+// function importEmitter() {
+//     const input = document.createElement('input');
+//     input.type = 'file';
+//     input.accept = '.json';
+//     input.onchange = e => {
+//         const file = e.target.files[0];
+//         const reader = new FileReader();
+//         reader.onload = event => {
+//             const importedParams = JSON.parse(event.target.result);
+//             createEmitter(importedParams);
+//         };
+//         reader.readAsText(file);
+//     };
+//     input.click();
+// }
+
+// gui.add({ importEmitters: importEmitters }, 'importEmitters').name('Load Emitters');
+// gui.add({ exportAllEmitters: exportAllEmitters }, 'exportAllEmitters').name('Export All Emitters');
+// gui.add({ importEmitter: importEmitter }, 'importEmitter').name('Import Emitter');
+
+// addEmitter();
+
+// storedEmitters.forEach(params => createEmitter(params)); // Recreate emitters
+
+// makePanelDraggable(document.getElementById("guiOverlayInput"), document.getElementById("guiOverlayBar"));
+// }
+
+// window.initEmittersEdit = initEmittersEdit;
+
+// function generateUniqueId() {
+//     return 'emitter-' + Math.random().toString(36).substr(2, 9);
+// }
+
+// function toggleEmittersEditGUI() {
+//     if (guiInstances.has('emittersEditGUI')) {
+//         guiInstances.get('emittersEditGUI').destroy();
+//         guiInstances.delete('emittersEditGUI');
+//     } else {
+//         initEmittersEdit('emittersEditGUI');
+//     }
+// }
+
+// window.toggleEmittersEditGUI = toggleEmittersEditGUI;
+
+// /* 
+
+//     Emitters Managers 
+
+//                     */
+
+// function listEmitterIds() {
+//     return Array.from(emittersMap.keys());
+// }
+
+// function triggerEmitterById(id, action) {
+//     const emitter = emittersMap.get(id);
+//     if (!emitter) {
+//         console.error(`Emitter with ID ${id} not found.`);
+//         return;
+//     }
+//     switch(action) {
+//         case 'start':
+//             emitter.start();
+//             break;
+//         case 'pause':
+//             emitter.pause();
+//             break;
+//         case 'reset':
+//             emitter.reset();
+//             break;
+//         default:
+//             console.error(`Invalid action: ${action}`);
+//     }
+// }
+
+// function triggerEmittersArrayById(ids, action) {
+//     ids.forEach(id => {
+//         triggerEmitterById(id, action);
+//     });
+// }
+
+// window.listEmitterIds = listEmitterIds;
+// window.triggerEmitterById = triggerEmitterById;
+// window.triggerEmittersArrayById = triggerEmittersArrayById;
+
+
+
+
+
+
+
+
+
+// /* 
+
+//     Emitter - Geometries Config
+//     ----------------------------------------------- 
+
+//     */
+
+// const geometryConfig = {
+//     BoxGeometry: {
+//         defaultParams: { sx: 0.5, sy: 0.5, sz: 0.5 },
+//         params: [
+//             { name: 'sx', min: 0.01, max: 3 },
+//             { name: 'sy', min: 0.01, max: 3 },
+//             { name: 'sz', min: 0.01, max: 3 }
+//         ],
+//         create: params => new THREE.BoxGeometry(params.sx, params.sy, params.sz)
+//     },
+//     SphereGeometry: {
+//         defaultParams: { radius: 1, widthSegments: 32, heightSegments: 16 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'widthSegments', min: 3, max: 64, step: 1 },
+//             { name: 'heightSegments', min: 2, max: 32, step: 1 }
+//         ],
+//         create: params => new THREE.SphereGeometry(params.radius, params.widthSegments, params.heightSegments)
+//     },
+//     CapsuleGeometry: {
+//         defaultParams: { radius: 1, length: 1, capSegments: 4, radialSegments: 8 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'length', min: 0.01, max: 3 },
+//             { name: 'capSegments', min: 1, max: 10, step: 1 },
+//             { name: 'radialSegments', min: 3, max: 32, step: 1 }
+//         ],
+//         create: params => new THREE.CapsuleGeometry(params.radius, params.length, params.capSegments, params.radialSegments)
+//     },
+//     CircleGeometry: {
+//         defaultParams: { radius: 1, segments: 32, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'segments', min: 3, max: 64, step: 1 },
+//             { name: 'thetaStart', min: 0, max: Math.PI * 2 },
+//             { name: 'thetaLength', min: 0, max: Math.PI * 2 }
+//         ],
+//         create: params => new THREE.CircleGeometry(params.radius, params.segments, params.thetaStart, params.thetaLength)
+//     },
+//     ConeGeometry: {
+//         defaultParams: { radius: 1, height: 1, radialSegments: 32, heightSegments: 1, openEnded: false, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'height', min: 0.01, max: 3 },
+//             { name: 'radialSegments', min: 3, max: 64, step: 1 },
+//             { name: 'heightSegments', min: 1, max: 32, step: 1 },
+//             { name: 'openEnded', min: 0, max: 1 },
+//             { name: 'thetaStart', min: 0, max: Math.PI * 2 },
+//             { name: 'thetaLength', min: 0, max: Math.PI * 2 }
+//         ],
+//         create: params => new THREE.ConeGeometry(params.radius, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength)
+//     },
+//     CylinderGeometry: {
+//         defaultParams: { radiusTop: 1, radiusBottom: 1, height: 1, radialSegments: 32, heightSegments: 1, openEnded: false, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: [
+//             { name: 'radiusTop', min: 0.01, max: 3 },
+//             { name: 'radiusBottom', min: 0.01, max: 3 },
+//             { name: 'height', min: 0.01, max: 3 },
+//             { name: 'radialSegments', min: 3, max: 64, step: 1 },
+//             { name: 'heightSegments', min: 1, max: 32, step: 1 },
+//             { name: 'openEnded', min: 0, max: 1 },
+//             { name: 'thetaStart', min: 0, max: Math.PI * 2 },
+//             { name: 'thetaLength', min: 0, max: Math.PI * 2 }
+//         ],
+//         create: params => new THREE.CylinderGeometry(params.radiusTop, params.radiusBottom, params.height, params.radialSegments, params.heightSegments, params.openEnded, params.thetaStart, params.thetaLength)
+//     },
+//     DodecahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'detail', min: 0, max: 5, step: 1 }
+//         ],
+//         create: params => new THREE.DodecahedronGeometry(params.radius, params.detail)
+//     },
+//     IcosahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'detail', min: 0, max: 5, step: 1 }
+//         ],
+//         create: params => new THREE.IcosahedronGeometry(params.radius, params.detail)
+//     },
+//     OctahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'detail', min: 0, max: 5, step: 1 }
+//         ],
+//         create: params => new THREE.OctahedronGeometry(params.radius, params.detail)
+//     },
+//     PlaneGeometry: {
+//         defaultParams: { width: 1, height: 1, widthSegments: 1, heightSegments: 1 },
+//         params: [
+//             { name: 'width', min: 0.01, max: 3 },
+//             { name: 'height', min: 0.01, max: 3 },
+//             { name: 'widthSegments', min: 1, max: 32, step: 1 },
+//             { name: 'heightSegments', min: 1, max: 32, step: 1 }
+//         ],
+//         create: params => new THREE.PlaneGeometry(params.width, params.height, params.widthSegments, params.heightSegments)
+//     },
+//     RingGeometry: {
+//         defaultParams: { innerRadius: 0.5, outerRadius: 1, thetaSegments: 32, phiSegments: 1, thetaStart: 0, thetaLength: Math.PI * 2 },
+//         params: [
+//             { name: 'innerRadius', min: 0.01, max: 3 },
+//             { name: 'outerRadius', min: 0.01, max: 3 },
+//             { name: 'thetaSegments', min: 3, max: 64, step: 1 },
+//             { name: 'phiSegments', min: 1, max: 32, step: 1 },
+//             { name: 'thetaStart', min: 0, max: Math.PI * 2 },
+//             { name: 'thetaLength', min: 0, max: Math.PI * 2 }
+//         ],
+//         create: params => new THREE.RingGeometry(params.innerRadius, params.outerRadius, params.thetaSegments, params.phiSegments, params.thetaStart, params.thetaLength)
+//     },
+//     TetrahedronGeometry: {
+//         defaultParams: { radius: 1, detail: 0 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'detail', min: 0, max: 5, step: 1 }
+//         ],
+//         create: params => new THREE.TetrahedronGeometry(params.radius, params.detail)
+//     },
+//     TorusGeometry: {
+//         defaultParams: { radius: 1, tube: 0.4, radialSegments: 12, tubularSegments: 48, arc: Math.PI * 2 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'tube', min: 0.01, max: 1 },
+//             { name: 'radialSegments', min: 3, max: 64, step: 1 },
+//             { name: 'tubularSegments', min: 3, max: 128, step: 1 },
+//             { name: 'arc', min: 0, max: Math.PI * 2 }
+//         ],
+//         create: params => new THREE.TorusGeometry(params.radius, params.tube, params.radialSegments, params.tubularSegments, params.arc)
+//     },
+//     TorusKnotGeometry: {
+//         defaultParams: { radius: 1, tube: 0.4, tubularSegments: 64, radialSegments: 8, p: 2, q: 3 },
+//         params: [
+//             { name: 'radius', min: 0.01, max: 3 },
+//             { name: 'tube', min: 0.01, max: 1 },
+//             { name: 'tubularSegments', min: 3, max: 128, step: 1 },
+//             { name: 'radialSegments', min: 3, max: 64, step: 1 },
+//             { name: 'p', min: 1, max: 10, step: 1 },
+//             { name: 'q', min: 1, max: 10, step: 1 }
+//         ],
+//         create: params => new THREE.TorusKnotGeometry(params.radius, params.tube, params.tubularSegments, params.radialSegments, params.p, params.q)
+//     }
+// };
+
+// /* 
+
+//     Emitters - Emitter
+//     ----------------------------------------------- 
+
+//     */
+
+// const storedEmitters = [];
+// const emittersMap = new Map();
+
+// /* Emitters */
+// function cubeEmitter({ x = 0, y = 3, z = 0, id, ...params } = {}, interTime = 2000) {
+//     let position = { x, y, z };
+//     let geometryParams = params;
+//     let currentGeometry = geometryParams.geometryType;
+
+//     let intervalId = null;
+//     let producedCubes = [];
+//     let isActive = false;
+
+//     function start() {
+//         if (isActive) return;
+//         isActive = true;
+//         intervalId = setInterval(() => {
+//             const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+//             const random = geometryParams.randomSizes;
+//             const sizeVector = random
+//                 ? new THREE.Vector3(
+//                     Math.random() * geometryParams.sx,
+//                     Math.random() * geometryParams.sy,
+//                     Math.random() * geometryParams.sz
+//                 )
+//                 : new THREE.Vector3(geometryParams.sx, geometryParams.sy, geometryParams.sz);
+//             const cubePosition = new THREE.Vector3(position.x, position.y, position.z);
+//             const cube = addSingleObject(currentGeometry, { ...geometryParams, sx: sizeVector.x, sy: sizeVector.y, sz: sizeVector.z }, cubePosition, color, random);
+//             producedCubes.push(cube);
+//         }, interTime);
+//     }
+
+//     function pause() {
+//         if (intervalId) {
+//             clearInterval(intervalId);
+//             intervalId = null;
+//             isActive = false;
+//         }
+//     }
+
+//     function reset() {
+//         pause();
+//         producedCubes.forEach(({ mesh, rigidBody, collider }) => {
+//             if (mesh) {
+//                 scene.remove(mesh);
+//                 const meshIndex = window.threeCubes.indexOf(mesh);
+//                 if (meshIndex > -1) {
+//                     window.threeCubes.splice(meshIndex, 1);
+//                 }
+//             }
+//             if (myRapierWorld && rigidBody) {
+//                 myRapierWorld.removeCollider(collider, true);
+//                 myRapierWorld.removeRigidBody(rigidBody, true);
+//                 const rigidBodyIndex = window.rigidBodies.indexOf(rigidBody);
+//                 if (rigidBodyIndex > -1) {
+//                     window.rigidBodies.splice(rigidBodyIndex, 1);
+//                 }
+//             }
+//         });
+//         producedCubes = [];
+//     }
+
+//     function setPosition(newPosition) {
+//         position = newPosition;
+//     }
+
+//     function setGeometryParams(newParams) {
+//         geometryParams = { ...geometryParams, ...newParams };
+//     }
+
+//     function setGeometryType(type) {
+//         currentGeometry = type;
+//     }
+
+//     function setIntervalTime(newIntervalTime) {
+//         interTime = newIntervalTime;
+//         if (isActive) {
+//             pause();
+//             start();
+//         }
+//     }
+
+//     function setRandomSizes(value) {
+//         geometryParams.randomSizes = value;
+//     }
+
+//     function addSingleObject(type, params, position, color, random) {
+//         const geometry = geometryConfig[type].create(params);
+
+//         const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
+//         const bodyMesh = new THREE.Mesh(geometry, bodyMaterial);
+
+//         bodyMesh.position.copy(position);
+//         bodyMesh.castShadow = true;
+//         bodyMesh.receiveShadow = true;
+
+//         bodyMesh.type = "cb";
+
+//         scene.add(bodyMesh);
+
+//         let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(position.x, position.y, position.z);
+
+//         let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+
+//         let colliderDesc;
+//         if (type === 'BoxGeometry') {
+//             colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2);
+//         } else if (['SphereGeometry', 'DodecahedronGeometry', 'IcosahedronGeometry', 'OctahedronGeometry', 'TetrahedronGeometry'].includes(type)) {
+//             const radius = params.radius;
+//             colliderDesc = RAPIER.ColliderDesc.ball(radius);
+//         } else if (type === 'CapsuleGeometry') {
+//             const radius = params.radius;
+//             colliderDesc = RAPIER.ColliderDesc.capsule(radius, params.length / 2);
+//         } else if (type === 'CylinderGeometry') {
+//             colliderDesc = RAPIER.ColliderDesc.cylinder(params.height / 2, params.radiusTop);
+//         } else if (type === 'ConeGeometry') {
+//             colliderDesc = RAPIER.ColliderDesc.cone(params.height / 2, params.radius);
+//         } else {
+//             colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2);
+//         }
+
+//         let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
+
+//         rigidBody.type = "cb";
+
+//         window.rigidBodies.push(rigidBody);
+//         window.threeCubes.push(bodyMesh);
+
+//         return { mesh: bodyMesh, rigidBody: rigidBody, collider: collider };
+//     }
+
+//     const emitterInstance = {
+//         id,
+//         start,
+//         pause,
+//         reset,
+//         setPosition,
+//         setGeometryParams,
+//         setGeometryType,
+//         setIntervalTime,
+//         setRandomSizes
+//     };
+
+//     if (id) {
+//         emittersMap.set(id, emitterInstance);
+//     }
+
+//     return emitterInstance;
+// }
+
+// window.cubeEmitter = cubeEmitter;
+
+// /* Emitters GUI */
+
+// function initEmittersEdit(guiKey) {
+//     const container = document.getElementById("guiHolder");
+
+//     const gui = new GUI({ width: 350, container: container });
+//     guiInstances.set(guiKey, gui);
+
+//     const emitters = [];
+
+//     function addEmitter() {
+//         const emitterParams = {
+//             id: generateUniqueId(),
+//             x: 0,
+//             y: 0,
+//             z: 0,
+//             ...geometryConfig.BoxGeometry.defaultParams, // default geometry
+//             geometryType: 'BoxGeometry',
+//             interval: 500,
+//             randomSizes: false
+//         };
+
+//         const folder = gui.addFolder('Add Emitter');
+
+//         folder.add(emitterParams, 'geometryType', Object.keys(geometryConfig)).name('Geometry Type').onChange((newGeometryType) => {
+//             Object.assign(emitterParams, geometryConfig[newGeometryType].defaultParams);
+//             emitterParams.geometryType = newGeometryType;
+//         });
+
+//         folder.add({ create: () => createEmitter({ ...emitterParams }) }, 'create').name('Create Emitter');
+//         folder.open();
+//     }
+
+// function createEmitter(params) {
+//     const emitterId = generateUniqueId();
+//     params.id = emitterId;
+
+//     const index = emitters.length;
+//     const emitter = cubeEmitter({ ...params });
+//     emitter.setIntervalTime(params.interval); // Ensure interval time is set before starting the emitter
+//     emitters.push({ emitter, params });
+//     storedEmitters.push({ ...params }); // Store parameters
+
+//     const folder = gui.addFolder(`Emitter ${params.id}`);
+//     folder.add(params, 'x', -30, 30).name('X').onChange(() => {
+//         emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//         updatePreviewMeshPosition(emitter.previewMesh, params);
+//     });
+//     folder.add(params, 'y', 0, 30).name('Y').onChange(() => {
+//         emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//         updatePreviewMeshPosition(emitter.previewMesh, params);
+//     });
+//     folder.add(params, 'z', -30, 30).name('Z').onChange(() => {
+//         emitter.setPosition({ x: params.x, y: params.y, z: params.z });
+//         updatePreviewMeshPosition(emitter.previewMesh, params);
+//     });
+
+//     folder.add(params, 'randomSizes').name('Random Sizes').onChange(() => emitter.setRandomSizes(params.randomSizes));
+//     folder.add(params, 'interval', 1, 5000).name('Interval (ms)').onChange(() => emitter.setIntervalTime(params.interval));
+
+//     addGeometrySpecificParams(folder, params, emitter);
+
+//     folder.add({ start: () => startEmitter(index) }, 'start').name('Start');
+//     folder.add({ pause: () => pauseEmitter(index) }, 'pause').name('Pause');
+//     folder.add({ reset: () => resetEmitter(index, emitter.previewMesh) }, 'reset').name('Reset');
+//     folder.add({ exportEmitter: () => exportEmitter(emitterId) }, 'exportEmitter').name('Export Emitter');
+
+//     folder.open();
+
+//     emitter.previewMesh = createStaticPreview(params);
+// }
+
+// function exportEmitter(emitterId) {
+//     const emitterObj = emitters.find(e => e.emitter.id === emitterId);
+//     if (emitterObj) {
+//         const params = emitterObj.params;
+//         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(params));
+//         const downloadAnchorNode = document.createElement('a');
+//         downloadAnchorNode.setAttribute("href", dataStr);
+//         downloadAnchorNode.setAttribute("download", `emitter_${params.id}.json`);
+//         document.body.appendChild(downloadAnchorNode);
+//         downloadAnchorNode.click();
+//         downloadAnchorNode.remove();
+//     }
+// }
+
+// function exportAllEmitters() {
+//     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(storedEmitters));
+//     const now = new Date().toISOString().replace(/[:.]/g, '-');
+//     const downloadAnchorNode = document.createElement('a');
+//     downloadAnchorNode.setAttribute("href", dataStr);
+//     downloadAnchorNode.setAttribute("download", `emitters_${now}.json`);
+//     document.body.appendChild(downloadAnchorNode);
+//     downloadAnchorNode.click();
+//     downloadAnchorNode.remove();
+// }
+
+// function importEmitters() {
+//     const input = document.createElement('input');
+//     input.type = 'file';
+//     input.accept = '.json';
+//     input.onchange = e => {
+//         const file = e.target.files[0];
+//         const reader = new FileReader();
+//         reader.onload = event => {
+//             const importedParams = JSON.parse(event.target.result);
+//             importedParams.forEach(params => createEmitter(params));
+//         };
+//         reader.readAsText(file);
+//     };
+//     input.click();
+// }
+
+// function addGeometrySpecificParams(folder, params, emitter) {
+//     const geometryType = params.geometryType;
+//     const config = geometryConfig[geometryType];
+
+//     config.params.forEach(param => {
+//         const controller = folder.add(params, param.name, param.min, param.max).name(param.name.charAt(0).toUpperCase() + param.name.slice(1));
+        
+//         if (param.step) {
+//             controller.step(param.step); // Ensure integer parameters use integer steps
+//         }
+
+//         controller.onChange(() => {
+//             const newParams = { [param.name]: params[param.name] };
+//             emitter.setGeometryParams(newParams);
+//             updatePreviewMeshGeometry(emitter.previewMesh, params);
+//         });
+//     });
+// }
+
+// function createStaticPreview(params) {
+//     const color = new THREE.Color(1, 0, 0); // Red color for edges
+//     const geometry = createGeometry(params.geometryType, params);
+//     const edges = new THREE.EdgesGeometry(geometry);
+//     const material = new THREE.LineBasicMaterial({ color: color });
+//     const previewMesh = new THREE.LineSegments(edges, material);
+
+//     previewMesh.position.set(params.x, params.y, params.z);
+//     scene.add(previewMesh);
+
+//     return previewMesh;
+// }
+
+// function createGeometry(type, params) {
+//     const config = geometryConfig[type];
+//     return config.create(params);
+// }
+
+// function updatePreviewMeshGeometry(previewMesh, params) {
+//     const newGeometry = createGeometry(params.geometryType, params);
+//     const edges = new THREE.EdgesGeometry(newGeometry);
+//     previewMesh.geometry.dispose();
+//     previewMesh.geometry = edges;
+// }
+
+// function updatePreviewMeshPosition(previewMesh, params) {
+//     previewMesh.position.set(params.x, params.y, params.z);
+// }
+
+// function startEmitter(index) {
+//     if (emitters[index]) {
+//         emitters[index].emitter.start();
+//     }
+// }
+
+// function pauseEmitter(index) {
+//     if (emitters[index]) {
+//         emitters[index].emitter.pause();
+//     }
+// }
+
+// function resetEmitter(index, previewMesh) {
+//     if (emitters[index]) {
+//         emitters[index].emitter.reset();
+//         scene.remove(previewMesh);
+//         emitters[index].emitter.previewMesh = createStaticPreview(emitters[index].params);
+//     }
+// }
+
+// function importEmitter() {
+//     const input = document.createElement('input');
+//     input.type = 'file';
+//     input.accept = '.json';
+//     input.onchange = e => {
+//         const file = e.target.files[0];
+//         const reader = new FileReader();
+//         reader.onload = event => {
+//             const importedParams = JSON.parse(event.target.result);
+//             createEmitter(importedParams);
+//         };
+//         reader.readAsText(file);
+//     };
+//     input.click();
+// }
+
+// gui.add({ importEmitters: importEmitters }, 'importEmitters').name('Load Emitters');
+// gui.add({ exportAllEmitters: exportAllEmitters }, 'exportAllEmitters').name('Export All Emitters');
+// gui.add({ importEmitter: importEmitter }, 'importEmitter').name('Import Emitter');
+
+// addEmitter();
+
+// storedEmitters.forEach(params => createEmitter(params)); // Recreate emitters
+
+// makePanelDraggable(document.getElementById("guiOverlayInput"), document.getElementById("guiOverlayBar"));
+// }
+
+// window.initEmittersEdit = initEmittersEdit;
+
+// function generateUniqueId() {
+//     return 'emitter-' + Math.random().toString(36).substr(2, 9);
+// }
+
+// function toggleEmittersEditGUI() {
+//     if (guiInstances.has('emittersEditGUI')) {
+//         guiInstances.get('emittersEditGUI').destroy();
+//         guiInstances.delete('emittersEditGUI');
+//     } else {
+//         initEmittersEdit('emittersEditGUI');
+//     }
+// }
+
+// window.toggleEmittersEditGUI = toggleEmittersEditGUI;
+
+// /* 
+
+//     Emitters Managers 
+
+//                     */
+
+// function listEmitterIds() {
+//     return Array.from(emittersMap.keys());
+// }
+
+// function triggerEmitterById(id, action) {
+//     const emitter = emittersMap.get(id);
+//     if (!emitter) {
+//         console.error(`Emitter with ID ${id} not found.`);
+//         return;
+//     }
+//     switch(action) {
+//         case 'start':
+//             emitter.start();
+//             break;
+//         case 'pause':
+//             emitter.pause();
+//             break;
+//         case 'reset':
+//             emitter.reset();
+//             break;
+//         default:
+//             console.error(`Invalid action: ${action}`);
+//     }
+// }
+
+// function triggerEmittersArrayById(ids, action) {
+//     ids.forEach(id => {
+//         triggerEmitterById(id, action);
+//     });
+// }
+
+// window.listEmitterIds = listEmitterIds;
+// window.triggerEmitterById = triggerEmitterById;
+// window.triggerEmittersArrayById = triggerEmittersArrayById;
+
+
+
+
 
 
 
