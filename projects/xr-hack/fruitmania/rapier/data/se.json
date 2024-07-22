@@ -1,0 +1,12 @@
+{
+    "id": "emitter-lj70w3ib0",
+    "x": 6,
+    "y": 8.05,
+    "z": 2,
+    "sx": 0.37076,
+    "sy": 0.23621,
+    "sz": 1,
+    "geometryType": "BoxGeometry",
+    "interval": 5000,
+    "randomSizes": false
+}
