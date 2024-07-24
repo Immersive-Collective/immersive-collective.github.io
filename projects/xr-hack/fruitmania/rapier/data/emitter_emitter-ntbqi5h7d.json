@@ -1,0 +1,22 @@
+{
+    "id": "emitter-ntbqi5h7d",
+    "x": -0.4,
+    "y": 1.45,
+    "z": 0.2,
+    "sx": 1,
+    "sy": 1,
+    "sz": 1,
+    "geometryType": "SphereGeometry",
+    "interval": 10,
+    "randomSizes": false,
+    "directionX": -0.588,
+    "directionY": 0.322,
+    "directionZ": -0.714,
+    "radius": 0.14651,
+    "widthSegments": 32,
+    "heightSegments": 16,
+    "delay": 0,
+    "count": 100,
+    "speedFactor": 5.7519,
+    "density": 1.9602
+}
