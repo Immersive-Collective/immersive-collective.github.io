@@ -1,0 +1,19 @@
+{
+    "id": "emitter-2qd0klc27",
+    "x": 3.5,
+    "y": -3.91,
+    "z": -7.8,
+    "sx": 0.59501,
+    "sy": 0.72956,
+    "sz": 0.46046,
+    "geometryType": "BoxGeometry",
+    "interval": 30,
+    "randomSizes": true,
+    "directionX": 0,
+    "directionY": 1,
+    "directionZ": 0.35,
+    "delay": 0,
+    "count": 383,
+    "speedFactor": 10,
+    "density": 10
+}
