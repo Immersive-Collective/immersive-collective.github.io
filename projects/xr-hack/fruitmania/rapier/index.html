@@ -194,7 +194,8 @@
         "three": "./node_modules/three/build/three.module.js",
         "lil-gui": "./node_modules/lil-gui/dist/lil-gui.esm.min.js",
         "three/addons/": "./node_modules/three/examples/jsm/",
-        "rapier": "./node_modules/@dimforge/rapier3d-compat/rapier.es.js"
+        "rapier": "./node_modules/@dimforge/rapier3d-compat/rapier.es.js",
+        "zesty": "./static/libs/zesty/zesty-threejs-sdk.js"        
         }
     }
 </script>
@@ -231,6 +232,8 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { GUI } from 'lil-gui';    
 import RAPIER from 'rapier';
 
+import * as Zesty from 'zesty';
+
 
 
 /* 
@@ -253,10 +256,7 @@ document.body.appendChild(container);
     */
 
 let scene, camera, renderer
-
-
 const guiInstances = new Map();
-
 
 
 
@@ -423,9 +423,6 @@ const geometryConfig = {
 
     */
 
-
-
-
 const storedEmitters = [];
 const emittersMap = new Map();
 
@@ -437,6 +434,16 @@ function cubeEmitter({ x = 0, y = 3, z = 0, id, delay = 0, count = 0, speedFacto
     let producedCubes = [];
     let isActive = false;
     let remainingCount = count;
+
+    // Initialize the instanced mesh
+    const instanceCount = 1000; // Adjust as necessary
+    const geometry = geometryConfig[currentGeometry].create(geometryParams);
+    const material = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.2, roughness: 0.8, wireframe: false });
+    const instancedMesh = new THREE.InstancedMesh(geometry, material, instanceCount);
+    instancedMesh.castShadow = true;
+    instancedMesh.receiveShadow = true;
+    scene.add(instancedMesh);
+    let instanceIndex = 0;
 
     function start() {
         if (isActive) return;
@@ -458,8 +465,8 @@ function cubeEmitter({ x = 0, y = 3, z = 0, id, delay = 0, count = 0, speedFacto
                     )
                     : new THREE.Vector3(geometryParams.sx, geometryParams.sy, geometryParams.sz);
                 const cubePosition = new THREE.Vector3(position.x, position.y, position.z);
-                const cube = addSingleObject(currentGeometry, { ...geometryParams, sx: sizeVector.x, sy: sizeVector.y, sz: sizeVector.z }, cubePosition, color, random, speedFactor, direction, density);
-                producedCubes.push(cube);
+                addSingleObject(instanceIndex++, currentGeometry, { ...geometryParams, sx: sizeVector.x, sy: sizeVector.y, sz: sizeVector.z }, cubePosition, color, random, speedFactor, direction, density);
+                if (instanceIndex >= instanceCount) instanceIndex = 0; // Loop back to reuse instances
             }, interTime);
         }, delay);
     }
@@ -474,23 +481,6 @@ function cubeEmitter({ x = 0, y = 3, z = 0, id, delay = 0, count = 0, speedFacto
 
     function reset() {
         pause();
-        producedCubes.forEach(({ mesh, rigidBody, collider }) => {
-            if (mesh) {
-                scene.remove(mesh);
-                const meshIndex = window.threeCubes.indexOf(mesh);
-                if (meshIndex > -1) {
-                    window.threeCubes.splice(meshIndex, 1);
-                }
-            }
-            if (myRapierWorld && rigidBody) {
-                myRapierWorld.removeCollider(collider, true);
-                myRapierWorld.removeRigidBody(rigidBody, true);
-                const rigidBodyIndex = window.rigidBodies.indexOf(rigidBody);
-                if (rigidBodyIndex > -1) {
-                    window.rigidBodies.splice(rigidBodyIndex, 1);
-                }
-            }
-        });
         producedCubes = [];
         remainingCount = count;
     }
@@ -526,7 +516,7 @@ function cubeEmitter({ x = 0, y = 3, z = 0, id, delay = 0, count = 0, speedFacto
     }
 
     function setCount(newCount) {
-        count = Math.floor(newCount); // Ensure count is always an integer
+        count = Math.floor(newCount);
         remainingCount = count;
     }
 
@@ -564,21 +554,20 @@ function cubeEmitter({ x = 0, y = 3, z = 0, id, delay = 0, count = 0, speedFacto
         };
     }
 
-    function addSingleObject(type, params, position, color, random, speedFactor, direction, density) {
-        const geometry = geometryConfig[type].create(params);
-        const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
-        const bodyMesh = new THREE.Mesh(geometry, bodyMaterial);
-        bodyMesh.position.copy(position);
-        bodyMesh.castShadow = true;
-        bodyMesh.receiveShadow = true;
-        bodyMesh.type = "cb";
-        scene.add(bodyMesh);
+    function addSingleObject(index, type, params, position, color, random, speedFactor, direction, density) {
+        const dummy = new THREE.Object3D();
 
-        // Calculate the quaternion for the direction
+        dummy.position.copy(position);
         const directionVector = new THREE.Vector3(direction.x, direction.y, direction.z).normalize();
         const quaternion = new THREE.Quaternion();
         quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), directionVector);
+        dummy.quaternion.copy(quaternion);
+
+        dummy.updateMatrix();
+        instancedMesh.setMatrixAt(index, dummy.matrix);
+        instancedMesh.instanceMatrix.needsUpdate = true;
         
+        // Physics setup remains unchanged
         let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
             .setTranslation(position.x, position.y, position.z)
             .setRotation({ w: quaternion.w, x: quaternion.x, y: quaternion.y, z: quaternion.z })
@@ -606,13 +595,11 @@ function cubeEmitter({ x = 0, y = 3, z = 0, id, delay = 0, count = 0, speedFacto
         let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
         rigidBody.type = "cb";
         window.rigidBodies.push(rigidBody);
-        window.threeCubes.push(bodyMesh);
 
         playFX("shoot0", 10);
 
-        return { mesh: bodyMesh, rigidBody: rigidBody, collider: collider };
+        return { mesh: dummy, rigidBody: rigidBody, collider: collider };
     }
-
 
     const emitterInstance = {
         id,
@@ -641,6 +628,296 @@ function cubeEmitter({ x = 0, y = 3, z = 0, id, delay = 0, count = 0, speedFacto
 }
 
 window.cubeEmitter = cubeEmitter;
+
+
+
+
+// function cubeEmitter({ x = 0, y = 3, z = 0, id, delay = 0, count = 0, speedFactor = 1, direction = { x: 0, y: -1, z: 0 }, density = 1, ...params } = {}, interTime = 2000) {
+//     let position = { x, y, z };
+//     let geometryParams = params;
+//     let currentGeometry = geometryParams.geometryType;
+//     let intervalId = null;
+//     let producedCubes = [];
+//     let isActive = false;
+//     let remainingCount = count;
+
+//     function start() {
+//         if (isActive) return;
+//         isActive = true;
+//         setTimeout(() => {
+//             intervalId = setInterval(() => {
+//                 if (remainingCount > 0) remainingCount--;
+//                 if (remainingCount === 0 && count !== 0) {
+//                     pause();
+//                     return;
+//                 }
+//                 const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+//                 const random = geometryParams.randomSizes;
+//                 const sizeVector = random
+//                     ? new THREE.Vector3(
+//                         Math.random() * geometryParams.sx,
+//                         Math.random() * geometryParams.sy,
+//                         Math.random() * geometryParams.sz
+//                     )
+//                     : new THREE.Vector3(geometryParams.sx, geometryParams.sy, geometryParams.sz);
+//                 const cubePosition = new THREE.Vector3(position.x, position.y, position.z);
+//                 const cube = addSingleObject(currentGeometry, { ...geometryParams, sx: sizeVector.x, sy: sizeVector.y, sz: sizeVector.z }, cubePosition, color, random, speedFactor, direction, density);
+//                 producedCubes.push(cube);
+//             }, interTime);
+//         }, delay);
+//     }
+
+//     function pause() {
+//         if (intervalId) {
+//             clearInterval(intervalId);
+//             intervalId = null;
+//             isActive = false;
+//         }
+//     }
+
+//     function reset() {
+//         pause();
+//         producedCubes.forEach(({ mesh, rigidBody, collider }) => {
+//             if (mesh) {
+//                 scene.remove(mesh);
+//                 const meshIndex = window.threeCubes.indexOf(mesh);
+//                 if (meshIndex > -1) {
+//                     window.threeCubes.splice(meshIndex, 1);
+//                 }
+//             }
+//             if (myRapierWorld && rigidBody) {
+//                 myRapierWorld.removeCollider(collider, true);
+//                 myRapierWorld.removeRigidBody(rigidBody, true);
+//                 const rigidBodyIndex = window.rigidBodies.indexOf(rigidBody);
+//                 if (rigidBodyIndex > -1) {
+//                     window.rigidBodies.splice(rigidBodyIndex, 1);
+//                 }
+//             }
+//         });
+//         producedCubes = [];
+//         remainingCount = count;
+//     }
+
+//     function restart() {
+//         pause();
+//         remainingCount = count;
+//         start();
+//     }
+
+//     function setPosition(newPosition) {
+//         position = newPosition;
+//     }
+
+//     function setGeometryParams(newParams) {
+//         geometryParams = { ...geometryParams, ...newParams };
+//     }
+
+//     function setGeometryType(type) {
+//         currentGeometry = type;
+//     }
+
+//     function setIntervalTime(newIntervalTime) {
+//         interTime = newIntervalTime;
+//         if (isActive) {
+//             pause();
+//             start();
+//         }
+//     }
+
+//     function setRandomSizes(value) {
+//         geometryParams.randomSizes = value;
+//     }
+
+//     function setCount(newCount) {
+//         count = Math.floor(newCount); // Ensure count is always an integer
+//         remainingCount = count;
+//     }
+
+//     function setDelay(newDelay) {
+//         delay = newDelay;
+//     }
+
+//     function setDirection(newDirection) {
+//         direction = newDirection;
+//     }
+
+//     function setDensity(newDensity) {
+//         density = newDensity;
+//     }
+
+//     function setSpeedFactor(newSpeedFactor) {
+//         speedFactor = newSpeedFactor;
+//     }
+
+//     function getParams() {
+//         return {
+//             id,
+//             x: position.x,
+//             y: position.y,
+//             z: position.z,
+//             ...geometryParams,
+//             interval: interTime,
+//             delay,
+//             count,
+//             directionX: direction.x,
+//             directionY: direction.y,
+//             directionZ: direction.z,
+//             speedFactor,
+//             density
+//         };
+//     }
+
+//     function addSingleObject(type, params, position, color, random, speedFactor, direction, density) {
+//         const geometry = geometryConfig[type].create(params);
+//         const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
+//         const bodyMesh = new THREE.Mesh(geometry, bodyMaterial);
+//         bodyMesh.position.copy(position);
+//         bodyMesh.castShadow = true;
+//         bodyMesh.receiveShadow = true;
+//         bodyMesh.type = "cb";
+//         scene.add(bodyMesh);
+
+//         // Calculate the quaternion for the direction
+//         const directionVector = new THREE.Vector3(direction.x, direction.y, direction.z).normalize();
+//         const quaternion = new THREE.Quaternion();
+//         quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), directionVector);
+        
+//         let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+//             .setTranslation(position.x, position.y, position.z)
+//             .setRotation({ w: quaternion.w, x: quaternion.x, y: quaternion.y, z: quaternion.z })
+//             .setLinvel(direction.x * speedFactor, direction.y * speedFactor, direction.z * speedFactor);
+        
+//         let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+//         let colliderDesc;
+
+//         if (type === 'BoxGeometry') {
+//             colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2).setDensity(density);
+//         } else if (['SphereGeometry', 'DodecahedronGeometry', 'IcosahedronGeometry', 'OctahedronGeometry', 'TetrahedronGeometry'].includes(type)) {
+//             const radius = params.radius;
+//             colliderDesc = RAPIER.ColliderDesc.ball(radius).setDensity(density);
+//         } else if (type === 'CapsuleGeometry') {
+//             const radius = params.radius;
+//             colliderDesc = RAPIER.ColliderDesc.capsule(radius, params.length / 2).setDensity(density);
+//         } else if (type === 'CylinderGeometry') {
+//             colliderDesc = RAPIER.ColliderDesc.cylinder(params.height / 2, params.radiusTop).setDensity(density);
+//         } else if (type === 'ConeGeometry') {
+//             colliderDesc = RAPIER.ColliderDesc.cone(params.height / 2, params.radius).setDensity(density);
+//         } else {
+//             colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2).setDensity(density);
+//         }
+
+//         let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
+//         rigidBody.type = "cb";
+//         window.rigidBodies.push(rigidBody);
+//         window.threeCubes.push(bodyMesh);
+
+//         playFX("shoot0", 10);
+
+//         return { mesh: bodyMesh, rigidBody: rigidBody, collider: collider };
+//     }
+
+
+//     const emitterInstance = {
+//         id,
+//         start,
+//         pause,
+//         reset,
+//         restart,
+//         setPosition,
+//         setGeometryParams,
+//         setGeometryType,
+//         setIntervalTime,
+//         setRandomSizes,
+//         setCount,
+//         setDelay,
+//         setDirection,
+//         setDensity,
+//         setSpeedFactor,
+//         getParams
+//     };
+
+//     if (id) {
+//         emittersMap.set(id, emitterInstance);
+//     }
+
+//     return emitterInstance;
+// }
+
+// window.cubeEmitter = cubeEmitter;
+
+
+
+// loadEmittersFromJSONString(controllersEmittersJSON)
+function loadEmittersFromJSONString(jsonString) {
+    try {
+        const data = JSON.parse(jsonString);
+        if (Array.isArray(data)) {
+            data.forEach(emitterData => {
+                if (typeof emitterData === 'object' && emitterData !== null) {
+                    createEmitter(emitterData); // Assumes each item in the array is a single emitter object
+                } else {
+                    console.error('Invalid emitter data format');
+                }
+            });
+        } else {
+            console.error('Invalid emitters data format');
+        }
+    } catch (error) {
+        console.error('Error parsing emitters JSON:', error);
+    }
+}
+
+window.loadEmittersFromJSONString = loadEmittersFromJSONString;
+
+
+
+let controllersEmittersJSON = `[{
+    "id": "controller1",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "sx": 0.1,
+    "sy": 0.3,
+    "sz": 0.1,
+    "geometryType": "BoxGeometry",
+    "interval": 50,
+    "randomSizes": false,
+    "directionX": 0,
+    "directionY": 1,
+    "directionZ": 0,
+    "delay": 0,
+    "count": 4,
+    "speedFactor": 100,
+    "density": 10
+},
+{
+    "id": "controller2",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "sx": 0.1,
+    "sy": 0.3,
+    "sz": 0.1,
+    "geometryType": "BoxGeometry",
+    "interval": 50,
+    "randomSizes": false,
+    "directionX": 0,
+    "directionY": -1,
+    "directionZ": 0,
+    "delay": 0,
+    "count": 4,
+    "speedFactor": 100,
+    "density": 10
+}]`;
+
+
+function initEmitters() {
+
+    loadEmittersFromJSONString(controllersEmittersJSON)
+
+}
+
+
 
 function initEmittersEdit(guiKey, loadedEmitters = []) {
     const container = document.getElementById("guiHolder");
@@ -1153,6 +1430,8 @@ function createEmitter(params, start=false) {
     //emitter.start();
 }
 
+
+
 function loadEmitters(url) {
     fetch(url)
         .then(response => response.json())
@@ -1296,10 +1575,6 @@ function runEmitterDev(emitterId, positionDeviation = { x: 0, y: 0, z: 0 }, dire
 }
 
 window.runEmitterDev = runEmitterDev;
-
-
-
-
 
 
 
@@ -1450,7 +1725,7 @@ let obstacles = [];
 let groundObjects = [];
 
 //let ground = "static/models/grounds/simple-ground-3.glb";
-let ground = "static/models/grounds/disc-br-1.glb";
+let ground = "static/models/grounds/donut-bla-2.glb";
 
 
 
@@ -3678,6 +3953,23 @@ function saveCameraPosition() {
 
 
 
+/* 
+
+    Zesty
+    ----------------------------------------------- 
+
+    */
+
+
+function addBanners() {
+
+    const zestyBanner = new ZestyBanner("0", "billboard", 3, null, true);
+    scene.add(zestyBanner);
+
+}
+
+
+
 
 
 /* 
@@ -3899,47 +4191,22 @@ function init() {
 
     //addHelpers();
 
-    addEnvMap();
+    //addEnvMap();
 
     animate();
 
-    //toggleEmittersEditGUI();
+    //loadEmitters("data/emitters.json")
 
-    //loadEmittersFromJSON("data/e.json")
-
-    //toggleGameTimerGUI();
-
-
-    //loadEmittersFromJSON("data/emitters_2024-07-22T19-36-35-007Z.json")
-
-
-    loadEmitters("data/emitters.json")
+    initEmitters()
 
     initControllers();
 
-    //loadEmittersFromJSON("data/emitters_2024-07-22T23-35-56-724Z.json")
-
-
-    // startAllEmitters();
-
-
-    //loadEmittersJSON('data/emitters_2024-07-21T18-13-55-176Z.json');
-
-
-    //loadEmittersFromJSON("data/emitters_2024-07-24T16-03-41-327Z.json")
-    
-    // loadEmitters("data/emitters_2024-07-24T16-03-41-327Z.json")
-
-    //loadEmitters("data/emitters_2024-07-24T13-48-52-263Z.json")
-
-
-
-    //toggleEmittersEditGUI()
-
+    toggleEmittersEditGUI()
 
     //startGame();
 
 
+    addBanners();
 
 
 }
