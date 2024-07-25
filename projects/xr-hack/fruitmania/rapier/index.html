@@ -260,6 +260,8 @@ const guiInstances = new Map();
 
 
 
+
+
 /* 
 
     Emitter - Geometries Config
@@ -414,7 +416,12 @@ const geometryConfig = {
 
 
 
+/* 
 
+    Emitter
+    ----------------------------------------------- 
+
+    */
 
 
 
@@ -557,99 +564,55 @@ function cubeEmitter({ x = 0, y = 3, z = 0, id, delay = 0, count = 0, speedFacto
         };
     }
 
+    function addSingleObject(type, params, position, color, random, speedFactor, direction, density) {
+        const geometry = geometryConfig[type].create(params);
+        const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
+        const bodyMesh = new THREE.Mesh(geometry, bodyMaterial);
+        bodyMesh.position.copy(position);
+        bodyMesh.castShadow = true;
+        bodyMesh.receiveShadow = true;
+        bodyMesh.type = "cb";
+        scene.add(bodyMesh);
 
-function addSingleObject(type, params, position, color, random, speedFactor, direction, density) {
-    const geometry = geometryConfig[type].create(params);
-    const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
-    const bodyMesh = new THREE.Mesh(geometry, bodyMaterial);
-    bodyMesh.position.copy(position);
-    bodyMesh.castShadow = true;
-    bodyMesh.receiveShadow = true;
-    bodyMesh.type = "cb";
-    scene.add(bodyMesh);
+        // Calculate the quaternion for the direction
+        const directionVector = new THREE.Vector3(direction.x, direction.y, direction.z).normalize();
+        const quaternion = new THREE.Quaternion();
+        quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), directionVector);
+        
+        let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
+            .setTranslation(position.x, position.y, position.z)
+            .setRotation({ w: quaternion.w, x: quaternion.x, y: quaternion.y, z: quaternion.z })
+            .setLinvel(direction.x * speedFactor, direction.y * speedFactor, direction.z * speedFactor);
+        
+        let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
+        let colliderDesc;
 
-    // Calculate the quaternion for the direction
-    const directionVector = new THREE.Vector3(direction.x, direction.y, direction.z).normalize();
-    const quaternion = new THREE.Quaternion();
-    quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), directionVector);
-    
-    let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(position.x, position.y, position.z)
-        .setRotation({ w: quaternion.w, x: quaternion.x, y: quaternion.y, z: quaternion.z })
-        .setLinvel(direction.x * speedFactor, direction.y * speedFactor, direction.z * speedFactor);
-    
-    let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
-    let colliderDesc;
+        if (type === 'BoxGeometry') {
+            colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2).setDensity(density);
+        } else if (['SphereGeometry', 'DodecahedronGeometry', 'IcosahedronGeometry', 'OctahedronGeometry', 'TetrahedronGeometry'].includes(type)) {
+            const radius = params.radius;
+            colliderDesc = RAPIER.ColliderDesc.ball(radius).setDensity(density);
+        } else if (type === 'CapsuleGeometry') {
+            const radius = params.radius;
+            colliderDesc = RAPIER.ColliderDesc.capsule(radius, params.length / 2).setDensity(density);
+        } else if (type === 'CylinderGeometry') {
+            colliderDesc = RAPIER.ColliderDesc.cylinder(params.height / 2, params.radiusTop).setDensity(density);
+        } else if (type === 'ConeGeometry') {
+            colliderDesc = RAPIER.ColliderDesc.cone(params.height / 2, params.radius).setDensity(density);
+        } else {
+            colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2).setDensity(density);
+        }
 
-    if (type === 'BoxGeometry') {
-        colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2).setDensity(density);
-    } else if (['SphereGeometry', 'DodecahedronGeometry', 'IcosahedronGeometry', 'OctahedronGeometry', 'TetrahedronGeometry'].includes(type)) {
-        const radius = params.radius;
-        colliderDesc = RAPIER.ColliderDesc.ball(radius).setDensity(density);
-    } else if (type === 'CapsuleGeometry') {
-        const radius = params.radius;
-        colliderDesc = RAPIER.ColliderDesc.capsule(radius, params.length / 2).setDensity(density);
-    } else if (type === 'CylinderGeometry') {
-        colliderDesc = RAPIER.ColliderDesc.cylinder(params.height / 2, params.radiusTop).setDensity(density);
-    } else if (type === 'ConeGeometry') {
-        colliderDesc = RAPIER.ColliderDesc.cone(params.height / 2, params.radius).setDensity(density);
-    } else {
-        colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2).setDensity(density);
+        let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
+        rigidBody.type = "cb";
+        window.rigidBodies.push(rigidBody);
+        window.threeCubes.push(bodyMesh);
+
+        playFX("shoot0", 10);
+
+        return { mesh: bodyMesh, rigidBody: rigidBody, collider: collider };
     }
 
-    let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
-    rigidBody.type = "cb";
-    window.rigidBodies.push(rigidBody);
-    window.threeCubes.push(bodyMesh);
-
-    return { mesh: bodyMesh, rigidBody: rigidBody, collider: collider };
-}
-
-
-
-    // function addSingleObject(type, params, position, color, random, speedFactor, direction, density) {
-    //     const geometry = geometryConfig[type].create(params);
-    //     const bodyMaterial = new THREE.MeshStandardMaterial({ color: color, metalness: 0.2, roughness: 0.8, wireframe: false });
-    //     const bodyMesh = new THREE.Mesh(geometry, bodyMaterial);
-    //     bodyMesh.position.copy(position);
-    //     bodyMesh.castShadow = true;
-    //     bodyMesh.receiveShadow = true;
-    //     bodyMesh.type = "cb";
-
-    //     const directionVector = new THREE.Vector3(direction.x, direction.y, direction.z).normalize();
-    //     const quaternion = new THREE.Quaternion();
-    //     quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), directionVector);
-    //     bodyMesh.quaternion.copy(quaternion);
-
-    //     scene.add(bodyMesh);
-
-    //     let rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(position.x, position.y, position.z).setLinvel(direction.x * speedFactor, direction.y * speedFactor, direction.z * speedFactor).setRotation(quaternion);
-    //     let rigidBody = myRapierWorld.createRigidBody(rigidBodyDesc);
-    //     let colliderDesc;
-
-    //     if (type === 'BoxGeometry') {
-    //         colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2).setDensity(density);
-    //     } else if (['SphereGeometry', 'DodecahedronGeometry', 'IcosahedronGeometry', 'OctahedronGeometry', 'TetrahedronGeometry'].includes(type)) {
-    //         const radius = params.radius;
-    //         colliderDesc = RAPIER.ColliderDesc.ball(radius).setDensity(density);
-    //     } else if (type === 'CapsuleGeometry') {
-    //         const radius = params.radius;
-    //         colliderDesc = RAPIER.ColliderDesc.capsule(radius, params.length / 2).setDensity(density);
-    //     } else if (type === 'CylinderGeometry') {
-    //         colliderDesc = RAPIER.ColliderDesc.cylinder(params.height / 2, params.radiusTop).setDensity(density);
-    //     } else if (type === 'ConeGeometry') {
-    //         colliderDesc = RAPIER.ColliderDesc.cone(params.height / 2, params.radius).setDensity(density);
-    //     } else {
-    //         colliderDesc = RAPIER.ColliderDesc.cuboid(params.sx / 2, params.sy / 2, params.sz / 2).setDensity(density);
-    //     }
-
-    //     let collider = myRapierWorld.createCollider(colliderDesc, rigidBody);
-    //     rigidBody.type = "cb";
-    //     window.rigidBodies.push(rigidBody);
-    //     window.threeCubes.push(bodyMesh);
-
-    //     return { mesh: bodyMesh, rigidBody: rigidBody, collider: collider };
-    // }
 
     const emitterInstance = {
         id,
@@ -768,7 +731,7 @@ function initEmittersEdit(guiKey, loadedEmitters = []) {
             updatePreviewLine(emitter.previewLine, params);
             updatePreviewMeshRotation(emitter.previewMesh, params);
         });
-        folder.add(params, 'speedFactor', 0.1, 10).name('Speed Factor').onChange(() => {
+        folder.add(params, 'speedFactor', 0.1, 150).name('Speed Factor').onChange(() => {
             emitter.setSpeedFactor(params.speedFactor);
             updatePreviewLine(emitter.previewLine, params);
         });
@@ -1230,6 +1193,116 @@ window.loadSingleEmitter = loadSingleEmitter;
 
 
 
+function runEmitterValues(emitterId, newPosition, newDirection) {
+
+    const emitter = emittersMap.get(emitterId);
+    
+    if (!emitter) {
+        console.error(`Emitter with ID ${emitterId} not found.`);
+        return;
+    }
+
+    if (newPosition) {
+        emitter.setPosition(newPosition);
+    }
+
+    if (newDirection) {
+        emitter.setDirection(newDirection);
+
+        // this can not work if there is no GUI and preview geometries:
+        // Update the preview rotation based on the new direction
+        // updatePreviewMeshRotation(emitter.previewMesh, { 
+        //     directionX: newDirection.x, 
+        //     directionY: newDirection.y, 
+        //     directionZ: newDirection.z 
+        // });
+        // updatePreviewLine(emitter.previewLine, { 
+        //     x: newPosition.x, 
+        //     y: newPosition.y, 
+        //     z: newPosition.z, 
+        //     directionX: newDirection.x, 
+        //     directionY: newDirection.y, 
+        //     directionZ: newDirection.z, 
+        //     speedFactor: emitter.getParams().speedFactor 
+        // });
+    }
+
+    emitter.restart();
+}
+
+window.runEmitterValues = runEmitterValues;
+
+
+
+
+function runEmitterDev(emitterId, positionDeviation = { x: 0, y: 0, z: 0 }, directionDeviation = { x: 0, y: 0, z: 0 }, speedFactorDeviation = 0, densityDeviation = 0) {
+    const emitter = emittersMap.get(emitterId);
+    if (!emitter) {
+        console.error(`Emitter with ID ${emitterId} not found.`);
+        return;
+    }
+
+    // Check and store original values if they don't exist
+    if (!emitter.originalValues) {
+        const currentParams = emitter.getParams();
+        emitter.originalValues = {
+            position: { x: currentParams.x, y: currentParams.y, z: currentParams.z },
+            direction: { x: currentParams.directionX, y: currentParams.directionY, z: currentParams.directionZ },
+            speedFactor: currentParams.speedFactor,
+            density: currentParams.density
+        };
+    }
+
+    const original = emitter.originalValues;
+
+    function applyDeviation(value, deviation) {
+        return value + (Math.random() * deviation - Math.random() * deviation);
+    }
+
+    const newPosition = {
+        x: applyDeviation(original.position.x, positionDeviation.x),
+        y: applyDeviation(original.position.y, positionDeviation.y),
+        z: applyDeviation(original.position.z, positionDeviation.z)
+    };
+
+    const newDirection = {
+        x: applyDeviation(original.direction.x, directionDeviation.x),
+        y: applyDeviation(original.direction.y, directionDeviation.y),
+        z: applyDeviation(original.direction.z, directionDeviation.z)
+    };
+
+    const newSpeedFactor = applyDeviation(original.speedFactor, speedFactorDeviation);
+    const newDensity = applyDeviation(original.density, densityDeviation);
+
+    emitter.setPosition(newPosition);
+    emitter.setDirection(newDirection);
+    emitter.setSpeedFactor(newSpeedFactor);
+    emitter.setDensity(newDensity);
+
+    // this can not work if there is no GUI and preview geometries:
+    // Update the preview rotation based on the new direction
+    // updatePreviewMeshRotation(emitter.previewMesh, newDirection);
+    // updatePreviewLine(emitter.previewLine, { 
+    //     x: newPosition.x, 
+    //     y: newPosition.y, 
+    //     z: newPosition.z, 
+    //     directionX: newDirection.x, 
+    //     directionY: newDirection.y, 
+    //     directionZ: newDirection.z, 
+    //     speedFactor: newSpeedFactor 
+    // });
+
+    emitter.restart();
+}
+
+window.runEmitterDev = runEmitterDev;
+
+
+
+
+
+
+
 
 /* 
 
@@ -1667,7 +1740,7 @@ function loadStaticGroundModel(ground) {
 
 let envMaterial;
 let pmremGenerator, envMap
-let backgroundBlurriness = 0.2;
+let backgroundBlurriness = 0;
 let backgroundIntensity = 1.1
 
 
@@ -2008,6 +2081,12 @@ function refreshControllerInfo() {
 
     updateDisplay(controller1, controller1QuaternionDisplay, currentMode);
     updateDisplay(controller2, controller2QuaternionDisplay, currentMode);
+
+
+    updateEmitterFromController(controller1);
+    updateEmitterFromController(controller2);
+
+
 }
 
 
@@ -2110,6 +2189,9 @@ function addBallTrajectory() {
 function initControllers() {
 
     console.log(" -------- initControllers")
+
+
+
 
     addBallTrajectory();
 
@@ -2360,6 +2442,17 @@ function initControllers() {
             activeController = null;
         }
     }
+
+
+
+    listEmitterIds();
+
+    const emitterId1 = "controller1"; // Assuming you have at least two emitters
+    const emitterId2 = "controller2";
+
+    controller1.userData.emitterId = emitterId1;
+    controller2.userData.emitterId = emitterId2;
+
 
     controller1.addEventListener('selectstart', function () {
         if (currentMode === 'teleportation') {
@@ -2858,16 +2951,30 @@ document.addEventListener('keyup', (event) => {
 });
 
 
+function updateEmitterValues(emitterId, newPosition, newDirection) {
+    const emitter = emittersMap.get(emitterId);
+    if (!emitter) {
+        console.error(`Emitter with ID ${emitterId} not found.`);
+        return;
+    }
+
+    if (newPosition) {
+        emitter.setPosition(newPosition);
+    }
+
+    if (newDirection) {
+        emitter.setDirection(newDirection);
+    }
+}
+
+window.updateEmitterValues = updateEmitterValues;
 
 
-function shootBallFromController(controller) {
 
-    console.log("shootBallFromController:", controller);
+function updateEmitterFromController(controller) {
 
-    // The size, density, and speed factor for the ball
-    let ballSize = 0.12 + Math.random() * 0.01;
-    let density = 5;
-    let speedFactor = 30;
+    const emitterId = controller.userData.emitterId;
+    if (!emitterId) return;
 
     // Get the world position of the controller
     const controllerWorldPosition = new THREE.Vector3();
@@ -2877,12 +2984,74 @@ function shootBallFromController(controller) {
     const pointSpriteWorldPosition = new THREE.Vector3();
     controller.point.getWorldPosition(pointSpriteWorldPosition);
 
-    // Create and shoot the ball towards the point sprite
-    createAndShootBall(controllerWorldPosition, pointSpriteWorldPosition, ballSize, tronLegacyColors.brightBlue, density, speedFactor);
+    // Calculate the direction from the controller to the point sprite
+    const direction = new THREE.Vector3().subVectors(pointSpriteWorldPosition, controllerWorldPosition).normalize();
 
-    //game.balls +=1;
-
+    // Update the emitter's position and direction
+    updateEmitterValues(emitterId, 
+        { x: controllerWorldPosition.x, y: controllerWorldPosition.y, z: controllerWorldPosition.z }, 
+        { x: direction.x, y: direction.y, z: direction.z }
+    );
 }
+
+
+function shootBallFromController(controller) {
+
+    console.log("shootBallFromController - name:", controller.name);
+
+    const emitterId = controller.userData.emitterId;
+    if (!emitterId) return;
+
+    console.log("shootBallFromController - emitterId:", emitterId);
+
+
+    // Get the world position of the controller
+    const controllerWorldPosition = new THREE.Vector3();
+    controller.getWorldPosition(controllerWorldPosition);
+
+    // Get the world position of the point sprite
+    const pointSpriteWorldPosition = new THREE.Vector3();
+    controller.point.getWorldPosition(pointSpriteWorldPosition);
+
+    // Calculate the direction from the controller to the point sprite
+    const direction = new THREE.Vector3().subVectors(pointSpriteWorldPosition, controllerWorldPosition).normalize();
+
+    // Run the emitter with the calculated position and direction
+    runEmitterValues(emitterId, 
+        { x: controllerWorldPosition.x, y: controllerWorldPosition.y, z: controllerWorldPosition.z }, 
+        { x: direction.x, y: direction.y, z: direction.z }
+    );
+
+    
+    
+}
+
+window.shootBallFromController = shootBallFromController;
+
+
+// function shootBallFromController(controller) {
+
+//     console.log("shootBallFromController:", controller);
+
+//     // The size, density, and speed factor for the ball
+//     let ballSize = 0.12 + Math.random() * 0.01;
+//     let density = 5;
+//     let speedFactor = 30;
+
+//     // Get the world position of the controller
+//     const controllerWorldPosition = new THREE.Vector3();
+//     controller.getWorldPosition(controllerWorldPosition);
+
+//     // Get the world position of the point sprite
+//     const pointSpriteWorldPosition = new THREE.Vector3();
+//     controller.point.getWorldPosition(pointSpriteWorldPosition);
+
+//     // Create and shoot the ball towards the point sprite
+//     createAndShootBall(controllerWorldPosition, pointSpriteWorldPosition, ballSize, tronLegacyColors.brightBlue, density, speedFactor);
+
+//     //game.balls +=1;
+
+// }
 
 
 function createAndShootBall(startPosition, targetPosition, radius, color, density, speedFactor) {
@@ -2955,6 +3124,180 @@ function createAndShootBall(startPosition, targetPosition, radius, color, densit
 
 
 }
+
+
+
+
+
+/* 
+
+            Audio 
+    --------------------------------------------------------------
+*/
+
+function exportSoundOptions(soundParams) {
+    const soundOptions = {
+        initialFrequency: soundParams.initialFrequency,
+        volume: soundParams.volume,
+        duration: soundParams.duration,
+        type: soundParams.type,
+        fadeInPercent: soundParams.fadeInPercent,
+        fadeOutPercent: soundParams.fadeOutPercent,
+        filterType: soundParams.filterType,
+        filterFrequency: soundParams.filterFrequency,
+        filterQ: soundParams.filterQ,
+        loop: soundParams.loop,
+        interval: soundParams.interval
+    };
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(soundOptions));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "soundOptions.json");
+    document.body.appendChild(downloadAnchorNode); // required for firefox
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+function importSoundOptions() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = event => {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const content = e.target.result;
+            const importedOptions = JSON.parse(content);
+            applyImportedSoundOptions(importedOptions);
+        };
+        reader.readAsText(file);
+    };
+
+    input.click();
+}
+
+
+function applyImportedSoundOptions(importedOptions) {
+    if (guiInstances.has('soundEditGUI')) {
+        const gui = guiInstances.get('soundEditGUI');
+        if (gui && Array.isArray(gui.controllers)) { // Updated check for gui.controllers
+            Object.keys(importedOptions).forEach(key => {
+                if (soundParams.hasOwnProperty(key)) {
+                    soundParams[key] = importedOptions[key];
+                }
+            });
+            gui.controllers.forEach(controller => { // Updated to use gui.controllers
+                if (importedOptions.hasOwnProperty(controller.property)) {
+                    controller.setValue(importedOptions[controller.property]);
+                }
+            });
+        } else {
+            console.error('GUI controllers are not defined or not an array');
+        }
+    } else {
+        console.error('Sound Edit GUI instance not found');
+    }
+}
+
+
+
+let soundParams;
+
+function initSoundEdit(guiKey) {
+
+    const container = document.getElementById("guiHolder");
+
+    const gui = new GUI({ width: 350, container: container });
+    guiInstances.set(guiKey, gui);
+
+    let loopIntervalId = null;
+
+    soundParams = {
+        initialFrequency: 440,
+        volume: 0.5,
+        duration: 1,
+        type: 'sine',
+        fadeInPercent: 0,
+        fadeOutPercent: 0,
+        filterType: 'none',
+        filterFrequency: 1000,
+        filterQ: 1,
+        loop: false,
+        interval: 1,
+        play: function () {
+            const soundOptions = {
+                initialFrequency: soundParams.initialFrequency,
+                volume: soundParams.volume,
+                duration: soundParams.duration,
+                type: soundParams.type,
+                fadeInPercent: soundParams.fadeInPercent,
+                fadeOutPercent: soundParams.fadeOutPercent,
+                filterType: soundParams.filterType === 'none' ? null : soundParams.filterType,
+                filterFrequency: soundParams.filterFrequency,
+                filterQ: soundParams.filterQ
+            };
+            const position = new THREE.Vector3(0, 0, 0);
+            SoundManager.playPositionalSound('blip', position, soundOptions);
+        },
+        toggleLoop: function() {
+            if (soundParams.loop) {
+                if (loopIntervalId) {
+                    clearInterval(loopIntervalId);
+                }
+                loopIntervalId = setInterval(() => {
+                    soundParams.play();
+                }, soundParams.interval * 1000);
+            } else {
+                clearInterval(loopIntervalId);
+                loopIntervalId = null;
+            }
+        },
+        export: function() {
+            exportSoundOptions(soundParams);
+        },
+        import: function() {
+            importSoundOptions();
+        }
+    };
+
+    gui.add(soundParams, 'initialFrequency', 20, 2000).name('Initial Frequency');
+    gui.add(soundParams, 'volume', 0, 1).name('Volume');
+    gui.add(soundParams, 'duration', 0.1, 5).name('Duration');
+    gui.add(soundParams, 'type', ['sine', 'square', 'sawtooth', 'triangle']).name('Wave Type');
+    gui.add(soundParams, 'fadeInPercent', 0, 100).name('Fade In (%)');
+    gui.add(soundParams, 'fadeOutPercent', 0, 100).name('Fade Out (%)');
+    gui.add(soundParams, 'filterType', ['none', 'lowpass', 'highpass', 'bandpass']).name('Filter Type');
+    gui.add(soundParams, 'filterFrequency', 20, 20000).name('Filter Frequency');
+    gui.add(soundParams, 'filterQ', 0.1, 20).name('Filter Q');
+    gui.add(soundParams, 'play').name('Play Sound');
+    gui.add(soundParams, 'loop').name('Loop').onChange(soundParams.toggleLoop);
+    gui.add(soundParams, 'interval', 0.1, 5).name('Loop Interval (s)').onChange(() => {
+        if (soundParams.loop) {
+            soundParams.toggleLoop();
+        }
+    });
+    gui.add(soundParams, 'export').name('Export Sound Options');
+    gui.add(soundParams, 'import').name('Import Sound Options');
+
+    gui.add({ close: () => toggleSoundEditGUI() }, 'close').name('CLOSE');
+
+    makePanelDraggable(document.getElementById("guiOverlayInput"), document.getElementById("guiOverlayBar"));
+}
+
+function toggleSoundEditGUI() {
+    if (guiInstances.has('soundEditGUI')) {
+        guiInstances.get('soundEditGUI').destroy();
+        guiInstances.delete('soundEditGUI');
+        ana.track(`toggleSoundEditGUI: off`);
+    } else {
+        initSoundEdit('soundEditGUI');
+    }
+}
+
+window.toggleSoundEditGUI = toggleSoundEditGUI;
+
+
 
 
 /*
@@ -3173,6 +3516,23 @@ window.fxPip = fxPip;
 
 
 const soundPresets = {
+
+    "shoot0":
+    {
+        "initialFrequency": 20,
+        "volume": 0.5,
+        "duration": 0.1029,
+        "type": "triangle",
+        "fadeInPercent": 3.1,
+        "fadeOutPercent": 35.3,
+        "filterType": "lowpass",
+        "filterFrequency": 779.22,
+        "filterQ": 15.3429,
+        "loop": true,
+        "interval": 0.1029
+    },
+
+
     "shoot1":
         {
             "initialFrequency": 20,
@@ -3484,9 +3844,38 @@ function addHelpers() {
 
 function startGame() {
 
-    startAllEmitters()
+
+    //loadEmitters("data/emitters.json")
+
+
+    // loadSingleEmitter("data/emitter_machine1.json")
+    // loadSingleEmitter("data/emitter_machine2.json")
+
+    // setTimeout(()=> { startAllEmitters()}, 2000);
+
+    //loadEmitters("data/emitters.json");
+
+
+    // setInterval(()=> { 
+
+    //     let randomInterval = 1000 + Math.random()*2000;
+    //     setTimeout(()=> { 
+
+    //         let randomID = Math.floor(Math.random()*3);
+
+    //         console.log("triggerEmitterById", randomID);
+    //         triggerEmitterById(listEmitterIds()[randomID],'restart')
+
+
+    //     }, randomInterval);
+
+
+    // }, 10000)
+
     
 }
+
+window.startGame = startGame;
 
 
 
@@ -3523,6 +3912,9 @@ function init() {
 
     //loadEmittersFromJSON("data/emitters_2024-07-22T19-36-35-007Z.json")
 
+
+    loadEmitters("data/emitters.json")
+
     initControllers();
 
     //loadEmittersFromJSON("data/emitters_2024-07-22T23-35-56-724Z.json")
@@ -3545,7 +3937,9 @@ function init() {
     //toggleEmittersEditGUI()
 
 
-    startGame();
+    //startGame();
+
+
 
 
 }
@@ -3593,6 +3987,11 @@ function render() {
     updateRaycasting();
 
     checkRingCollision();
+
+
+
+
+
 
 
     renderer.render(scene, camera);

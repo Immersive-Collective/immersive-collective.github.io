@@ -1,0 +1,23 @@
+{
+    "id": "emitter-rziqv45nx",
+    "x": 0,
+    "y": 0,
+    "z": 0,
+    "sx": 0.1,
+    "sy": 0.1,
+    "sz": 0.1,
+    "geometryType": "CapsuleGeometry",
+    "interval": 114.977,
+    "randomSizes": false,
+    "directionX": -0.038,
+    "directionY": 0.096,
+    "directionZ": 0.156,
+    "radius": 0.05681,
+    "length": 0.12558,
+    "capSegments": 1,
+    "radialSegments": 5,
+    "delay": 0,
+    "count": 12,
+    "speedFactor": 150,
+    "density": 10
+}

@@ -13,7 +13,7 @@
     "directionY": 1,
     "directionZ": 0.35,
     "delay": 0,
-    "count": 383,
-    "speedFactor": 10,
+    "count": 333,
+    "speedFactor": 9.9,
     "density": 10
 }
