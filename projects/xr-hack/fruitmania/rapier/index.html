@@ -233,7 +233,7 @@ import { GUI } from 'lil-gui';
 import RAPIER from 'rapier';
 
 // Not working
-import * as Zesty from 'zesty';
+//import * as Zesty from 'zesty';
 
 
 
@@ -1365,7 +1365,7 @@ let controllersEmittersJSON = `[{
 }]`;
 
 
-function initEmitters() {
+function initControllersEmitters() {
 
     loadEmittersFromJSONString(controllersEmittersJSON)
 
@@ -1516,7 +1516,8 @@ let obstacles = [];
 let groundObjects = [];
 
 //let ground = "static/models/grounds/simple-ground-3.glb";
-let ground = "static/models/grounds/donut-bla-3.glb";
+//let ground = "static/models/grounds/hide-n-seek-plat-1.glb";
+let ground = "static/models/grounds/hide-n-seek-plat-21-d1.glb";
 
 
 
@@ -3468,8 +3469,7 @@ window.fxPip = fxPip;
 
 const soundPresets = {
 
-    "shoot0":
-    {
+    "shoot0": {
         "initialFrequency": 20,
         "volume": 0.5,
         "duration": 0.1029,
@@ -3483,21 +3483,20 @@ const soundPresets = {
         "interval": 0.1029
     },
 
+    "shoot1": {
+        "initialFrequency": 20,
+        "volume": 0.259,
+        "duration": 0.1323,
+        "type": "square",
+        "fadeInPercent": 0.1,
+        "fadeOutPercent": 20.1,
+        "filterType": "highpass",
+        "filterFrequency": 739.26,
+        "filterQ": 13.5718,
+        "loop": true,
+        "interval": 0.392
+    },
 
-    "shoot1":
-        {
-            "initialFrequency": 20,
-            "volume": 0.259,
-            "duration": 0.1323,
-            "type": "square",
-            "fadeInPercent": 0.1,
-            "fadeOutPercent": 20.1,
-            "filterType": "highpass",
-            "filterFrequency": 739.26,
-            "filterQ": 13.5718,
-            "loop": true,
-            "interval": 0.392
-        },
     "message-in": {
         "initialFrequency": 615.78,
         "volume": 0.389,
@@ -3511,6 +3510,7 @@ const soundPresets = {
         "loop": false,
         "interval": 0.3038
     },
+
     "message-out": {
         "initialFrequency": 415.78,
         "volume": 0.389,
@@ -3537,7 +3537,8 @@ const soundPresets = {
         "filterQ": 1,
         "loop": false,
         "interval": 1
-        }
+    }
+
 };
 
 function playFX(presetName, seed = 0) {
@@ -3565,6 +3566,9 @@ function playFX(presetName, seed = 0) {
 
 
 window.playFX = playFX;
+
+
+
 
 
 
@@ -3637,16 +3641,16 @@ function saveCameraPosition() {
     */
 
 
-function addBanners() {
+// function addBanners() {
 
-    const zestyBanner = new ZestyBanner("e1876a74-b9f2-4768-93a2-db7da6a3ab79", "medium-rectangle", 3, null, true);
-    scene.add(zestyBanner);
+//     const zestyBanner = new ZestyBanner("2a26ebef-aa0a-4196-8bea-2f8a76cb666e", "medium-rectangle", 3, null, true);
+//     scene.add(zestyBanner);
 
 
-    // const zestyBanner = new ZestyBanner("0", "billboard", 3, null, true);
-    // scene.add(zestyBanner);
+//     // const zestyBanner = new ZestyBanner("0", "billboard", 3, null, true);
+//     // scene.add(zestyBanner);
 
-}
+// }
 
 
 
@@ -3672,6 +3676,9 @@ function addLight() {
 
 
 }
+
+
+
 
 
 
@@ -3755,7 +3762,8 @@ function initScene() {
     scene = new THREE.Scene();
     // solid background color
     // you can add background from addEnvMap() 
-    //scene.background = new THREE.Color( 0x505050 );
+    
+    scene.background = new THREE.Color( 0x505050 );
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 5;
@@ -3764,7 +3772,8 @@ function initScene() {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
-    renderer.setClearColor(0x000000, 0); // Transparent background
+    
+    //renderer.setClearColor(0x000000, 0); // Transparent background
 
     container.appendChild(renderer.domElement);      
 
@@ -3777,6 +3786,577 @@ function initScene() {
 
 
 }
+
+
+
+/*
+
+
+    Duster
+    ------------------------------------------------
+
+    */
+
+
+// const dustCount = 256 * 2;
+// const dustSpeedY = 0.02;
+// const dustSpeedX = 0.01;
+// const dustSpeedZ = 0.03;
+// const dustSizeFac = 4;
+// const dustTopFloor = 10;
+// const dustFloor = -10;
+// const dustArea = 20;
+// let dusts = [];
+
+// function createGeometry(size) {
+//   const geometries = [
+//     new THREE.BoxGeometry(size.x, size.y, size.z),
+//     new THREE.CircleGeometry(size.x, 6),
+//     new THREE.ConeGeometry(size.x, size.y * 2, 6),
+//     new THREE.TetrahedronGeometry(size.x),
+//     new THREE.RingGeometry(size.x / 2, size.x, 6)
+//   ];
+//   return geometries[Math.floor(Math.random() * geometries.length)];
+// }
+
+// function initDuster() {
+//   for (let i = 0; i < dustCount; i++) {
+//     let randomSize = { x: Math.random() * 0.025 * dustSizeFac, y: Math.random() * 0.025 * dustSizeFac, z: Math.random() * 0.01 * dustSizeFac };
+//     const geometry = createGeometry(randomSize);
+//     const material = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+//     const dust = new THREE.InstancedMesh(geometry, material, 1024);
+//     dust.position.set((Math.random() - 0.5) * dustArea, (Math.random() - 0.5) * (dustTopFloor - dustFloor) + dustFloor, (Math.random() - 0.5) * dustArea);
+//     dust.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+//     scene.add(dust);
+//     dusts.push(dust);
+//   }
+// }
+
+// window.initDuster = initDuster;
+
+// let dusterActive = false;
+
+// function toggleDuster() {
+//   dusterActive = !dusterActive;
+//   if (dusterActive) {
+//     initDuster();
+//   } else {
+//     removeDuster();
+//   }
+// }
+
+// function removeDuster() {
+//   dusts.forEach(dust => scene.remove(dust));
+//   dusts = [];
+// }
+
+// function updateDuster() {
+//   dusts.forEach(dust => {
+//     dust.position.y += dustSpeedY;
+//     dust.position.x += dustSpeedX;
+//     dust.position.z += dustSpeedZ;
+//     dust.rotation.x += 0.01;
+//     dust.rotation.y += 0.001;
+//     if (dust.position.y > dustTopFloor) {
+//       dust.position.set((Math.random() - 0.5) * dustArea, dustFloor, (Math.random() - 0.5) * dustArea);
+//     }
+//   });
+// }
+
+
+// const dustParams = {
+//     dustCount: 256 * 2,
+//     dustSpeedY: 0.02,
+//     dustSpeedX: 0.01,
+//     dustSpeedZ: 0.03,
+//     dustSizeFac: 4,
+//     dustTopFloor: 10,
+//     dustFloor: -10,
+//     dustArea: 20
+// };
+// let dusts = [];
+
+// function createGeometry(size) {
+//   const geometries = [
+//     new THREE.BoxGeometry(size.x, size.y, size.z),
+//     new THREE.CircleGeometry(size.x, 6),
+//     new THREE.ConeGeometry(size.x, size.y * 2, 6),
+//     new THREE.TetrahedronGeometry(size.x),
+//     new THREE.RingGeometry(size.x / 2, size.x, 6)
+//   ];
+//   return geometries[Math.floor(Math.random() * geometries.length)];
+// }
+
+// function initDuster() {
+//   for (let i = 0; i < dustParams.dustCount; i++) {
+//     let randomSize = { x: Math.random() * 0.025 * dustParams.dustSizeFac, y: Math.random() * 0.025 * dustParams.dustSizeFac, z: Math.random() * 0.01 * dustParams.dustSizeFac };
+//     const geometry = createGeometry(randomSize);
+//     const material = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+//     const dust = new THREE.InstancedMesh(geometry, material, 1024);
+//     dust.position.set((Math.random() - 0.5) * dustParams.dustArea, (Math.random() - 0.5) * (dustParams.dustTopFloor - dustParams.dustFloor) + dustParams.dustFloor, (Math.random() - 0.5) * dustParams.dustArea);
+//     dust.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+//     scene.add(dust);
+//     dusts.push(dust);
+//   }
+// }
+
+// function exportDustOptions(dustParams) {
+//     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dustParams));
+//     const downloadAnchorNode = document.createElement('a');
+//     downloadAnchorNode.setAttribute("href", dataStr);
+//     downloadAnchorNode.setAttribute("download", "dustOptions.json");
+//     document.body.appendChild(downloadAnchorNode);
+//     downloadAnchorNode.click();
+//     downloadAnchorNode.remove();
+// }
+
+// function importDustOptions() {
+//     const input = document.createElement('input');
+//     input.type = 'file';
+//     input.accept = '.json';
+
+//     input.onchange = event => {
+//         const file = event.target.files[0];
+//         const reader = new FileReader();
+//         reader.onload = function(e) {
+//             const content = e.target.result;
+//             const importedOptions = JSON.parse(content);
+//             applyImportedDustOptions(importedOptions);
+//         };
+//         reader.readAsText(file);
+//     };
+
+//     input.click();
+// }
+
+// function applyImportedDustOptions(importedOptions) {
+//     Object.keys(importedOptions).forEach(key => {
+//         if (dustParams.hasOwnProperty(key)) {
+//             dustParams[key] = importedOptions[key];
+//         }
+//     });
+//     gui.controllers.forEach(controller => {
+//         if (importedOptions.hasOwnProperty(controller.property)) {
+//             controller.setValue(importedOptions[controller.property]);
+//         }
+//     });
+// }
+
+// function initDustEdit(guiKey) {
+//     const container = document.getElementById("guiHolder");
+//     const gui = new GUI({ width: 350, container: container });
+//     guiInstances.set(guiKey, gui);
+
+//     gui.add(dustParams, 'dustCount', 256, 512).name('Dust Count');
+//     gui.add(dustParams, 'dustSpeedY', 0.01, 0.1).name('Dust Speed Y');
+//     gui.add(dustParams, 'dustSpeedX', 0.01, 0.1).name('Dust Speed X');
+//     gui.add(dustParams, 'dustSpeedZ', 0.01, 0.1).name('Dust Speed Z');
+//     gui.add(dustParams, 'dustSizeFac', 1, 10).name('Dust Size Factor');
+//     gui.add(dustParams, 'dustTopFloor', 1, 10).name('Dust Top Floor');
+//     gui.add(dustParams, 'dustFloor', -10, 0).name('Dust Floor');
+//     gui.add(dustParams, 'dustArea', 10, 100).name('Dust Area');
+//     gui.add({ createDuster: () => initDuster() }, 'createDuster').name('Create Duster');
+//     gui.add({ export: () => exportDustOptions(dustParams) }, 'export').name('Export Dust Options');
+//     gui.add({ import: () => importDustOptions() }, 'import').name('Import Dust Options');
+//     gui.add({ close: () => toggleDustEditGUI() }, 'close').name('CLOSE');
+
+//     makePanelDraggable(document.getElementById("guiOverlayInput"), document.getElementById("guiOverlayBar"));
+// }
+
+// function toggleDustEditGUI() {
+//     if (guiInstances.has('dustEditGUI')) {
+//         guiInstances.get('dustEditGUI').destroy();
+//         guiInstances.delete('dustEditGUI');
+//     } else {
+//         initDustEdit('dustEditGUI');
+//     }
+// }
+
+// window.toggleDustEditGUI = toggleDustEditGUI;
+
+// let dusterActive = false;
+
+// function toggleDuster() {
+//     dusterActive = !dusterActive;
+//     if (dusterActive) {
+//         initDuster();
+//     } else {
+//         removeDuster();
+//     }
+// }
+
+// function removeDuster() {
+//     dusts.forEach(dust => scene.remove(dust));
+//     dusts = [];
+// }
+
+// function updateDuster() {
+//     dusts.forEach(dust => {
+//         dust.position.y += dustParams.dustSpeedY;
+//         dust.position.x += dustParams.dustSpeedX;
+//         dust.position.z += dustParams.dustSpeedZ;
+//         dust.rotation.x += 0.01;
+//         dust.rotation.y += 0.001;
+//         if (dust.position.y > dustParams.dustTopFloor) {
+//             dust.position.set((Math.random() - 0.5) * dustParams.dustArea, dustParams.dustFloor, (Math.random() - 0.5) * dustParams.dustArea);
+//         }
+//     });
+// }
+
+
+
+
+
+const dustersMap = new Map();
+const storedDusters = [];
+const dustParams = {
+    dustCount: 256 * 2,
+    dustSpeedY: 0.02,
+    dustSpeedX: 0.01,
+    dustSpeedZ: 0.03,
+    dustSizeFac: 4,
+    dustTopFloor: 10,
+    dustFloor: -10,
+    dustArea: 20
+};
+
+function createGeometry(size) {
+    const geometries = [
+        new THREE.BoxGeometry(size.x, size.y, size.z),
+        new THREE.CircleGeometry(size.x, 6),
+        new THREE.ConeGeometry(size.x, size.y * 2, 6),
+        new THREE.TetrahedronGeometry(size.x),
+        new THREE.RingGeometry(size.x / 2, size.x, 6)
+    ];
+    return geometries[Math.floor(Math.random() * geometries.length)];
+}
+
+function initDuster(id, params, addToScene = true) {
+    const duster = {
+        id,
+        params,
+        dusts: [],
+        isActive: false,
+        init() {
+            for (let i = 0; i < this.params.dustCount; i++) {
+                let randomSize = { x: Math.random() * 0.025 * this.params.dustSizeFac, y: Math.random() * 0.025 * this.params.dustSizeFac, z: Math.random() * 0.01 * this.params.dustSizeFac };
+                const geometry = createGeometry(randomSize);
+                const material = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
+                const dust = new THREE.InstancedMesh(geometry, material, 1024);
+                dust.position.set((Math.random() - 0.5) * this.params.dustArea, (Math.random() - 0.5) * (this.params.dustTopFloor - this.params.dustFloor) + this.params.dustFloor, (Math.random() - 0.5) * this.params.dustArea);
+                dust.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+                if (addToScene) {
+                    scene.add(dust);
+                }
+                this.dusts.push(dust);
+            }
+        },
+        update() {
+            if (!this.isActive) return;
+            this.dusts.forEach(dust => {
+                dust.position.y += this.params.dustSpeedY;
+                dust.position.x += this.params.dustSpeedX;
+                dust.position.z += this.params.dustSpeedZ;
+                dust.rotation.x += 0.01;
+                dust.rotation.y += 0.001;
+                if (dust.position.y > this.params.dustTopFloor) {
+                    dust.position.set((Math.random() - 0.5) * this.params.dustArea, this.params.dustFloor, (Math.random() - 0.5) * this.params.dustArea);
+                }
+            });
+        },
+        remove() {
+            this.dusts.forEach(dust => scene.remove(dust));
+            this.dusts = [];
+        },
+        start() {
+            this.isActive = true;
+        },
+        pause() {
+            this.isActive = false;
+        },
+        restart() {
+            this.remove();
+            this.init();
+            this.start();
+        }
+    };
+    duster.init();
+    dustersMap.set(id, duster);
+    return duster;
+}
+
+function exportDustOptions(dustParams) {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dustParams));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "dustOptions.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+function importDustOptions() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = event => {
+        const file = event.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const content = e.target.result;
+            const importedOptions = JSON.parse(content);
+            createDusterFromImport(importedOptions);
+        };
+        reader.readAsText(file);
+    };
+
+    input.click();
+}
+
+function createDusterFromImport(importedOptions) {
+    const dusterId = `duster-${Math.random().toString(36).substr(2, 9)}`;
+    const duster = initDuster(dusterId, importedOptions, true);
+    storedDusters.push({ id: dusterId, params: importedOptions });
+    const gui = guiInstances.get('dustEditGUI');
+    if (gui) {
+        createDusterFolder(gui, dusterId, duster);
+    }
+}
+
+function createDusterFolder(gui, dusterId, duster) {
+    const folder = gui.addFolder(`Duster ${dusterId}`);
+    folder.add(duster.params, 'dustCount', 256, 512).name('Dust Count').onChange(value => { duster.params.dustCount = value; duster.remove(); duster.init(); });
+    folder.add(duster.params, 'dustSpeedY', 0.01, 0.1).name('Dust Speed Y').onChange(value => duster.params.dustSpeedY = value);
+    folder.add(duster.params, 'dustSpeedX', 0.01, 0.1).name('Dust Speed X').onChange(value => duster.params.dustSpeedX = value);
+    folder.add(duster.params, 'dustSpeedZ', 0.01, 0.1).name('Dust Speed Z').onChange(value => duster.params.dustSpeedZ = value);
+    folder.add(duster.params, 'dustSizeFac', 1, 10).name('Dust Size Factor').onChange(value => { duster.params.dustSizeFac = value; duster.remove(); duster.init(); });
+    folder.add(duster.params, 'dustTopFloor', 1, 10).name('Dust Top Floor').onChange(value => duster.params.dustTopFloor = value);
+    folder.add(duster.params, 'dustFloor', -10, 0).name('Dust Floor').onChange(value => duster.params.dustFloor = value);
+    folder.add(duster.params, 'dustArea', 10, 100).name('Dust Area').onChange(value => duster.params.dustArea = value);
+    folder.add({ start: () => duster.start() }, 'start').name('Start');
+    folder.add({ pause: () => duster.pause() }, 'pause').name('Pause');
+    folder.add({ restart: () => duster.restart() }, 'restart').name('Restart');
+    folder.add({ removeDuster: () => { duster.remove(); dustersMap.delete(dusterId); storedDusters.splice(storedDusters.findIndex(d => d.id === dusterId), 1); folder.destroy(); } }, 'removeDuster').name('Remove Duster');
+}
+
+function initDustEdit(guiKey) {
+    const container = document.getElementById("guiHolder");
+    const gui = new GUI({ width: 350, container: container });
+    guiInstances.set(guiKey, gui);
+
+    gui.add({ createDuster: () => createDuster() }, 'createDuster').name('Create Duster');
+    gui.add({ export: () => exportDustOptions(dustParams) }, 'export').name('Export Dust Options');
+    gui.add({ import: () => importDustOptions() }, 'import').name('Import Dust Options');
+    gui.add({ exportDusters }, 'exportDusters').name('Export All Dusters');
+    gui.add({ importDusters }, 'importDusters').name('Import All Dusters');
+    gui.add({ startAllDusters }, 'startAllDusters').name('Start All Dusters');
+    gui.add({ stopAllDusters }, 'stopAllDusters').name('Stop All Dusters');
+    gui.add({ removeAllDusters }, 'removeAllDusters').name('Remove All Dusters');
+    gui.add({ close: () => toggleDustEditGUI() }, 'close').name('CLOSE');
+
+    storedDusters.forEach(dusterData => {
+        const duster = dustersMap.get(dusterData.id) || initDuster(dusterData.id, dusterData.params, true);
+        createDusterFolder(gui, dusterData.id, duster);
+    });
+
+    makePanelDraggable(document.getElementById("guiOverlayInput"), document.getElementById("guiOverlayBar"));
+}
+
+function toggleDustEditGUI() {
+    if (guiInstances.has('dustEditGUI')) {
+        guiInstances.get('dustEditGUI').destroy();
+        guiInstances.delete('dustEditGUI');
+    } else {
+        initDustEdit('dustEditGUI');
+    }
+}
+
+function createDuster() {
+    const gui = guiInstances.get('dustEditGUI');
+    if (!gui) {
+        console.error('GUI instance not found');
+        return;
+    }
+    const dusterId = `duster-${Math.random().toString(36).substr(2, 9)}`;
+    const duster = initDuster(dusterId, { ...dustParams });
+    storedDusters.push({ id: dusterId, params: { ...dustParams } });
+    createDusterFolder(gui, dusterId, duster);
+}
+
+function updateDusters() {
+    dustersMap.forEach(duster => duster.update());
+}
+
+function exportDusters() {
+    const updatedStoredDusters = Array.from(dustersMap.values()).map(duster => ({
+        id: duster.id,
+        params: duster.params
+    }));
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(updatedStoredDusters));
+    const now = new Date().toISOString().replace(/[:.]/g, '-');
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `dusters_${now}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+function importDusters() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = event => {
+            const importedDusters = JSON.parse(event.target.result);
+            importedDusters.forEach(params => {
+                const duster = initDuster(params.id, params.params, true);
+                storedDusters.push({ id: params.id, params: params.params });
+            });
+            const gui = guiInstances.get('dustEditGUI');
+            if (gui) {
+                gui.destroy();
+                initDustEdit('dustEditGUI');
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+function triggerDustersArrayById(ids, action) {
+    ids.forEach(id => {
+        triggerDusterById(id, action);
+    });
+}
+
+function triggerDusterById(id, action) {
+    const duster = dustersMap.get(id);
+    if (!duster) return;
+    switch(action) {
+        case 'start': duster.start(); break;
+        case 'pause': duster.pause(); break;
+        case 'restart': duster.restart(); break;
+        case 'remove': {
+            duster.remove();
+            dustersMap.delete(id);
+            storedDusters.splice(storedDusters.findIndex(d => d.id === id), 1);
+            if (guiInstances.has('dustEditGUI')) {
+                const gui = guiInstances.get('dustEditGUI');
+                const folder = gui.folders.find(f => f._title === `Duster ${id}`);
+                if (folder) {
+                    folder.destroy();
+                }
+            }
+            break;
+        }
+    }
+}
+
+function startAllDusters() {
+    dustersMap.forEach(duster => duster.start());
+}
+
+function stopAllDusters() {
+    dustersMap.forEach(duster => duster.pause());
+}
+
+function removeAllDusters() {
+    dustersMap.forEach((duster, id) => {
+        duster.remove();
+        dustersMap.delete(id);
+    });
+    storedDusters.length = 0;
+    if (guiInstances.has('dustEditGUI')) {
+        const gui = guiInstances.get('dustEditGUI');
+        gui.foldersRecursive().forEach(folder => folder.destroy());
+    }
+}
+
+function loadDusters(url) {
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (Array.isArray(data)) {
+                data.forEach(dusterData => {
+                    if (typeof dusterData === 'object' && dusterData !== null) {
+                        initDuster(dusterData.id, dusterData.params, true);
+                        storedDusters.push(dusterData);
+                    } else {
+                        console.error('Invalid duster data format');
+                    }
+                });
+            } else {
+                console.error('Invalid dusters data format');
+            }
+        })
+        .catch(error => console.error('Error loading dusters:', error));
+}
+
+function loadSingleDuster(url) {
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (typeof data === 'object' && data !== null) {
+                initDuster(data.id, data.params, true);
+                storedDusters.push(data);
+            } else {
+                console.error('Invalid duster data format');
+            }
+        })
+        .catch(error => console.error('Error loading duster:', error));
+}
+
+function loadDustersFromJSONString(jsonString) {
+    try {
+        const data = JSON.parse(jsonString);
+        if (Array.isArray(data)) {
+            data.forEach(dusterData => {
+                if (typeof dusterData === 'object' && dusterData !== null) {
+                    initDuster(dusterData.id, dusterData.params, true);
+                    storedDusters.push(dusterData);
+                } else {
+                    console.error('Invalid duster data format');
+                }
+            });
+        } else {
+            console.error('Invalid dusters data format');
+        }
+    } catch (error) {
+        console.error('Error parsing dusters JSON:', error);
+    }
+}
+
+function listDusterIds() {
+    return Array.from(dustersMap.keys());
+}
+
+window.listDusterIds = listDusterIds;
+window.toggleDustEditGUI = toggleDustEditGUI;
+window.initDustEdit = initDustEdit;
+window.exportDusters = exportDusters;
+window.importDusters = importDusters;
+window.triggerDustersArrayById = triggerDustersArrayById;
+window.triggerDusterById = triggerDusterById;
+window.startAllDusters = startAllDusters;
+window.stopAllDusters = stopAllDusters;
+window.removeAllDusters = removeAllDusters;
+window.loadDusters = loadDusters;
+window.loadSingleDuster = loadSingleDuster;
+window.loadDustersFromJSONString = loadDustersFromJSONString;
+
+
+
+
+
+
+
+
+
+
 
 
 /* 
@@ -3815,6 +4395,461 @@ function addHelpers() {
     scene.add(axesHelper);
 
 }
+
+
+
+/*
+
+    Add Background Gradient
+
+
+    */
+
+
+let placeJSON = `
+
+{"name":"Lights","uuid":"dfc69d72-e71a-4077-8c04-1d3f21fe3ba8","created":"2024-02-21T20:22:59.627238","ts":"1708546979627","updated":"2024-03-20T13:27:51.273229","updated_ts":"1710941271273","owner":"9f009ae9-2b80-42a8-aaa6-df4647aeea3c","type":"public","visible":"true","data":{"description":"Lights","entrance":{"cameraData":{"position":{"x":2.374200000000002,"y":1.7888610000000011,"z":-11.091581},"rotation":{"isEuler":true,"_x":-1.8924195448902037,"_y":1.1524113932477926,"_z":1.920456752422363,"_order":"XYZ"}},"controlsData":{"target":{"x":0.089834,"y":0.82523,"z":-10.770507}}},"gravity":{"x":0,"y":-1,"z":0},"ground":"d6c0531c-33ff-4130-85c5-9826d5072461","metadata":"","sky":{"colors":[{"hex":"ff0000","position":0},{"hex":"000000","position":1}]},"splash":"/","environment":{"hdr":"","i":1,"b":0,"state":"OFF"},"lights":[{"type":"AmbientLight","color":"#ff7c7c","intensity":0.847,"name":"AmbientLight-1708548295776","castShadow":false},{"type":"DirectionalLight","color":"#5afff8","intensity":2.09,"name":"DirectionalLight-1708552002581","castShadow":false,"position":{"x":5,"y":5,"z":5},"targetPosition":{"x":0,"y":0,"z":0}},{"type":"HemisphereLight","color":"#eefffa","intensity":5,"name":"HemisphereLight-1708552068357","castShadow":false,"skyColor":"#eefffa","groundColor":"#000001","position":{"x":0,"y":1,"z":0}},{"type":"PointLight","color":"#f7ff00","intensity":1,"name":"PointLight-1708552139090","castShadow":false,"position":{"x":0,"y":2,"z":0},"power":12.566370614359172},{"type":"SpotLight","color":"#ffffff","intensity":1500,"name":"SpotLight-1708552213870","castShadow":false,"position":{"x":0,"y":-1.1,"z":0},"targetPosition":{"x":0,"y":0,"z":0},"angle":1.0471975511965976,"penumbra":0,"decay":2,"distance":0,"power":4712.38898038469}],"fog":{"color":"#ffffff","near":4.752,"far":100},"avatar":"/static/models/avatars/XX2.glb"}}`;
+
+let place = JSON.parse(placeJSON)
+
+
+
+
+
+
+
+let worldColors, worldGradientMaterial;
+
+function addGradientBackground() {
+    console.log("addGradientBackground");
+    let sphereGeometry = new THREE.SphereGeometry(500, 120, 80);
+    sphereGeometry.scale(-1, 1, 1);
+    const vertexShader = `
+        varying vec3 vPosition;
+        void main() {
+            vPosition = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `;
+
+    worldColors = [
+        { color: new THREE.Color(0x000000), position: 0.0 },
+        { color: new THREE.Color(0x86d1fa), position: 0.4 },
+        { color: new THREE.Color(0xfffffe), position: 0.5 },
+        { color: new THREE.Color(0x7f7f7f), position: 0.9 },
+        { color: new THREE.Color(0xffffff), position: 1.0 }
+    ];
+
+    const gradientColors = worldColors.map(wc => wc.color);
+    const gradientPositions = worldColors.map(wc => wc.position);
+
+    const fragmentShader = `
+        precision highp float;
+        uniform float rainbowTime;
+        uniform vec3 gradientColors[${worldColors.length}];
+        uniform float gradientPositions[${worldColors.length}];
+        varying vec3 vPosition;
+
+        vec4 permute(vec4 x) {
+            return mod(((x * 34.0) + 1.0) * x, 289.0);
+        }
+
+        vec3 fade(vec3 t) {
+            return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+        }
+
+        float noise(vec3 P) {
+            vec3 Pi = mod(floor(P), 289.0);
+            vec3 Pf = fract(P);
+            vec4 ix = vec4(Pi.x, Pi.x + 1.0, Pi.x, Pi.x + 1.0);
+            vec4 iy = vec4(Pi.y, Pi.y, Pi.y + 1.0, Pi.y + 1.0);
+            vec4 iz0 = vec4(Pi.z);
+            vec4 iz1 = vec4(Pi.z + 1.0);
+
+            vec4 ixy = permute(permute(ix) + iy);
+            vec4 ixy0 = permute(ixy + iz0);
+            vec4 ixy1 = permute(ixy + iz1);
+
+            vec4 gx0 = ixy0 / 7.0;
+            vec4 gy0 = fract(floor(gx0) / 7.0) - 0.5;
+            gx0 = fract(gx0);
+            vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);
+            vec4 sz0 = step(gz0, vec4(0.0));
+            gx0 -= sz0 * (step(0.0, gx0) - 0.5);
+            gy0 -= sz0 * (step(0.0, gy0) - 0.5);
+
+            vec4 gx1 = ixy1 / 7.0;
+            vec4 gy1 = fract(floor(gx1) / 7.0) - 0.5;
+            gx1 = fract(gx1);
+            vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);
+            vec4 sz1 = step(gz1, vec4(0.0));
+            gx1 -= sz1 * (step(0.0, gx1) - 0.5);
+            gy1 -= sz1 * (step(0.0, gy1) - 0.5);
+
+            vec3 g000 = vec3(gx0.x, gy0.x, gz0.x);
+            vec3 g100 = vec3(gx0.y, gy0.y, gz0.y);
+            vec3 g010 = vec3(gx0.z, gy0.z, gz0.z);
+            vec3 g110 = vec3(gx0.w, gy0.w, gz0.w);
+            vec3 g001 = vec3(gx1.x, gy1.x, gz1.x);
+            vec3 g101 = vec3(gx1.y, gy1.y, gz1.y);
+            vec3 g011 = vec3(gx1.z, gy1.z, gz1.z);
+            vec3 g111 = vec3(gx1.w, gy1.w, gz1.w);
+
+            vec4 norm0 = inversesqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
+            g000 *= norm0.x;
+            g010 *= norm0.y;
+            g100 *= norm0.z;
+            g110 *= norm0.w;
+            vec4 norm1 = inversesqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
+            g001 *= norm1.x;
+            g011 *= norm1.y;
+            g101 *= norm1.z;
+            g111 *= norm1.w;
+
+            float n000 = dot(g000, Pf);
+            float n100 = dot(g100, Pf + vec3(-1.0, 0.0, 0.0));
+            float n010 = dot(g010, Pf + vec3(0.0, -1.0, 0.0));
+            float n110 = dot(g110, Pf + vec3(-1.0, -1.0, 0.0));
+            float n001 = dot(g001, Pf + vec3(0.0, 0.0, -1.0));
+            float n101 = dot(g101, Pf + vec3(-1.0, 0.0, -1.0));
+            float n011 = dot(g011, Pf + vec3(0.0, -1.0, -1.0));
+            float n111 = dot(g111, Pf + vec3(-1.0, -1.0, -1.0));
+
+            vec3 fade_xyz = fade(Pf);
+            vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
+            vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
+            float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x);
+            return 2.2 * n_xyz;
+        }
+
+        vec3 getGradientColor(float position) {
+            position = 1.0 - position;
+            for (int i = 0; i < ${worldColors.length - 1}; i++) {
+                if (position < gradientPositions[i + 1]) {
+                    float mixFactor = (position - gradientPositions[i]) / (gradientPositions[i + 1] - gradientPositions[i]);
+                    return mix(gradientColors[i], gradientColors[i + 1], mixFactor);
+                }
+            }
+            return gradientColors[${worldColors.length - 1}];
+        }
+
+        void main() {
+            float t = rainbowTime;
+            vec3 P = normalize(vPosition);
+            float theta = atan(P.z, P.x);
+            float phi = acos(P.y);
+            vec2 sphericalUV = vec2(theta / (2.0 * 3.14159265), phi / 3.14159265);
+
+            float position = mod(sphericalUV.y + t * 0.1, 1.0);
+            vec3 gradientColor = getGradientColor(position);
+            vec3 noisePos = vec3(sphericalUV * 5.0, t); // Reduced scaling noise coordinates
+            float noiseValue = noise(noisePos);
+            vec3 color = mix(gradientColor, vec3(noiseValue), 0.3); // Reduced blend factor
+            gl_FragColor = vec4(color, 1.0);
+        }
+    `;
+
+    worldGradientMaterial = new THREE.ShaderMaterial({
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
+        uniforms: {
+            rainbowTime: { value: 0 },
+            gradientColors: { value: gradientColors },
+            gradientPositions: { value: gradientPositions }
+        }
+    });
+
+    let sphere = new THREE.Mesh(sphereGeometry, worldGradientMaterial);
+    sphere.name = "GradientBackgroundSphere";
+    scene.add(sphere);
+
+    if (place.data.sky.rotation) {
+        sphere.rotation.set(place.data.sky.rotation.x, place.data.sky.rotation.y, place.data.sky.rotation.z);
+    } else {
+        sphere.rotation.x = Math.PI / 2;
+    }
+
+    sphere.ignore = true;
+}
+
+function updateGradientBackground(deltaTime) {
+    if (worldGradientMaterial) {
+        worldGradientMaterial.uniforms.rainbowTime.value += deltaTime * 0.1;
+    }
+}
+
+window.addGradientBackground = addGradientBackground;
+window.updateGradientBackground = updateGradientBackground;
+
+
+
+
+
+// let worldColors, worldGradientMaterial;
+
+// function addGradientBackground() {
+//     console.log("addGradientBackground");
+//     let sphereGeometry = new THREE.SphereGeometry(500, 120, 80);
+//     sphereGeometry.scale(-1, 1, 1);
+//     const vertexShader = `
+//         varying vec3 vPosition;
+//         void main() {
+//             vPosition = position;
+//             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+//         }
+//     `;
+
+//     worldColors = [
+//         { color: new THREE.Color(0x00007f), position: 0.0 },
+//         { color: new THREE.Color(0x86d1fa), position: 0.4 },
+//         { color: new THREE.Color(0xfffffe), position: 0.5 },
+//         { color: new THREE.Color(0x7f7f7f), position: 0.9 },
+//         { color: new THREE.Color(0x3f3f3f), position: 1.0 }
+//     ];
+
+//     const gradientColors = worldColors.map(wc => wc.color);
+//     const gradientPositions = worldColors.map(wc => wc.position);
+
+//     const fragmentShader = `
+//         precision highp float;
+//         uniform float rainbowTime;
+//         uniform vec3 gradientColors[${worldColors.length}];
+//         uniform float gradientPositions[${worldColors.length}];
+//         varying vec3 vPosition;
+
+//         vec4 permute(vec4 x) {
+//             return mod(((x * 34.0) + 1.0) * x, 289.0);
+//         }
+//         vec4 taylorInvSqrt(vec4 r) {
+//             return 1.79284291400159 - 0.85373472095314 * r;
+//         }
+//         vec3 fade(vec3 t) {
+//             return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+//         }
+
+//         float noise(vec3 P) {
+//             vec3 Pi0 = floor(P);
+//             vec3 Pi1 = Pi0 + vec3(1.0);
+//             Pi0 = mod(Pi0, 289.0);
+//             Pi1 = mod(Pi1, 289.0);
+//             vec3 Pf0 = fract(P);
+//             vec3 Pf1 = Pf0 - vec3(1.0);
+//             vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+//             vec4 iy = vec4(Pi0.y, Pi0.y, Pi1.y, Pi1.y);
+//             vec4 iz0 = vec4(Pi0.z);
+//             vec4 iz1 = vec4(Pi1.z);
+
+//             vec4 ixy = permute(permute(ix) + iy);
+//             vec4 ixy0 = permute(ixy + iz0);
+//             vec4 ixy1 = permute(ixy + iz1);
+
+//             vec4 gx0 = ixy0 / 7.0;
+//             vec4 gy0 = fract(floor(gx0) / 7.0) - 0.5;
+//             gx0 = fract(gx0);
+//             vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);
+//             vec4 sz0 = step(gz0, vec4(0.0));
+//             gx0 -= sz0 * (step(0.0, gx0) - 0.5);
+//             gy0 -= sz0 * (step(0.0, gy0) - 0.5);
+
+//             vec4 gx1 = ixy1 / 7.0;
+//             vec4 gy1 = fract(floor(gx1) / 7.0) - 0.5;
+//             gx1 = fract(gx1);
+//             vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);
+//             vec4 sz1 = step(gz1, vec4(0.0));
+//             gx1 -= sz1 * (step(0.0, gx1) - 0.5);
+//             gy1 -= sz1 * (step(0.0, gy1) - 0.5);
+
+//             vec3 g000 = vec3(gx0.x, gy0.x, gz0.x);
+//             vec3 g100 = vec3(gx0.y, gy0.y, gz0.y);
+//             vec3 g010 = vec3(gx0.z, gy0.z, gz0.z);
+//             vec3 g110 = vec3(gx0.w, gy0.w, gz0.w);
+//             vec3 g001 = vec3(gx1.x, gy1.x, gz1.x);
+//             vec3 g101 = vec3(gx1.y, gy1.y, gz1.y);
+//             vec3 g011 = vec3(gx1.z, gy1.z, gz1.z);
+//             vec3 g111 = vec3(gx1.w, gy1.w, gz1.w);
+
+//             vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
+//             g000 *= norm0.x;
+//             g010 *= norm0.y;
+//             g100 *= norm0.z;
+//             g110 *= norm0.w;
+//             vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
+//             g001 *= norm1.x;
+//             g011 *= norm1.y;
+//             g101 *= norm1.z;
+//             g111 *= norm1.w;
+
+//             float n000 = dot(g000, Pf0);
+//             float n100 = dot(g100, vec3(Pf1.x, Pf0.y, Pf0.z));
+//             float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));
+//             float n110 = dot(g110, vec3(Pf1.x, Pf1.y, Pf0.z));
+//             float n001 = dot(g001, vec3(Pf0.x, Pf0.y, Pf1.z));
+//             float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));
+//             float n011 = dot(g011, vec3(Pf0.x, Pf1.y, Pf1.z));
+//             float n111 = dot(g111, Pf1);
+
+//             vec3 fade_xyz = fade(Pf0);
+//             vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
+//             vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
+//             float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x);
+//             return 2.2 * n_xyz;
+//         }
+
+//         vec3 getGradientColor(float position) {
+//             position = 1.0 - position;
+//             for (int i = 0; i < ${worldColors.length - 1}; i++) {
+//                 if (position < gradientPositions[i + 1]) {
+//                     float mixFactor = (position - gradientPositions[i]) / (gradientPositions[i + 1] - gradientPositions[i]);
+//                     return mix(gradientColors[i], gradientColors[i + 1], mixFactor);
+//                 }
+//             }
+//             return gradientColors[${worldColors.length - 1}];
+//         }
+
+//         void main() {
+//             float t = rainbowTime;
+//             vec3 P = normalize(vPosition);
+//             float theta = atan(P.z, P.x);
+//             float phi = acos(P.y);
+//             vec2 sphericalUV = vec2(theta / (2.0 * 3.14159265), phi / 3.14159265);
+
+//             float position = mod(sphericalUV.y + t * 0.1, 1.0);
+//             vec3 gradientColor = getGradientColor(position);
+//             vec3 noisePos = vec3(sphericalUV * 10.0, t); // Scaling noise coordinates
+//             float noiseValue = noise(noisePos);
+//             vec3 color = mix(gradientColor, vec3(noiseValue), 0.5); // Adjusted blend factor
+//             gl_FragColor = vec4(color, 1.0);
+//         }
+//     `;
+
+//     worldGradientMaterial = new THREE.ShaderMaterial({
+//         vertexShader: vertexShader,
+//         fragmentShader: fragmentShader,
+//         uniforms: {
+//             rainbowTime: { value: 0 },
+//             gradientColors: { value: gradientColors },
+//             gradientPositions: { value: gradientPositions }
+//         }
+//     });
+
+//     let sphere = new THREE.Mesh(sphereGeometry, worldGradientMaterial);
+//     sphere.name = "GradientBackgroundSphere";
+//     scene.add(sphere);
+
+//     // if (place.data.sky.rotation) {
+//     //     sphere.rotation.set(place.data.sky.rotation.x, place.data.sky.rotation.y, place.data.sky.rotation.z);
+//     // } else {
+//     //     sphere.rotation.x = Math.PI / 2;
+//     // }
+
+//     sphere.ignore = true;
+// }
+
+// function updateGradientBackground(deltaTime) {
+//     if (worldGradientMaterial) {
+//         worldGradientMaterial.uniforms.rainbowTime.value += deltaTime * 0.1;
+//     }
+// }
+
+// window.addGradientBackground = addGradientBackground;
+// window.updateGradientBackground = updateGradientBackground;
+
+
+
+
+// let worldColors, worldGradientMaterial;
+
+// function addGradientBackground() {
+
+//     console.log("addGradientBackground");
+//     let sphereGeometry = new THREE.SphereGeometry(500, 120, 80);
+    
+//     sphereGeometry.scale(-1, 1, 1);
+//     const vertexShader = `
+//         varying vec2 vUvRainbow;
+//         void main() {
+//             vUvRainbow = uv;
+//             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+//         }
+//     `;
+
+//     worldColors = [
+//         { color: new THREE.Color(0x00007f), position: 0.0 },
+//         { color: new THREE.Color(0x86d1fa), position: 0.4 },
+//         { color: new THREE.Color(0xfffffe), position: 0.5 },
+//         { color: new THREE.Color(0x7f7f7f), position: 0.9 },
+//         { color: new THREE.Color(0x3f3f3f), position: 1.0 }
+//     ];
+
+//     const gradientColors = worldColors.map(wc => wc.color);
+//     const gradientPositions = worldColors.map(wc => wc.position);
+
+//     const fragmentShader = `
+//         precision highp float;
+//         uniform float rainbowTime;
+//         uniform vec3 gradientColors[${worldColors.length}];
+//         uniform float gradientPositions[${worldColors.length}];
+//         varying vec2 vUvRainbow;
+
+//         vec3 getGradientColor(float position) {
+//             position = 1.0 - position;
+//             for (int i = 0; i < ${worldColors.length - 1}; i++) {
+//                 if (position < gradientPositions[i + 1]) {
+//                     float mixFactor = (position - gradientPositions[i]) / (gradientPositions[i + 1] - gradientPositions[i]);
+//                     return mix(gradientColors[i], gradientColors[i + 1], mixFactor);
+//                 }
+//             }
+//             return gradientColors[${worldColors.length - 1}];
+//         }
+
+//         void main() {
+//             float t = rainbowTime;
+//             vec2 FC = vUvRainbow * 2.0 - 1.0;
+//             float position = mod(FC.y + t * 0.1, 1.0);
+//             vec3 color = getGradientColor(position);
+//             gl_FragColor = vec4(color, 1.0);
+//         }
+//     `;
+
+//     worldGradientMaterial = new THREE.ShaderMaterial({
+//         vertexShader: vertexShader,
+//         fragmentShader: fragmentShader,
+//         uniforms: {
+//             rainbowTime: { value: 0 },
+//             gradientColors: { value: gradientColors },
+//             gradientPositions: { value: gradientPositions }
+//         }
+//     });
+
+//     let sphere = new THREE.Mesh(sphereGeometry, worldGradientMaterial);
+//     sphere.name = "GradientBackgroundSphere";
+//     scene.add(sphere);
+
+//     if (place.data.sky.rotation) {
+//         sphere.rotation.set(place.data.sky.rotation.x, place.data.sky.rotation.y, place.data.sky.rotation.z);
+//     } else {
+//         sphere.rotation.x = Math.PI / 2;
+//     }
+
+//     sphere.ignore = true;
+// }
+
+// function updateGradientBackground(deltaTime) {
+//     if (worldGradientMaterial) {
+//         worldGradientMaterial.uniforms.rainbowTime.value += deltaTime * 0.1;
+//     }
+// }
+
+// window.addGradientBackground = addGradientBackground;
+// window.updateGradientBackground = updateGradientBackground;
+
+
+
+
+
+
+
+
 
 
 
@@ -3901,7 +4936,9 @@ function addEnvMap() {
 
 }
 
-window.addEnvMap = addEnvMap
+window.addEnvMap = addEnvMap;
+
+
 
 
 function changeEnvMap(filePath) {
@@ -3979,6 +5016,11 @@ function startGame() {
 
     // }, 10000)
 
+        triggerEmittersArrayById(['emitter-a9abxr5fo', 'emitter-5qt68g97t', 'emitter-sxgj49uz4', 'emitter-d', 'emitter-bv5kdlp8r'],"restart");
+
+        //startAllEmitters()
+
+
     
 }
 
@@ -4007,23 +5049,35 @@ function init() {
     //addHelpers();
 
 
-    addEnvMap();
+    //addEnvMap();
+    
+    addGradientBackground()
 
     animate();
 
     //loadEmitters("data/emitters.json")
 
-    initEmitters()
+    initControllersEmitters()
 
     initControllers();
 
-    toggleEmittersEditGUI()
+    //toggleEmittersEditGUI()
 
     //startGame();
 
     // Zesty ad test
-    
-    addBanners();
+    //addBanners();
+
+
+    // loadSingleEmitter("data/selected/emitter_a.json")
+    // loadSingleEmitter("data/selected/emitter_b.json")
+    // loadSingleEmitter("data/selected/emitter_c.json")
+    loadEmitters("data/emitters/all.json")
+
+
+    //initDuster()
+
+
 
 
 }
@@ -4054,7 +5108,14 @@ function animate() {
 
     */
 
+
+let clock = new THREE.Clock()
+
+
 function render() {
+
+    let delta = clock.getDelta();
+
 
     // if (myRapierWorld) {
     //     myRapierWorld.step();
@@ -4070,6 +5131,10 @@ function render() {
     updateRaycasting();
 
     checkRingCollision();
+
+    updateGradientBackground(delta)
+
+    updateDusters()
 
 
     renderer.render(scene, camera);
