@@ -233,7 +233,7 @@ import { GUI } from 'lil-gui';
 import RAPIER from 'rapier';
 
 // Not working
-//import * as Zesty from 'zesty';
+import * as Zesty from 'zesty';
 
 
 
@@ -3641,16 +3641,18 @@ function saveCameraPosition() {
     */
 
 
-// function addBanners() {
+function addBanners() {
 
-//     const zestyBanner = new ZestyBanner("2a26ebef-aa0a-4196-8bea-2f8a76cb666e", "medium-rectangle", 3, null, true);
-//     scene.add(zestyBanner);
+    const zestyBanner = new ZestyBanner("2a26ebef-aa0a-4196-8bea-2f8a76cb666e", "medium-rectangle", 3, null, true);
+    scene.add(zestyBanner);
 
 
-//     // const zestyBanner = new ZestyBanner("0", "billboard", 3, null, true);
-//     // scene.add(zestyBanner);
+    // const zestyBanner = new ZestyBanner("0", "billboard", 3, null, true);
+    // scene.add(zestyBanner);
 
-// }
+}
+
+window.addBanners = addBanners;
 
 
 
@@ -4095,7 +4097,7 @@ function exportDustOptions(dustParams) {
     downloadAnchorNode.remove();
 }
 
-function importDustOptions() {
+function importDustOptions(duster) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
@@ -4106,7 +4108,9 @@ function importDustOptions() {
         reader.onload = function(e) {
             const content = e.target.result;
             const importedOptions = JSON.parse(content);
-            createDusterFromImport(importedOptions);
+            duster.params = importedOptions;
+            duster.remove();
+            duster.init();
         };
         reader.readAsText(file);
     };
@@ -4126,17 +4130,19 @@ function createDusterFromImport(importedOptions) {
 
 function createDusterFolder(gui, dusterId, duster) {
     const folder = gui.addFolder(`Duster ${dusterId}`);
-    folder.add(duster.params, 'dustCount', 256, 512).name('Dust Count').onChange(value => { duster.params.dustCount = value; duster.remove(); duster.init(); });
-    folder.add(duster.params, 'dustSpeedY', 0.01, 0.1).name('Dust Speed Y').onChange(value => duster.params.dustSpeedY = value);
-    folder.add(duster.params, 'dustSpeedX', 0.01, 0.1).name('Dust Speed X').onChange(value => duster.params.dustSpeedX = value);
-    folder.add(duster.params, 'dustSpeedZ', 0.01, 0.1).name('Dust Speed Z').onChange(value => duster.params.dustSpeedZ = value);
-    folder.add(duster.params, 'dustSizeFac', 1, 10).name('Dust Size Factor').onChange(value => { duster.params.dustSizeFac = value; duster.remove(); duster.init(); });
-    folder.add(duster.params, 'dustTopFloor', 1, 10).name('Dust Top Floor').onChange(value => duster.params.dustTopFloor = value);
-    folder.add(duster.params, 'dustFloor', -10, 0).name('Dust Floor').onChange(value => duster.params.dustFloor = value);
-    folder.add(duster.params, 'dustArea', 10, 100).name('Dust Area').onChange(value => duster.params.dustArea = value);
+    folder.add(duster.params, 'dustCount', 1, 512).name('Dust Count').onChange(value => { duster.params.dustCount = value; duster.remove(); duster.init(); });
+    folder.add(duster.params, 'dustSpeedY', 0.001, 0.5).name('Dust Speed Y').onChange(value => duster.params.dustSpeedY = value);
+    folder.add(duster.params, 'dustSpeedX', 0.001, 0.5).name('Dust Speed X').onChange(value => duster.params.dustSpeedX = value);
+    folder.add(duster.params, 'dustSpeedZ', 0.001, 0.5).name('Dust Speed Z').onChange(value => duster.params.dustSpeedZ = value);
+    folder.add(duster.params, 'dustSizeFac', 0.1, 60).name('Dust Size Factor').onChange(value => { duster.params.dustSizeFac = value; duster.remove(); duster.init(); });
+    folder.add(duster.params, 'dustTopFloor', 1, 30).name('Dust Top Floor').onChange(value => duster.params.dustTopFloor = value);
+    folder.add(duster.params, 'dustFloor', -30, 0).name('Dust Floor').onChange(value => duster.params.dustFloor = value);
+    folder.add(duster.params, 'dustArea', 1, 100).name('Dust Area').onChange(value => duster.params.dustArea = value);
     folder.add({ start: () => duster.start() }, 'start').name('Start');
     folder.add({ pause: () => duster.pause() }, 'pause').name('Pause');
     folder.add({ restart: () => duster.restart() }, 'restart').name('Restart');
+    folder.add({ exportOptions: () => exportDustOptions(duster.params) }, 'exportOptions').name('Export Duster Options');
+    folder.add({ importOptions: () => importDustOptions(duster) }, 'importOptions').name('Import Duster Options');
     folder.add({ removeDuster: () => { duster.remove(); dustersMap.delete(dusterId); storedDusters.splice(storedDusters.findIndex(d => d.id === dusterId), 1); folder.destroy(); } }, 'removeDuster').name('Remove Duster');
 }
 
@@ -4146,8 +4152,6 @@ function initDustEdit(guiKey) {
     guiInstances.set(guiKey, gui);
 
     gui.add({ createDuster: () => createDuster() }, 'createDuster').name('Create Duster');
-    gui.add({ export: () => exportDustOptions(dustParams) }, 'export').name('Export Dust Options');
-    gui.add({ import: () => importDustOptions() }, 'import').name('Import Dust Options');
     gui.add({ exportDusters }, 'exportDusters').name('Export All Dusters');
     gui.add({ importDusters }, 'importDusters').name('Import All Dusters');
     gui.add({ startAllDusters }, 'startAllDusters').name('Start All Dusters');
@@ -4433,10 +4437,10 @@ function addGradientBackground() {
     `;
 
     worldColors = [
-        { color: new THREE.Color(0x000000), position: 0.0 },
-        { color: new THREE.Color(0x86d1fa), position: 0.4 },
-        { color: new THREE.Color(0xfffffe), position: 0.5 },
-        { color: new THREE.Color(0x7f7f7f), position: 0.9 },
+        { color: new THREE.Color(0xffffff), position: 0.0 },
+        { color: new THREE.Color(0x86d100), position: 0.4 },
+        { color: new THREE.Color(0x00fffe), position: 0.5 },
+        { color: new THREE.Color(0x7f0000), position: 0.9 },
         { color: new THREE.Color(0xffffff), position: 1.0 }
     ];
 
@@ -4574,7 +4578,7 @@ function addGradientBackground() {
 
 function updateGradientBackground(deltaTime) {
     if (worldGradientMaterial) {
-        worldGradientMaterial.uniforms.rainbowTime.value += deltaTime * 0.1;
+        worldGradientMaterial.uniforms.rainbowTime.value += deltaTime * 0.05;
     }
 }
 
@@ -5021,6 +5025,10 @@ function startGame() {
         //startAllEmitters()
 
 
+        startAllDusters()
+
+
+
     
 }
 
@@ -5072,7 +5080,11 @@ function init() {
     // loadSingleEmitter("data/selected/emitter_a.json")
     // loadSingleEmitter("data/selected/emitter_b.json")
     // loadSingleEmitter("data/selected/emitter_c.json")
-    loadEmitters("data/emitters/all.json")
+    
+
+    loadEmitters("data/emitters/all.json");
+
+    loadDusters("data/dusters/all.json");
 
 
     //initDuster()
