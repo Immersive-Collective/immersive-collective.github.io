@@ -1,6 +1,6 @@
-
+**/node_modules
+!projects/webcodecs-shaders/node_modules
 !projects/xr-hack/fruitmania/rapier/node_modules
-!projects/xr-hack/webcodecs-shaders/node_modules
 
 .DS_Store
 
