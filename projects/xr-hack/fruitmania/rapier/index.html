@@ -148,17 +148,17 @@
     </style>
 
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            try {
-                var script = document.createElement('script');
-                script.defer = true;
-                script.src = "https://analytics.mielniczuk.com/script.js";
-                script.setAttribute('data-website-id', '33076180-1c51-4617-b67b-b91b5e1f8cf8');
-                document.head.appendChild(script);
-            } catch (error) {
-                console.error('Analytics script failed to load', error);
-            }
-        });
+        // document.addEventListener("DOMContentLoaded", function() {
+        //     try {
+        //         var script = document.createElement('script');
+        //         script.defer = true;
+        //         script.src = "https://analytics.mielniczuk.com/script.js";
+        //         script.setAttribute('data-website-id', '33076180-1c51-4617-b67b-b91b5e1f8cf8');
+        //         document.head.appendChild(script);
+        //     } catch (error) {
+        //         console.error('Analytics script failed to load', error);
+        //     }
+        // });
     </script>
 
 
@@ -1517,7 +1517,7 @@ let groundObjects = [];
 
 //let ground = "static/models/grounds/simple-ground-3.glb";
 //let ground = "static/models/grounds/hide-n-seek-plat-1.glb";
-let ground = "static/models/grounds/hide-n-seek-plat-21-d1.glb";
+let ground = "static/models/grounds/szachownica2.glb";
 
 
 
@@ -4008,6 +4008,14 @@ function initScene() {
 
 
 
+/* 
+
+    Dusters - GUI
+    ----------------------------------------------- 
+
+    */
+
+
 
 const dustersMap = new Map();
 const storedDusters = [];
@@ -4439,8 +4447,8 @@ function addGradientBackground() {
     worldColors = [
         { color: new THREE.Color(0xffffff), position: 0.0 },
         { color: new THREE.Color(0x86d100), position: 0.4 },
-        { color: new THREE.Color(0x00fffe), position: 0.5 },
-        { color: new THREE.Color(0x7f0000), position: 0.9 },
+        { color: new THREE.Color(0x334455), position: 0.5 },
+        { color: new THREE.Color(0xff0000), position: 0.9 },
         { color: new THREE.Color(0xffffff), position: 1.0 }
     ];
 
@@ -4542,16 +4550,20 @@ function addGradientBackground() {
             vec3 P = normalize(vPosition);
             float theta = atan(P.z, P.x);
             float phi = acos(P.y);
-            vec2 sphericalUV = vec2(theta / (2.0 * 3.14159265), phi / 3.14159265);
 
-            float position = mod(sphericalUV.y + t * 0.1, 1.0);
+            // multiplication
+            vec2 sphericalUV = vec2(theta / (0.1 * 3.14159265), phi / 3.14159265);
+
+            float position = mod(sphericalUV.y + t * 0.9, 1.0);
             vec3 gradientColor = getGradientColor(position);
-            vec3 noisePos = vec3(sphericalUV * 5.0, t); // Reduced scaling noise coordinates
+            vec3 noisePos = vec3(sphericalUV * 0.1, t); // Reduced scaling noise coordinates
             float noiseValue = noise(noisePos);
             vec3 color = mix(gradientColor, vec3(noiseValue), 0.3); // Reduced blend factor
             gl_FragColor = vec4(color, 1.0);
         }
     `;
+
+
 
     worldGradientMaterial = new THREE.ShaderMaterial({
         vertexShader: vertexShader,
@@ -5022,8 +5034,9 @@ function startGame() {
 
         triggerEmittersArrayById(['emitter-a9abxr5fo', 'emitter-5qt68g97t', 'emitter-sxgj49uz4', 'emitter-d', 'emitter-bv5kdlp8r'],"restart");
 
-        //startAllEmitters()
 
+
+        startAllEmitters()
 
         startAllDusters()
 
