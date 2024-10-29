@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>WebGL Effects with Lil.GUI</title>
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+</head>
+
+<body>
+    <div id="logo" class="logo">
+        <img src="images/xray-view.svg" alt="Immersive Collective Logo and Link">
+        <div class="logo-text">Immersive Collective</div>
+    </div>
+
+    <div id="controls">
+        <button id="startWebcam">Start Webcam</button>
+        <select id="videoSource"></select>
+        <input type="file" id="videoFile" accept="video/*">
+        <div id="playbackControls">
+            <button id="playPause">Play</button>
+            <button id="restart">Restart</button>
+            <label for="volumeControl">Volume:</label>
+            <input type="range" id="volumeControl" min="0" max="1" step="0.1" value="1">
+            <label for="seekControl">Seek:</label>
+            <input type="range" id="seekControl" min="0" max="100" value="0">
+        </div>
+    </div>
+    <canvas id="canvas"></canvas>
+
+<script type="module">
+    import GUI from '/node_modules/lil-gui/dist/lil-gui.esm.min.js';
+    const video = document.createElement('video');
+    video.autoplay = true;
+    video.loop = true;
+    video.muted = false;
+    video.src = 'input/example/yolo.mp4'; // Load default video
+    video.style.display = 'none'; // Hide the source video
+    document.body.appendChild(video);
+    const canvas = document.getElementById('canvas');
+    const gl = canvas.getContext('webgl');
+    // Playback Controls
+    const playPauseButton = document.getElementById('playPause');
+    const restartButton = document.getElementById('restart');
+    const volumeControl = document.getElementById('volumeControl');
+    const seekControl = document.getElementById('seekControl');
+    playPauseButton.addEventListener('click', () => {
+        if (video.paused) {
+            video.play();
+            playPauseButton.textContent = 'Pause';
+        } else {
+            video.pause();
+            playPauseButton.textContent = 'Play';
+        }
+    });
+    restartButton.addEventListener('click', () => {
+        video.currentTime = 0;
+    });
+    volumeControl.addEventListener('input', () => {
+        video.volume = volumeControl.value;
+    });
+    video.addEventListener('timeupdate', () => {
+        seekControl.value = (video.currentTime / video.duration) * 100;
+    });
+    seekControl.addEventListener('input', () => {
+        video.currentTime = (seekControl.value / 100) * video.duration;
+    });
+
+
+
+const vertexShaderSource = `
+attribute vec2 position;
+void main() {
+    gl_Position = vec4(position, 0, 1);
+}`;
+
+const fragmentShaderSource = `
+precision mediump float;
+uniform sampler2D u_texture;
+uniform vec2 resolution;
+uniform float hue;
+uniform bool invert;
+uniform float pixelation;
+uniform bool bwThreshold;
+uniform float threshold;
+uniform float horizontalGap;
+uniform float verticalGap;
+uniform int shapeType;
+uniform bool randomShape;
+uniform bool sortSaturation; // New uniform to toggle sorting by saturation
+uniform float redOffset;
+uniform float greenOffset;
+uniform float blueOffset;
+
+float random(vec2 st) {
+    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution;
+    uv = vec2(uv.x, 1.0 - uv.y);
+
+    float cellSizeX = 1.0 / pixelation;
+    float cellSizeY = 1.0 / pixelation;
+    vec2 cellCenter = (floor(uv * pixelation) + 0.5) / pixelation;
+    cellCenter.x += (horizontalGap * cellSizeX) * (uv.x - cellCenter.x) / abs(uv.x - cellCenter.x);
+    cellCenter.y += (verticalGap * cellSizeY) * (uv.y - cellCenter.y) / abs(uv.y - cellCenter.y);
+    vec4 color = texture2D(u_texture, cellCenter);
+
+    // Calculate saturation for sorting
+    float maxColor = max(color.r, max(color.g, color.b));
+    float minColor = min(color.r, min(color.g, color.b));
+    float saturation = (maxColor == 0.0) ? 0.0 : (maxColor - minColor) / maxColor;
+
+    // Shift position based on saturation if sortSaturation is enabled
+    if (sortSaturation) {
+        cellCenter = vec2(cellCenter.x + saturation * 0.05, cellCenter.y); // Adjust 0.05 as needed for offset scaling
+    }
+
+    float dist = distance(uv, cellCenter);
+    float radius = 0.5 * min(cellSizeX, cellSizeY) * (1.0 - max(horizontalGap, verticalGap));
+
+    int finalShapeType = randomShape ? int(mod(floor(random(cellCenter) * 7.0), 7.0)) : shapeType;
+
+    bool isInShape = false;
+    if (finalShapeType == 0) { 
+        isInShape = dist < radius;
+    } else if (finalShapeType == 1) {
+        vec2 relPos = uv - cellCenter;
+        isInShape = abs(relPos.x) < radius && abs(relPos.y) < radius && (relPos.y >= -relPos.x) && (relPos.y >= relPos.x);
+    } else if (finalShapeType == 2) {
+        vec2 relPos = abs(uv - cellCenter);
+        isInShape = (relPos.x + relPos.y) < radius;
+    } else if (finalShapeType == 3) {
+        vec2 relPos = abs(uv - cellCenter);
+        isInShape = relPos.x < radius && relPos.y < radius;
+    } else if (finalShapeType == 4) {
+        vec2 relPos = abs(uv - cellCenter);
+        isInShape = relPos.x < radius * 1.5 && relPos.y < radius;
+    } else if (finalShapeType == 5) {
+        vec2 relPos = abs(uv - cellCenter);
+        isInShape = (relPos.x + relPos.y / 1.732) < radius && (relPos.y - relPos.x / 1.732) < radius;
+    } else if (finalShapeType == 6) {
+        vec2 relPos = abs(uv - cellCenter);
+        isInShape = (relPos.x < radius * 0.3 && relPos.y < radius) || (relPos.y < radius * 0.3 && relPos.x < radius);
+    }
+
+    if (isInShape) {
+        float angle = radians(hue);
+        mat3 hueRotation = mat3(
+            vec3(0.299 + 0.701 * cos(angle) + 0.168 * sin(angle), 0.587 - 0.587 * cos(angle) + 0.330 * sin(angle), 0.114 - 0.114 * cos(angle) - 0.497 * sin(angle)),
+            vec3(0.299 - 0.299 * cos(angle) - 0.328 * sin(angle), 0.587 + 0.413 * cos(angle) + 0.035 * sin(angle), 0.114 - 0.114 * cos(angle) + 0.292 * sin(angle)),
+            vec3(0.299 - 0.3 * cos(angle) + 1.25 * sin(angle), 0.587 - 0.588 * cos(angle) - 1.05 * sin(angle), 0.114 + 0.886 * cos(angle) - 0.203 * sin(angle))
+        );
+        color.rgb = hueRotation * color.rgb;
+
+        if (invert) {
+            color.rgb = 1.0 - color.rgb;
+        }
+
+        if (bwThreshold) {
+            float grayscale = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+            color.rgb = grayscale > threshold ? vec3(1.0) : vec3(0.0);
+        }
+
+        color.r += redOffset;
+        color.g += greenOffset;
+        color.b += blueOffset;
+
+        gl_FragColor = color;
+    } else {
+        discard;
+    }
+}`;
+
+
+const shapeOptions = ['circle', 'triangle', 'rhombus', 'square', 'rectangle', 'hexagon', 'plus'];
+
+const PARAMS = {
+    hue: 0,
+    invert: false,
+    pixelation: 80,
+    bwThreshold: false,
+    threshold: 0.5,
+    horizontalGap: 0,
+    verticalGap: 0,
+    randomShape: false,
+    shapeType: 'circle',
+    sortSaturation: false, 
+    redOffset: 0,
+    greenOffset: 0,
+    blueOffset: 0
+};
+
+
+
+const program = gl.createProgram();
+
+const compileShader = (source, type) => {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    gl.attachShader(program, shader);
+};
+
+compileShader(vertexShaderSource, gl.VERTEX_SHADER);
+compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER);
+
+gl.linkProgram(program);
+gl.useProgram(program);
+
+const positionBuffer = gl.createBuffer();
+
+gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1, -1, 1, -1, -1, 1, 1, 1,
+]), gl.STATIC_DRAW);
+
+const position = gl.getAttribLocation(program, 'position');
+gl.enableVertexAttribArray(position);
+gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+
+const texture = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, texture);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+const resolutionLocation = gl.getUniformLocation(program, 'resolution');
+const hueLocation = gl.getUniformLocation(program, 'hue');
+const invertLocation = gl.getUniformLocation(program, 'invert');
+const pixelationLocation = gl.getUniformLocation(program, 'pixelation');
+const bwThresholdLocation = gl.getUniformLocation(program, 'bwThreshold');
+const thresholdLocation = gl.getUniformLocation(program, 'threshold');
+
+const horizontalGapLocation = gl.getUniformLocation(program, 'horizontalGap');
+const verticalGapLocation = gl.getUniformLocation(program, 'verticalGap');
+const shapeTypeLocation = gl.getUniformLocation(program, 'shapeType');
+
+const redOffsetLocation = gl.getUniformLocation(program, 'redOffset');
+const greenOffsetLocation = gl.getUniformLocation(program, 'greenOffset');
+const blueOffsetLocation = gl.getUniformLocation(program, 'blueOffset');
+
+
+const sortSaturationLocation = gl.getUniformLocation(program, 'sortSaturation');
+gl.uniform1i(sortSaturationLocation, PARAMS.sortSaturation);
+
+
+
+
+
+
+const gui = new GUI();
+gui.add(PARAMS, 'hue', 0, 360).step(1).name('Hue Rotation');
+gui.add(PARAMS, 'invert').name('Invert Colors');
+gui.add(PARAMS, 'pixelation', 1, 300).step(1).name('Pixelation');
+gui.add(PARAMS, 'bwThreshold').name('B&W Threshold');
+gui.add(PARAMS, 'threshold', 0, 1).step(0.01).name('Threshold');
+gui.add(PARAMS, 'horizontalGap', 0, 2).step(0.01).name('Horizontal Gap');
+gui.add(PARAMS, 'verticalGap', 0, 2).step(0.01).name('Vertical Gap');
+
+// Toggle to enable or disable random shape mode
+gui.add(PARAMS, 'randomShape').name('Random Shapes');
+
+// Shape selector dropdown
+gui.add(PARAMS, 'shapeType', shapeOptions).name('Shape');
+
+// Color offsets
+gui.add(PARAMS, 'redOffset', -1, 1).step(0.01).name('Red Offset');
+gui.add(PARAMS, 'greenOffset', -1, 1).step(0.01).name('Green Offset');
+gui.add(PARAMS, 'blueOffset', -1, 1).step(0.01).name('Blue Offset');
+
+gui.add(PARAMS, 'sortSaturation').name('Sort by Saturation');
+
+
+const drawFrame = () => {
+    if (video.videoWidth && video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+
+        gl.uniform1f(hueLocation, PARAMS.hue);
+        gl.uniform1i(invertLocation, PARAMS.invert);
+        gl.uniform1f(pixelationLocation, PARAMS.pixelation);
+        gl.uniform1i(bwThresholdLocation, PARAMS.bwThreshold);
+        gl.uniform1f(thresholdLocation, PARAMS.threshold);
+        gl.uniform1f(horizontalGapLocation, PARAMS.horizontalGap);
+        gl.uniform1f(verticalGapLocation, PARAMS.verticalGap);
+        gl.uniform1f(redOffsetLocation, PARAMS.redOffset);
+        gl.uniform1f(greenOffsetLocation, PARAMS.greenOffset);
+        gl.uniform1f(blueOffsetLocation, PARAMS.blueOffset);
+
+        gl.uniform1i(sortSaturationLocation, PARAMS.sortSaturation);
+
+
+        // Use random shape or the selected shape type based on `randomShape` toggle
+        const shapeTypeInt = PARAMS.randomShape ? Math.floor(Math.random() * shapeOptions.length) : shapeOptions.indexOf(PARAMS.shapeType);
+        gl.uniform1i(shapeTypeLocation, shapeTypeInt);
+
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    requestAnimationFrame(drawFrame);
+};
+
+
+
+video.onloadeddata = drawFrame;
+document.getElementById('startWebcam').addEventListener('click', async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    video.play();
+});
+document.getElementById('videoFile').addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        const fileURL = URL.createObjectURL(file);
+        video.srcObject = null; // Stop webcam stream if active
+        video.src = fileURL; // Load selected file
+        video.play();
+    }
+});
+async function populateVideoDevices() {
+    const videoSelect = document.getElementById('videoSource');
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    devices.forEach(device => {
+        if (device.kind === 'videoinput') {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+            option.text = device.label || `Camera ${videoSelect.length + 1}`;
+            videoSelect.appendChild(option);
+        }
+    });
+    videoSelect.onchange = async () => {
+        document.getElementById('videoFile').value = ''; // Clear file input selection
+        const selectedDeviceId = videoSelect.value;
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }
+        });
+        video.srcObject = stream;
+        video.play();
+    };
+}
+populateVideoDevices();
+
+let logo = document.getElementById("logo");
+
+logo.addEventListener("click", () => {
+    window.open("https://github.com/Immersive-Collective", "_blank");
+});
+
+
+const exportPreset = () => {
+    const presetData = JSON.stringify(PARAMS, null, 2);
+    const blob = new Blob([presetData], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'preset.json';
+    a.click();
+
+    URL.revokeObjectURL(url);
+};
+
+const importPreset = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const importedParams = JSON.parse(e.target.result);
+
+                // Ensure all keys in importedParams match those in PARAMS
+                if (!Object.keys(PARAMS).every(key => key in importedParams)) {
+                    alert("Invalid preset file format.");
+                    return;
+                }
+
+                // Apply imported values to PARAMS
+                Object.assign(PARAMS, importedParams);
+
+                // Force the GUI to update by refreshing each controller’s display
+                gui.controllers.forEach(controller => controller.updateDisplay());
+            } catch (error) {
+                alert("Invalid preset file format: unable to parse JSON.");
+            }
+        };
+        reader.readAsText(file);
+    });
+
+    input.click();
+};
+
+
+
+// Add export and import buttons to GUI
+gui.add({ exportPreset }, 'exportPreset').name('Export Preset');
+gui.add({ importPreset }, 'importPreset').name('Import Preset');
+
+
+</script>
+</body>
+</html>

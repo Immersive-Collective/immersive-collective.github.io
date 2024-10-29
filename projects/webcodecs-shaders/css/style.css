@@ -1,0 +1,47 @@
+
+body {
+    font-family: SF Pro Text, SF Pro Icons, Helvetica Neue, Helvetica, Avenir, Helvetica, Arial, sans-serif;
+    background-color: #222;
+    color: white;
+    text-align: center;
+    margin: 0;
+    padding: 20px;
+}
+#controls {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+#playbackControls {
+    display: flex;
+    gap: 10px;
+}
+button, input[type="range"] {
+    background: #444;
+    color: #fff;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+}
+#logo {
+}
+.logo {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    align-items: center;
+    pointer-events: all;
+    cursor: pointer;
+}
+.logo img {
+    height: 20px; /* Adjust size as needed */
+    margin-right: 10px; /* Space between image and text */
+}
+.logo-text {
+    font-family: Avenir, Roboto, Arial, sans-serif;
+    font-size: 10px;
+    color: white;
+}

@@ -1,0 +1,14 @@
+{
+  "hue": 0,
+  "invert": true,
+  "pixelation": 10,
+  "bwThreshold": false,
+  "threshold": 0.56,
+  "horizontalGap": 0.21,
+  "verticalGap": 0,
+  "randomShape": false, 
+  "shapeType": "square",
+  "redOffset": 0,
+  "greenOffset": 0,
+  "blueOffset": 0  
+}
