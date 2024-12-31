@@ -1,21 +1,9 @@
 <!DOCTYPE html>
-
-<!-- credits to: https://x.com/YoheiNishitsuji 
-
-// based on
-
-
-float i,e,R,s;vec3 q,p,d=vec3(FC.xy/r+vec2(-.5,.4),1);for(q.zy--;i++<99.;){o.rgb+=hsv(e*R,-.6,e/12.);s=1.;p=q+=d*e*R*.3;p=vec3(log2(R=length(p))-t*.5,exp2(-p.z/R-.01),atan(p.y,p.x)*s+cos(t)*.03);for(e=--p.y;s<9e2;s+=s)e+=(dot(sin(p.zzy*s)-.53,.5-sin(p.yzx*s)))/s*.2;}#つぶやきGLSL
-
-
-
--->
-
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WebGL 2 Shader</title>
+  <title>Optimized WebGL 2 Shader</title>
   <style>
     body, html { margin: 0; height: 100%; overflow: hidden; }
     canvas { display: block; width: 100%; height: 100%; }
@@ -49,14 +37,15 @@ float i,e,R,s;vec3 q,p,d=vec3(FC.xy/r+vec2(-.5,.4),1);for(q.zy--;i++<99.;){o.rgb
       float i = 0.0, e = 0.0, R = 0.0, s = 1.0;
       vec3 color = vec3(0.0);
 
-      for (q.zy -= 1.0; i < 99.0; i++) {
+      for (q.zy -= 1.0; i < 50.0; i++) {  // Reduced iteration count to 50
         color += hsv(e * R, -0.6, e / 12.0);
         s = 1.0;
         p = q += d * e * R * 0.3;
-        p = vec3(log2(R = length(p)) - time * 0.5, exp2(-p.z / R - 0.01), atan(p.y, p.x) * s + cos(time) * 0.03);
+        R = length(p);
+        p = vec3(log2(R) - time * 0.5, exp2(-p.z / R - 0.01), atan(p.y, p.x) * s + cos(time) * 0.03);
 
         e = --p.y;
-        for (s = 1.0; s < 900.0; s += s) {
+        for (s = 1.0; s < 450.0; s += s) {  // Reduced inner loop count to 450
           e += (dot(sin(p.zzy * s) - 0.53, 0.5 - sin(p.yzx * s))) / s * 0.2;
         }
       }
@@ -122,8 +111,8 @@ float i,e,R,s;vec3 q,p,d=vec3(FC.xy/r+vec2(-.5,.4),1);for(q.zy--;i++<99.;){o.rgb
     const resolutionLocation = gl.getUniformLocation(program, "resolution");
 
     function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvas.width = window.innerWidth / 2;  // Reduced resolution for better performance
+      canvas.height = window.innerHeight / 2;
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     }
     window.addEventListener("resize", resizeCanvas);
