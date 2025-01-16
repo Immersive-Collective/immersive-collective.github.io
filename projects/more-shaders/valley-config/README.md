@@ -24,6 +24,12 @@ This project is an interactive WebGL-based terrain shader using `three.js` and `
 
 ## **Demo**
 
+Live (Github Pages)
+https://immersive-collective.org/projects/more-shaders/valley-config/index2.html
+
+
+
+
 You can explore the shader on a live canvas and interact with its settings. The GUI allows you to adjust various properties such as hue, saturation, and animation speed.
 
 ---
