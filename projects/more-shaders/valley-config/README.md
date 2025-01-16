@@ -1,5 +1,11 @@
 ### **README.md**
 
+credits to: https://x.com/YoheiNishitsuji 
+
+// based on original twitter message
+
+```float i,e,R,s;vec3 q,p,d=vec3(FC.xy/r+vec2(-.5,.4),1);for(q.zy--;i++<99.;){o.rgb+=hsv(e*R,-.6,e/12.);s=1.;p=q+=d*e*R*.3;p=vec3(log2(R=length(p))-t*.5,exp2(-p.z/R-.01),atan(p.y,p.x)*s+cos(t)*.03);for(e=--p.y;s<9e2;s+=s)e+=(dot(sin(p.zzy*s)-.53,.5-sin(p.yzx*s)))/s*.2;}#つぶやきGLSL```
+
 
 ## **Demo**
 
@@ -171,6 +177,7 @@ To project the shader onto 3D geometry:
 ## **Contributing**
 
 Contributions are welcome! Please submit issues or pull requests for improvements.
+
 
 ---
 
