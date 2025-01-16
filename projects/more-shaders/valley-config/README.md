@@ -1,5 +1,11 @@
 ### **README.md**
 
+
+
+https://github.com/user-attachments/assets/33c145af-3b76-4d1b-8f26-f3014524f817
+
+
+
 ---
 
 # **Shader with lil-gui – Extended Terrain & Save/Load Configuration**
