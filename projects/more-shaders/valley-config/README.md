@@ -1,9 +1,15 @@
 ### **README.md**
 
 
+## **Demo**
 
+Live (Github Pages)
+
+https://immersive-collective.org/projects/more-shaders/valley-config/index2.html
+---
 https://github.com/user-attachments/assets/33c145af-3b76-4d1b-8f26-f3014524f817
 
+You can explore the shader on a live canvas and interact with its settings. The GUI allows you to adjust various properties such as hue, saturation, and animation speed.
 
 
 ---
