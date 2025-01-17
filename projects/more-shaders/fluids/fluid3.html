@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interactive Fluid Simulation with Config</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    #glCanvas {
+      display: block;
+      margin: 0 auto;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+<canvas id="glCanvas"></canvas>
+
+<!-- Import lil-gui from CDN -->
+<script type="importmap">
+{
+  "imports": {
+    "three/addons/libs/lil-gui.module.min.js": "https://unpkg.com/three/examples/jsm/libs/lil-gui.module.min.js"
+  }
+}
+</script>
+
+<script type="module">
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+// =======================
+// Vertex Shader (quad)
+// =======================
+const quadVertSource = `#version 300 es
+in vec2 aPosition;
+out vec2 vUV;
+void main() {
+    vUV = aPosition * 0.5 + 0.5;
+    gl_Position = vec4(aPosition, 0.0, 1.0);
+}`;
+
+// ==================================================================
+// Fragment Shader (fluid simulation + rendering)
+// ==================================================================
+const fluidFragSource = `#version 300 es
+precision highp float;
+
+in vec2 vUV;
+out vec4 fragColor;
+
+// The previous fluid state
+uniform sampler2D iChannel0; 
+// Noise texture
+uniform sampler2D iChannel1;
+
+// Uniforms for time, resolution, and mouse
+uniform float iTime;
+uniform vec2 iResolution;
+uniform vec4 iMouse;   // (mx, my, pmx, pmy)
+
+// lil-gui parameters
+uniform float viscosity;
+uniform float swirlStrength;
+
+void main() {
+    vec2 uv = vUV;
+
+    // Previous fluid color
+    vec4 prev = texture(iChannel0, uv);
+
+    // Mouse positions (current, previous), normalized to [0..1]
+    vec2 mouse = iMouse.xy / iResolution; 
+    vec2 pmouse = iMouse.zw / iResolution;
+    vec2 mouseVel = mouse - pmouse;
+    float swirl = length(mouseVel) * swirlStrength;
+
+    // Distance from current fragment to mouse
+    float distToMouse = distance(uv, mouse);
+    float influence = exp(-distToMouse * 100.0);
+
+    // A perpendicular direction to mouseVel
+    vec2 dir = normalize(vec2(-mouseVel.y, mouseVel.x) + 1e-9);
+    vec2 uvShift = uv - dir * swirl * influence;
+
+    // Advection step
+    vec4 advected = texture(iChannel0, uvShift);
+
+    // Viscosity dampens color
+    advected.rgb *= (1.0 - viscosity);
+
+    // Optional noise swirl
+    vec2 noiseUV = uv * 3.0 + iTime * 0.1;
+    float noiseVal = texture(iChannel1, noiseUV).r;
+    advected.rgb += 0.02 * noiseVal;
+
+    // Slight color variation
+    vec3 color = advected.rgb;
+    color += 0.02 * vec3(
+      sin(uv.y * 20.0 + iTime),
+      sin(uv.x * 20.0 - iTime * 0.5),
+      sin(uv.x * 10.0 + uv.y * 10.0 + iTime)
+    );
+
+    fragColor = vec4(color, 1.0);
+}
+`;
+
+// =======================
+// Helper: create a shader
+// =======================
+function createShader(gl, type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(s));
+    gl.deleteShader(s);
+    return null;
+  }
+  return s;
+}
+
+// ===============================
+// Helper: link a GPU program
+// ===============================
+function createProgram(gl, vsSrc, fsSrc) {
+  const vs = createShader(gl, gl.VERTEX_SHADER, vsSrc);
+  const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSrc);
+
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(prog));
+    gl.deleteProgram(prog);
+    return null;
+  }
+  return prog;
+}
+
+// WebGL2 setup
+const canvas = document.getElementById("glCanvas");
+const gl = canvas.getContext("webgl2", { antialias: false });
+if (!gl) {
+  console.error("WebGL2 not supported.");
+}
+
+// Ping-pong textures & framebuffers
+let framebufferA, framebufferB;
+let textureA, textureB;
+
+// Quad geometry
+let positionBuffer, vao;
+let program;
+let iResolutionLoc, iTimeLoc, iMouseLoc;
+let viscosityLoc, swirlStrengthLoc;
+
+// Time / Mouse
+let startTime = performance.now();
+let mouseX = 0, mouseY = 0;
+let pmouseX = 0, pmouseY = 0;
+
+// ==============
+// Resize handler
+// ==============
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  createFramebuffers();
+}
+window.addEventListener("resize", resizeCanvas);
+
+// =============================================
+// Create 2 textures/framebuffers (ping-pong)
+// =============================================
+function createFramebuffers() {
+  if (framebufferA) gl.deleteFramebuffer(framebufferA);
+  if (framebufferB) gl.deleteFramebuffer(framebufferB);
+  if (textureA) gl.deleteTexture(textureA);
+  if (textureB) gl.deleteTexture(textureB);
+
+  // Texture A
+  textureA = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, textureA);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, gl.RGBA,
+    canvas.width, canvas.height, 0,
+    gl.RGBA, gl.UNSIGNED_BYTE, null
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  framebufferA = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, framebufferA);
+  gl.framebufferTexture2D(
+    gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+    gl.TEXTURE_2D, textureA, 0
+  );
+
+  // Texture B
+  textureB = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, textureB);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, gl.RGBA,
+    canvas.width, canvas.height, 0,
+    gl.RGBA, gl.UNSIGNED_BYTE, null
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  framebufferB = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, framebufferB);
+  gl.framebufferTexture2D(
+    gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+    gl.TEXTURE_2D, textureB, 0
+  );
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+}
+
+// ===========================
+// Init geometry & program
+// ===========================
+function init() {
+  // Quad buffer
+  positionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  const verts = new Float32Array([
+    -1, -1,   1, -1,   -1,  1,
+    -1,  1,   1, -1,    1,  1
+  ]);
+  gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+
+  // Create VAO
+  vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+  // Compile fluid program
+  program = createProgram(gl, quadVertSource, fluidFragSource);
+  gl.useProgram(program);
+
+  // Uniform locations
+  iResolutionLoc    = gl.getUniformLocation(program, "iResolution");
+  iTimeLoc          = gl.getUniformLocation(program, "iTime");
+  iMouseLoc         = gl.getUniformLocation(program, "iMouse");
+  viscosityLoc      = gl.getUniformLocation(program, "viscosity");
+  swirlStrengthLoc  = gl.getUniformLocation(program, "swirlStrength");
+
+  // Sampler uniforms
+  const channel0Loc = gl.getUniformLocation(program, "iChannel0");
+  const channel1Loc = gl.getUniformLocation(program, "iChannel1");
+  gl.uniform1i(channel0Loc, 0); // iChannel0 -> TEXTURE0
+  gl.uniform1i(channel1Loc, 1); // iChannel1 -> TEXTURE1
+
+  createNoiseTexture();
+  setupGUI();
+}
+
+// ==================
+// Noise texture
+// ==================
+let noiseTex;
+function createNoiseTexture() {
+  const size = 256;
+  const data = new Uint8Array(size * size * 4);
+  for (let i = 0; i < size * size * 4; i++) {
+    data[i] = Math.floor(Math.random() * 256);
+  }
+  noiseTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, noiseTex);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, gl.RGBA,
+    size, size, 0, gl.RGBA,
+    gl.UNSIGNED_BYTE, data
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+}
+
+// ===============
+// lil-gui + config
+// ===============
+const settings = {
+  viscosity: 0.02,
+  swirlStrength: 5.0
+};
+
+function setupGUI() {
+  const gui = new GUI();
+  gui.add(settings, "viscosity", 0.0, 0.2, 0.001).name("Viscosity");
+  gui.add(settings, "swirlStrength", 0.0, 20.0, 0.1).name("Swirl Strength");
+
+  function saveConfig() {
+    const config = { ...settings };
+    const jsonStr = JSON.stringify(config, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "fluid-config.json";
+    link.click();
+  }
+
+  function loadConfig() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const config = JSON.parse(ev.target.result);
+          Object.assign(settings, config);
+          gui.updateDisplay();
+        } catch (err) {
+          console.error("Error parsing config file:", err);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  gui.add({ saveConfig }, "saveConfig").name("Save Config");
+  gui.add({ loadConfig }, "loadConfig").name("Load Config");
+}
+
+// =====================
+// Mouse event handling
+// =====================
+let isMouseDown = false;
+canvas.addEventListener("mousedown", e => {
+  isMouseDown = true;
+  pmouseX = mouseX = e.clientX;
+  pmouseY = mouseY = e.clientY;
+});
+canvas.addEventListener("mouseup", () => {
+  isMouseDown = false;
+});
+canvas.addEventListener("mousemove", e => {
+  pmouseX = mouseX;
+  pmouseY = mouseY;
+  mouseX = e.clientX;
+  mouseY = e.clientY;
+});
+
+// =============
+// Main render
+// =============
+function render() {
+  const now = performance.now();
+  const dt = (now - startTime) * 0.001;
+  gl.useProgram(program);
+
+  // Uniforms
+  gl.uniform2f(iResolutionLoc, canvas.width, canvas.height);
+  gl.uniform1f(iTimeLoc, dt);
+  // iMouse (mx, my, pmx, pmy) - flip Y for shader coordinates
+  gl.uniform4f(iMouseLoc, mouseX, canvas.height - mouseY, pmouseX, canvas.height - pmouseY);
+  gl.uniform1f(viscosityLoc, settings.viscosity);
+  gl.uniform1f(swirlStrengthLoc, settings.swirlStrength);
+
+  // --- First pass: read from A, write to B ---
+  gl.bindFramebuffer(gl.FRAMEBUFFER, framebufferB);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, textureA);
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, noiseTex);
+
+  gl.bindVertexArray(vao);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+  // --- Draw to screen: read from B ---
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, textureB);
+  // Keep noise in TEXTURE1
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, noiseTex);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+  // Swap
+  let tmpTex = textureA; textureA = textureB; textureB = tmpTex;
+  let tmpFB  = framebufferA; framebufferA = framebufferB; framebufferB = tmpFB;
+
+  requestAnimationFrame(render);
+}
+
+// =======
+// Startup
+// =======
+resizeCanvas();
+init();
+requestAnimationFrame(render);
+</script>
+</body>
+</html>

@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Florian Berger Single-Pass CFD (Full Implementation)</title>
+  <style>
+    body {
+      margin: 0; 
+      overflow: hidden;
+      background: #000;
+    }
+    #glCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="glCanvas"></canvas>
+
+<!-- lil-gui from CDN -->
+<script type="importmap">
+{
+  "imports": {
+    "three/addons/libs/lil-gui.module.min.js": "https://unpkg.com/three/examples/jsm/libs/lil-gui.module.min.js"
+  }
+}
+</script>
+
+<script type="module">
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+/*-----------------------------------------------------
+  1) REMOVE JS "myenv" Stub
+     We no longer define it in JS. The shader will have
+     a GLSL version of myenv() instead.
+------------------------------------------------------*/
+
+// We keep PI and PI2 in JS for convenience (e.g., if needed), 
+// but they're not strictly required unless you want them in JS.
+const PI  = 3.141592653589793;
+const PI2 = 6.283185307179586;
+
+/*-----------------------------------------------------
+  2) PASS-SPECIFIC SHADERS (original code, lightly adapted)
+------------------------------------------------------*/
+
+/*--------------------------
+  PASS 0: Mouse detection
+---------------------------*/
+const mouseFrag = `#version 300 es
+precision highp float;
+
+out vec4 fragColor;
+uniform sampler2D iChannel0; // previous mouse state
+uniform vec4 iMouse;         // iMouse.xy = current, iMouse.zw = previous
+uniform vec2 iResolution;
+
+void main() {
+    // We'll do this pass at a single pixel [0,0] effectively:
+    // read old data, store new (mx,my, dx,dy).
+
+    vec4 c = texelFetch(iChannel0, ivec2(0), 0);
+    
+    vec2 m = iMouse.xy; // current
+    vec2 p = iMouse.zw; // previous
+    vec2 d = vec2(0.0);
+
+    if (m != p) {
+        d = m - c.xy; 
+    }
+    fragColor = vec4(m, d);
+}
+`;
+
+/*--------------------------
+  PASS 1: Fluid simulation
+  "single pass CFD - with some self consistency fixes"
+---------------------------*/
+const fluidFrag = `#version 300 es
+precision highp float;
+
+// Created by florian berger (flockaroo) - 2019
+// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0
+
+out vec4 fragColor;
+
+uniform sampler2D iChannel0;  // fluid from previous frame
+uniform sampler2D iChannel1;  // random/noise
+uniform sampler2D iChannel2;  // keyTex (for KEY_I) 
+uniform sampler2D iChannel3;  // mouse pass
+uniform float iTime;
+uniform float iFrame;
+uniform vec2 iResolution;
+uniform vec4 iMouse;  // (mx,my,pmx,pmy)
+
+// "RotNum" from snippet
+#define RotNum 5
+#define SUPPORT_EVEN_ROTNUM
+
+const float PI  = 3.141592653589793;
+const float PI2 = 6.283185307179586;
+
+const float ang = PI2/float(RotNum);
+mat2 m  = mat2(cos(ang), sin(ang), -sin(ang), cos(ang));
+mat2 mh = mat2(cos(ang*0.5), sin(ang*0.5), -sin(ang*0.5), cos(ang*0.5));
+
+// For KEY_I
+float KEY_I(in sampler2D kTex) {
+  // read single pixel from center => if KeyI=1, red channel > 0.5
+  return texture(kTex, vec2(0.5)).r;
+}
+
+float getRot(in sampler2D fluidTex, vec2 pos, vec2 b) {
+    float l = 0.0;  // from snippet "log2(dot(b,b))*sqrt(.125)*.0" => 0
+    vec2 p = b;
+    float rot = 0.0;
+    for(int i=0; i<RotNum; i++) {
+        // fluid is RG => velocity in [0..1], 0.5 as zero
+        vec2 vel = textureLod(fluidTex, (pos+p)/iResolution, l).xy - vec2(0.5);
+        rot += dot(vel, p.yx*vec2(1.0, -1.0));
+        p = m * p;
+    }
+    float denom = dot(b,b);
+    return rot / float(RotNum) / denom;
+}
+
+void main() {
+    vec2 pos = gl_FragCoord.xy;
+    // swirl evaluation
+    vec2 b = cos(iFrame * 0.3 - vec2(0.0, 1.57));
+    vec2 v = vec2(0.0);
+    
+    float bbMax = 0.5 * iResolution.y;
+    bbMax *= bbMax; 
+
+    // multi-scale rotation sum
+    for(int l=0; l<20; l++) {
+        if(dot(b,b) > bbMax) break;
+        vec2 p = b;
+        for(int i=0; i<RotNum; i++) {
+            float rot = getRot(iChannel0, pos + p, -mh*b);
+            v += p.yx * vec2(1.0, -1.0) * rot;
+            p = m * p;
+        }
+        b *= 2.0;
+    }
+    
+    // advection
+    vec2 shift = pos - v*vec2(-1.0,1.0)*5.0*sqrt(iResolution.x/600.0);
+    vec4 prev  = textureLod(iChannel0, fract(shift/iResolution), 0.0);
+    fragColor  = prev;
+    
+    // self-consistency
+    fragColor.xy = mix(fragColor.xy, 
+                       v*vec2(-1.0,1.0)*sqrt(0.125)*0.9, 
+                       0.025);
+
+    // mouse swirl
+    vec4 mouseData = texelFetch(iChannel3, ivec2(0), 0);
+    vec2 dmouse = mouseData.zw;
+
+    // If no mouse, swirl at center
+    vec2 c = (iMouse.x < 1.0) ? iResolution*0.5 : iMouse.xy;
+    vec2 scr = fract((pos - c)/iResolution.x + 0.5) - 0.5;
+
+    if(iMouse.x < 1.0) {
+      fragColor.xy += 0.003 * cos(iTime*0.3 - vec2(0.0,1.57)) 
+                      / (dot(scr,scr)/0.05 + 0.05);
+    }
+    fragColor.xy += 0.0003*dmouse/(dot(scr,scr)/0.05 + 0.05);
+
+    // crunchy drops
+    vec2 uvRand = gl_FragCoord.xy / iResolution * 0.35;
+    vec4 rnd = texture(iChannel1, uvRand);
+    fragColor.zw += (rnd.zw - 0.5)*0.002;
+
+    uvRand = gl_FragCoord.xy / iResolution * 0.7;
+    rnd = texture(iChannel1, uvRand);
+    fragColor.zw += (rnd.zw - 0.5)*0.001;
+
+    // init frames
+    if(iFrame <= 4.0) {
+      fragColor = vec4(0.0);
+    }
+
+    // KEY_I => fill fluid from random
+    if(KEY_I(iChannel2) > 0.5) {
+      vec2 uvSmoothVal = gl_FragCoord.xy / iResolution * 0.05;
+      vec4 fill = texture(iChannel1, uvSmoothVal) - 0.5;
+      fragColor = fill * 0.7;
+    }
+}
+`;
+
+/*--------------------------
+  PASS 2: Draw the liquid
+  (the "drawing the liquid" snippet)
+---------------------------*/
+const drawFrag = `#version 300 es
+precision highp float;
+
+// "Drawing the liquid" pass
+
+out vec4 fragColor;
+
+uniform sampler2D iChannel0; // fluid (the result from PASS 1)
+uniform sampler2D iChannel1; // random/noise (for RandTex if desired)
+uniform float iTime;
+uniform vec2 iResolution;
+
+// We replicate getVal => length of fluid color
+float getVal(in vec4 col) {
+    return length(col.xyz);
+}
+
+// A small function that acts like "myenv" but inside GLSL
+vec4 myenv(vec3 center, vec3 dir, float param) {
+    // super-simple environment gradient
+    float up = dir.y * 0.5 + 0.5;
+    // Return RGBA so we can do .xyz after calling
+    return vec4(
+      0.2 + 0.3*up, 
+      0.3 + 0.4*up, 
+      0.5 + 0.4*up, 
+      1.0
+    );
+}
+
+// compute gradient
+vec2 getGrad(in sampler2D fluidTex, in vec2 uv, float delta, in vec2 resolution) {
+    vec2 d = vec2(delta, 0.0);
+    float valP = getVal(texture(fluidTex, uv + d/resolution));
+    float valM = getVal(texture(fluidTex, uv - d/resolution));
+    float gx   = valP - valM;
+
+    float valP2 = getVal(texture(fluidTex, uv + d.yx/resolution));
+    float valM2 = getVal(texture(fluidTex, uv - d.yx/resolution));
+    float gy    = valP2 - valM2;
+
+    return vec2(gx, gy) / delta;
+}
+
+// reflection environment
+vec3 doEnvironmentReflect(vec3 dir, vec3 n) {
+    vec3 R = reflect(dir, n);
+    // call myenv in GLSL
+    return myenv(vec3(0.0), R.xzy, 1.0).xyz;
+}
+
+void main() {
+    vec2 fragCoord = gl_FragCoord.xy;
+    vec2 uv = fragCoord / iResolution.xy;
+
+    // normal from gradient
+    vec2 g = getGrad(iChannel0, uv, 1.4, iResolution);
+    vec3 n = vec3(-g * 0.02, 1.0);
+    n = normalize(n);
+
+    // environment reflection
+    vec2 sc = (fragCoord - iResolution * 0.5) / iResolution.x;
+    vec3 dir = normalize(vec3(sc, -1.0));
+    vec3 refl = doEnvironmentReflect(dir, n);
+
+    // fluid color from pass 1
+    vec4 col = texture(iChannel0, uv) + 0.5;
+    col = mix(vec4(1.0), col, 0.5);
+    col.xyz *= (0.95 + (-0.05)*n);
+
+    fragColor = vec4(col.xyz * refl, 1.0);
+}
+`;
+
+/*--------------------------
+  PASS 3: KEY_I pass 
+---------------------------*/
+const keyFrag = `#version 300 es
+precision highp float;
+
+out vec4 fragColor;
+uniform float KeyI;
+
+void main() {
+    fragColor = vec4(KeyI, 0.0, 0.0, 1.0);
+}
+`;
+
+/*-----------------------------------------------------
+  3) JavaScript Setup for Multi-Pass Rendering
+------------------------------------------------------*/
+
+const canvas = document.getElementById("glCanvas");
+const gl = canvas.getContext("webgl2", {alpha: false});
+if(!gl) {
+  console.error("WebGL2 not supported.");
+}
+
+let width, height;
+function resizeCanvas() {
+  width  = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width  = width;
+  canvas.height = height;
+  gl.viewport(0, 0, width, height);
+  initFramebuffers();
+}
+window.addEventListener("resize", resizeCanvas);
+
+// Framebuffers & Textures
+let fboMouse, texMouse;
+let fboFluidA, texFluidA;
+let fboFluidB, texFluidB;
+let fboKey,   texKey;
+
+// Programs
+let progMouse, progFluid, progDraw, progKey;
+
+// Uniform locations
+const uniformsMouse = {};
+const uniformsFluid = {};
+const uniformsDraw  = {};
+const uniformsKey   = {};
+
+// Quad geometry
+let quadVAO;
+
+// Track time, frame, mouse
+let startTime = performance.now();
+let iFrame = 0.0;
+let mouseX=0, mouseY=0, pmouseX=0, pmouseY=0;
+let isMouseDown=false;
+
+/*-----------------------------------------------------
+  4) Create Noise Texture (for iChannel1)
+------------------------------------------------------*/
+let noiseTex;
+function createNoiseTexture() {
+  const size = 256;
+  const data = new Uint8Array(size*size*4);
+  for(let i=0; i<size*size*4; i++) {
+    data[i] = Math.floor(Math.random()*256);
+  }
+  noiseTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, noiseTex);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, gl.RGBA,
+    size, size, 0, gl.RGBA,
+    gl.UNSIGNED_BYTE, data
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.bindTexture(gl.TEXTURE_2D, null);
+}
+
+/*-----------------------------------------------------
+  5) Create Shaders & Programs
+------------------------------------------------------*/
+function createShader(gl, type, source) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, source);
+  gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(s));
+    gl.deleteShader(s);
+    return null;
+  }
+  return s;
+}
+function createProgram(gl, vsSrc, fsSrc) {
+  const vs = createShader(gl, gl.VERTEX_SHADER, vsSrc);
+  const fs = createShader(gl, gl.FRAGMENT_SHADER, fsSrc);
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(prog));
+    gl.deleteProgram(prog);
+    return null;
+  }
+  return prog;
+}
+
+// Simple fullscreen-quad vertex shader
+const quadVS = `#version 300 es
+in vec2 aPos;
+void main(){
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}
+`;
+
+/*-----------------------------------------------------
+  6) Framebuffer / Texture creation
+------------------------------------------------------*/
+function createFBOTexture(w, h) {
+  const tex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(
+    gl.TEXTURE_2D, 0, gl.RGBA,
+    w, h, 0, gl.RGBA,
+    gl.UNSIGNED_BYTE, null
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(
+    gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+    gl.TEXTURE_2D, tex, 0
+  );
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { tex, fbo };
+}
+
+function initFramebuffers() {
+  if(fboMouse) {
+    [
+      fboMouse, texMouse, fboFluidA, texFluidA, 
+      fboFluidB, texFluidB, fboKey, texKey
+    ].forEach(obj => { 
+      if(obj instanceof WebGLTexture)  gl.deleteTexture(obj);
+      if(obj instanceof WebGLFramebuffer) gl.deleteFramebuffer(obj);
+    });
+  }
+  // Mouse pass
+  ({tex: texMouse, fbo: fboMouse} = createFBOTexture(width, height));
+  // Fluid pass => ping-pong
+  ({tex: texFluidA, fbo: fboFluidA} = createFBOTexture(width, height));
+  ({tex: texFluidB, fbo: fboFluidB} = createFBOTexture(width, height));
+  // Key pass => 1x1
+  ({tex: texKey, fbo: fboKey} = createFBOTexture(1, 1));
+}
+
+/*-----------------------------------------------------
+  7) Init function: compile programs, set up geometry
+------------------------------------------------------*/
+function init() {
+  // Quad geometry
+  const quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  const verts = new Float32Array([
+    -1,-1,  1,-1,  -1,1,
+    -1,1,   1,-1,   1,1
+  ]);
+  gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+  quadVAO = gl.createVertexArray();
+  gl.bindVertexArray(quadVAO);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+  // Create programs
+  progMouse = createProgram(gl, quadVS, mouseFrag);
+  progFluid = createProgram(gl, quadVS, fluidFrag);
+  progDraw  = createProgram(gl, quadVS, drawFrag);
+  progKey   = createProgram(gl, quadVS, keyFrag);
+
+  // Mouse pass uniforms
+  gl.useProgram(progMouse);
+  uniformsMouse.iChannel0    = gl.getUniformLocation(progMouse, "iChannel0");
+  uniformsMouse.iMouse       = gl.getUniformLocation(progMouse, "iMouse");
+  uniformsMouse.iResolution  = gl.getUniformLocation(progMouse, "iResolution");
+
+  // Fluid pass uniforms
+  gl.useProgram(progFluid);
+  uniformsFluid.iChannel0    = gl.getUniformLocation(progFluid, "iChannel0");
+  uniformsFluid.iChannel1    = gl.getUniformLocation(progFluid, "iChannel1");
+  uniformsFluid.iChannel2    = gl.getUniformLocation(progFluid, "iChannel2");
+  uniformsFluid.iChannel3    = gl.getUniformLocation(progFluid, "iChannel3");
+  uniformsFluid.iTime        = gl.getUniformLocation(progFluid, "iTime");
+  uniformsFluid.iFrame       = gl.getUniformLocation(progFluid, "iFrame");
+  uniformsFluid.iResolution  = gl.getUniformLocation(progFluid, "iResolution");
+  uniformsFluid.iMouse       = gl.getUniformLocation(progFluid, "iMouse");
+
+  // Draw pass uniforms
+  gl.useProgram(progDraw);
+  uniformsDraw.iChannel0     = gl.getUniformLocation(progDraw, "iChannel0");
+  uniformsDraw.iChannel1     = gl.getUniformLocation(progDraw, "iChannel1");
+  uniformsDraw.iTime         = gl.getUniformLocation(progDraw, "iTime");
+  uniformsDraw.iResolution   = gl.getUniformLocation(progDraw, "iResolution");
+
+  // Key pass uniform
+  gl.useProgram(progKey);
+  uniformsKey.KeyI = gl.getUniformLocation(progKey, "KeyI");
+
+  createNoiseTexture();
+  setupGUI();
+}
+
+/*-----------------------------------------------------
+  8) lil-gui + Save/Load config
+------------------------------------------------------*/
+const settings = {
+  KeyI: false,   // toggles KEY_I in the fluid pass
+  FlowScale: 1.0 // example param (not currently used, but can be extended)
+};
+
+function setupGUI() {
+  const gui = new GUI();
+  gui.add(settings, "KeyI").name("KEY_I");
+  gui.add(settings, "FlowScale", 0.2, 5.0, 0.1).name("Flow Scale (demo)");
+
+  function saveConfig() {
+    const config = { ...settings };
+    const jsonStr = JSON.stringify(config, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "fluid-config.json";
+    link.click();
+  }
+
+  function loadConfig() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const config = JSON.parse(ev.target.result);
+          Object.assign(settings, config);
+          gui.updateDisplay();
+        } catch (err) {
+          console.error("Error parsing config file:", err);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  gui.add({ saveConfig }, "saveConfig").name("Save Config");
+  gui.add({ loadConfig }, "loadConfig").name("Load Config");
+}
+
+/*-----------------------------------------------------
+  9) Mouse events
+------------------------------------------------------*/
+canvas.addEventListener("mousedown", e=>{
+  isMouseDown=true;
+  mouseX=e.clientX; mouseY=e.clientY;
+  pmouseX=mouseX;   pmouseY=mouseY;
+});
+canvas.addEventListener("mouseup", e=>{
+  isMouseDown=false;
+});
+canvas.addEventListener("mousemove", e=>{
+  pmouseX=mouseX;   pmouseY=mouseY;
+  mouseX=e.clientX; mouseY=e.clientY;
+});
+
+/*-----------------------------------------------------
+  10) Rendering each pass
+------------------------------------------------------*/
+function renderKeyPass() {
+  gl.useProgram(progKey);
+  gl.uniform1f(uniformsKey.KeyI, settings.KeyI? 1.0 : 0.0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fboKey);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+function renderMousePass() {
+  gl.useProgram(progMouse);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texMouse);
+  gl.uniform1i(uniformsMouse.iChannel0, 0);
+
+  gl.uniform4f(uniformsMouse.iMouse, 
+               mouseX, height-mouseY,
+               pmouseX, height-pmouseY);
+  gl.uniform2f(uniformsMouse.iResolution, width, height);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fboMouse);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+let fluidSrcTex = null;  
+let fluidDstFbo = null;
+
+function renderFluidPass() {
+  gl.useProgram(progFluid);
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, fluidSrcTex);
+  gl.uniform1i(uniformsFluid.iChannel0, 0);
+
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, noiseTex);
+  gl.uniform1i(uniformsFluid.iChannel1, 1);
+
+  gl.activeTexture(gl.TEXTURE2);
+  gl.bindTexture(gl.TEXTURE_2D, texKey);
+  gl.uniform1i(uniformsFluid.iChannel2, 2);
+
+  gl.activeTexture(gl.TEXTURE3);
+  gl.bindTexture(gl.TEXTURE_2D, texMouse);
+  gl.uniform1i(uniformsFluid.iChannel3, 3);
+
+  const now = performance.now();
+  const timeSec = (now - startTime)*0.001;
+
+  gl.uniform1f(uniformsFluid.iTime, timeSec);
+  gl.uniform1f(uniformsFluid.iFrame, iFrame);
+  gl.uniform2f(uniformsFluid.iResolution, width, height);
+  gl.uniform4f(uniformsFluid.iMouse, 
+               mouseX, height-mouseY,
+               pmouseX, height-pmouseY);
+
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fluidDstFbo);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+function renderDrawPass() {
+  gl.useProgram(progDraw);
+
+  // whichever is the newly computed fluid
+  const fluidTex = (fluidDstFbo === fboFluidA) ? texFluidA : texFluidB;
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, fluidTex);
+  gl.uniform1i(uniformsDraw.iChannel0, 0);
+
+  gl.activeTexture(gl.TEXTURE1);
+  gl.bindTexture(gl.TEXTURE_2D, noiseTex);
+  gl.uniform1i(uniformsDraw.iChannel1, 1);
+
+  const now = performance.now();
+  const timeSec = (now - startTime)*0.001;
+  gl.uniform1f(uniformsDraw.iTime, timeSec);
+  gl.uniform2f(uniformsDraw.iResolution, width, height);
+
+  // draw to screen
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+/*-----------------------------------------------------
+  11) Main loop
+------------------------------------------------------*/
+function drawLoop() {
+  // 1) KEY pass
+  renderKeyPass();
+
+  // 2) MOUSE pass
+  renderMousePass();
+
+  // 3) FLUID pass (ping-pong)
+  if(iFrame % 2 === 0) {
+    fluidSrcTex = texFluidA;
+    fluidDstFbo = fboFluidB;
+  } else {
+    fluidSrcTex = texFluidB;
+    fluidDstFbo = fboFluidA;
+  }
+  renderFluidPass();
+
+  // 4) DRAW pass
+  renderDrawPass();
+
+  iFrame++;
+  requestAnimationFrame(drawLoop);
+}
+
+/*-----------------------------------------------------
+  12) Kick it all off
+------------------------------------------------------*/
+resizeCanvas();
+init();
+requestAnimationFrame(drawLoop);
+
+</script>
+</body>
+</html>
