@@ -1,5 +1,23 @@
 ### **README.md**
 
+credits to: https://x.com/YoheiNishitsuji 
+
+// based on original twitter message
+
+```float i,e,R,s;vec3 q,p,d=vec3(FC.xy/r+vec2(-.5,.4),1);for(q.zy--;i++<99.;){o.rgb+=hsv(e*R,-.6,e/12.);s=1.;p=q+=d*e*R*.3;p=vec3(log2(R=length(p))-t*.5,exp2(-p.z/R-.01),atan(p.y,p.x)*s+cos(t)*.03);for(e=--p.y;s<9e2;s+=s)e+=(dot(sin(p.zzy*s)-.53,.5-sin(p.yzx*s)))/s*.2;}#つぶやきGLSL```
+
+
+## **Demo**
+
+Live (Github Pages)
+
+https://immersive-collective.org/projects/more-shaders/valley-config/index2.html
+---
+https://github.com/user-attachments/assets/33c145af-3b76-4d1b-8f26-f3014524f817
+
+You can explore the shader on a live canvas and interact with its settings. The GUI allows you to adjust various properties such as hue, saturation, and animation speed.
+
+
 ---
 
 # **Shader with lil-gui – Extended Terrain & Save/Load Configuration**
@@ -159,6 +177,7 @@ To project the shader onto 3D geometry:
 ## **Contributing**
 
 Contributions are welcome! Please submit issues or pull requests for improvements.
+
 
 ---
 
