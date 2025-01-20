@@ -106,7 +106,7 @@
             virtualBrushRadius: params.virtualBrushRadius,
             virtualBrushSpeed: params.virtualBrushSpeed,
             brushType: params.brushType,
-            filename: `fluid_config_${formattedDate}.json` // Include the filename in metadata
+            filename: `fluid11_config_${formattedDate}.json` // Include the filename in metadata
         };
 
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config));
@@ -130,15 +130,22 @@
         input.accept = '.json';
 
         input.onchange = (e) => {
+
             const file = e.target.files[0];
             if (!file) return;
 
             const reader = new FileReader();
             reader.onload = (event) => {
                 try {
+
                     const config = JSON.parse(event.target.result);
 
-                    // Update only the keys that exist in both `params` and the loaded JSON
+                    // Validate the structure of the JSON
+                    if (!config || typeof config !== 'object') {
+                        throw new Error("Invalid JSON structure.");
+                    }
+
+                    // Update properties of `params` instead of reassigning
                     Object.keys(config).forEach((key) => {
                         if (params.hasOwnProperty(key)) {
                             params[key] = config[key];
@@ -150,14 +157,12 @@
                         console.log("Loaded configuration filename:", config.filename);
                     }
 
-                    // Synchronize lil-gui controllers with the updated parameters
-                    gui.__controllers.forEach((controller) => {
-                        controller.updateDisplay();
-                    });
+                    // Rebuild GUI to synchronize with updated parameters
+                    rebuildGUI();
 
                     console.log("Configuration loaded successfully!");
                 } catch (err) {
-                    console.error("Invalid JSON file:", err.message);
+                    //console.error("Invalid JSON file:", err.message);
                 }
             };
 
@@ -785,6 +790,56 @@
 
 
     // ============================================================================
+    // Rebuild GUI
+    // ============================================================================
+
+function rebuildGUI() {
+    gui.destroy(); // Destroy the current GUI
+
+    // Create a new GUI instance
+    const newGui = new GUI();
+
+    // Re-add all GUI controllers
+    newGui.add(params, "viscosity", 0.0, 0.1, 0.001).name("Viscosity");
+    newGui.add(params, "swirlStrength", 0.0, 20.0, 0.1).name("Swirl Strength");
+    newGui.add(params, "swirlRadius", 50.0, 500.0, 1.0).name("Swirl Radius");
+    newGui.add(params, "swirlDecay", 0.1, 5.0, 0.1).name("Swirl Decay");
+    newGui.add(params, "swirlDirection", { "Clockwise": 1, "Counter-Clockwise": -1 }).name("Swirl Direction");
+    newGui.add(params, "swirlGradient", 0.0, 2.0, 0.01).name("Swirl Gradient");
+    newGui.add(params, "swirlFrequency", 0.0, 5.0, 0.01).name("Swirl Frequency");
+    newGui.addColor(params, "color").name("Fluid Color");
+    newGui.add(params, "intensity", 0.0, 5.0, 0.01).name("Intensity");
+    newGui.add(params, "saturation", 0.0, 2.0, 0.01).name("Saturation");
+    newGui.add(params, "hue", -1.0, 1.0, 0.01).name("Hue");
+    newGui.add(params, "iterations", 1, 20, 1).name("Iterations");
+    newGui.add(params, "speed", 0.001, 10.0, 0.001).name("Speed");
+    newGui.add(params, "paused").name("Pause Animation").onChange((value) => {
+        params.paused = value; // Sync pause state
+    });
+    newGui.add(params, "saveConfig").name("Save Config");
+    newGui.add(params, "loadConfig").name("Load Config");
+    newGui.add(params, "saveAsPNG").name("Save as PNG");
+    newGui.add(params, "saveAsJPG").name("Save as JPG");
+    newGui.add(params, "saveAsWebP").name("Save as WebP");
+
+    // Update brush-related parameters
+    newGui.add(params, "brushMode", { "Mouse Pointer": "mouse", "Virtual Brush": "virtual" })
+        .name("Brush Mode")
+        .onChange((value) => console.log("Brush Mode changed to:", value));
+    newGui.add(params, "virtualBrushRadius", 0.1, 0.5, 0.01).name("Brush Radius");
+    newGui.add(params, "virtualBrushSpeed", 0.1, 5.0, 0.1).name("Brush Speed");
+    newGui.add(params, "brushType", { Circle: "circle", Square: "square", Triangle: "triangle" }).name("Brush Type");
+
+    // Replace the old GUI with the new one
+    gui = newGui;
+}
+
+
+
+
+
+
+    // ============================================================================
     // Function to save canvas as image
     // ============================================================================
     function saveCanvasAsImage(format, quality = 1.0) {
@@ -804,12 +859,17 @@
           return;
       }
 
+      const now = new Date();
+      const pad = (num) => String(num).padStart(2, '0'); // Ensure two-digit format
+      const formattedDate = `${pad(now.getDate())}${pad(now.getMonth() + 1)}${String(now.getFullYear()).slice(-2)}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+
       requestAnimationFrame(() => {
         canvas.toBlob(
           (blob) => {
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `fluid_simulation.${format}`;
+            link.download = `fluid11_simulation-${formattedDate}.${format}`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
