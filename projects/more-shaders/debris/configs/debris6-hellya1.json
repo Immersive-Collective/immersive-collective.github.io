@@ -1,0 +1,9 @@
+{
+  "debrisCount": 100,
+  "debrisIntensity": 96,
+  "speed": 0.01,
+  "trailLength": 0.19,
+  "baseHue": 0.14,
+  "trailDirectionX": -2,
+  "trailDirectionY": -0.2
+}

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Shader with lil-gui – Extended Terrain & Save/Load (Modes: Default, Config, Demo, Edit)</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    #glCanvas {
+      display: block;
+      margin: 0 auto;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+<canvas id="glCanvas"></canvas>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three/examples/jsm/",
+    "three/addons/libs/lil-gui.module.min.js": "https://unpkg.com/three/examples/jsm/libs/lil-gui.module.min.js"
+  }
+}
+</script>
+
+<script type="module">
+
+
+/* 
+
+  Modes:
+  ------------- 
+  "default", 
+  "config", 
+  "demo", 
+  "edit"
+
+*/
+
+
+const mode = "edit"; // Change this value to switch modes
+
+
+import * as THREE from 'three';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+// Default configuration for "default" mode
+const defaultConfigData = {
+  "baseHue": 0.3,
+  "saturation": 1,
+  "valueFactor": 0.53,
+  "rgbMultR": 0.92,
+  "rgbMultG": 0.6,
+  "rgbMultB": 0.28,
+  "brightness": 0.41,
+  "speedOfAnimation": 0.6,
+  "sinAmplitude": 1.45,
+  "sinFrequency": 4.4,
+  "iterationCount": 61,
+  "innerLoopMax": 100,
+  "wavePhase": -3.45,
+  "waveOffset": -1
+}
+
+let settings = {
+  shapeType: 0, // 0 = Plane, 1 = Sphere, 2 = Torus
+  shapeRadius: 1.0,
+  torusTubeSize: 0.25,
+  baseHue: 0.3,
+  saturation: 1,
+  valueFactor: 0.53,
+  rgbMultR: 0.92,
+  rgbMultG: 0.6,
+  rgbMultB: 0.28,
+  brightness: 0.41,
+  speedOfAnimation: 0.6,
+  sinAmplitude: 1.45,
+  sinFrequency: 4.4,
+  iterationCount: 61,
+  innerLoopMax: 100,
+  wavePhase: -3.45,
+  waveOffset: -1
+};
+
+
+let defaultConfig = settings;
+
+
+
+const vertexShaderSource = `#version 300 es
+  in vec4 aPosition;
+  void main() {
+    gl_Position = aPosition;
+  }
+`;
+
+const fragmentShaderSource = `#version 300 es
+
+precision highp float;
+
+uniform float time;
+uniform vec2 resolution;
+
+// Shape controls
+uniform int shapeType;  // 0 = Plane, 1 = Sphere, 2 = Torus
+uniform float shapeRadius;  // Sphere radius or Torus major radius
+uniform float torusTubeSize;  // Torus tube size
+
+// Color controls
+uniform float baseHue;
+uniform float saturation;
+uniform float valueFactor;
+uniform float rgbMultR;
+uniform float rgbMultG;
+uniform float rgbMultB;
+uniform float brightness;
+
+// Terrain/animation controls
+uniform float speedOfAnimation;
+uniform float sinAmplitude;
+uniform float sinFrequency;
+
+// Additional parameters
+uniform float iterationCount;
+uniform float innerLoopMax;
+uniform float wavePhase;
+uniform float waveOffset;
+
+out vec4 fragColor;
+
+vec3 hsv(float h, float s, float v) {
+  vec3 k = vec3(1.0, 2.0 / 3.0, 1.0 / 3.0);
+  vec3 p = abs(fract(vec3(h) + k) * 6.0 - 5.0);
+  return v * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), s);
+}
+
+float sdfSphere(vec3 p, float radius) {
+  return length(p) - radius;
+}
+
+float sdfTorus(vec3 p, float majorRadius, float tubeSize) {
+  vec2 q = vec2(length(p.xz) - majorRadius, p.y);
+  return length(q) - tubeSize;
+}
+
+void main() {
+  vec2 uv = (gl_FragCoord.xy / resolution - 0.5) * 2.0;
+  vec3 p = vec3(uv, 0.0);
+
+  float shapeDist = 0.0;
+  if (shapeType == 1) {
+    shapeDist = sdfSphere(p, shapeRadius);
+  } else if (shapeType == 2) {
+    shapeDist = sdfTorus(p, shapeRadius, torusTubeSize);
+  }
+
+  float wave = sinAmplitude * sin(time * speedOfAnimation + shapeDist * sinFrequency + wavePhase) + waveOffset;
+  vec3 color = hsv(baseHue + wave * 0.02, saturation, valueFactor) * vec3(rgbMultR, rgbMultG, rgbMultB);
+  color += brightness;
+
+  fragColor = vec4(color, 1.0);
+}
+
+
+
+
+
+`;
+
+function createShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+function createProgram(gl, vertexShader, fragmentShader) {
+  const program = gl.createProgram();
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(program));
+    gl.deleteProgram(program);
+    return null;
+  }
+  return program;
+}
+
+function main() {
+  const canvas = document.getElementById("glCanvas");
+  const gl = canvas.getContext("webgl2");
+  if (!gl) {
+    console.error("WebGL 2 not supported");
+    return;
+  }
+
+  const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+  const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+  const program = createProgram(gl, vertexShader, fragmentShader);
+  gl.useProgram(program);
+
+  const positionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([
+      -1, -1, 1, -1, -1,  1,
+      -1,  1, 1, -1,  1,  1
+    ]),
+    gl.STATIC_DRAW
+  );
+
+  const positionLoc = gl.getAttribLocation(program, "aPosition");
+  gl.enableVertexAttribArray(positionLoc);
+  gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+  const timeLoc = gl.getUniformLocation(program, "time");
+  const resolutionLoc = gl.getUniformLocation(program, "resolution");
+
+const uniforms = {
+  shapeTypeLoc: gl.getUniformLocation(program, "shapeType"),
+  shapeRadiusLoc: gl.getUniformLocation(program, "shapeRadius"),
+  torusTubeSizeLoc: gl.getUniformLocation(program, "torusTubeSize"),
+  baseHueLoc: gl.getUniformLocation(program, "baseHue"),
+  saturationLoc: gl.getUniformLocation(program, "saturation"),
+  valueFactorLoc: gl.getUniformLocation(program, "valueFactor"),
+  rgbMultRLoc: gl.getUniformLocation(program, "rgbMultR"),
+  rgbMultGLoc: gl.getUniformLocation(program, "rgbMultG"),
+  rgbMultBLoc: gl.getUniformLocation(program, "rgbMultB"),
+  brightnessLoc: gl.getUniformLocation(program, "brightness"),
+  speedOfAnimationLoc: gl.getUniformLocation(program, "speedOfAnimation"),
+  sinAmplitudeLoc: gl.getUniformLocation(program, "sinAmplitude"),
+  sinFrequencyLoc: gl.getUniformLocation(program, "sinFrequency"),
+  iterationCountLoc: gl.getUniformLocation(program, "iterationCount"),
+  innerLoopMaxLoc: gl.getUniformLocation(program, "innerLoopMax"),
+  wavePhaseLoc: gl.getUniformLocation(program, "wavePhase"),
+  waveOffsetLoc: gl.getUniformLocation(program, "waveOffset"),
+};
+
+
+
+  let settings = { ...defaultConfig };
+  let controllers = [];
+
+  
+  const gui = new GUI();
+
+
+
+if (mode === "edit") {
+  const shapeFolder = gui.addFolder("Shape Controls");
+  controllers.push(shapeFolder.add(settings, "shapeType", { Plane: 0, Sphere: 1, Torus: 2 }).name("Shape Type"));
+  controllers.push(shapeFolder.add(settings, "shapeRadius", 0.1, 5.0, 0.1).name("Shape Radius"));
+  controllers.push(shapeFolder.add(settings, "torusTubeSize", 0.1, 2.0, 0.1).name("Torus Tube Size"));
+
+  const colorFolder = gui.addFolder("Color");
+  controllers.push(colorFolder.add(settings, "baseHue", 0, 1, 0.01).name("Hue"));
+  controllers.push(colorFolder.add(settings, "saturation", 0, 1, 0.01).name("Saturation"));
+  controllers.push(colorFolder.add(settings, "valueFactor", 0, 1, 0.01).name("Value"));
+  controllers.push(colorFolder.add(settings, "rgbMultR", 0, 2, 0.01).name("Red Mult"));
+  controllers.push(colorFolder.add(settings, "rgbMultG", 0, 2, 0.01).name("Green Mult"));
+  controllers.push(colorFolder.add(settings, "rgbMultB", 0, 2, 0.01).name("Blue Mult"));
+  controllers.push(colorFolder.add(settings, "brightness", -0.5, 0.5, 0.01).name("Brightness"));
+
+  const terrainFolder = gui.addFolder("Terrain & Animation");
+  controllers.push(terrainFolder.add(settings, "speedOfAnimation", 0, 3, 0.01).name("Speed"));
+  controllers.push(terrainFolder.add(settings, "sinAmplitude", 0, 3, 0.01).name("Sin Amplitude"));
+  controllers.push(terrainFolder.add(settings, "sinFrequency", 0.1, 10, 0.1).name("Sin Frequency"));
+
+  const extraFolder = gui.addFolder("Additional Params");
+  controllers.push(extraFolder.add(settings, "iterationCount", 1, 200, 1).name("Iteration Count"));
+  controllers.push(extraFolder.add(settings, "innerLoopMax", 50, 1000, 50).name("Inner Loop Max"));
+  controllers.push(extraFolder.add(settings, "wavePhase", -6.28, 6.28, 0.01).name("Wave Phase"));
+  controllers.push(extraFolder.add(settings, "waveOffset", -1, 1, 0.01).name("Wave Offset"));
+}
+
+
+
+
+ else if (mode === "demo") {
+    console.log("GUI hidden in demo mode.");
+    gui.hide(); // Hide the GUI in demo mode
+  }
+
+  if (mode === "config") {
+
+    gui.hide();
+
+    const configFilePath = "./configs/shader-config-soap.json";  // Specify your .json file path here
+
+    fetch(configFilePath)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load config file: ${configFilePath}`);
+        }
+        return response.json();
+      })
+      .then((config) => {
+        Object.assign(settings, config);  // Merge loaded config with settings
+        controllers.forEach((ctrl) => ctrl.updateDisplay());  // Update GUI sliders
+        console.log("Config loaded successfully from:", configFilePath);
+      })
+      .catch((error) => {
+        console.error("Error loading config file:", error);
+      });
+  }
+
+
+
+  function saveConfig() {
+    const config = { ...settings };
+    const jsonStr = JSON.stringify(config, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "shader-config.json";
+    link.click();
+  }
+
+  function loadConfig() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const config = JSON.parse(ev.target.result);
+          for (const key in config) {
+            if (key in settings) {
+              settings[key] = config[key];
+            }
+          }
+          controllers.forEach((ctrl) => ctrl.updateDisplay());
+        } catch (err) {
+          console.error("Error parsing config file:", err);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth * 0.5;
+    canvas.height = window.innerHeight * 0.5;
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+  }
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+
+
+
+  function render(timeMS) {
+    const t = timeMS * 0.001;
+    gl.uniform1f(timeLoc, t);
+    gl.uniform2f(resolutionLoc, gl.canvas.width, gl.canvas.height);
+
+    gl.uniform1i(uniforms.shapeTypeLoc, settings.shapeType);
+    gl.uniform1f(uniforms.shapeRadiusLoc, settings.shapeRadius);
+    gl.uniform1f(uniforms.torusTubeSizeLoc, settings.torusTubeSize);
+
+    for (const key in uniforms) {
+      if (key !== "shapeTypeLoc" && key !== "shapeRadiusLoc" && key !== "torusTubeSizeLoc") {
+        gl.uniform1f(uniforms[key], settings[key.replace("Loc", "")]);
+      }
+    }
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    requestAnimationFrame(render);
+  }
+
+
+
+
+
+  requestAnimationFrame(render);
+}
+
+main();
+</script>
+</body>
+</html>

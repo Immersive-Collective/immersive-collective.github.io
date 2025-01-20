@@ -401,6 +401,7 @@
 
       // Self-consistency
       advected.xy = mix(advected.xy, v * vec2(-1.0, 1.0) * sqrt(0.125) * 0.9, 0.025);
+      //advected.xy = mix(advected.xy, v * vec2(-1.0, 1.0) * sqrt(0.025) * 0.9, 0.025);
 
       // Mouse swirl
       vec4 mData = texelFetch(iChannel3, ivec2(0,0), 0);
@@ -652,6 +653,26 @@
     gui.add(params, "saveAsJPG").name("Save as JPG");   // Save as JPG
     gui.add(params, "saveAsWebP").name("Save as WebP"); // Save as WebP
 
+
+    // Store the GUI controller for 'paused'
+    let pausedController = gui.add(params, "paused").name("Pause Animation").onChange((value) => {
+      params.paused = value; // Synchronize pause state with GUI toggle
+    });
+
+    // Function to toggle pause and update the GUI controller
+    function togglePause() {
+      params.paused = !params.paused;
+      pausedController.updateDisplay(); // Update the GUI display for 'paused'
+    }
+
+    // Add a keydown event listener to toggle pause on pressing "P"
+    window.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "p") {
+        togglePause();
+      }
+    });
+
+
     // ============================================================================
     // Mouse events
     // ============================================================================
@@ -668,12 +689,14 @@
     });
     canvas.addEventListener("mouseup", () => {});
 
+
+
     // ============================================================================
     // Function to save canvas as image
     // ============================================================================
     function saveCanvasAsImage(format) {
       let mimeType;
-      switch(format) {
+      switch (format) {
         case 'png':
           mimeType = 'image/png';
           break;
@@ -688,14 +711,19 @@
           return;
       }
 
-      const dataURL = canvas.toDataURL(mimeType);
-      const link = document.createElement('a');
-      link.href = dataURL;
-      link.download = `fluid_simulation.${format}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Ensure rendering to the main framebuffer is complete
+      requestAnimationFrame(() => {
+        const dataURL = canvas.toDataURL(mimeType);
+        const link = document.createElement('a');
+        link.href = dataURL;
+        link.download = `fluid_simulation.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });
     }
+
+
 
     // ============================================================================
     // Animation loop

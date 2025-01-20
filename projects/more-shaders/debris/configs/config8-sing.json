@@ -1,0 +1,9 @@
+{
+  "debrisCount": 1,
+  "debrisIntensity": 100,
+  "trailAngle": 3.12,
+  "swirlStrength": 0.93,
+  "turbulenceFactor": 1,
+  "baseHue": 0.69,
+  "speed": 0.01
+}
