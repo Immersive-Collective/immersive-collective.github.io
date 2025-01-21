@@ -1181,59 +1181,116 @@ function getVirtualBrushCoordinates(frameCount) {
           }
 
           // 2) FLUID SIMULATION PASS => ping-pong between channel0A and channel0B
-          let inputFluid = (iFrame % 2 === 0) ? channel0A : channel0B;
-          let outputFluid = (iFrame % 2 === 0) ? channel0B : channel0A;
+// 2) FLUID SIMULATION PASS => ping-pong between channel0A and channel0B
+let inputFluid = (iFrame % 2 === 0) ? channel0A : channel0B;
+let outputFluid = (iFrame % 2 === 0) ? channel0B : channel0A;
 
-          gl.useProgram(fluidSimProgram);
-          gl.bindFramebuffer(gl.FRAMEBUFFER, outputFluid.fbo);
-          gl.viewport(0, 0, iResolution[0], iResolution[1]);
+gl.useProgram(fluidSimProgram);
+gl.bindFramebuffer(gl.FRAMEBUFFER, outputFluid.fbo);
+gl.viewport(0, 0, iResolution[0], iResolution[1]);
 
-          // Bind textures to texture units
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, inputFluid.texture);
-          gl.uniform1i(uFs_iChannel0, 0);
+// Bind textures to texture units
+gl.activeTexture(gl.TEXTURE0);
+gl.bindTexture(gl.TEXTURE_2D, inputFluid.texture);
+gl.uniform1i(uFs_iChannel0, 0);
 
-          gl.activeTexture(gl.TEXTURE1);
-          gl.bindTexture(gl.TEXTURE_2D, channel1.texture); // Assuming channel1 is noise
-          gl.uniform1i(uFs_iChannel1, 1);
+gl.activeTexture(gl.TEXTURE1);
+gl.bindTexture(gl.TEXTURE_2D, channel1.texture); // Assuming channel1 is noise
+gl.uniform1i(uFs_iChannel1, 1);
 
-          gl.activeTexture(gl.TEXTURE2);
-          gl.bindTexture(gl.TEXTURE_2D, channel2.texture); // Assuming channel2 is keys
-          gl.uniform1i(uFs_iChannel2, 2);
+gl.activeTexture(gl.TEXTURE2);
+gl.bindTexture(gl.TEXTURE_2D, channel2.texture); // Assuming channel2 is keys
+gl.uniform1i(uFs_iChannel2, 2);
 
-          gl.activeTexture(gl.TEXTURE3);
-          gl.bindTexture(gl.TEXTURE_2D, channel3.texture); // Mouse/brush data
-          gl.uniform1i(uFs_iChannel3, 3);
+gl.activeTexture(gl.TEXTURE3);
+gl.bindTexture(gl.TEXTURE_2D, channel3.texture); // Mouse/brush data
+gl.uniform1i(uFs_iChannel3, 3);
 
-          // Set uniforms
-          gl.uniform3f(uFs_iResolution, iResolution[0], iResolution[1], 1.0);
-          gl.uniform1f(uFs_iTime, time * params.speed);
-          gl.uniform1i(uFs_iFrame, iFrame);
-          gl.uniform4f(
-              uFs_iMouse,
-              brushCoordinates.x / iResolution[0], // Current normalized x
-              brushCoordinates.y / iResolution[1], // Current normalized y
-              brushCoordinates.px / iResolution[0], // Previous normalized x
-              brushCoordinates.py / iResolution[1]  // Previous normalized y
-          );
-          gl.uniform1f(uFs_viscosity, params.viscosity);
-          gl.uniform1f(uFs_swirlStrength, params.swirlStrength);
-          gl.uniform1i(uFs_iterations, params.iterations);
-          gl.uniform1f(uFs_speed, params.speed);
+// Set uniforms
+gl.uniform3f(uFs_iResolution, iResolution[0], iResolution[1], 1.0);
+gl.uniform1f(uFs_iTime, time * params.speed);
+gl.uniform1i(uFs_iFrame, iFrame);
+gl.uniform4f(
+    uFs_iMouse,
+    brushCoordinates.x / iResolution[0], // Current normalized x
+    brushCoordinates.y / iResolution[1], // Current normalized y
+    brushCoordinates.px / iResolution[0], // Previous normalized x
+    brushCoordinates.py / iResolution[1]  // Previous normalized y
+);
+gl.uniform1f(uFs_viscosity, params.viscosity);
+gl.uniform1f(uFs_swirlStrength, params.swirlStrength);
+gl.uniform1i(uFs_iterations, params.iterations);
+gl.uniform1f(uFs_speed, params.speed);
 
-          // Pass the new swirl parameters to the shader
-          gl.uniform1f(uFs_swirlRadius, params.swirlRadius);
-          gl.uniform1f(uFs_swirlDecay, params.swirlDecay);
-          gl.uniform1i(uFs_swirlDirection, params.swirlDirection);
-          gl.uniform1f(uFs_swirlGradient, params.swirlGradient);
-          gl.uniform1f(uFs_swirlFrequency, params.swirlFrequency);
+// Pass the new swirl parameters to the shader
+gl.uniform1f(uFs_swirlRadius, params.swirlRadius);
+gl.uniform1f(uFs_swirlDecay, params.swirlDecay);
+gl.uniform1i(uFs_swirlDirection, params.swirlDirection);
+gl.uniform1f(uFs_swirlGradient, params.swirlGradient);
+gl.uniform1f(uFs_swirlFrequency, params.swirlFrequency);
 
-          // Add invertColors and threshold uniforms
-          gl.uniform1i(gl.getUniformLocation(fluidSimProgram, "uInvertColors"), params.invertColors ? 1 : 0);
-          gl.uniform1f(gl.getUniformLocation(fluidSimProgram, "uThreshold"), params.threshold);
+// Add invertColors and threshold uniforms
+gl.uniform1i(gl.getUniformLocation(fluidSimProgram, "uInvertColors"), params.invertColors ? 1 : 0);
+gl.uniform1f(gl.getUniformLocation(fluidSimProgram, "uThreshold"), params.threshold);
 
-          gl.bindVertexArray(quadVAO);
-          gl.drawArrays(gl.TRIANGLES, 0, 6);
+gl.bindVertexArray(quadVAO);
+gl.drawArrays(gl.TRIANGLES, 0, 6);
+ 
+
+
+          // let inputFluid = (iFrame % 2 === 0) ? channel0A : channel0B;
+          // let outputFluid = (iFrame % 2 === 0) ? channel0B : channel0A;
+
+          // gl.useProgram(fluidSimProgram);
+          // gl.bindFramebuffer(gl.FRAMEBUFFER, outputFluid.fbo);
+          // gl.viewport(0, 0, iResolution[0], iResolution[1]);
+
+          // // Bind textures to texture units
+          // gl.activeTexture(gl.TEXTURE0);
+          // gl.bindTexture(gl.TEXTURE_2D, inputFluid.texture);
+          // gl.uniform1i(uFs_iChannel0, 0);
+
+          // gl.activeTexture(gl.TEXTURE1);
+          // gl.bindTexture(gl.TEXTURE_2D, channel1.texture); // Assuming channel1 is noise
+          // gl.uniform1i(uFs_iChannel1, 1);
+
+          // gl.activeTexture(gl.TEXTURE2);
+          // gl.bindTexture(gl.TEXTURE_2D, channel2.texture); // Assuming channel2 is keys
+          // gl.uniform1i(uFs_iChannel2, 2);
+
+          // gl.activeTexture(gl.TEXTURE3);
+          // gl.bindTexture(gl.TEXTURE_2D, channel3.texture); // Mouse/brush data
+          // gl.uniform1i(uFs_iChannel3, 3);
+
+          // // Set uniforms
+          // gl.uniform3f(uFs_iResolution, iResolution[0], iResolution[1], 1.0);
+          // gl.uniform1f(uFs_iTime, time * params.speed);
+          // gl.uniform1i(uFs_iFrame, iFrame);
+          // gl.uniform4f(
+          //     uFs_iMouse,
+          //     brushCoordinates.x / iResolution[0], // Current normalized x
+          //     brushCoordinates.y / iResolution[1], // Current normalized y
+          //     brushCoordinates.px / iResolution[0], // Previous normalized x
+          //     brushCoordinates.py / iResolution[1]  // Previous normalized y
+          // );
+          // gl.uniform1f(uFs_viscosity, params.viscosity);
+          // gl.uniform1f(uFs_swirlStrength, params.swirlStrength);
+          // gl.uniform1i(uFs_iterations, params.iterations);
+          // gl.uniform1f(uFs_speed, params.speed);
+
+          // // Pass the new swirl parameters to the shader
+          // gl.uniform1f(uFs_swirlRadius, params.swirlRadius);
+          // gl.uniform1f(uFs_swirlDecay, params.swirlDecay);
+          // gl.uniform1i(uFs_swirlDirection, params.swirlDirection);
+          // gl.uniform1f(uFs_swirlGradient, params.swirlGradient);
+          // gl.uniform1f(uFs_swirlFrequency, params.swirlFrequency);
+
+          // // Add invertColors and threshold uniforms
+          // gl.uniform1i(gl.getUniformLocation(fluidSimProgram, "uInvertColors"), params.invertColors ? 1 : 0);
+          // gl.uniform1f(gl.getUniformLocation(fluidSimProgram, "uThreshold"), params.threshold);
+
+          // gl.bindVertexArray(quadVAO);
+          // gl.drawArrays(gl.TRIANGLES, 0, 6);
 
           // Increment frame count
           iFrame++;

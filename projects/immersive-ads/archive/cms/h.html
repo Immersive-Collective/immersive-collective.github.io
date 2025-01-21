@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebXR Motorverse</title>
+    <style>
+
+    body,
+    
+    html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+@font-face { font-family: 'FontA'; src: url(https://play2.s3.amazonaws.com/assets/B_dymbxML.woff2) format('woff2'); }
+
+@font-face {
+    font-family: 'RaceSport';
+    src: url('./fonts/RaceSport.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+}
+
+
+::selection {
+  color: none;
+  background: none;
+}
+
+html {
+  font-size: 12.5px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+canvas {
+  display: block; /* Prevent extra space at the bottom of the canvas */
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  touch-action: none;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  -webkit-tap-highlight-color: transparent;
+  background-color: #121212;
+  font-family: 'RaceSport';
+
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  position: relative; /* Needed for absolute children */
+}
+
+.halo {
+    background: transparent radial-gradient(closest-side at 50% 50%, #632bf3 0, transparent 100%) 0 0 no-repeat padding-box;
+    border-radius: 50%;
+    height: 100vw;
+    opacity: 1;
+    position: fixed;
+    right: -60%;
+    width: 100vw;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.seenthis-player .seenthis-control-bar {
+  top: 5px;
+  display: flex;
+  font-size: 0;
+  height: 42px;
+  left: 1px;
+  opacity: 0;
+  position: absolute;
+  -webkit-transition: opacity .2s ease-in-out;
+  transition: opacity .2s ease-in-out;
+  width: 100%;
+  z-index: 2000;
+}
+.seenthis-player {
+  border-radius: 1.5rem;
+}
+
+#player {
+  position: absolute;
+  width: 444px;
+  height: 100%;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  padding: 0.4rem;
+  background-color: white;
+}
+
+#player video {
+  border-radius: inherit; /* Inherits the border-radius from the parent */
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Keeps video filling without stretching */
+}
+
+
+#creative {
+  box-sizing: border-box;
+  border: 1px solid #000000;
+  overflow: hidden;
+}
+
+.static {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+#VRButton {
+  display: none!important;
+}
+
+.bts {
+  display: inline-flex;
+  color: white;
+  font-size: 0.9rem;
+  border: 1px dotted rgba(255, 255, 255, 0.5);
+  padding: 0.5rem;
+  border-radius: 0.2rem;
+  cursor: pointer;
+  background-color: rgba(255,255,255,0.05);
+  font-family: 'RaceSport';  
+}
+
+.bts:hover {
+  background-color: white;
+  color: black;  
+}
+
+.cam-buttons {
+  display: flex;
+  gap: 0.25rem;
+  position: absolute;
+  bottom: 0.25rem;
+}
+
+#xr-buttons {
+  display: block;
+  position: absolute;
+  width: auto;
+  height: auto;
+  background: none;
+  right: 0;
+  bottom: 0.25rem;
+}
+
+#myspeed {
+  position: absolute;
+  left: 0.25rem;
+  top: 0.25rem;
+  color: white;
+  font-size: 1rem;
+  mix-blend-mode: difference;
+  text-align: right;
+}
+
+#km-meter {
+  position: absolute;
+  left: 0.25rem;
+  top: 2rem;
+  color: white;
+  font-size: 1rem;
+  text-align: right;
+}
+
+#fuel-meter {
+  position: absolute;
+  left: 0.25rem;
+  top: 3rem;
+  color: white;
+  font-size: 1rem;
+  text-align: right;
+}
+
+#damage {
+  position: absolute;
+  right: 0.25rem;
+  top: 0.25rem;
+  color: white;
+  font-size: 1rem;
+  mix-blend-mode: difference;
+  text-align: right;  
+}
+
+#health {
+  position: absolute;
+  right: 50%;
+  top: 0.25rem;
+  color: gray;
+  font-size: 1rem;
+  mix-blend-mode: difference;
+  text-align: right;  
+}
+
+#collisions {
+  position: absolute;
+  right: 50%;
+  top: 1rem;
+  color: gray;
+  font-size: 1rem;
+  mix-blend-mode: difference;
+  text-align: right;  
+}
+
+    </style>
+</head>
+
+<body>
+
+
+<div class="static">
+
+  <div id="app"></div>
+  
+<!--   <div id="xr-buttons">
+    <div id="colorpick" class="bts">Colour</div>
+    <div id="follow" class="bts">Follow</div>
+    <div id="flycam" class="bts">Orbit</div>
+    <div id="fullscreen" class="bts">FS</div>
+    <div id="entervr" class="bts">XR</div>
+  </div>
+  
+  <div class="cam-buttons"></div>
+  <div id="myspeed">Speed</div>
+  <div id="km-meter">Km Meter</div>
+  <div id="fuel-meter">Fuel Meter</div>
+
+  <div id="damage">Damage</div>
+  <div id="collisions">Collisions</div>
+  <div id="health">Health</div> -->
+
+
+</div>
+
+<script src="haagen-dazs.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js Snowfall</title>
+    <style>
+
+    body,
+    
+    html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    #app {
+        width: 100vw;
+        height: 100vh;
+    }
+
+    #fullscreen {
+        position: absolute;
+        bottom: 0.5rem;
+        right: 0.5rem;
+        color: white;
+        font-size: 0.6rem;
+        border: 1px dotted rgba(255, 255, 255, 0.5);
+        padding: 0.5rem;
+        border-radius: 0.2rem;
+        background: rgba(255,255,255,0);
+    }
+
+    #fullscreen:hover {
+        background-color: white;
+        color: black;
+    }
+
+    </style>
+</head>
+
+<body>
+    <button id="fullscreen">Go Fullscreen</button>
+    <div id="app"></div>
+    <script src="cms-mercedes.js"></script>
+</body>
+
+</html>

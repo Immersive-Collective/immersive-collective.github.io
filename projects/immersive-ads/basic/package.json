@@ -1,0 +1,29 @@
+{
+  "name": "basic",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "prestart": "lsof -i :8080 | grep LISTEN | awk '{print $2}' | xargs kill -9 || true",
+    "start": "webpack serve --open",
+    "build": "webpack"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "three": "^0.172.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.21.0",
+    "@babel/preset-env": "^7.21.0",
+    "babel-loader": "^9.1.2",
+    "gltf-loader": "^1.0.0",
+    "html-webpack-plugin": "^5.6.3",
+    "raw-loader": "^4.0.2",
+    "webpack": "^5.97.1",
+    "webpack-bundle-analyzer": "^4.7.0",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.0"
+  }
+}

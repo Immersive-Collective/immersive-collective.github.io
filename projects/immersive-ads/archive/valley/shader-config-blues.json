@@ -1,0 +1,16 @@
+{
+  "baseHue": 0.52,
+  "saturation": 0.86,
+  "valueFactor": 1,
+  "rgbMultR": 1.07,
+  "rgbMultG": 0,
+  "rgbMultB": 2,
+  "brightness": 0.22,
+  "speedOfAnimation": 0.53,
+  "sinAmplitude": 0,
+  "sinFrequency": 10,
+  "iterationCount": 14,
+  "innerLoopMax": 500,
+  "wavePhase": -0.51,
+  "waveOffset": 0.04
+}

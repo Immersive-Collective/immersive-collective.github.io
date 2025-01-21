@@ -1,0 +1,12 @@
+{
+  "baseHue": 0.14,
+  "saturation": 0.6,
+  "valueFactor": 0.32,
+  "rgbMultR": 0.99,
+  "rgbMultG": 0.84,
+  "rgbMultB": 0.38,
+  "brightness": 0,
+  "speedOfAnimation": 0.09,
+  "sinAmplitude": 0,
+  "sinFrequency": 8.1
+}
