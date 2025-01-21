@@ -98,6 +98,8 @@
           "intensity": 2.97,
           "saturation": 2,
           "hue": -0.18,
+          "invertColors": false,      // Toggle for color inversion
+          "threshold": 0.0,           // Threshold value (0.0 - 1.0)
           "iterations": 6,
           "speed": 1,
           "paused": false,
@@ -105,6 +107,7 @@
           "virtualBrushRadius": 0.5,
           "virtualBrushSpeed": 5,
           "brushType": "circle",
+
       
 
 
@@ -470,6 +473,9 @@
     uniform float iTime;
     uniform int iFrame;
     uniform vec4 iMouse;
+    
+    uniform bool uInvertColors;  // Toggle for color inversion
+    uniform float uThreshold;    // Threshold value
 
     // Parameters from GUI
     uniform float viscosity;
@@ -569,6 +575,18 @@
       // Initialization for first few frames
       if(iFrame <= 4){
         advected = vec4(0.0);
+      }
+
+
+      // Apply threshold effect
+      if (uThreshold > 0.0) {
+        float luminance = dot(fluidColor, vec3(0.299, 0.587, 0.114)); // Grayscale luminance
+        fluidColor = luminance > uThreshold ? vec3(1.0) : vec3(0.0);
+      }
+
+      // Apply color inversion
+      if (uInvertColors) {
+        fluidColor = vec3(1.0) - fluidColor;
       }
 
       fragColor = advected * (1.0 - viscosity);
@@ -779,6 +797,9 @@
     gui.add(params, "intensity", 0.0, 5.0, 0.01).name("Intensity");
     gui.add(params, "saturation", 0.0, 2.0, 0.01).name("Saturation");
     gui.add(params, "hue", -1.0, 1.0, 0.01).name("Hue");
+    // Add new controls to the GUI
+    gui.add(params, "invertColors").name("Invert Colors");
+    gui.add(params, "threshold", 0.0, 1.0, 0.01).name("Threshold");    
     gui.add(params, "iterations", 1, 20, 1).name("Iterations");
     gui.add(params, "speed", 0.001, 10.0, 0.001).name("Speed");
     gui.add(params, "paused").name("Pause Animation"); // Pause/Play Toggle
@@ -1101,6 +1122,7 @@ function getVirtualBrushCoordinates(frameCount) {
     // Animation loop
     // ============================================================================
     function draw() {
+
       const now = performance.now();
       const time = (now - startTime) * 0.001;
 
@@ -1118,167 +1140,105 @@ function getVirtualBrushCoordinates(frameCount) {
       }
 
 
-if (!params.paused) {
-    // 1) MOUSE DETECTION PASS => writes to channel3
-    gl.useProgram(mouseDetectProgram);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, channel3.fbo);
-    gl.viewport(0, 0, iResolution[0], iResolution[1]);
+      if (!params.paused) {
+          // 1) MOUSE DETECTION PASS => writes to channel3
+          gl.useProgram(mouseDetectProgram);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, channel3.fbo);
+          gl.viewport(0, 0, iResolution[0], iResolution[1]);
 
-    let brushCoordinates;
-    if (params.brushMode === "mouse") {
-        // Use mouse coordinates
-        brushCoordinates = {
-            x: mouse.x * iResolution[0],
-            y: mouse.y * iResolution[1],
-            px: mouse.px * iResolution[0],
-            py: mouse.py * iResolution[1]
-        };
-    } else if (params.brushMode === "virtual") {
-        // Use virtual brush coordinates
-        brushCoordinates = getVirtualBrushCoordinates(iFrame);
-        brushCoordinates.px = brushCoordinates.x; // Virtual brush doesn't have a "previous" frame
-        brushCoordinates.py = brushCoordinates.y;
-    }
+          let brushCoordinates;
+          if (params.brushMode === "mouse") {
+              // Use mouse coordinates
+              brushCoordinates = {
+                  x: mouse.x * iResolution[0],
+                  y: mouse.y * iResolution[1],
+                  px: mouse.px * iResolution[0],
+                  py: mouse.py * iResolution[1]
+              };
+          } else if (params.brushMode === "virtual") {
+              // Use virtual brush coordinates
+              brushCoordinates = getVirtualBrushCoordinates(iFrame);
+              brushCoordinates.px = brushCoordinates.x; // Virtual brush doesn't have a "previous" frame
+              brushCoordinates.py = brushCoordinates.y;
+          }
 
-    // Pass current and previous positions to the shader
-    gl.uniform4f(
-        uMd_iMouse,
-        brushCoordinates.x / iResolution[0], // Normalize current x
-        brushCoordinates.y / iResolution[1], // Normalize current y
-        brushCoordinates.px / iResolution[0], // Normalize previous x
-        brushCoordinates.py / iResolution[1]  // Normalize previous y
-    );
+          // Pass current and previous positions to the shader
+          gl.uniform4f(
+              uMd_iMouse,
+              brushCoordinates.x / iResolution[0], // Normalize current x
+              brushCoordinates.y / iResolution[1], // Normalize current y
+              brushCoordinates.px / iResolution[0], // Normalize previous x
+              brushCoordinates.py / iResolution[1]  // Normalize previous y
+          );
 
-    gl.bindVertexArray(quadVAO);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+          gl.bindVertexArray(quadVAO);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-    // Update old mouse positions (only for mouse mode)
-    if (params.brushMode === "mouse") {
-        mouse.px = mouse.x;
-        mouse.py = mouse.y;
-    }
+          // Update old mouse positions (only for mouse mode)
+          if (params.brushMode === "mouse") {
+              mouse.px = mouse.x;
+              mouse.py = mouse.y;
+          }
 
-    // 2) FLUID SIMULATION PASS => ping-pong between channel0A and channel0B
-    let inputFluid = (iFrame % 2 === 0) ? channel0A : channel0B;
-    let outputFluid = (iFrame % 2 === 0) ? channel0B : channel0A;
+          // 2) FLUID SIMULATION PASS => ping-pong between channel0A and channel0B
+          let inputFluid = (iFrame % 2 === 0) ? channel0A : channel0B;
+          let outputFluid = (iFrame % 2 === 0) ? channel0B : channel0A;
 
-    gl.useProgram(fluidSimProgram);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, outputFluid.fbo);
-    gl.viewport(0, 0, iResolution[0], iResolution[1]);
+          gl.useProgram(fluidSimProgram);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, outputFluid.fbo);
+          gl.viewport(0, 0, iResolution[0], iResolution[1]);
 
-    // Bind textures to texture units
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, inputFluid.texture);
-    gl.uniform1i(uFs_iChannel0, 0);
+          // Bind textures to texture units
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, inputFluid.texture);
+          gl.uniform1i(uFs_iChannel0, 0);
 
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, channel1.texture); // Assuming channel1 is noise
-    gl.uniform1i(uFs_iChannel1, 1);
+          gl.activeTexture(gl.TEXTURE1);
+          gl.bindTexture(gl.TEXTURE_2D, channel1.texture); // Assuming channel1 is noise
+          gl.uniform1i(uFs_iChannel1, 1);
 
-    gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D, channel2.texture); // Assuming channel2 is keys
-    gl.uniform1i(uFs_iChannel2, 2);
+          gl.activeTexture(gl.TEXTURE2);
+          gl.bindTexture(gl.TEXTURE_2D, channel2.texture); // Assuming channel2 is keys
+          gl.uniform1i(uFs_iChannel2, 2);
 
-    gl.activeTexture(gl.TEXTURE3);
-    gl.bindTexture(gl.TEXTURE_2D, channel3.texture); // Mouse/brush data
-    gl.uniform1i(uFs_iChannel3, 3);
+          gl.activeTexture(gl.TEXTURE3);
+          gl.bindTexture(gl.TEXTURE_2D, channel3.texture); // Mouse/brush data
+          gl.uniform1i(uFs_iChannel3, 3);
 
-    // Set uniforms
-    gl.uniform3f(uFs_iResolution, iResolution[0], iResolution[1], 1.0);
-    gl.uniform1f(uFs_iTime, time * params.speed);
-    gl.uniform1i(uFs_iFrame, iFrame);
-    gl.uniform4f(
-        uFs_iMouse,
-        brushCoordinates.x / iResolution[0], // Current normalized x
-        brushCoordinates.y / iResolution[1], // Current normalized y
-        brushCoordinates.px / iResolution[0], // Previous normalized x
-        brushCoordinates.py / iResolution[1]  // Previous normalized y
-    );
-    gl.uniform1f(uFs_viscosity, params.viscosity);
-    gl.uniform1f(uFs_swirlStrength, params.swirlStrength);
-    gl.uniform1i(uFs_iterations, params.iterations);
-    gl.uniform1f(uFs_speed, params.speed);
+          // Set uniforms
+          gl.uniform3f(uFs_iResolution, iResolution[0], iResolution[1], 1.0);
+          gl.uniform1f(uFs_iTime, time * params.speed);
+          gl.uniform1i(uFs_iFrame, iFrame);
+          gl.uniform4f(
+              uFs_iMouse,
+              brushCoordinates.x / iResolution[0], // Current normalized x
+              brushCoordinates.y / iResolution[1], // Current normalized y
+              brushCoordinates.px / iResolution[0], // Previous normalized x
+              brushCoordinates.py / iResolution[1]  // Previous normalized y
+          );
+          gl.uniform1f(uFs_viscosity, params.viscosity);
+          gl.uniform1f(uFs_swirlStrength, params.swirlStrength);
+          gl.uniform1i(uFs_iterations, params.iterations);
+          gl.uniform1f(uFs_speed, params.speed);
 
-    // Pass the new swirl parameters to the shader
-    gl.uniform1f(uFs_swirlRadius, params.swirlRadius);
-    gl.uniform1f(uFs_swirlDecay, params.swirlDecay);
-    gl.uniform1i(uFs_swirlDirection, params.swirlDirection);
-    gl.uniform1f(uFs_swirlGradient, params.swirlGradient);
-    gl.uniform1f(uFs_swirlFrequency, params.swirlFrequency);
+          // Pass the new swirl parameters to the shader
+          gl.uniform1f(uFs_swirlRadius, params.swirlRadius);
+          gl.uniform1f(uFs_swirlDecay, params.swirlDecay);
+          gl.uniform1i(uFs_swirlDirection, params.swirlDirection);
+          gl.uniform1f(uFs_swirlGradient, params.swirlGradient);
+          gl.uniform1f(uFs_swirlFrequency, params.swirlFrequency);
 
-    gl.bindVertexArray(quadVAO);
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+          // Add invertColors and threshold uniforms
+          gl.uniform1i(gl.getUniformLocation(fluidSimProgram, "uInvertColors"), params.invertColors ? 1 : 0);
+          gl.uniform1f(gl.getUniformLocation(fluidSimProgram, "uThreshold"), params.threshold);
 
-    // Increment frame count
-    iFrame++;
-}
+          gl.bindVertexArray(quadVAO);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
 
+          // Increment frame count
+          iFrame++;
+      }
 
-
-      // if (!params.paused) {
-      //   // 1) MOUSE DETECTION PASS => writes to channel3
-      //   gl.useProgram(mouseDetectProgram);
-      //   gl.bindFramebuffer(gl.FRAMEBUFFER, channel3.fbo);
-      //   gl.viewport(0, 0, iResolution[0], iResolution[1]);
-
-      //   // Pass current and old mouse positions
-      //   gl.uniform4f(uMd_iMouse, mouse.x, mouse.y, mouse.px, mouse.py);
-
-      //   gl.bindVertexArray(quadVAO);
-      //   gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-      //   // Update old mouse positions
-      //   mouse.px = mouse.x;
-      //   mouse.py = mouse.y;
-
-      //   // 2) FLUID SIMULATION PASS => ping-pong between channel0A and channel0B
-      //   let inputFluid  = (iFrame % 2 === 0) ? channel0A : channel0B;
-      //   let outputFluid = (iFrame % 2 === 0) ? channel0B : channel0A;
-
-      //   gl.useProgram(fluidSimProgram);
-      //   gl.bindFramebuffer(gl.FRAMEBUFFER, outputFluid.fbo);
-      //   gl.viewport(0, 0, iResolution[0], iResolution[1]);
-
-      //   // Bind textures to texture units
-      //   gl.activeTexture(gl.TEXTURE0);
-      //   gl.bindTexture(gl.TEXTURE_2D, inputFluid.texture);
-      //   gl.uniform1i(uFs_iChannel0, 0);
-
-      //   gl.activeTexture(gl.TEXTURE1);
-      //   gl.bindTexture(gl.TEXTURE_2D, channel1.texture); // Assuming channel1 is noise
-      //   gl.uniform1i(uFs_iChannel1, 1);
-
-      //   gl.activeTexture(gl.TEXTURE2);
-      //   gl.bindTexture(gl.TEXTURE_2D, channel2.texture); // Assuming channel2 is keys
-      //   gl.uniform1i(uFs_iChannel2, 2);
-
-      //   gl.activeTexture(gl.TEXTURE3);
-      //   gl.bindTexture(gl.TEXTURE_2D, channel3.texture); // Mouse data
-      //   gl.uniform1i(uFs_iChannel3, 3);
-
-      //   // Set uniforms
-      //   gl.uniform3f(uFs_iResolution, iResolution[0], iResolution[1], 1.0);
-      //   gl.uniform1f(uFs_iTime, time * params.speed);
-      //   gl.uniform1i(uFs_iFrame, iFrame);
-      //   gl.uniform4f(uFs_iMouse, mouse.x, mouse.y, mouse.px, mouse.py);
-      //   gl.uniform1f(uFs_viscosity, params.viscosity);
-      //   gl.uniform1f(uFs_swirlStrength, params.swirlStrength);
-      //   gl.uniform1i(uFs_iterations, params.iterations);
-      //   gl.uniform1f(uFs_speed, params.speed);
-
-      //   // Pass the new swirl parameters to the shader
-      //   gl.uniform1f(uFs_swirlRadius, params.swirlRadius);
-      //   gl.uniform1f(uFs_swirlDecay, params.swirlDecay);
-      //   gl.uniform1i(uFs_swirlDirection, params.swirlDirection);
-      //   gl.uniform1f(uFs_swirlGradient, params.swirlGradient);
-      //   gl.uniform1f(uFs_swirlFrequency, params.swirlFrequency);
-
-      //   gl.bindVertexArray(quadVAO);
-      //   gl.drawArrays(gl.TRIANGLES, 0, 6);
-
-      //   // Increment frame count
-      //   iFrame++;
-      // }
 
       // 3) Final Render Pass => Draw to screen
       gl.useProgram(finalRenderProgram);
