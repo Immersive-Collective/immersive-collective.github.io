@@ -42,6 +42,7 @@
   </script>
 
   <script type="module">
+
     import { GUI } from 'lil-gui';
 
     // ============================================================================
@@ -57,27 +58,77 @@
     const gl = canvas.getContext('webgl2');
     if (!gl) throw new Error("WebGL2 not supported");
 
+    // Default payload (example configLoad)
+    let jsonString = `{
+      "viscosity": 0,
+      "swirlStrength": 20,
+      "swirlRadius": 200,
+      "swirlDecay": 0.1,
+      "swirlDirection": 1,
+      "swirlGradient": 2,
+      "swirlFrequency": 0,
+      "color": "#444240",
+      "intensity": 2.97,
+      "saturation": 2,
+      "hue": -0.18,
+      "iterations": 6,
+      "speed": 1,
+      "paused": false,
+      "brushMode": "virtual",
+      "virtualBrushRadius": 0.5,
+      "virtualBrushSpeed": 5,
+      "brushType": "circle",
+      "filename": "fluid11_config_200125-233445.json"
+    }`;
+
+    //console.log(JSON.parse(jsonString))
+
+
     // Parameters for the simulation
     let params = {
-      viscosity: 0.02,
-      swirlStrength: 5.0,
-      swirlRadius: 200.0,        // New parameter
-      swirlDecay: 1.0,           // New parameter
-      swirlDirection: 1,         // 1 for Clockwise, -1 for Counter-Clockwise
-      swirlGradient: 1.0,        // New parameter
-      swirlFrequency: 1.0,       // New parameter
-      color: '#00ff00', // Default green
-      intensity: 1.0,
-      saturation: 1.0,
-      hue: 0.0,
-      iterations: 5,
-      speed: 1.0,
-      paused: false, // New parameter for pause/play
 
-      brushMode: "mouse", // Modes: "mouse" or "virtual"
-      virtualBrushRadius: 0.25, // Relative size of the virtual brush radius (fraction of half-screen width)
-      virtualBrushSpeed: 1.0,   // Speed of the virtual brush movement
-      brushType: "circle",      // Type of virtual brush: circle, square, or triangle
+          "viscosity": 0,
+          "swirlStrength": 20,
+          "swirlRadius": 200,
+          "swirlDecay": 0.1,
+          "swirlDirection": 1,
+          "swirlGradient": 2,
+          "swirlFrequency": 0,
+          "color": "#444240",
+          "intensity": 2.97,
+          "saturation": 2,
+          "hue": -0.18,
+          "iterations": 6,
+          "speed": 1,
+          "paused": false,
+          "brushMode": "virtual",
+          "virtualBrushRadius": 0.5,
+          "virtualBrushSpeed": 5,
+          "brushType": "circle",
+      
+
+
+      // viscosity: 0.02,
+      // swirlStrength: 5.0,
+      // swirlRadius: 200.0,        // New parameter
+      // swirlDecay: 1.0,           // New parameter
+      // swirlDirection: 1,         // 1 for Clockwise, -1 for Counter-Clockwise
+      // swirlGradient: 1.0,        // New parameter
+      // swirlFrequency: 1.0,       // New parameter
+      // color: '#00ff00', // Default green
+      // intensity: 1.0,
+      // saturation: 1.0,
+      // hue: 0.0,
+      // iterations: 5,
+      // speed: 1.0,
+      // paused: false, // New parameter for pause/play
+
+      // brushMode: "mouse", // Modes: "mouse" or "virtual"
+      // virtualBrushRadius: 0.25, // Relative size of the virtual brush radius (fraction of half-screen width)
+      // virtualBrushSpeed: 1.0,   // Speed of the virtual brush movement
+      // brushType: "circle",      // Type of virtual brush: circle, square, or triangle
+
+
 
       saveConfig: function() {
 
@@ -183,7 +234,47 @@
       saveAsWebP: function() {
         saveCanvasAsImage('webp');
       }
+
+
     };
+
+
+    params.loadConfigFromFile = function (filePath) {
+      fetch(filePath)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to load file: ${response.statusText}`);
+          }
+          return response.json();
+        })
+        .then(config => {
+          Object.keys(config).forEach(key => {
+            if (params.hasOwnProperty(key)) {
+              params[key] = config[key];
+            }
+          });
+          rebuildGUI(); // Update GUI with new params
+          console.log("Configuration loaded successfully from file:", filePath);
+        })
+        .catch(err => console.error("Error loading configuration:", err.message));
+    };
+
+    params.loadConfigFromString = function (jsonString) {
+      try {
+        const config = JSON.parse(jsonString);
+        Object.keys(config).forEach(key => {
+          if (params.hasOwnProperty(key)) {
+            params[key] = config[key];
+          }
+        });
+        rebuildGUI(); // Update GUI with new params
+        console.log("Configuration loaded successfully from string.");
+      } catch (err) {
+        console.error("Invalid JSON string:", err.message);
+      }
+    };
+
+
 
     // ============================================================================
     // Initialize iResolution before defining and calling resizeCanvas
@@ -698,16 +789,25 @@
     gui.add(params, "saveAsWebP").name("Save as WebP"); // Save as WebP
 
     // gui.add(params, "brushMode", { "Mouse Pointer": "mouse", "Virtual Brush": "virtual" }).name("Brush Mode");
-    gui.add(params, "brushMode", { "Mouse Pointer": "mouse", "Virtual Brush": "virtual" })
-      .name("Brush Mode")
-      .onChange((value) => {
-        console.log("Brush Mode changed to:", value);
-      });
-
+    // gui.add(params, "brushMode", { "Mouse Pointer": "mouse", "Virtual Brush": "virtual" })
+    //   .name("Brush Mode")
+    //   .onChange((value) => {
+    //     console.log("Brush Mode changed to:", value);
+    //   });
+    gui.add(params, "brushType", {
+      Circle: "circle",
+      Square: "square",
+      Triangle: "triangle",
+      Spiral: "spiral",
+      "Figure 8": "figure8"
+    }).name("Brush Type");
 
     gui.add(params, "virtualBrushRadius", 0.1, 0.5, 0.01).name("Brush Radius");
     gui.add(params, "virtualBrushSpeed", 0.1, 5.0, 0.1).name("Brush Speed");
     gui.add(params, "brushType", { Circle: "circle", Square: "square", Triangle: "triangle" }).name("Brush Type");
+
+
+    //params.loadConfigFromString(jsonString);
 
 
     // Store the GUI controller for 'paused'
@@ -730,42 +830,137 @@
 
 
     // ============================================================================
+    // Hide GUI and FS
+    // ============================================================================
+
+    let isGUIVisible = true; // Track GUI visibility
+
+    // Add keydown event listener for hiding GUI ('H') and toggling fullscreen ('F')
+    window.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "h") {
+        isGUIVisible = !isGUIVisible; // Toggle GUI visibility
+
+        // Hide or show all GUI containers
+        const guiContainers = document.querySelectorAll(".lil-gui"); // lil-gui uses 'lil-gui' class
+        guiContainers.forEach((container) => {
+          container.style.display = isGUIVisible ? "block" : "none"; // Toggle visibility
+        });
+      }
+
+      if (e.key.toLowerCase() === "f") {
+        toggleFullScreen();
+      }
+    });
+
+    // Function to toggle full-screen mode
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        canvas.requestFullscreen().catch((err) => {
+          console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+
+    // ============================================================================
     // Virtual Brush
     // ============================================================================
 
 
-    function getVirtualBrushCoordinates(frameCount) {
-      const centerX = iResolution[0] / 2;
-      const centerY = iResolution[1] / 2;
-      const radius = (iResolution[0] / 2) * params.virtualBrushRadius;
+function getVirtualBrushCoordinates(frameCount) {
+  const centerX = iResolution[0] / 2;
+  const centerY = iResolution[1] / 2;
+  const maxRadius = (iResolution[0] / 2) * params.virtualBrushRadius;
 
-      const adjustedFrame = frameCount * params.virtualBrushSpeed;
+  const adjustedFrame = frameCount * params.virtualBrushSpeed;
 
-      switch (params.brushType) {
-        case "circle":
-          const angle = (adjustedFrame * 0.01) % (2 * Math.PI);
-          return {
-            x: centerX + radius * Math.cos(angle),
-            y: centerY + radius * Math.sin(angle),
-          };
-
-        case "square":
-          const period = adjustedFrame % 400; // Periodic motion
-          if (period < 100) return { x: centerX + radius, y: centerY + radius * (period / 100) };
-          if (period < 200) return { x: centerX + radius * (1 - (period - 100) / 100), y: centerY + radius };
-          if (period < 300) return { x: centerX - radius, y: centerY + radius * (1 - (period - 200) / 100) };
-          return { x: centerX - radius * (1 - (period - 300) / 100), y: centerY - radius };
-
-        case "triangle":
-          const trianglePeriod = adjustedFrame % 300;
-          if (trianglePeriod < 100) return { x: centerX + radius * (trianglePeriod / 100), y: centerY + radius };
-          if (trianglePeriod < 200) return { x: centerX + radius - radius * ((trianglePeriod - 100) / 100), y: centerY - radius };
-          return { x: centerX - radius, y: centerY - radius + radius * ((trianglePeriod - 200) / 100) };
-
-        default:
-          return { x: centerX, y: centerY };
-      }
+  switch (params.brushType) {
+    case "circle": {
+      const angle = (adjustedFrame * 0.01) % (2 * Math.PI);
+      return {
+        x: centerX + maxRadius * Math.cos(angle),
+        y: centerY + maxRadius * Math.sin(angle),
+      };
     }
+
+    case "square": {
+      const period = adjustedFrame % 400; // Periodic motion
+      if (period < 100)
+        return { x: centerX + maxRadius, y: centerY + maxRadius * (period / 100) };
+      if (period < 200)
+        return {
+          x: centerX + maxRadius * (1 - (period - 100) / 100),
+          y: centerY + maxRadius,
+        };
+      if (period < 300)
+        return {
+          x: centerX - maxRadius,
+          y: centerY + maxRadius * (1 - (period - 200) / 100),
+        };
+      return {
+        x: centerX - maxRadius * (1 - (period - 300) / 100),
+        y: centerY - maxRadius,
+      };
+    }
+
+    case "triangle": {
+      const trianglePeriod = adjustedFrame % 300;
+      if (trianglePeriod < 100)
+        return {
+          x: centerX + maxRadius * (trianglePeriod / 100),
+          y: centerY + maxRadius,
+        };
+      if (trianglePeriod < 200)
+        return {
+          x: centerX + maxRadius - maxRadius * ((trianglePeriod - 100) / 100),
+          y: centerY - maxRadius,
+        };
+      return {
+        x: centerX - maxRadius,
+        y: centerY - maxRadius + maxRadius * ((trianglePeriod - 200) / 100),
+      };
+    }
+
+    case "spiral": {
+      const totalTime = 2000; // Total frames for one full outward and inward cycle
+      const progress = (adjustedFrame % totalTime) / totalTime; // Normalize to [0, 1]
+
+      // Determine if the spiral is expanding or contracting
+      const isExpanding = progress < 0.5;
+      const normalizedProgress = isExpanding
+        ? progress * 2 // Expanding phase
+        : (1 - progress) * 2; // Contracting phase
+
+      // Calculate spiral radius based on normalized progress
+      const spiralRadius = maxRadius * normalizedProgress;
+
+      // Spiral angle increases with each frame
+      const spiralAngle = adjustedFrame * 0.05;
+
+      return {
+        x: centerX + spiralRadius * Math.cos(spiralAngle),
+        y: centerY + spiralRadius * Math.sin(spiralAngle),
+      };
+    }
+
+    case "figure8": {
+      const figure8Angle = adjustedFrame * 0.01;
+      const a = maxRadius * 0.5; // Horizontal radius
+      const b = maxRadius * 0.25; // Vertical radius
+      return {
+        x: centerX + a * Math.sin(figure8Angle),
+        y: centerY + b * Math.sin(2 * figure8Angle), // Creates the figure-eight pattern
+      };
+    }
+
+    default:
+      return { x: centerX, y: centerY };
+  }
+}
+
+
 
 
 
@@ -826,6 +1021,16 @@ function rebuildGUI() {
     newGui.add(params, "brushMode", { "Mouse Pointer": "mouse", "Virtual Brush": "virtual" })
         .name("Brush Mode")
         .onChange((value) => console.log("Brush Mode changed to:", value));
+
+    newGui.add(params, "brushType", {
+      Circle: "circle",
+      Square: "square",
+      Triangle: "triangle",
+      Spiral: "spiral",
+      "Figure 8": "figure8"
+    }).name("Brush Type");
+
+
     newGui.add(params, "virtualBrushRadius", 0.1, 0.5, 0.01).name("Brush Radius");
     newGui.add(params, "virtualBrushSpeed", 0.1, 5.0, 0.1).name("Brush Speed");
     newGui.add(params, "brushType", { Circle: "circle", Square: "square", Triangle: "triangle" }).name("Brush Type");
@@ -882,7 +1087,7 @@ function rebuildGUI() {
 
     window.addEventListener("keydown", (e) => {
       if (e.key.toLowerCase() === "s") {
-        saveCanvasAsImage("webp", 0.8); // Save as WebP with 80% quality
+        saveCanvasAsImage("webp", 0.95); // Save as WebP with 80% quality
       }
     });
 
@@ -1103,6 +1308,8 @@ if (!params.paused) {
 
     // Start the animation loop
     requestAnimationFrame(draw);
+
+
   </script>
 </body>
 </html>
