@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Interactive Fluid Simulation with lil-gui</title>
+  <style>
+    /* Ensure the canvas fills the entire window */
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden; /* Prevent scrollbars */
+      background-color: #000; /* Optional: Black background */
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Position the GUI in the top-right corner */
+    .dg {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="glCanvas"></canvas>
+
+  <!-- Import lil-gui from CDN -->
+  <script type="importmap">
+  {
+    "imports": {
+      "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18/dist/lil-gui.esm.min.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+
+    import { GUI } from 'lil-gui';
+
+    // ============================================================================
+    // Utility stubs for Shadertoy-like calls referenced in the original fluid code
+    // (These are placeholders and should be replaced with actual implementations if available.)
+    // ============================================================================
+    const PI2 = 6.283185307179586;
+
+    // ============================================================================
+    // Basic WebGL2 setup
+    // ============================================================================
+    const canvas = document.getElementById('glCanvas');
+    const gl = canvas.getContext('webgl2');
+    if (!gl) throw new Error("WebGL2 not supported");
+
+    // Default payload (example configLoad)
+    let jsonString = `{
+      "viscosity": 0,
+      "swirlStrength": 20,
+      "swirlRadius": 200,
+      "swirlDecay": 0.1,
+      "swirlDirection": 1,
+      "swirlGradient": 2,
+      "swirlFrequency": 0,
+      "color": "#444240",
+      "intensity": 2.97,
+      "saturation": 2,
+      "hue": -0.18,
+      "iterations": 6,
+      "speed": 1,
+      "paused": false,
+      "brushMode": "virtual",
+      "virtualBrushRadius": 0.5,
+      "virtualBrushSpeed": 5,
+      "brushType": "circle",
+      "filename": "fluid11_config_200125-233445.json"
+    }`;
+
+    //console.log(JSON.parse(jsonString))
+
+
+    // Parameters for the simulation
+    let params = {
+
+          "viscosity": 0,
+          "swirlStrength": 20,
+          "swirlRadius": 200,
+          "swirlDecay": 0.1,
+          "swirlDirection": 1,
+          "swirlGradient": 2,
+          "swirlFrequency": 0,
+          "color": "#444240",
+          "intensity": 2.97,
+          "saturation": 2,
+          "hue": -0.18,
+          "iterations": 6,
+          "speed": 1,
+          "paused": false,
+          "brushMode": "virtual",
+          "virtualBrushRadius": 0.5,
+          "virtualBrushSpeed": 5,
+          "brushType": "circle",
+      
+
+
+      // viscosity: 0.02,
+      // swirlStrength: 5.0,
+      // swirlRadius: 200.0,        // New parameter
+      // swirlDecay: 1.0,           // New parameter
+      // swirlDirection: 1,         // 1 for Clockwise, -1 for Counter-Clockwise
+      // swirlGradient: 1.0,        // New parameter
+      // swirlFrequency: 1.0,       // New parameter
+      // color: '#00ff00', // Default green
+      // intensity: 1.0,
+      // saturation: 1.0,
+      // hue: 0.0,
+      // iterations: 5,
+      // speed: 1.0,
+      // paused: false, // New parameter for pause/play
+
+      // brushMode: "mouse", // Modes: "mouse" or "virtual"
+      // virtualBrushRadius: 0.25, // Relative size of the virtual brush radius (fraction of half-screen width)
+      // virtualBrushSpeed: 1.0,   // Speed of the virtual brush movement
+      // brushType: "circle",      // Type of virtual brush: circle, square, or triangle
+
+
+
+      saveConfig: function() {
+
+
+        const now = new Date();
+        const pad = (num) => String(num).padStart(2, '0'); // Ensure two-digit format
+        const formattedDate = `${pad(now.getDate())}${pad(now.getMonth() + 1)}${String(now.getFullYear()).slice(-2)}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+
+        const config = {
+            viscosity: params.viscosity,
+            swirlStrength: params.swirlStrength,
+            swirlRadius: params.swirlRadius,
+            swirlDecay: params.swirlDecay,
+            swirlDirection: params.swirlDirection,
+            swirlGradient: params.swirlGradient,
+            swirlFrequency: params.swirlFrequency,
+            color: params.color,
+            intensity: params.intensity,
+            saturation: params.saturation,
+            hue: params.hue,
+            iterations: params.iterations,
+            speed: params.speed,
+            paused: params.paused,
+            brushMode: params.brushMode,
+            virtualBrushRadius: params.virtualBrushRadius,
+            virtualBrushSpeed: params.virtualBrushSpeed,
+            brushType: params.brushType,
+            filename: `fluid11_config_${formattedDate}.json` // Include the filename in metadata
+        };
+
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", config.filename);
+
+        document.body.appendChild(downloadAnchorNode); // Required for Firefox
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+
+
+
+      },
+
+
+      loadConfig: function () {
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+
+        input.onchange = (e) => {
+
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+
+                    const config = JSON.parse(event.target.result);
+
+                    // Validate the structure of the JSON
+                    if (!config || typeof config !== 'object') {
+                        throw new Error("Invalid JSON structure.");
+                    }
+
+                    // Update properties of `params` instead of reassigning
+                    Object.keys(config).forEach((key) => {
+                        if (params.hasOwnProperty(key)) {
+                            params[key] = config[key];
+                        }
+                    });
+
+                    // Log the filename from the metadata, if available
+                    if (config.filename) {
+                        console.log("Loaded configuration filename:", config.filename);
+                    }
+
+                    // Rebuild GUI to synchronize with updated parameters
+                    rebuildGUI();
+
+                    console.log("Configuration loaded successfully!");
+                } catch (err) {
+                    //console.error("Invalid JSON file:", err.message);
+                }
+            };
+
+            reader.readAsText(file);
+        };
+
+        input.click();
+
+      },
+
+
+      saveAsPNG: function() {
+        saveCanvasAsImage('png');
+      },
+      saveAsJPG: function() {
+        saveCanvasAsImage('jpeg');
+      },
+      saveAsWebP: function() {
+        saveCanvasAsImage('webp');
+      }
+
+
+    };
+
+
+    params.loadConfigFromFile = function (filePath) {
+      fetch(filePath)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to load file: ${response.statusText}`);
+          }
+          return response.json();
+        })
+        .then(config => {
+          Object.keys(config).forEach(key => {
+            if (params.hasOwnProperty(key)) {
+              params[key] = config[key];
+            }
+          });
+          rebuildGUI(); // Update GUI with new params
+          console.log("Configuration loaded successfully from file:", filePath);
+        })
+        .catch(err => console.error("Error loading configuration:", err.message));
+    };
+
+    params.loadConfigFromString = function (jsonString) {
+      try {
+        const config = JSON.parse(jsonString);
+        Object.keys(config).forEach(key => {
+          if (params.hasOwnProperty(key)) {
+            params[key] = config[key];
+          }
+        });
+        rebuildGUI(); // Update GUI with new params
+        console.log("Configuration loaded successfully from string.");
+      } catch (err) {
+        console.error("Invalid JSON string:", err.message);
+      }
+    };
+
+
+
+    // ============================================================================
+    // Initialize iResolution before defining and calling resizeCanvas
+    // ============================================================================
+    let iResolution = [canvas.width, canvas.height];
+
+    // ============================================================================
+    // Initialize framebuffers and textures
+    // ============================================================================
+    let channel0A = null, channel0B = null, channel1 = null, channel2 = null, channel3 = null;
+
+    function createFBO(width, height) {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(
+        gl.TEXTURE_2D, 0, gl.RGBA,
+        width, height, 0,
+        gl.RGBA, gl.UNSIGNED_BYTE, null
+      );
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        gl.COLOR_ATTACHMENT0,
+        gl.TEXTURE_2D,
+        tex, 0
+      );
+
+      // Unbind
+      gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+      return { texture: tex, fbo: fbo };
+    }
+
+    // Initialize framebuffers and textures
+    function createFramebuffers() {
+      // Cleanup existing framebuffers and textures
+      if (channel0A) { gl.deleteFramebuffer(channel0A.fbo); gl.deleteTexture(channel0A.texture); }
+      if (channel0B) { gl.deleteFramebuffer(channel0B.fbo); gl.deleteTexture(channel0B.texture); }
+      if (channel1)  { gl.deleteFramebuffer(channel1.fbo);  gl.deleteTexture(channel1.texture); }
+      if (channel2)  { gl.deleteFramebuffer(channel2.fbo);  gl.deleteTexture(channel2.texture); }
+      if (channel3)  { gl.deleteFramebuffer(channel3.fbo);  gl.deleteTexture(channel3.texture); }
+
+      // Create new framebuffers with updated resolution
+      channel0A = createFBO(iResolution[0], iResolution[1]);
+      channel0B = createFBO(iResolution[0], iResolution[1]);
+      channel1  = createFBO(iResolution[0], iResolution[1]);
+      channel2  = createFBO(iResolution[0], iResolution[1]);
+      channel3  = createFBO(iResolution[0], iResolution[1]);
+
+      // Initialize channel0A and channel0B with zero data
+      const zeroData = new Uint8Array(iResolution[0] * iResolution[1] * 4);
+      gl.bindTexture(gl.TEXTURE_2D, channel0A.texture);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, iResolution[0], iResolution[1], gl.RGBA, gl.UNSIGNED_BYTE, zeroData);
+      gl.bindTexture(gl.TEXTURE_2D, channel0B.texture);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, iResolution[0], iResolution[1], gl.RGBA, gl.UNSIGNED_BYTE, zeroData);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+
+    // ============================================================================
+    // Resize canvas to fill browser window
+    // ============================================================================
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      iResolution = [canvas.width, canvas.height];
+      // Recreate framebuffers and textures on resize
+      createFramebuffers();
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); // Initial resize
+
+    // ============================================================================
+    // Mouse tracking in normalized [0..1]
+    // ============================================================================
+    let mouse = { x: 0, y: 0, px: 0, py: 0 };
+
+    // ============================================================================
+    // Frame count and start time
+    // ============================================================================
+    let iFrame = 0;
+    let startTime = performance.now();
+
+    // ============================================================================
+    // Fullscreen quad setup
+    // ============================================================================
+    const quadVAO = gl.createVertexArray();
+    const quadVBO = gl.createBuffer();
+    gl.bindVertexArray(quadVAO);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVBO);
+
+    const quadVerts = new Float32Array([
+      -1, -1,  1, -1,  -1,  1,
+      -1, 1,    1, -1,    1, 1
+    ]);
+    gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+    // ============================================================================
+    // Shader compilation and linking helpers
+    // ============================================================================
+    function compileShader(source, type) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error('Shader compile error:', gl.getShaderInfoLog(shader));
+        gl.deleteShader(shader);
+        return null;
+      }
+      return shader;
+    }
+
+    function linkProgram(vsSrc, fsSrc) {
+      const vs = compileShader(vsSrc, gl.VERTEX_SHADER);
+      const fs = compileShader(fsSrc, gl.FRAGMENT_SHADER);
+      if (!vs || !fs) return null;
+
+      const program = gl.createProgram();
+      gl.attachShader(program, vs);
+      gl.attachShader(program, fs);
+      gl.linkProgram(program);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error('Program link error:', gl.getProgramInfoLog(program));
+        gl.deleteProgram(program);
+        return null;
+      }
+      return program;
+    }
+
+    // ============================================================================
+    // Shaders
+    // ============================================================================
+
+    // 1. Mouse Detection Pass Shader
+    const mouseDetectFS = `#version 300 es
+    precision highp float;
+
+    uniform vec4 iMouse; // iMouse.xy = current, iMouse.zw = old
+    out vec4 fragColor;
+
+    void main() {
+      vec2 c = iMouse.xy;
+      vec2 o = iMouse.zw;
+      vec2 d = c - o;
+      fragColor = vec4(c, d);
+    }
+    `;
+
+    const mouseDetectProgram = linkProgram(
+      `#version 300 es
+      in vec2 aPosition;
+      void main() {
+        gl_Position = vec4(aPosition, 0.0, 1.0);
+      }
+      `,
+      mouseDetectFS
+    );
+
+    const uMd_iMouse = gl.getUniformLocation(mouseDetectProgram, "iMouse");
+
+    // 2. Fluid Simulation Pass Shader
+    const fluidSimFS = `#version 300 es
+    precision highp float;
+
+    out vec4 fragColor;
+
+    #define PI2 6.28318530718
+
+    // Function to handle environment mapping (placeholder)
+    vec3 myenv(vec3 ignored, vec3 dir, float scale) { return vec3(1.0); }
+    // Simple scuv function
+    vec2 scuv(vec2 uv) { return uv; }
+
+    // Function to smooth UV coordinates (placeholder)
+    vec2 uvSmooth(vec2 uv, vec2 R) { return uv; }
+
+    // Uniform "Shadertoy style"
+    uniform sampler2D iChannel0; // previous fluid
+    uniform sampler2D iChannel1; // noise or other
+    uniform sampler2D iChannel2; // keys or other
+    uniform sampler2D iChannel3; // mouse data
+    uniform vec3 iResolution;
+    uniform float iTime;
+    uniform int iFrame;
+    uniform vec4 iMouse;
+
+    // Parameters from GUI
+    uniform float viscosity;
+    uniform float swirlStrength;
+    uniform int iterations;
+    uniform float speed;
+    uniform float swirlRadius;       // New parameter
+    uniform float swirlDecay;        // New parameter
+    uniform int swirlDirection;      // New parameter (-1 for CCW, 1 for CW)
+    uniform float swirlGradient;     // New parameter
+    uniform float swirlFrequency;    // New parameter
+
+    #define Res0 (iResolution.xy)
+    #define Res1 (iResolution.xy)
+
+    const int MAX_ITER = 20; // Maximum iterations to prevent infinite loops
+
+    mat2 m = mat2(
+      cos(PI2 / float(MAX_ITER)), sin(PI2 / float(MAX_ITER)),
+     -sin(PI2 / float(MAX_ITER)), cos(PI2 / float(MAX_ITER))
+    );
+    mat2 mh = mat2(
+      cos(PI2 / float(MAX_ITER) * 0.5), sin(PI2 / float(MAX_ITER) * 0.5),
+     -sin(PI2 / float(MAX_ITER) * 0.5), cos(PI2 / float(MAX_ITER) * 0.5)
+    );
+
+    float getRot(vec2 pos, vec2 b){
+      float rot = 0.0;
+      vec2 p = b;
+      for(int i=0; i<MAX_ITER; i++){
+        if(i >= iterations) break;
+        vec2 sampleUV = (pos + p) / Res0;
+        vec2 col = textureLod(iChannel0, sampleUV, 0.0).xy - vec2(0.5);
+        rot += dot(col, p.yx * vec2(1.0, -1.0));
+        p = m * p;
+      }
+      return rot / float(MAX_ITER) / dot(b, b);
+    }
+
+    void main(){
+      vec2 fragCoord = gl_FragCoord.xy;
+      vec2 pos = fragCoord;
+
+      // Summation of rotations across scales
+      vec2 b = cos(float(iFrame) * swirlFrequency * speed - vec2(0.0, 1.57)) * float(swirlDirection);
+      vec2 v = vec2(0.0);
+      float bbMax = swirlRadius; 
+      bbMax *= bbMax;
+      for(int l=0; l<MAX_ITER; l++){
+        if(dot(b, b) > bbMax) break;
+        vec2 p = b;
+        for(int i=0; i<MAX_ITER; i++){
+          if(i >= iterations) break;
+          v += p.yx * getRot(pos + p, -mh * b);
+          p = m * p;
+        }
+        b *= 2.0;
+      }
+
+      // Advection
+      vec2 newUV = (pos - v * vec2(-1.0, 1.0) * 5.0 * sqrt(Res0.x / 600.0)) / Res0;
+      newUV = fract(newUV);
+      vec4 advected = texture(iChannel0, newUV);
+
+      // Self-consistency
+      //advected.xy = mix(advected.xy, v * vec2(-1.0, 1.0) * sqrt(0.125) * 0.9, 0.025);
+      advected.xy = mix(advected.xy, v * vec2(-1.0, 1.0) * sqrt(0.005) * 0.9, 0.025);
+
+      // Mouse swirl
+      vec4 mData = texelFetch(iChannel3, ivec2(0,0), 0);
+      vec2 c = mData.xy * Res0;  // Convert to pixel space
+      vec2 dmouse = mData.zw;    // Mouse delta
+
+      // If mouse is not active (very close to (0,0)), swirl around center
+      if(length(mData.xy) < 0.001){
+        c = Res0 * 0.5;
+      }
+
+      // Compute distance from swirl center
+      float distance = length(fragCoord - c);
+      float attenuation = exp(-distance * swirlDecay); // Exponential decay based on distance
+
+      vec2 scr = (fragCoord - c) / Res0.x;
+      
+      // Apply swirl strength with gradient and attenuation
+      advected.xy += swirlStrength * swirlGradient * attenuation * 
+                     (cos(iTime * swirlFrequency * speed) * float(swirlDirection)) /
+                     (dot(scr, scr) / 0.05 + 0.05);
+      advected.xy += swirlStrength * 0.0003 * dmouse / 
+                     (dot(scr, scr) / 0.05 + 0.05);
+
+      // "Crunchy" drops from iChannel1
+      vec2 normCoord = fragCoord / Res1 * 0.35;
+      advected.zw += (texture(iChannel1, normCoord).zw - 0.5) * 0.002;
+      advected.zw += (texture(iChannel1, fragCoord / Res1 * 0.7).zw - 0.5) * 0.001;
+
+      // Initialization for first few frames
+      if(iFrame <= 4){
+        advected = vec4(0.0);
+      }
+
+      fragColor = advected * (1.0 - viscosity);
+    }
+    `;
+
+    const fluidSimProgram = linkProgram(
+      `#version 300 es
+      in vec2 aPosition;
+      void main(){
+        gl_Position = vec4(aPosition, 0.0, 1.0);
+      }
+      `,
+      fluidSimFS
+    );
+
+    // Uniform locations for fluidSimProgram
+    const uFs_iChannel0     = gl.getUniformLocation(fluidSimProgram, "iChannel0");
+    const uFs_iChannel1     = gl.getUniformLocation(fluidSimProgram, "iChannel1");
+    const uFs_iChannel2     = gl.getUniformLocation(fluidSimProgram, "iChannel2");
+    const uFs_iChannel3     = gl.getUniformLocation(fluidSimProgram, "iChannel3");
+    const uFs_iResolution   = gl.getUniformLocation(fluidSimProgram, "iResolution");
+    const uFs_iTime         = gl.getUniformLocation(fluidSimProgram, "iTime");
+    const uFs_iFrame        = gl.getUniformLocation(fluidSimProgram, "iFrame");
+    const uFs_iMouse        = gl.getUniformLocation(fluidSimProgram, "iMouse");
+    const uFs_viscosity     = gl.getUniformLocation(fluidSimProgram, "viscosity");
+    const uFs_swirlStrength = gl.getUniformLocation(fluidSimProgram, "swirlStrength");
+    const uFs_iterations    = gl.getUniformLocation(fluidSimProgram, "iterations");
+    const uFs_speed         = gl.getUniformLocation(fluidSimProgram, "speed");
+    const uFs_swirlRadius   = gl.getUniformLocation(fluidSimProgram, "swirlRadius");
+    const uFs_swirlDecay    = gl.getUniformLocation(fluidSimProgram, "swirlDecay");
+    const uFs_swirlDirection = gl.getUniformLocation(fluidSimProgram, "swirlDirection");
+    const uFs_swirlGradient = gl.getUniformLocation(fluidSimProgram, "swirlGradient");
+    const uFs_swirlFrequency = gl.getUniformLocation(fluidSimProgram, "swirlFrequency");
+
+    // 3. Final Render Pass Shader
+    const finalRenderFS = `#version 300 es
+    precision highp float;
+
+    out vec4 fragColor;
+
+    // Function to convert RGB to HSL
+    vec3 rgb2hsl(vec3 color) {
+      float r = color.r;
+      float g = color.g;
+      float b = color.b;
+
+      float maxC = max(r, max(g, b));
+      float minC = min(r, min(g, b));
+      float delta = maxC - minC;
+
+      float h = 0.0;
+      float s = 0.0;
+      float l = (maxC + minC) / 2.0;
+
+      if(delta != 0.0){
+        if(maxC == r){
+          h = mod((g - b) / delta, 6.0);
+        }
+        else if(maxC == g){
+          h = (b - r) / delta + 2.0;
+        }
+        else{
+          h = (r - g) / delta + 4.0;
+        }
+
+        h /= 6.0;
+
+        if(l < 0.5){
+          s = delta / (maxC + minC);
+        }
+        else{
+          s = delta / (2.0 - maxC - minC);
+        }
+      }
+
+      return vec3(h, s, l);
+    }
+
+    // Function to convert HSL to RGB
+    vec3 hsl2rgb(vec3 hsl) {
+      float h = hsl.x;
+      float s = hsl.y;
+      float l = hsl.z;
+
+      float c = (1.0 - abs(2.0 * l - 1.0)) * s;
+      float x = c * (1.0 - abs(mod(h * 6.0, 2.0) - 1.0));
+      float m = l - 0.5 * c;
+
+      vec3 rgb;
+
+      if(h < 1.0/6.0){
+        rgb = vec3(c, x, 0.0);
+      }
+      else if(h < 2.0/6.0){
+        rgb = vec3(x, c, 0.0);
+      }
+      else if(h < 3.0/6.0){
+        rgb = vec3(0.0, c, x);
+      }
+      else if(h < 4.0/6.0){
+        rgb = vec3(0.0, x, c);
+      }
+      else if(h < 5.0/6.0){
+        rgb = vec3(x, 0.0, c);
+      }
+      else{
+        rgb = vec3(c, 0.0, x);
+      }
+
+      return rgb + vec3(m);
+    }
+
+    // Define scuv and myenv before their usage
+    vec2 scuv(vec2 uv) { return uv; }
+    vec3 myenv(vec3 ignored, vec3 dir, float scale) { return vec3(1.0); }
+
+    uniform sampler2D iChannel0;  // fluid from fluidSim
+    uniform vec3 iResolution;
+
+    // Parameters from GUI
+    uniform vec3 color;
+    uniform float intensity;
+    uniform float saturation;
+    uniform float hue;
+
+    float getVal(vec2 uv) {
+      vec3 c = texture(iChannel0, scuv(uv)).xyz;
+      return length(c);
+    }
+    vec2 getGrad(vec2 uv, float delta) {
+      float v1 = getVal(uv + vec2(delta,0.0));
+      float v2 = getVal(uv - vec2(delta,0.0));
+      float v3 = getVal(uv + vec2(0.0,delta));
+      float v4 = getVal(uv - vec2(0.0,delta));
+      return vec2(v1 - v2, v3 - v4) / delta;
+    }
+
+    void main(){
+      vec2 fragCoord = gl_FragCoord.xy;
+      vec2 uv = fragCoord / iResolution.xy;
+
+      vec2 g = getGrad(uv, 1.4 / iResolution.x);
+      vec3 n = normalize(vec3(-g * 0.02, 1.0));
+
+      vec2 sc = (fragCoord - 0.5 * iResolution.xy) / iResolution.x;
+      vec3 dir = normalize(vec3(sc, -1.0));
+      vec3 R = reflect(dir, n);
+      vec3 refl = myenv(vec3(0.0), R.xzy, 1.0);
+
+      vec4 col = texture(iChannel0, uv) + 0.5;
+      col = mix(vec4(1.0), col, 0.5);
+      col.xyz *= (0.95 + -0.05 * n);
+
+      // Apply color, saturation, hue, and intensity
+      vec3 fluidColor = col.rgb * color * intensity;
+
+      // Convert to HSL
+      vec3 hsl = rgb2hsl(fluidColor);
+      // Adjust hue and saturation
+      hsl.x += hue;
+      hsl.y *= saturation;
+      // Clamp hue to [0,1]
+      hsl.x = fract(hsl.x);
+      // Convert back to RGB
+      fluidColor = hsl2rgb(hsl);
+
+      // Final color
+      fragColor = vec4(fluidColor * refl, 1.0);
+    }
+    `;
+
+    const finalRenderProgram = linkProgram(
+      `#version 300 es
+      in vec2 aPosition;
+      void main() {
+        gl_Position = vec4(aPosition, 0.0, 1.0);
+      }
+      `,
+      finalRenderFS
+    );
+
+    // Uniform locations for finalRenderProgram
+    const uFr_iChannel0   = gl.getUniformLocation(finalRenderProgram, "iChannel0");
+    const uFr_iResolution = gl.getUniformLocation(finalRenderProgram, "iResolution");
+    const uFr_color       = gl.getUniformLocation(finalRenderProgram, "color");
+    const uFr_intensity   = gl.getUniformLocation(finalRenderProgram, "intensity");
+    const uFr_saturation  = gl.getUniformLocation(finalRenderProgram, "saturation");
+    const uFr_hue         = gl.getUniformLocation(finalRenderProgram, "hue");
+
+    // ============================================================================
+    // Initialize Framebuffers
+    // ============================================================================
+    createFramebuffers();
+
+    // ============================================================================
+    // Setup lil-gui
+    // ============================================================================
+    const gui = new GUI();
+    gui.add(params, "viscosity", 0.0, 0.1, 0.001).name("Viscosity");
+    gui.add(params, "swirlStrength", 0.0, 20.0, 0.1).name("Swirl Strength");
+    gui.add(params, "swirlRadius", 50.0, 500.0, 1.0).name("Swirl Radius");
+    gui.add(params, "swirlDecay", 0.1, 5.0, 0.1).name("Swirl Decay");
+    gui.add(params, "swirlDirection", { "Clockwise": 1, "Counter-Clockwise": -1 }).name("Swirl Direction");
+    gui.add(params, "swirlGradient", 0.0, 2.0, 0.01).name("Swirl Gradient");
+    gui.add(params, "swirlFrequency", 0.0, 5.0, 0.01).name("Swirl Frequency");
+    gui.addColor(params, "color").name("Fluid Color");
+    gui.add(params, "intensity", 0.0, 5.0, 0.01).name("Intensity");
+    gui.add(params, "saturation", 0.0, 2.0, 0.01).name("Saturation");
+    gui.add(params, "hue", -1.0, 1.0, 0.01).name("Hue");
+    gui.add(params, "iterations", 1, 20, 1).name("Iterations");
+    gui.add(params, "speed", 0.001, 10.0, 0.001).name("Speed");
+    gui.add(params, "paused").name("Pause Animation"); // Pause/Play Toggle
+    gui.add(params, "saveConfig").name("Save Config");
+    gui.add(params, "loadConfig").name("Load Config");
+    gui.add(params, "saveAsPNG").name("Save as PNG");   // Save as PNG
+    gui.add(params, "saveAsJPG").name("Save as JPG");   // Save as JPG
+    gui.add(params, "saveAsWebP").name("Save as WebP"); // Save as WebP
+
+    // gui.add(params, "brushMode", { "Mouse Pointer": "mouse", "Virtual Brush": "virtual" }).name("Brush Mode");
+    // gui.add(params, "brushMode", { "Mouse Pointer": "mouse", "Virtual Brush": "virtual" })
+    //   .name("Brush Mode")
+    //   .onChange((value) => {
+    //     console.log("Brush Mode changed to:", value);
+    //   });
+    gui.add(params, "brushType", {
+      Circle: "circle",
+      Square: "square",
+      Triangle: "triangle",
+      Spiral: "spiral",
+      "Figure 8": "figure8"
+    }).name("Brush Type");
+
+    gui.add(params, "virtualBrushRadius", 0.1, 0.5, 0.01).name("Brush Radius");
+    gui.add(params, "virtualBrushSpeed", 0.1, 5.0, 0.1).name("Brush Speed");
+    gui.add(params, "brushType", { Circle: "circle", Square: "square", Triangle: "triangle" }).name("Brush Type");
+
+
+    //params.loadConfigFromString(jsonString);
+
+
+    // Store the GUI controller for 'paused'
+    let pausedController = gui.add(params, "paused").name("Pause Animation").onChange((value) => {
+      params.paused = value; // Synchronize pause state with GUI toggle
+    });
+
+    // Function to toggle pause and update the GUI controller
+    function togglePause() {
+      params.paused = !params.paused;
+      pausedController.updateDisplay(); // Update the GUI display for 'paused'
+    }
+
+    // Add a keydown event listener to toggle pause on pressing "P"
+    window.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "p") {
+        togglePause();
+      }
+    });
+
+
+    // ============================================================================
+    // Hide GUI and FS
+    // ============================================================================
+
+    let isGUIVisible = true; // Track GUI visibility
+
+    // Add keydown event listener for hiding GUI ('H') and toggling fullscreen ('F')
+    window.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "h") {
+        isGUIVisible = !isGUIVisible; // Toggle GUI visibility
+
+        // Hide or show all GUI containers
+        const guiContainers = document.querySelectorAll(".lil-gui"); // lil-gui uses 'lil-gui' class
+        guiContainers.forEach((container) => {
+          container.style.display = isGUIVisible ? "block" : "none"; // Toggle visibility
+        });
+      }
+
+      if (e.key.toLowerCase() === "f") {
+        toggleFullScreen();
+      }
+    });
+
+    // Function to toggle full-screen mode
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        canvas.requestFullscreen().catch((err) => {
+          console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+
+    // ============================================================================
+    // Virtual Brush
+    // ============================================================================
+
+
+function getVirtualBrushCoordinates(frameCount) {
+  const centerX = iResolution[0] / 2;
+  const centerY = iResolution[1] / 2;
+  const maxRadius = (iResolution[0] / 2) * params.virtualBrushRadius;
+
+  const adjustedFrame = frameCount * params.virtualBrushSpeed;
+
+  switch (params.brushType) {
+    case "circle": {
+      const angle = (adjustedFrame * 0.01) % (2 * Math.PI);
+      return {
+        x: centerX + maxRadius * Math.cos(angle),
+        y: centerY + maxRadius * Math.sin(angle),
+      };
+    }
+
+    case "square": {
+      const period = adjustedFrame % 400; // Periodic motion
+      if (period < 100)
+        return { x: centerX + maxRadius, y: centerY + maxRadius * (period / 100) };
+      if (period < 200)
+        return {
+          x: centerX + maxRadius * (1 - (period - 100) / 100),
+          y: centerY + maxRadius,
+        };
+      if (period < 300)
+        return {
+          x: centerX - maxRadius,
+          y: centerY + maxRadius * (1 - (period - 200) / 100),
+        };
+      return {
+        x: centerX - maxRadius * (1 - (period - 300) / 100),
+        y: centerY - maxRadius,
+      };
+    }
+
+    case "triangle": {
+      const trianglePeriod = adjustedFrame % 300;
+      if (trianglePeriod < 100)
+        return {
+          x: centerX + maxRadius * (trianglePeriod / 100),
+          y: centerY + maxRadius,
+        };
+      if (trianglePeriod < 200)
+        return {
+          x: centerX + maxRadius - maxRadius * ((trianglePeriod - 100) / 100),
+          y: centerY - maxRadius,
+        };
+      return {
+        x: centerX - maxRadius,
+        y: centerY - maxRadius + maxRadius * ((trianglePeriod - 200) / 100),
+      };
+    }
+
+    case "spiral": {
+      const totalTime = 2000; // Total frames for one full outward and inward cycle
+      const progress = (adjustedFrame % totalTime) / totalTime; // Normalize to [0, 1]
+
+      // Determine if the spiral is expanding or contracting
+      const isExpanding = progress < 0.5;
+      const normalizedProgress = isExpanding
+        ? progress * 2 // Expanding phase
+        : (1 - progress) * 2; // Contracting phase
+
+      // Calculate spiral radius based on normalized progress
+      const spiralRadius = maxRadius * normalizedProgress;
+
+      // Spiral angle increases with each frame
+      const spiralAngle = adjustedFrame * 0.05;
+
+      return {
+        x: centerX + spiralRadius * Math.cos(spiralAngle),
+        y: centerY + spiralRadius * Math.sin(spiralAngle),
+      };
+    }
+
+    case "figure8": {
+      const figure8Angle = adjustedFrame * 0.01;
+      const a = maxRadius * 0.5; // Horizontal radius
+      const b = maxRadius * 0.25; // Vertical radius
+      return {
+        x: centerX + a * Math.sin(figure8Angle),
+        y: centerY + b * Math.sin(2 * figure8Angle), // Creates the figure-eight pattern
+      };
+    }
+
+    default:
+      return { x: centerX, y: centerY };
+  }
+}
+
+
+
+
+
+
+
+    // ============================================================================
+    // Mouse events
+    // ============================================================================
+    canvas.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.px = mouse.x;
+      mouse.py = mouse.y;
+      mouse.x = (e.clientX - rect.left) / rect.width;
+      mouse.y = 1.0 - (e.clientY - rect.top) / rect.height;
+    });
+    canvas.addEventListener("mousedown", () => {
+      mouse.px = mouse.x;
+      mouse.py = mouse.y;
+    });
+    canvas.addEventListener("mouseup", () => {});
+
+
+
+    // ============================================================================
+    // Rebuild GUI
+    // ============================================================================
+
+function rebuildGUI() {
+    gui.destroy(); // Destroy the current GUI
+
+    // Create a new GUI instance
+    const newGui = new GUI();
+
+    // Re-add all GUI controllers
+    newGui.add(params, "viscosity", 0.0, 0.1, 0.001).name("Viscosity");
+    newGui.add(params, "swirlStrength", 0.0, 20.0, 0.1).name("Swirl Strength");
+    newGui.add(params, "swirlRadius", 50.0, 500.0, 1.0).name("Swirl Radius");
+    newGui.add(params, "swirlDecay", 0.1, 5.0, 0.1).name("Swirl Decay");
+    newGui.add(params, "swirlDirection", { "Clockwise": 1, "Counter-Clockwise": -1 }).name("Swirl Direction");
+    newGui.add(params, "swirlGradient", 0.0, 2.0, 0.01).name("Swirl Gradient");
+    newGui.add(params, "swirlFrequency", 0.0, 5.0, 0.01).name("Swirl Frequency");
+    newGui.addColor(params, "color").name("Fluid Color");
+    newGui.add(params, "intensity", 0.0, 5.0, 0.01).name("Intensity");
+    newGui.add(params, "saturation", 0.0, 2.0, 0.01).name("Saturation");
+    newGui.add(params, "hue", -1.0, 1.0, 0.01).name("Hue");
+    newGui.add(params, "iterations", 1, 20, 1).name("Iterations");
+    newGui.add(params, "speed", 0.001, 10.0, 0.001).name("Speed");
+    newGui.add(params, "paused").name("Pause Animation").onChange((value) => {
+        params.paused = value; // Sync pause state
+    });
+    newGui.add(params, "saveConfig").name("Save Config");
+    newGui.add(params, "loadConfig").name("Load Config");
+    newGui.add(params, "saveAsPNG").name("Save as PNG");
+    newGui.add(params, "saveAsJPG").name("Save as JPG");
+    newGui.add(params, "saveAsWebP").name("Save as WebP");
+
+    // Update brush-related parameters
+    newGui.add(params, "brushMode", { "Mouse Pointer": "mouse", "Virtual Brush": "virtual" })
+        .name("Brush Mode")
+        .onChange((value) => console.log("Brush Mode changed to:", value));
+
+    newGui.add(params, "brushType", {
+      Circle: "circle",
+      Square: "square",
+      Triangle: "triangle",
+      Spiral: "spiral",
+      "Figure 8": "figure8"
+    }).name("Brush Type");
+
+
+    newGui.add(params, "virtualBrushRadius", 0.1, 0.5, 0.01).name("Brush Radius");
+    newGui.add(params, "virtualBrushSpeed", 0.1, 5.0, 0.1).name("Brush Speed");
+    newGui.add(params, "brushType", { Circle: "circle", Square: "square", Triangle: "triangle" }).name("Brush Type");
+
+    // Replace the old GUI with the new one
+    gui = newGui;
+}
+
+
+
+
+
+
+    // ============================================================================
+    // Function to save canvas as image
+    // ============================================================================
+    function saveCanvasAsImage(format, quality = 1.0) {
+      let mimeType;
+      switch (format) {
+        case 'png':
+          mimeType = 'image/png';
+          break;
+        case 'jpeg':
+          mimeType = 'image/jpeg';
+          break;
+        case 'webp':
+          mimeType = 'image/webp';
+          break;
+        default:
+          console.error('Unsupported format:', format);
+          return;
+      }
+
+      const now = new Date();
+      const pad = (num) => String(num).padStart(2, '0'); // Ensure two-digit format
+      const formattedDate = `${pad(now.getDate())}${pad(now.getMonth() + 1)}${String(now.getFullYear()).slice(-2)}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+
+      requestAnimationFrame(() => {
+        canvas.toBlob(
+          (blob) => {
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `fluid11_simulation-${formattedDate}.${format}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          },
+          mimeType,
+          quality
+        );
+      });
+    }
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key.toLowerCase() === "s") {
+        saveCanvasAsImage("webp", 0.95); // Save as WebP with 80% quality
+      }
+    });
+
+
+
+
+    // ============================================================================
+    // Animation loop
+    // ============================================================================
+    function draw() {
+      const now = performance.now();
+      const time = (now - startTime) * 0.001;
+
+
+      let brushCoordinates;
+      if (params.brushMode === "mouse") {
+        brushCoordinates = {
+          x: mouse.x * iResolution[0],
+          y: mouse.y * iResolution[1],
+        };
+        //console.log("Mouse mode active:", brushCoordinates);
+      } else if (params.brushMode === "virtual") {
+        brushCoordinates = getVirtualBrushCoordinates(iFrame);
+        //console.log("Virtual mode active:", brushCoordinates);
+      }
+
+
+if (!params.paused) {
+    // 1) MOUSE DETECTION PASS => writes to channel3
+    gl.useProgram(mouseDetectProgram);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, channel3.fbo);
+    gl.viewport(0, 0, iResolution[0], iResolution[1]);
+
+    let brushCoordinates;
+    if (params.brushMode === "mouse") {
+        // Use mouse coordinates
+        brushCoordinates = {
+            x: mouse.x * iResolution[0],
+            y: mouse.y * iResolution[1],
+            px: mouse.px * iResolution[0],
+            py: mouse.py * iResolution[1]
+        };
+    } else if (params.brushMode === "virtual") {
+        // Use virtual brush coordinates
+        brushCoordinates = getVirtualBrushCoordinates(iFrame);
+        brushCoordinates.px = brushCoordinates.x; // Virtual brush doesn't have a "previous" frame
+        brushCoordinates.py = brushCoordinates.y;
+    }
+
+    // Pass current and previous positions to the shader
+    gl.uniform4f(
+        uMd_iMouse,
+        brushCoordinates.x / iResolution[0], // Normalize current x
+        brushCoordinates.y / iResolution[1], // Normalize current y
+        brushCoordinates.px / iResolution[0], // Normalize previous x
+        brushCoordinates.py / iResolution[1]  // Normalize previous y
+    );
+
+    gl.bindVertexArray(quadVAO);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // Update old mouse positions (only for mouse mode)
+    if (params.brushMode === "mouse") {
+        mouse.px = mouse.x;
+        mouse.py = mouse.y;
+    }
+
+    // 2) FLUID SIMULATION PASS => ping-pong between channel0A and channel0B
+    let inputFluid = (iFrame % 2 === 0) ? channel0A : channel0B;
+    let outputFluid = (iFrame % 2 === 0) ? channel0B : channel0A;
+
+    gl.useProgram(fluidSimProgram);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, outputFluid.fbo);
+    gl.viewport(0, 0, iResolution[0], iResolution[1]);
+
+    // Bind textures to texture units
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, inputFluid.texture);
+    gl.uniform1i(uFs_iChannel0, 0);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, channel1.texture); // Assuming channel1 is noise
+    gl.uniform1i(uFs_iChannel1, 1);
+
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, channel2.texture); // Assuming channel2 is keys
+    gl.uniform1i(uFs_iChannel2, 2);
+
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, channel3.texture); // Mouse/brush data
+    gl.uniform1i(uFs_iChannel3, 3);
+
+    // Set uniforms
+    gl.uniform3f(uFs_iResolution, iResolution[0], iResolution[1], 1.0);
+    gl.uniform1f(uFs_iTime, time * params.speed);
+    gl.uniform1i(uFs_iFrame, iFrame);
+    gl.uniform4f(
+        uFs_iMouse,
+        brushCoordinates.x / iResolution[0], // Current normalized x
+        brushCoordinates.y / iResolution[1], // Current normalized y
+        brushCoordinates.px / iResolution[0], // Previous normalized x
+        brushCoordinates.py / iResolution[1]  // Previous normalized y
+    );
+    gl.uniform1f(uFs_viscosity, params.viscosity);
+    gl.uniform1f(uFs_swirlStrength, params.swirlStrength);
+    gl.uniform1i(uFs_iterations, params.iterations);
+    gl.uniform1f(uFs_speed, params.speed);
+
+    // Pass the new swirl parameters to the shader
+    gl.uniform1f(uFs_swirlRadius, params.swirlRadius);
+    gl.uniform1f(uFs_swirlDecay, params.swirlDecay);
+    gl.uniform1i(uFs_swirlDirection, params.swirlDirection);
+    gl.uniform1f(uFs_swirlGradient, params.swirlGradient);
+    gl.uniform1f(uFs_swirlFrequency, params.swirlFrequency);
+
+    gl.bindVertexArray(quadVAO);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // Increment frame count
+    iFrame++;
+}
+
+
+
+      // if (!params.paused) {
+      //   // 1) MOUSE DETECTION PASS => writes to channel3
+      //   gl.useProgram(mouseDetectProgram);
+      //   gl.bindFramebuffer(gl.FRAMEBUFFER, channel3.fbo);
+      //   gl.viewport(0, 0, iResolution[0], iResolution[1]);
+
+      //   // Pass current and old mouse positions
+      //   gl.uniform4f(uMd_iMouse, mouse.x, mouse.y, mouse.px, mouse.py);
+
+      //   gl.bindVertexArray(quadVAO);
+      //   gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      //   // Update old mouse positions
+      //   mouse.px = mouse.x;
+      //   mouse.py = mouse.y;
+
+      //   // 2) FLUID SIMULATION PASS => ping-pong between channel0A and channel0B
+      //   let inputFluid  = (iFrame % 2 === 0) ? channel0A : channel0B;
+      //   let outputFluid = (iFrame % 2 === 0) ? channel0B : channel0A;
+
+      //   gl.useProgram(fluidSimProgram);
+      //   gl.bindFramebuffer(gl.FRAMEBUFFER, outputFluid.fbo);
+      //   gl.viewport(0, 0, iResolution[0], iResolution[1]);
+
+      //   // Bind textures to texture units
+      //   gl.activeTexture(gl.TEXTURE0);
+      //   gl.bindTexture(gl.TEXTURE_2D, inputFluid.texture);
+      //   gl.uniform1i(uFs_iChannel0, 0);
+
+      //   gl.activeTexture(gl.TEXTURE1);
+      //   gl.bindTexture(gl.TEXTURE_2D, channel1.texture); // Assuming channel1 is noise
+      //   gl.uniform1i(uFs_iChannel1, 1);
+
+      //   gl.activeTexture(gl.TEXTURE2);
+      //   gl.bindTexture(gl.TEXTURE_2D, channel2.texture); // Assuming channel2 is keys
+      //   gl.uniform1i(uFs_iChannel2, 2);
+
+      //   gl.activeTexture(gl.TEXTURE3);
+      //   gl.bindTexture(gl.TEXTURE_2D, channel3.texture); // Mouse data
+      //   gl.uniform1i(uFs_iChannel3, 3);
+
+      //   // Set uniforms
+      //   gl.uniform3f(uFs_iResolution, iResolution[0], iResolution[1], 1.0);
+      //   gl.uniform1f(uFs_iTime, time * params.speed);
+      //   gl.uniform1i(uFs_iFrame, iFrame);
+      //   gl.uniform4f(uFs_iMouse, mouse.x, mouse.y, mouse.px, mouse.py);
+      //   gl.uniform1f(uFs_viscosity, params.viscosity);
+      //   gl.uniform1f(uFs_swirlStrength, params.swirlStrength);
+      //   gl.uniform1i(uFs_iterations, params.iterations);
+      //   gl.uniform1f(uFs_speed, params.speed);
+
+      //   // Pass the new swirl parameters to the shader
+      //   gl.uniform1f(uFs_swirlRadius, params.swirlRadius);
+      //   gl.uniform1f(uFs_swirlDecay, params.swirlDecay);
+      //   gl.uniform1i(uFs_swirlDirection, params.swirlDirection);
+      //   gl.uniform1f(uFs_swirlGradient, params.swirlGradient);
+      //   gl.uniform1f(uFs_swirlFrequency, params.swirlFrequency);
+
+      //   gl.bindVertexArray(quadVAO);
+      //   gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      //   // Increment frame count
+      //   iFrame++;
+      // }
+
+      // 3) Final Render Pass => Draw to screen
+      gl.useProgram(finalRenderProgram);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, (iFrame % 2 === 0) ? channel0B.texture : channel0A.texture);
+      gl.uniform1i(uFr_iChannel0, 0);
+
+      gl.uniform3f(uFr_iResolution, canvas.width, canvas.height, 1.0);
+
+      // Convert hex color to normalized RGB
+      const hex = params.color;
+      const bigint = parseInt(hex.slice(1), 16);
+      const r = ((bigint >> 16) & 255) / 255.0;
+      const g = ((bigint >> 8) & 255) / 255.0;
+      const b = (bigint & 255) / 255.0;
+      gl.uniform3f(uFr_color, r, g, b);
+      gl.uniform1f(uFr_intensity, params.intensity);
+      gl.uniform1f(uFr_saturation, params.saturation);
+      gl.uniform1f(uFr_hue, params.hue);
+
+      gl.bindVertexArray(quadVAO);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      // Request next frame
+      requestAnimationFrame(draw);
+    }
+
+    // Start the animation loop
+    requestAnimationFrame(draw);
+
+
+  </script>
+</body>
+</html>
