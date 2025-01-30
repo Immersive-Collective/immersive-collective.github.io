@@ -1,6 +1,5 @@
-Here is your **README.md** file without emojis:
 
-```markdown
+
 # Halftone Video Effect with lil-gui
 
 This project is a WebGL-based halftone video effect that allows you to apply a customizable halftone pattern to a video in real-time. Using WebGL shaders, you can modify the dot size and color scheme dynamically via an interactive GUI powered by lil-gui.
