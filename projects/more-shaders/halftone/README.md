@@ -2,6 +2,15 @@
 
 # Halftone Video Effect with lil-gui
 
+# Live Demo
+https://immersive-collective.org/projects/more-shaders/halftone/index.html
+
+
+
+https://github.com/user-attachments/assets/dbd55c2e-79d8-4361-994a-f17256410d2c
+
+
+
 This project is a WebGL-based halftone video effect that allows you to apply a customizable halftone pattern to a video in real-time. Using WebGL shaders, you can modify the dot size and color scheme dynamically via an interactive GUI powered by lil-gui.
 
 ## Features
