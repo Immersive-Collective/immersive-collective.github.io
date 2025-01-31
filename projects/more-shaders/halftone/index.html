@@ -49,7 +49,7 @@
 <body>
     <div id="container">
         <div id="player">
-            <video id="video" src="videos/northface-we-play-different.mp4" autoplay loop muted></video>
+            <video id="video" src="videos/northface-we-play-different.mp4" autoplay loop muted controls></video>
         </div>
         <canvas id="halftoneCanvas"></canvas>
     </div>
@@ -87,7 +87,9 @@ function createHalftoneVideoEffect() {
         varying vec2 v_texCoord;
         void main() {
             gl_Position = vec4(a_position, 0, 1);
-            v_texCoord = a_texCoord; 
+            
+            // Flip the Y-coordinate of the texture to fix the upside-down issue
+            v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
         }
     `;
 
@@ -191,6 +193,9 @@ function createHalftoneVideoEffect() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+
     const params = {
         dotSize: 12.0,
         color1: "#000000",
@@ -254,32 +259,43 @@ function createHalftoneVideoEffect() {
     gui.add(params, "loadConfig").name("Load Config");
 
 
-    async function loadConfigFromURL(url, params, gui) {
-        console.log(`🔄 Attempting to load config from: ${url}`);
+async function loadConfigFromURL(url, params, gui) {
+    console.log(`🔄 Attempting to load config from: ${url}`);
 
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`❌ HTTP error! Status: ${response.status}`);
-            }
-
-            const config = await response.json();
-            console.log("✅ Config loaded:", config);
-
-            // Apply the loaded configuration to parameters
-            params.dotSize = config.dotSize !== undefined ? config.dotSize : params.dotSize;
-            params.color1 = config.color1 || params.color1;
-            params.color2 = config.color2 || params.color2;
-
-            // Update each GUI controller manually (No global updateDisplay)
-            gui.controllers.forEach(controller => controller.updateDisplay());
-
-            console.log("🎨 GUI updated with new config values!");
-
-        } catch (error) {
-            console.error(`⚠️ Failed to load config from ${url}:`, error);
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`❌ HTTP error! Status: ${response.status}`);
         }
+
+        const config = await response.json();
+        console.log("✅ Config loaded:", config);
+
+        // Apply the loaded configuration to parameters
+        if (config.dotSize !== undefined) params.dotSize = config.dotSize;
+        if (config.color1 !== undefined) params.color1 = config.color1;
+        if (config.color2 !== undefined) params.color2 = config.color2;
+
+        // Update GUI controllers manually
+        Object.keys(gui.controllers).forEach(key => {
+            const controller = gui.controllers[key];
+            if (controller.property === "dotSize" && config.dotSize !== undefined) {
+                controller.setValue(config.dotSize);
+            } else if (controller.property === "color1" && config.color1 !== undefined) {
+                controller.setValue(config.color1);
+            } else if (controller.property === "color2" && config.color2 !== undefined) {
+                controller.setValue(config.color2);
+            }
+        });
+
+        console.log("🎨 GUI updated with new config values!");
+
+    } catch (error) {
+        console.error(`⚠️ Failed to load config from ${url}:`, error);
     }
+}
+
+
 
 
 
