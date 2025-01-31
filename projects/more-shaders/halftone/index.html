@@ -49,7 +49,7 @@
 <body>
     <div id="container">
         <div id="player">
-            <video id="video" src="videos/northface-we-play-different.mp4" autoplay loop muted controls></video>
+            <video id="video" src="videos/bot.mp4" autoplay loop muted controls></video>
         </div>
         <canvas id="halftoneCanvas"></canvas>
     </div>
@@ -196,6 +196,20 @@ function createHalftoneVideoEffect() {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
 
+    function rebuildGUI() {
+        gui.destroy(); // Remove existing GUI
+        gui = new GUI(); // Create new GUI
+
+        // Recreate GUI elements
+        gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
+        gui.addColor(params, "color1").name("Color 1");
+        gui.addColor(params, "color2").name("Color 2");
+        gui.add(params, "saveConfig").name("Save Config");
+        gui.add(params, "loadConfig").name("Load Config");
+    }
+
+
+
     const params = {
         dotSize: 12.0,
         color1: "#000000",
@@ -229,21 +243,47 @@ function createHalftoneVideoEffect() {
                 if (!file) return;
 
                 const reader = new FileReader();
+
                 reader.onload = (event) => {
                     try {
                         const config = JSON.parse(event.target.result);
                         if (!config || typeof config !== "object") throw new Error("Invalid JSON format");
 
-                        params.dotSize = config.dotSize || params.dotSize;
-                        params.color1 = config.color1 || params.color1;
-                        params.color2 = config.color2 || params.color2;
+                        // Update parameters
+                        Object.keys(config).forEach(key => {
+                            if (params.hasOwnProperty(key)) {
+                                params[key] = config[key];
+                            }
+                        });
 
-                        gui.updateDisplay();
+                        // Rebuild GUI to apply new values
+                        rebuildGUI();
+
                         console.log("✅ Config loaded:", config.filename || file.name);
                     } catch (err) {
                         console.error("❌ Failed to load config:", err);
                     }
                 };
+
+
+                // reader.onload = (event) => {
+                //     try {
+                //         const config = JSON.parse(event.target.result);
+                //         if (!config || typeof config !== "object") throw new Error("Invalid JSON format");
+
+                //         params.dotSize = config.dotSize || params.dotSize;
+                //         params.color1 = config.color1 || params.color1;
+                //         params.color2 = config.color2 || params.color2;
+
+                //         gui.updateDisplay();
+                //         console.log("✅ Config loaded:", config.filename || file.name);
+                //     } catch (err) {
+                //         console.error("❌ Failed to load config:", err);
+                //     }
+                // };
+
+
+
                 reader.readAsText(file);
             };
 
@@ -251,8 +291,9 @@ function createHalftoneVideoEffect() {
         }
     };
 
-    const gui = new GUI();
-    gui.add(params, "dotSize", 1.0, 100.0, 1).name("Dot Size");
+    let gui = new GUI();
+
+    gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
     gui.addColor(params, "color1").name("Color 1");
     gui.addColor(params, "color2").name("Color 2");
     gui.add(params, "saveConfig").name("Save Config");
