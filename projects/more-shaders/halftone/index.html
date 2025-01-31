@@ -214,6 +214,7 @@ function createHalftoneVideoEffect() {
         dotSize: 12.0,
         color1: "#000000",
         color2: "#69bef7",
+
         saveConfig: function () {
             const now = new Date();
             const filename = `halftone_config_${now.toISOString().replace(/[-T:.Z]/g, "").slice(2, 14)}.json`;
@@ -233,6 +234,7 @@ function createHalftoneVideoEffect() {
             link.click();
             document.body.removeChild(link);
         },
+
         loadConfig: function () {
             const input = document.createElement("input");
             input.type = "file";
@@ -264,25 +266,6 @@ function createHalftoneVideoEffect() {
                         console.error("❌ Failed to load config:", err);
                     }
                 };
-
-
-                // reader.onload = (event) => {
-                //     try {
-                //         const config = JSON.parse(event.target.result);
-                //         if (!config || typeof config !== "object") throw new Error("Invalid JSON format");
-
-                //         params.dotSize = config.dotSize || params.dotSize;
-                //         params.color1 = config.color1 || params.color1;
-                //         params.color2 = config.color2 || params.color2;
-
-                //         gui.updateDisplay();
-                //         console.log("✅ Config loaded:", config.filename || file.name);
-                //     } catch (err) {
-                //         console.error("❌ Failed to load config:", err);
-                //     }
-                // };
-
-
 
                 reader.readAsText(file);
             };
