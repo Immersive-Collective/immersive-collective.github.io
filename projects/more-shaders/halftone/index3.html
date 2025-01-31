@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,6 +14,7 @@
         .lil-gui { position: absolute; top: 10px; right: 10px; z-index: 100; }
     </style>
 </head>
+
 <body>
     <div id="container">
         <div id="player">
@@ -29,23 +31,18 @@
     </script>
     <script type="module">
         import { GUI } from 'lil-gui';
-
         function createHalftoneVideoEffect() {
             const canvas = document.getElementById("halftoneCanvas");
             const video = document.getElementById("video");
             const gl = canvas.getContext("webgl");
-
             if (!gl) return console.error("WebGL not supported.");
-
             function updateCanvasSize() {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 gl.viewport(0, 0, canvas.width, canvas.height);
             }
-
             video.addEventListener("loadedmetadata", updateCanvasSize);
             window.addEventListener("resize", updateCanvasSize);
-
             const vertexShaderSource = `
                 attribute vec2 a_position;
                 attribute vec2 a_texCoord;
@@ -55,7 +52,6 @@
                     v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
                 }
             `;
-
             const fragmentShaderSource = `
                 precision mediump float;
                 varying vec2 v_texCoord;
@@ -65,7 +61,6 @@
                 uniform vec3 u_color1;
                 uniform vec3 u_color2;
                 uniform int u_shape;
-
                 void main() {
                     vec2 coord = v_texCoord * u_resolution;
                     vec2 grid = floor(coord / u_dotSize) * u_dotSize;
@@ -74,10 +69,8 @@
                     float intensity = dot(color, vec3(0.299, 0.587, 0.114));
                     float radius = (u_dotSize / 2.0) * intensity;
                     float dist = length(delta - vec2(u_dotSize / 2.0));
-
                     vec3 halftoneColor = mix(u_color1, u_color2, intensity);
                     bool drawShape = false;
-
                     if (u_shape == 0) { // Circle
                         drawShape = dist < radius;
                     } else if (u_shape == 1) { // Square
@@ -87,29 +80,23 @@
                     } else if (u_shape == 3) { // Line
                         drawShape = abs(delta.y - u_dotSize / 2.0) < radius;
                     }
-
                     gl_FragColor = drawShape ? vec4(halftoneColor, 1) : vec4(u_color1, 1);
                 }
             `;
-
-
     async function loadDefaultConfig(params, gui) {
         try {
             const response = await fetch("config/halftone_default.json"); // Adjust path if needed
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             const config = await response.json();
-
             params.dotSize = config.dotSize || params.dotSize;
             params.color1 = config.color1 || params.color1;
             params.color2 = config.color2 || params.color2;
-
             gui.updateDisplay();
             console.log("✅ Default configuration loaded successfully.");
         } catch (error) {
             console.warn("⚠️ Failed to load default config:", error);
         }
     }
-
     function createShader(gl, type, source) {
         const shader = gl.createShader(type);
         gl.shaderSource(shader, source);
@@ -120,13 +107,9 @@
         }
         return shader;
     }
-
-
-
             const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
             const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
             if (!vertexShader || !fragmentShader) return;
-
             const program = gl.createProgram();
             gl.attachShader(program, vertexShader);
             gl.attachShader(program, fragmentShader);
@@ -136,50 +119,40 @@
                 return;
             }
             gl.useProgram(program);
-
             const positionBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
                 -1, -1, 1, -1, -1, 1,
                 -1, 1, 1, -1, 1, 1
             ]), gl.STATIC_DRAW);
-
             const texCoordBuffer = gl.createBuffer();
             gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
                 0, 1, 1, 1, 0, 0,
                 0, 0, 1, 1, 1, 0
             ]), gl.STATIC_DRAW);
-
             const positionLocation = gl.getAttribLocation(program, "a_position");
             const texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
-
             gl.enableVertexAttribArray(positionLocation);
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
             gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
             gl.enableVertexAttribArray(texCoordLocation);
             gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
             gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
-
             const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
             const dotSizeLocation = gl.getUniformLocation(program, "u_dotSize");
             const color1Location = gl.getUniformLocation(program, "u_color1");
             const color2Location = gl.getUniformLocation(program, "u_color2");
             const shapeLocation = gl.getUniformLocation(program, "u_shape");
-
             const texture = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-
-
     function rebuildGUI() {
         gui.destroy(); // Remove existing GUI
         gui = new GUI(); // Create new GUI
-
         // Recreate GUI elements
         gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
         gui.addColor(params, "color1").name("Color 1");
@@ -187,19 +160,14 @@
         gui.add(params, "saveConfig").name("Save Config");
         gui.add(params, "loadConfig").name("Load Config");
     }
-
-
             const params = {
                 dotSize: 12.0,
                 color1: "#000000",
                 color2: "#69bef7",
                 shape: 0, // Default to circle
-
-
         saveConfig: function () {
             const now = new Date();
             const filename = `halftone_config_${now.toISOString().replace(/[-T:.Z]/g, "").slice(2, 14)}.json`;
-
             const config = {
                 dotSize: params.dotSize,
                 color1: params.color1,
@@ -207,7 +175,6 @@
                 shape: params.shape, // Include the shape parameter
                 filename: filename
             };
-
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
             const link = document.createElement("a");
             link.href = dataStr;
@@ -216,50 +183,36 @@
             link.click();
             document.body.removeChild(link);
         },
-
         loadConfig: function () {
             const input = document.createElement("input");
             input.type = "file";
             input.accept = ".json";
-
             input.onchange = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-
                 const reader = new FileReader();
-
                 reader.onload = (event) => {
                     try {
                         const config = JSON.parse(event.target.result);
                         if (!config || typeof config !== "object") throw new Error("Invalid JSON format");
-
                         // Update parameters
                         Object.keys(config).forEach(key => {
                             if (params.hasOwnProperty(key)) {
                                 params[key] = config[key];
                             }
                         });
-
                         // Rebuild GUI to apply new values
                         rebuildGUI();
-
                         console.log("✅ Config loaded:", config.filename || file.name);
                     } catch (err) {
                         console.error("❌ Failed to load config:", err);
                     }
                 };
-
                 reader.readAsText(file);
             };
-
             input.click();
         }
-
-
-
-
             };
-
             const shapeOptions = { Circle: 0, Square: 1, Cross: 2, Line: 3 };
             let gui = new GUI();
             gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
@@ -268,7 +221,6 @@
             gui.add(params, "shape", shapeOptions).name("Shape");
             gui.add(params, "saveConfig").name("Save Config");
             gui.add(params, "loadConfig").name("Load Config");
-
             function render() {
                 if (video.readyState >= 2) {
                     gl.viewport(0, 0, canvas.width, canvas.height);
@@ -286,11 +238,10 @@
                 }
                 requestAnimationFrame(render);
             }
-
             video.addEventListener("play", () => render());
         }
-
         createHalftoneVideoEffect();
     </script>
 </body>
+
 </html>
