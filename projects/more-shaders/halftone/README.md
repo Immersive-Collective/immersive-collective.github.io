@@ -13,6 +13,39 @@ https://github.com/user-attachments/assets/dbd55c2e-79d8-4361-994a-f17256410d2c
 
 This project is a WebGL-based halftone video effect that allows you to apply a customizable halftone pattern to a video in real-time. Using WebGL shaders, you can modify the dot size and color scheme dynamically via an interactive GUI powered by lil-gui.
 
+### **Concept: Halftone Video Effect Shader**
+This **WebGL shader** creates a **halftone effect** on a video by sampling pixel brightness and rendering dots of varying sizes based on intensity.
+
+---
+
+### **Implementation:**
+1. **Vertex Shader**  
+   - Defines screen-space coordinates and texture mapping.
+   - Fixes texture Y-flip issue.
+
+2. **Fragment Shader (Halftone Effect)**  
+   - Samples video texture and converts it to grayscale using **luminance**.
+   - Divides the image into a **dot grid** based on `u_dotSize`.
+   - Computes **circle radius per grid cell** (larger for dark areas, smaller for bright areas).
+   - Uses **mix() function** to interpolate colors between `u_color1` and `u_color2`.
+   - Outputs the final color per fragment.
+
+---
+
+### **Key Uniforms:**
+- `u_dotSize`: Controls dot spacing.
+- `u_color1`, `u_color2`: Define the color gradient.
+- `u_image`: The video texture.
+- `u_resolution`: Canvas resolution.
+
+---
+
+### **Rendering Pipeline:**
+1. **WebGL initializes the video as a texture.**
+2. **Shader computes dot sizes dynamically based on pixel brightness.**
+3. **The effect is drawn frame-by-frame, creating a real-time halftone filter on video.**
+
+
 ## Features
 
 - Real-time halftone video processing using a WebGL fragment shader.
