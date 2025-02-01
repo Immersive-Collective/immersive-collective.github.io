@@ -6,16 +6,57 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Halftone Video Effect with Shapes</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: black; }
-        #container { display: flex; width: 90vw; max-width: 1920px; }
-        #player, #halftoneCanvas { flex: 1; overflow: hidden; }
-        video, canvas { width: 100%; height: auto; display: block; }
-        .lil-gui { position: absolute; top: 10px; right: 10px; z-index: 100; }
+    
+
+.lil-gui { position: absolute; top: 10px; right: 10px; z-index: 100; }
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: black;
+}
+
+#container {
+    display: flex;
+    flex-direction: row;
+    width: 90vw;
+    max-width: 1920px;
+}
+
+#player, #halftoneCanvas {
+    flex: 1;
+    overflow: hidden;
+}
+
+video, canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Responsive layout: When screen is narrow, stack elements vertically */
+@media (max-width: 768px) {
+    #container {
+        flex-direction: column;
+    }
+}
+
+
+
     </style>
+
 </head>
 
 <body>
+
     <div id="container">
         <div id="player">
             <video id="video" src="videos/northface-we-play-different.mp4" autoplay loop muted controls></video>
@@ -346,7 +387,62 @@
         createHalftoneVideoEffect();
 
 
+// fulscreen
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "f" || event.key === "F") {
+        toggleFullscreen();
+    }
+});
+
+function toggleFullscreen() {
+    const canvas = document.getElementById("halftoneCanvas");
+    const gui = document.querySelector(".lil-gui");
+    const ribbon = document.querySelector(".corner-ribbon");
+
+    if (!document.fullscreenElement) {
+        // Enter fullscreen
+        if (canvas.requestFullscreen) {
+            canvas.requestFullscreen();
+        } else if (canvas.mozRequestFullScreen) { // Firefox
+            canvas.mozRequestFullScreen();
+        } else if (canvas.webkitRequestFullscreen) { // Chrome, Safari, Opera
+            canvas.webkitRequestFullscreen();
+        } else if (canvas.msRequestFullscreen) { // IE/Edge
+            canvas.msRequestFullscreen();
+        }
+
+        // Hide GUI and ribbon
+        if (gui) gui.style.display = "none";
+        if (ribbon) ribbon.style.display = "none";
+
+    } else {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.mozCancelFullScreen) { // Firefox
+            document.mozCancelFullScreen();
+        } else if (document.webkitExitFullscreen) { // Chrome, Safari, Opera
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) { // IE/Edge
+            document.msExitFullscreen();
+        }
+
+        // Restore GUI and ribbon after exiting fullscreen
+        if (gui) gui.style.display = "block";
+        if (ribbon) ribbon.style.display = "flex"; // Ensuring flex display restores properly
+    }
+}
+
+
+
+
+
     </script>
+
+
+    <script src="https://immersive-collective.org/projects/ic-badge/ic.js"></script>
+
 </body>
 
 </html>
