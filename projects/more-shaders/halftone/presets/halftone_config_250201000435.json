@@ -1,0 +1,11 @@
+{
+  "dotSize": 26,
+  "color1": "#000000",
+  "color2": "#ffffff",
+  "shape": 4,
+  "hue": -0.72,
+  "contrast": 1.53,
+  "threshold": 0.1,
+  "blackAndWhite": true,
+  "filename": "halftone_config_250201000435.json"
+}
