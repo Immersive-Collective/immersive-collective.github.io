@@ -83,6 +83,7 @@ video, canvas {
                 gl.viewport(0, 0, canvas.width, canvas.height);
             }
             video.addEventListener("loadedmetadata", updateCanvasSize);
+            video.addEventListener("canplay", updateCanvasSize);
             window.addEventListener("resize", updateCanvasSize);
 
 
@@ -308,7 +309,17 @@ video, canvas {
             // const asciiChars = " ╴╵╶╷┌┐└┘├┤";
             // const asciiChars = " ╱╲╳⟋⟍＼／〳〵";
             // const asciiChars = " ◢◣◤◥◧◨◩◪◫";
-            const asciiChars = " ⠁⠃⠇⡇⣇⣧⣷⣿░▒▓█";
+            // const asciiChars = " ⠁⠃⠇⡇⣇⣧⣷⣿░▒▓█";
+            // const asciiChars = " ·•◦○◍◎●◉⦿";
+            // const asciiChars = " .,-+·•◦○◍◎●◉⦿░▒▓█■▀▄▞▛▁▂▃▄▅▆▇█╴╵╶╷┌┐└┘├┤╱╲╳⟋⟍＼／〳〵◢◣◤◥◧◨◩◪◫⠁⠃⠇⡇⣇⣧⣷⣿";
+            //const asciiChars = " .,-+·•◦╴╵╶╷╱╲⟋⟍＼／〳〵○◍◎◢◣◤◥◧◨◩◪◫●◉⦿░▒▓█■▀▄▞▛";
+            // ▁▂▃▄▅▆▇█┌┐└┘├┤⠁⠃⠇⡇⣇⣧⣷⣿
+            // const asciiChars = "⺅亻𠂉𠆢个人卩阝☻☺☹☃☠卍";
+            // const asciiChars = " .-☻☺☹☃☠卍";
+            // const asciiChars = " ･•․⁑∗⋆★☆✧✦✪✫✬✭✮✯✰-☻☺☹☃☠卍░▒▓█";
+            const asciiChars = "°⊙○◌☉☀☼☽☾⨀⨁⨂";
+
+
 
             // const asciiChars = [
             //     ' ',  // Darkest
@@ -356,7 +367,12 @@ video, canvas {
                 asciiCanvas.height = h * params.dotSize;
                 asciiCtx.clearRect(0, 0, asciiCanvas.width, asciiCanvas.height);
                 // asciiCtx.font = `${params.dotSize}px monospace`;
-                asciiCtx.font = `${params.dotSize}px Avenir`;
+                // asciiCtx.font = `${params.dotSize}px Avenir`;
+                let rsize = Math.ceil(1 + Math.random()*500)
+                //asciiCtx.font = `${params.dotSize}px Helvetica`;
+                asciiCtx.font = `${rsize}px Helvetica`;
+
+
                 asciiCtx.textAlign = "center";
                 asciiCtx.textBaseline = "middle";
 
