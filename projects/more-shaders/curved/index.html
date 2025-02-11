@@ -6,22 +6,94 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebGL2 Curved Image Projection with lil-gui</title>
     <style>
+        
         body { margin: 0; overflow: hidden; }
-        canvas { display: block; width: 100vw; height: 100vh; }
+
+canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    background: transparent; /* Ensures transparency */
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+        #static {
+            position: absolute;
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(#FFA175,#FF3F86 60%,#7281C2 90%,#00BAAC);
+        }
+
     </style>
 </head>
 
 <body>
+
+<div id="static">
+
+
     <canvas id="webgl-canvas"></canvas>
-    <script type="importmap">
-        {
+
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+
+
+<script type="importmap">
+    {
         "imports": {
             "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18/dist/lil-gui.esm.min.js"
         }
     }
-    </script>
+</script>
+
 
 <script type="module">
+
+
+// Define GSAP animation sequence
+function animateWebGL() {
+    gsap.to(params, {
+        curvature: 0.8,
+        waveFrequency: 6.0,
+        scaleX: 1.5,
+        scaleY: 1.2,
+        duration: 3,
+        yoyo: true,
+        repeat: -1,
+        ease: "sine.inOut",
+        onUpdate: () => {
+            gl.uniform1f(curvatureUniform, params.curvature);
+            gl.uniform1f(waveFrequencyUniform, params.waveFrequency);
+            gl.uniform1f(scaleXUniform, params.scaleX);
+            gl.uniform1f(scaleYUniform, params.scaleY);
+        }
+    });
+}
+window.animateWebGL = animateWebGL
+
+
+function revealImage() {
+    gsap.to(params, {
+        scaleX: 1.0,          // Scale to normal width
+        scaleY: 1.0,          // Scale to normal height
+        curvature: 0.2,       // Slight curvature
+        duration: 3,          // Smooth 3-second transition
+        ease: "power2.out",   // Easing for natural transition
+        onUpdate: () => {
+            gl.uniform1f(scaleXUniform, params.scaleX);
+            gl.uniform1f(scaleYUniform, params.scaleY);
+            gl.uniform1f(curvatureUniform, params.curvature);
+        }
+    });
+}
+
+window.revealImage = revealImage;
+// Start the animation
 
 
 
@@ -39,23 +111,7 @@ if (!gl) {
 gl.viewport(0, 0, canvas.width, canvas.height);
 gl.enable(gl.DEPTH_TEST);
 
-// const vertexShaderSource = `#version 300 es
-//     in vec3 a_position;
-//     in vec2 a_texCoord;
-//     out vec2 v_texCoord;
-    
-//     uniform mat4 u_projection;
-//     uniform mat4 u_view;
-//     uniform float u_curvature;
-//     uniform float u_waveFrequency;
 
-//     void main() {
-//         vec3 curvedPosition = a_position;
-//         curvedPosition.z += sin(curvedPosition.x * u_waveFrequency) * u_curvature;
-//         gl_Position = u_projection * u_view * vec4(curvedPosition, 1.0);
-//         v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
-//     }
-// `;
 
 const vertexShaderSource = `#version 300 es
     in vec3 a_position;
@@ -115,11 +171,12 @@ const scaleYUniform = gl.getUniformLocation(program, "u_scaleY");  // <- ADD HER
 
 
 const params = {
-    curvature: 0.2,
-    waveFrequency: 3.0,
-    scaleX: 1.0,
-    scaleY: 1.0
+    curvature: 0.3,         // Start with no curvature
+    waveFrequency: 4,     // Keep the default frequency
+    scaleX: 0,           // Start with 1 pixel width
+    scaleY: 0            // Start with 1 pixel height
 };
+
 
 
 const rows = 50, cols = 100;
@@ -206,16 +263,17 @@ gl.uniform1i(textureUniform, 0);
 
 
 function render() {
-gl.clearColor(0, 0, 0, 1);
-gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-gl.uniform1f(curvatureUniform, params.curvature);
-gl.uniform1f(waveFrequencyUniform, params.waveFrequency);
-gl.uniform1f(scaleXUniform, params.scaleX);
-gl.uniform1f(scaleYUniform, params.scaleY);
-gl.bindTexture(gl.TEXTURE_2D, texture);
-gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
-requestAnimationFrame(render);
+    gl.clearColor(0, 0, 0, 0); // Set alpha to 0 for transparency
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.uniform1f(curvatureUniform, params.curvature);
+    gl.uniform1f(waveFrequencyUniform, params.waveFrequency);
+    gl.uniform1f(scaleXUniform, params.scaleX);
+    gl.uniform1f(scaleYUniform, params.scaleY);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    requestAnimationFrame(render);
 }
+
 
 render();
 

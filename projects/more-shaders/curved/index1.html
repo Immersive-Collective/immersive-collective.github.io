@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL2 Curved Image Projection with lil-gui</title>
+    <style>
+        
+        body { margin: 0; overflow: hidden; }
+
+canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    background: transparent; /* Ensures transparency */
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+        #static {
+            position: absolute;
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(#FFA175,#FF3F86 60%,#7281C2 90%,#00BAAC);
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div id="static">
+
+
+    <canvas id="webgl-canvas"></canvas>
+
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+
+
+<script type="importmap">
+    {
+        "imports": {
+            "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18/dist/lil-gui.esm.min.js"
+        }
+    }
+</script>
+
+
+<script type="module">
+
+
+// Define GSAP animation sequence
+function animateWebGL() {
+    gsap.to(params, {
+        curvature: 0.8,
+        waveFrequency: 6.0,
+        scaleX: 1.5,
+        scaleY: 1.2,
+        duration: 3,
+        yoyo: true,
+        repeat: -1,
+        ease: "sine.inOut",
+        onUpdate: () => {
+            gl.uniform1f(curvatureUniform, params.curvature);
+            gl.uniform1f(waveFrequencyUniform, params.waveFrequency);
+            gl.uniform1f(scaleXUniform, params.scaleX);
+            gl.uniform1f(scaleYUniform, params.scaleY);
+        }
+    });
+}
+window.animateWebGL = animateWebGL
+
+
+function revealImage() {
+    gsap.to(params, {
+        scaleX: 1.0,          // Scale to normal width
+        scaleY: 1.0,          // Scale to normal height
+        curvature: 0.2,       // Slight curvature
+        duration: 3,          // Smooth 3-second transition
+        ease: "power2.out",   // Easing for natural transition
+        onUpdate: () => {
+            gl.uniform1f(scaleXUniform, params.scaleX);
+            gl.uniform1f(scaleYUniform, params.scaleY);
+            gl.uniform1f(curvatureUniform, params.curvature);
+        }
+    });
+}
+
+window.revealImage = revealImage;
+// Start the animation
+
+
+
+import { GUI } from 'lil-gui';
+
+const canvas = document.getElementById("webgl-canvas");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+const gl = canvas.getContext("webgl2");
+
+if (!gl) {
+    alert("WebGL2 not supported");
+}
+
+gl.viewport(0, 0, canvas.width, canvas.height);
+gl.enable(gl.DEPTH_TEST);
+
+
+const vertexShaderSource = `#version 300 es
+    in vec3 a_position;
+    in vec2 a_texCoord;
+    out vec2 v_texCoord;
+    
+    uniform mat4 u_projection;
+    uniform mat4 u_view;
+    uniform float u_curvature;
+    uniform float u_waveFrequency;
+    uniform float u_scaleX;
+    uniform float u_scaleY;
+
+    void main() {
+        vec3 scaledPosition = a_position;
+        scaledPosition.x *= u_scaleX;
+        scaledPosition.y *= u_scaleY;
+        scaledPosition.z += sin(scaledPosition.x * u_waveFrequency) * u_curvature;
+        gl_Position = u_projection * u_view * vec4(scaledPosition, 1.0);
+        v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
+    }
+`;
+
+
+const fragmentShaderSource = `#version 300 es
+    precision mediump float;
+    in vec2 v_texCoord;
+    out vec4 outColor;
+    uniform sampler2D u_texture;
+    uniform float u_flipAngle; // Angle in degrees
+    
+    void main() {
+        float angle = radians(u_flipAngle);
+        mat2 rotationMatrix = mat2(
+            cos(angle), -sin(angle),
+            sin(angle), cos(angle)
+        );
+        
+        vec2 centeredCoord = v_texCoord - 0.5; // Center texture
+        vec2 rotatedCoord = rotationMatrix * centeredCoord;
+        vec2 finalCoord = rotatedCoord + 0.5; // Move back
+        
+        outColor = texture(u_texture, finalCoord);
+    }
+`;
+
+
+
+function createShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    return shader;
+}
+
+const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+const program = gl.createProgram();
+gl.attachShader(program, vertexShader);
+gl.attachShader(program, fragmentShader);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+// Get uniform locations (Add these lines here)
+const curvatureUniform = gl.getUniformLocation(program, "u_curvature");
+const waveFrequencyUniform = gl.getUniformLocation(program, "u_waveFrequency");
+const scaleXUniform = gl.getUniformLocation(program, "u_scaleX");  // <- ADD HERE
+const scaleYUniform = gl.getUniformLocation(program, "u_scaleY");  // <- ADD HERE
+
+// const flipXUniform = gl.getUniformLocation(program, "u_flipX");
+// const flipYUniform = gl.getUniformLocation(program, "u_flipY");
+// const flipDiagonalUniform = gl.getUniformLocation(program, "u_flipDiagonal");
+
+const flipAngleUniform = gl.getUniformLocation(program, "u_flipAngle");
+
+
+
+
+const params = {
+    curvature: 0.2,
+    waveFrequency: 3.0,
+    scaleX: 1.0,
+    scaleY: 1.0,
+    flipAngle: 0 // Default angle
+};
+
+
+
+
+const rows = 50, cols = 100;
+const positions = [];
+const texCoords = [];
+for (let i = 0; i <= rows; i++) {
+    for (let j = 0; j <= cols; j++) {
+        let x = (j / cols) * 2.0 - 1.0;
+        let y = (i / rows) * 2.0 - 1.0;
+        positions.push(x, y, 0);
+        texCoords.push(j / cols, i / rows);
+    }
+}
+
+const indices = [];
+for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+        let topLeft = i * (cols + 1) + j;
+        let topRight = topLeft + 1;
+        let bottomLeft = (i + 1) * (cols + 1) + j;
+        let bottomRight = bottomLeft + 1;
+        indices.push(topLeft, bottomLeft, topRight);
+        indices.push(topRight, bottomLeft, bottomRight);
+    }
+}
+
+function createBuffer(gl, data, type, attribute, size) {
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(type, buffer);
+    gl.bufferData(type, new Float32Array(data), gl.STATIC_DRAW);
+    if (attribute !== null) {
+        gl.enableVertexAttribArray(attribute);
+        gl.vertexAttribPointer(attribute, size, gl.FLOAT, false, 0, 0);
+    }
+    return buffer;
+}
+
+const positionBuffer = createBuffer(gl, positions, gl.ARRAY_BUFFER, gl.getAttribLocation(program, "a_position"), 3);
+const texCoordBuffer = createBuffer(gl, texCoords, gl.ARRAY_BUFFER, gl.getAttribLocation(program, "a_texCoord"), 2);
+const indexBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+const projection = new Float32Array([
+    1.5, 0, 0, 0,
+    0, 1.5, 0, 0,
+    0, 0, -1.0, -1.0,
+    0, 0, -0.1, 0
+]);
+const projectionUniform = gl.getUniformLocation(program, "u_projection");
+gl.uniformMatrix4fv(projectionUniform, false, projection);
+
+const view = new Float32Array([
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, -2.5, 1
+]);
+const viewUniform = gl.getUniformLocation(program, "u_view");
+gl.uniformMatrix4fv(viewUniform, false, view);
+
+function loadTexture(gl, url) {
+    const texture = gl.createTexture();
+    const image = new Image();
+    image.onload = () => {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        requestAnimationFrame(render);
+    };
+    image.src = url;
+    return texture;
+}
+
+const texture = loadTexture(gl, "B-180914_Broad_036.jpg");
+gl.activeTexture(gl.TEXTURE0);
+gl.bindTexture(gl.TEXTURE_2D, texture);
+const textureUniform = gl.getUniformLocation(program, "u_texture");
+gl.uniform1i(textureUniform, 0);
+
+
+function render() {
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    
+    gl.uniform1f(curvatureUniform, params.curvature);
+    gl.uniform1f(waveFrequencyUniform, params.waveFrequency);
+    gl.uniform1f(scaleXUniform, params.scaleX);
+    gl.uniform1f(scaleYUniform, params.scaleY);
+    gl.uniform1f(flipAngleUniform, params.flipAngle); // Update flip angle
+    
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    
+    requestAnimationFrame(render);
+}
+
+
+render();
+
+const gui = new GUI();
+gui.add(params, "curvature", 0.0, 1.0, 0.01).name("Curvature");
+gui.add(params, "waveFrequency", 0.1, 10.0, 0.1).name("Wave Frequency");
+gui.add(params, "scaleX", 0.1, 3.0, 0.1).name("Scale X");
+gui.add(params, "scaleY", 0.1, 3.0, 0.1).name("Scale Y");
+// gui.add(params, "flipX").name("Flip Horizontally");
+// gui.add(params, "flipY").name("Flip Vertically");
+// gui.add(params, "flipDiagonal").name("Flip Diagonally");
+gui.add(params, "flipAngle", 0, 360, 1).name("Flip Angle");
+
+
+
+
+</script>
+
+
+
+</body>
+
+</html>
