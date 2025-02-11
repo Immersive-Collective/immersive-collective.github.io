@@ -158,20 +158,28 @@ const vertexShaderSource = `#version 300 es
         );
     }
 
-    void main() {
-        vec3 scaledPosition = a_position;
-        scaledPosition.x *= u_scaleX;
-        scaledPosition.y *= u_scaleY;
-        scaledPosition.z += sin(scaledPosition.x * u_waveFrequency) * u_curvature;
+void main() {
+    vec3 scaledPosition = a_position;
+    scaledPosition.x *= u_scaleX;
+    scaledPosition.y *= u_scaleY;
+    scaledPosition.z += sin(scaledPosition.x * u_waveFrequency) * u_curvature;
 
-        // Combine all three rotations: X, Y, and Z
-        mat4 rotationMatrix = rotationX(u_rotX) * rotationY(u_rotY) * rotationZ(u_rotZ);
-        
-        // Apply full 3D transformations: projection, view, rotation, and position translation
-        gl_Position = u_projection * u_view * rotationMatrix * vec4(scaledPosition + u_position, 1.0);
+    // Step 1: Apply rotation first (around object's own center)
+    mat4 rotationMatrix = rotationX(u_rotX) * rotationY(u_rotY) * rotationZ(u_rotZ);
+    vec4 rotatedPosition = rotationMatrix * vec4(scaledPosition, 1.0);
 
-        v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
-    }
+    // Step 2: Apply translation after rotation (so it moves, but doesn't orbit)
+    vec4 worldPosition = rotatedPosition + vec4(u_position, 0.0);
+
+    // Step 3: Final transformation
+    gl_Position = u_projection * u_view * worldPosition;
+
+    v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
+}
+
+
+
+
 `;
 
 
