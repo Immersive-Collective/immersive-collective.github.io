@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL2 Curved Image Projection with lil-gui</title>
+    <style>
+        
+        body { margin: 0; overflow: hidden; }
+
+canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    background: transparent; /* Ensures transparency */
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+        #static {
+            position: absolute;
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(#FFA175,#FF3F86 60%,#7281C2 90%,#00BAAC);
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div id="static">
+
+
+    <canvas id="webgl-canvas"></canvas>
+
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+
+
+<script type="importmap">
+    {
+        "imports": {
+            "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18/dist/lil-gui.esm.min.js"
+        }
+    }
+</script>
+
+
+<script type="module">
+
+
+import { GUI } from 'lil-gui';
+
+const canvas = document.getElementById("webgl-canvas");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+const gl = canvas.getContext("webgl2");
+
+if (!gl) {
+    alert("WebGL2 not supported");
+} 
+
+gl.viewport(0, 0, canvas.width, canvas.height);
+gl.enable(gl.DEPTH_TEST);
+
+
+const vertexShaderSource = `#version 300 es
+    in vec3 a_position;
+    in vec2 a_texCoord;
+    out vec2 v_texCoord;
+
+    uniform mat4 u_projection;
+    uniform mat4 u_view;
+    uniform float u_curvature;
+    uniform float u_waveFrequency;
+    uniform float u_scaleX;
+    uniform float u_scaleY;
+    uniform float u_rotX;
+    uniform float u_rotY;
+    uniform float u_rotZ;
+    uniform vec3 u_position;  // 🔹 Position X, Y, Z
+
+    mat4 rotationX(float angle) {
+        float rad = radians(angle);
+        return mat4(
+            1.0, 0.0,      0.0,       0.0,
+            0.0, cos(rad), -sin(rad), 0.0,
+            0.0, sin(rad),  cos(rad), 0.0,
+            0.0, 0.0,      0.0,       1.0
+        );
+    }
+
+    mat4 rotationY(float angle) {
+        float rad = radians(angle);
+        return mat4(
+            cos(rad),  0.0, sin(rad), 0.0,
+            0.0,       1.0, 0.0,      0.0,
+           -sin(rad),  0.0, cos(rad), 0.0,
+            0.0,       0.0, 0.0,      1.0
+        );
+    }
+
+    mat4 rotationZ(float angle) {
+        float rad = radians(angle);
+        return mat4(
+            cos(rad), -sin(rad), 0.0, 0.0,
+            sin(rad),  cos(rad), 0.0, 0.0,
+            0.0,       0.0,      1.0, 0.0,
+            0.0,       0.0,      0.0, 1.0
+        );
+    }
+
+void main() {
+    vec3 scaledPosition = a_position;
+    scaledPosition.x *= u_scaleX;
+    scaledPosition.y *= u_scaleY;
+    scaledPosition.z += sin(scaledPosition.x * u_waveFrequency) * u_curvature;
+
+    // Step 1: Apply rotation first (around object's own center)
+    mat4 rotationMatrix = rotationX(u_rotX) * rotationY(u_rotY) * rotationZ(u_rotZ);
+    vec4 rotatedPosition = rotationMatrix * vec4(scaledPosition, 1.0);
+
+    // Step 2: Apply translation after rotation (so it moves, but doesn't orbit)
+    vec4 worldPosition = rotatedPosition + vec4(u_position, 0.0);
+
+    // Step 3: Final transformation
+    gl_Position = u_projection * u_view * worldPosition;
+
+    v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
+}
+
+`;
+
+
+const fragmentShaderSource = `#version 300 es
+    precision mediump float;
+    in vec2 v_texCoord;
+    out vec4 outColor;
+    uniform sampler2D u_texture;
+    
+    void main() {
+        outColor = texture(u_texture, v_texCoord);
+    }
+`;
+
+
+
+function createShader(gl, type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error("Shader compilation error:", gl.getShaderInfoLog(shader));
+        return null;
+    }
+
+    return shader;
+}
+
+
+const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+
+const program = gl.createProgram();
+gl.attachShader(program, vertexShader);
+gl.attachShader(program, fragmentShader);
+gl.linkProgram(program);
+gl.useProgram(program);
+
+// Get uniform locations (Add these lines here)
+const curvatureUniform = gl.getUniformLocation(program, "u_curvature");
+const waveFrequencyUniform = gl.getUniformLocation(program, "u_waveFrequency");
+const scaleXUniform = gl.getUniformLocation(program, "u_scaleX");  // <- ADD HERE
+const scaleYUniform = gl.getUniformLocation(program, "u_scaleY");  // <- ADD HERE
+
+// const flipXUniform = gl.getUniformLocation(program, "u_flipX");
+// const flipYUniform = gl.getUniformLocation(program, "u_flipY");
+// const flipDiagonalUniform = gl.getUniformLocation(program, "u_flipDiagonal");
+
+const flipAngleUniform = gl.getUniformLocation(program, "u_flipAngle");
+
+const rotXUniform = gl.getUniformLocation(program, "u_rotX");
+const rotYUniform = gl.getUniformLocation(program, "u_rotY");
+const rotZUniform = gl.getUniformLocation(program, "u_rotZ");
+
+
+const positionUniform = gl.getUniformLocation(program, "u_position");
+
+
+
+
+
+const params = {
+    curvature: 0.2,
+    waveFrequency: 3.0,
+    scaleX: 1.0,
+    scaleY: 1.0,
+    rotX: 0,  // Rotation around X
+    rotY: 0,  // Rotation around Y
+    rotZ: 0,  // Rotation around Z
+    posX: 0,  // Position X
+    posY: 0,  // Position Y
+    posZ: -2  // Position Z (move back)
+};
+
+
+
+
+
+const rows = 50, cols = 100;
+const positions = [];
+const texCoords = [];
+for (let i = 0; i <= rows; i++) {
+    for (let j = 0; j <= cols; j++) {
+        let x = (j / cols) * 2.0 - 1.0;
+        let y = (i / rows) * 2.0 - 1.0;
+        positions.push(x, y, 0);
+        texCoords.push(j / cols, i / rows);
+    }
+}
+
+const indices = [];
+for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+        let topLeft = i * (cols + 1) + j;
+        let topRight = topLeft + 1;
+        let bottomLeft = (i + 1) * (cols + 1) + j;
+        let bottomRight = bottomLeft + 1;
+        indices.push(topLeft, bottomLeft, topRight);
+        indices.push(topRight, bottomLeft, bottomRight);
+    }
+}
+
+function createBuffer(gl, data, type, attribute, size) {
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(type, buffer);
+    gl.bufferData(type, new Float32Array(data), gl.STATIC_DRAW);
+    if (attribute !== null) {
+        gl.enableVertexAttribArray(attribute);
+        gl.vertexAttribPointer(attribute, size, gl.FLOAT, false, 0, 0);
+    }
+    return buffer;
+}
+
+const positionBuffer = createBuffer(gl, positions, gl.ARRAY_BUFFER, gl.getAttribLocation(program, "a_position"), 3);
+const texCoordBuffer = createBuffer(gl, texCoords, gl.ARRAY_BUFFER, gl.getAttribLocation(program, "a_texCoord"), 2);
+const indexBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+const projection = new Float32Array([
+    1.5, 0, 0, 0,
+    0, 1.5, 0, 0,
+    0, 0, -1.0, -1.0,
+    0, 0, -0.1, 0
+]);
+const projectionUniform = gl.getUniformLocation(program, "u_projection");
+gl.uniformMatrix4fv(projectionUniform, false, projection);
+
+const view = new Float32Array([
+    1, 0, 0, 0,
+    0, 1, 0, 0,
+    0, 0, 1, 0,
+    0, 0, -2.5, 1
+]);
+const viewUniform = gl.getUniformLocation(program, "u_view");
+gl.uniformMatrix4fv(viewUniform, false, view);
+
+// function loadTexture(gl, url) {
+//     const texture = gl.createTexture();
+//     const image = new Image();
+//     image.onload = () => {
+//         gl.bindTexture(gl.TEXTURE_2D, texture);
+//         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+//         gl.generateMipmap(gl.TEXTURE_2D);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+//         requestAnimationFrame(render);
+//     };
+//     image.src = url;
+//     return texture;
+// }
+
+const texture = loadTexture(gl, "B-180914_Broad_036.jpg");
+gl.activeTexture(gl.TEXTURE0);
+gl.bindTexture(gl.TEXTURE_2D, texture);
+const textureUniform = gl.getUniformLocation(program, "u_texture");
+gl.uniform1i(textureUniform, 0);
+
+
+
+
+const photos = {}; // Store images with unique names
+
+function addPhoto(name, url, position = [0, 0, -3], rotation = [0, 0, 0], scale = [1, 1], curvature = 0.2, waveFrequency = 3.0) {
+    if (photos[name]) {
+        console.warn(`Photo with name "${name}" already exists. Use updatePhoto to modify.`);
+        return;
+    }
+
+    console.log(`🖼️ Adding Photo: ${name}, URL: ${url}`);
+
+    const imageObj = {
+        name: name,
+        texture: null,
+        url: url,
+        position: position,
+        rotation: rotation,
+        scale: scale,
+        curvature: curvature,
+        waveFrequency: waveFrequency
+    };
+
+    loadTexture(gl, url, (texture) => {
+        imageObj.texture = texture;
+        photos[name] = imageObj;
+        console.log(`✅ Texture Loaded for ${name}`);
+        //requestAnimationFrame(render);
+        render()
+    });
+
+    return imageObj;
+}
+
+window.addPhoto = addPhoto;
+
+
+
+function animatePhoto(name, newProperties, duration = 1, ease = "power2.out") {
+    if (!photos[name]) {
+        console.warn(`Photo "${name}" not found.`);
+        return;
+    }
+
+    const photo = photos[name];
+
+    // Create a proxy object that will be updated by GSAP
+    const proxy = {
+        posX: photo.position[0],
+        posY: photo.position[1],
+        posZ: photo.position[2],
+        rotX: photo.rotation[0],
+        rotY: photo.rotation[1],
+        rotZ: photo.rotation[2],
+        scaleX: photo.scale[0],
+        scaleY: photo.scale[1],
+        curvature: photo.curvature,
+        waveFrequency: photo.waveFrequency
+    };
+
+    gsap.to(proxy, {
+        posX: newProperties.position ? newProperties.position[0] : proxy.posX,
+        posY: newProperties.position ? newProperties.position[1] : proxy.posY,
+        posZ: newProperties.position ? newProperties.position[2] : proxy.posZ,
+        rotX: newProperties.rotation ? newProperties.rotation[0] : proxy.rotX,
+        rotY: newProperties.rotation ? newProperties.rotation[1] : proxy.rotY,
+        rotZ: newProperties.rotation ? newProperties.rotation[2] : proxy.rotZ,
+        scaleX: newProperties.scale ? newProperties.scale[0] : proxy.scaleX,
+        scaleY: newProperties.scale ? newProperties.scale[1] : proxy.scaleY,
+        curvature: newProperties.curvature !== undefined ? newProperties.curvature : proxy.curvature,
+        waveFrequency: newProperties.waveFrequency !== undefined ? newProperties.waveFrequency : proxy.waveFrequency,
+        duration: duration,
+        ease: ease,
+        onUpdate: () => {
+            // Sync GSAP proxy values to the WebGL object
+            photo.position = [proxy.posX, proxy.posY, proxy.posZ];
+            photo.rotation = [proxy.rotX, proxy.rotY, proxy.rotZ];
+            photo.scale = [proxy.scaleX, proxy.scaleY];
+            photo.curvature = proxy.curvature;
+            photo.waveFrequency = proxy.waveFrequency;
+
+            // Continuously re-render during animation
+            //requestAnimationFrame(render);
+            render();
+        }
+    });
+}
+
+
+
+
+
+window.animatePhoto = animatePhoto;
+
+
+
+// 🔹 **Function to update an image's properties by name**
+function updatePhoto(name, newProperties) {
+    if (!photos[name]) {
+        console.warn(`Photo "${name}" not found.`);
+        return;
+    }
+
+    Object.assign(photos[name], newProperties);
+    //requestAnimationFrame(render);
+    render()
+}
+
+window.updatePhoto = updatePhoto;
+
+
+// Modify `loadTexture` to accept a callback for async texture loading
+function loadTexture(gl, url, callback) {
+    const texture = gl.createTexture();
+    const image = new Image();
+    image.onload = () => {
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+        if (callback) callback(texture);
+    };
+    image.src = url;
+}
+
+
+
+
+
+
+// const gui = new GUI();
+// gui.add(params, "curvature", 0.0, 1.0, 0.01).name("Curvature");
+// gui.add(params, "waveFrequency", 0.1, 10.0, 0.1).name("Wave Frequency");
+// gui.add(params, "scaleX", 0.1, 3.0, 0.1).name("Scale X");
+// gui.add(params, "scaleY", 0.1, 3.0, 0.1).name("Scale Y");
+
+// gui.add(params, "rotX", 0, 360, 1).name("Rotate X");
+// gui.add(params, "rotY", 0, 360, 1).name("Rotate Y");
+// gui.add(params, "rotZ", 0, 360, 1).name("Rotate Z");
+
+// // 🔹 Add Position Sliders
+// gui.add(params, "posX", -5, 5, 0.1).name("Position X");
+// gui.add(params, "posY", -5, 5, 0.1).name("Position Y");
+// gui.add(params, "posZ", -10, 0, 0.1).name("Position Z");
+
+
+// addPhoto("photo1", "B-180914_Broad_036.jpg", [0, 0, -3], [0, 0, 0], [1, 1], 0.2, 3.0);
+// addPhoto("photo2", "BikeandHike-2.jpg", [-2, 1, -4], [10, 20, 5], [1.5, 1], 0.3, 2.5);
+// addPhoto("photo3", "1.jpg", [2, -1, -5], [-5, -15, 30], [0.8, 1.2], 0.1, 4.0);
+
+
+function loadPhotosInCircle(imageUrls, numImages, radius) {
+    const angleStep = (2 * Math.PI) / numImages; // Divide full circle into equal parts
+
+    for (let i = 0; i < numImages; i++) {
+        const angle = i * angleStep; // Calculate angle for this image
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        const z = -5; // Keep all at the same depth
+
+        // Choose a random image from the provided list
+        const imageUrl = imageUrls[i % imageUrls.length]; 
+
+        addPhoto(`photo_${i}`, imageUrl, [x, y, z], [0, 0, 0], [1, 1], 0.2, 3.0);
+    }
+}
+
+// List of image URLs (can be expanded)
+const imageUrls = [
+    "B-180914_Broad_036.jpg",
+    "BikeandHike-2.jpg",
+    "1.jpg"
+];
+
+// Load images in a circular pattern
+loadPhotosInCircle(imageUrls, 12, 3); // Load 12 images in a circle of radius 3
+
+
+
+function test() {
+    function random(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    // Kill previous animations to prevent stacking
+    Object.keys(photos).forEach(photoName => gsap.killTweensOf(photos[photoName]));
+
+    // Animate all photos dynamically
+    Object.keys(photos).forEach(photoName => {
+        animatePhoto(photoName, { 
+            curvature: random(0.1, 1.0), 
+            waveFrequency: random(2.0, 6.0),        
+            position: [random(-6, 6), random(-2, 2), random(-6, -3)], 
+            scale: [random(0.8, 1.5), random(0.8, 1.5)],
+            rotation: [random(0, 360), random(0, 360), random(0, 360)] 
+        }, random(1, 6), "power2.out");
+    });
+}
+
+window.test = test;
+
+function positionInGrid(rows, cols, startX = -5, startY = 3, spacingX = 3, spacingY = 3, duration = 1.5) {
+    const photoNames = Object.keys(photos);
+    const totalImages = photoNames.length;
+
+    if (totalImages === 0) {
+        console.warn("No photos to position.");
+        return;
+    }
+
+    console.log(`✅ Positioning ${totalImages} images in a ${rows}x${cols} grid.`);
+
+    // 🔥 Kill all animations to avoid stacking
+    photoNames.forEach(photoName => gsap.killTweensOf(photos[photoName], "all"));
+
+    photoNames.forEach((photoName, i) => {
+        // Ensure images beyond the grid wrap into existing slots
+        const gridIndex = i % (rows * cols); // Modulo wraps images back into the grid
+        const row = Math.floor(gridIndex / cols);
+        const col = gridIndex % cols;
+
+        const targetX = startX + col * spacingX;
+        const targetY = startY - row * spacingY;
+        const targetZ = -5; // Keep depth consistent
+
+        animatePhoto(photoName, { 
+            curvature: 0, 
+            waveFrequency: 0,               
+            position: [targetX, targetY, targetZ], 
+            scale: [1, 1], 
+            rotation: [0, 0, 0]
+        }, duration, "power2.out");
+    });
+}
+
+window.positionInGrid = positionInGrid;
+
+
+
+
+
+
+// Render loop to sync GSAP animations smoothly
+function render() {
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    Object.values(photos).forEach(img => {
+        if (!img.texture) return;
+
+        // 🔹 **Bind the correct texture for each object before drawing**
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, img.texture);
+        gl.uniform1i(textureUniform, 0);
+
+        // Update uniforms
+        gl.uniform1f(curvatureUniform, img.curvature);
+        gl.uniform1f(waveFrequencyUniform, img.waveFrequency);
+        gl.uniform1f(scaleXUniform, img.scale[0]);
+        gl.uniform1f(scaleYUniform, img.scale[1]);
+        gl.uniform1f(rotXUniform, img.rotation[0]);
+        gl.uniform1f(rotYUniform, img.rotation[1]);
+        gl.uniform1f(rotZUniform, img.rotation[2]);
+        gl.uniform3f(positionUniform, img.position[0], img.position[1], img.position[2]);
+
+        // Draw the object with its own texture
+        gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    });
+}
+
+
+window.test = test;
+
+
+
+
+
+
+
+</script>
+
+
+
+</body>
+
+</html>

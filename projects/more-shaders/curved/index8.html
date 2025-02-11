@@ -55,48 +55,6 @@ canvas {
 <script type="module">
 
 
-// Define GSAP animation sequence
-function animateWebGL() {
-    gsap.to(params, {
-        curvature: 0.8,
-        waveFrequency: 6.0,
-        scaleX: 1.5,
-        scaleY: 1.2,
-        duration: 3,
-        yoyo: true,
-        repeat: -1,
-        ease: "sine.inOut",
-        onUpdate: () => {
-            gl.uniform1f(curvatureUniform, params.curvature);
-            gl.uniform1f(waveFrequencyUniform, params.waveFrequency);
-            gl.uniform1f(scaleXUniform, params.scaleX);
-            gl.uniform1f(scaleYUniform, params.scaleY);
-        }
-    });
-}
-window.animateWebGL = animateWebGL
-
-
-function revealImage() {
-    gsap.to(params, {
-        scaleX: 1.0,          // Scale to normal width
-        scaleY: 1.0,          // Scale to normal height
-        curvature: 0.2,       // Slight curvature
-        duration: 3,          // Smooth 3-second transition
-        ease: "power2.out",   // Easing for natural transition
-        onUpdate: () => {
-            gl.uniform1f(scaleXUniform, params.scaleX);
-            gl.uniform1f(scaleYUniform, params.scaleY);
-            gl.uniform1f(curvatureUniform, params.curvature);
-        }
-    });
-}
-
-window.revealImage = revealImage;
-// Start the animation
-
-
-
 import { GUI } from 'lil-gui';
 
 const canvas = document.getElementById("webgl-canvas");
@@ -308,7 +266,137 @@ const view = new Float32Array([
 const viewUniform = gl.getUniformLocation(program, "u_view");
 gl.uniformMatrix4fv(viewUniform, false, view);
 
-function loadTexture(gl, url) {
+// function loadTexture(gl, url) {
+//     const texture = gl.createTexture();
+//     const image = new Image();
+//     image.onload = () => {
+//         gl.bindTexture(gl.TEXTURE_2D, texture);
+//         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+//         gl.generateMipmap(gl.TEXTURE_2D);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+//         requestAnimationFrame(render);
+//     };
+//     image.src = url;
+//     return texture;
+// }
+
+const texture = loadTexture(gl, "B-180914_Broad_036.jpg");
+gl.activeTexture(gl.TEXTURE0);
+gl.bindTexture(gl.TEXTURE_2D, texture);
+const textureUniform = gl.getUniformLocation(program, "u_texture");
+gl.uniform1i(textureUniform, 0);
+
+
+
+
+const photos = {}; // Store images with unique names
+
+function addPhoto(name, url, position = [0, 0, -3], rotation = [0, 0, 0], scale = [1, 1], curvature = 0.2, waveFrequency = 3.0) {
+    if (photos[name]) {
+        console.warn(`Photo with name "${name}" already exists. Use updatePhoto to modify.`);
+        return;
+    }
+
+    const imageObj = {
+        name: name,
+        texture: null,
+        url: url,
+        position: position,
+        rotation: rotation,
+        scale: scale,
+        curvature: curvature,
+        waveFrequency: waveFrequency
+    };
+
+    loadTexture(gl, url, (texture) => {
+        imageObj.texture = texture;
+        photos[name] = imageObj;
+        requestAnimationFrame(render); // Ensure it gets drawn
+    });
+
+    return imageObj;
+}
+
+window.addPhoto = addPhoto;
+
+
+
+function animatePhoto(name, newProperties, duration = 1, ease = "power2.out") {
+    if (!photos[name]) {
+        console.warn(`Photo "${name}" not found.`);
+        return;
+    }
+
+    const photo = photos[name];
+
+    // Create a proxy object that will be updated by GSAP
+    const proxy = {
+        posX: photo.position[0],
+        posY: photo.position[1],
+        posZ: photo.position[2],
+        rotX: photo.rotation[0],
+        rotY: photo.rotation[1],
+        rotZ: photo.rotation[2],
+        scaleX: photo.scale[0],
+        scaleY: photo.scale[1],
+        curvature: photo.curvature,
+        waveFrequency: photo.waveFrequency
+    };
+
+    gsap.to(proxy, {
+        posX: newProperties.position ? newProperties.position[0] : proxy.posX,
+        posY: newProperties.position ? newProperties.position[1] : proxy.posY,
+        posZ: newProperties.position ? newProperties.position[2] : proxy.posZ,
+        rotX: newProperties.rotation ? newProperties.rotation[0] : proxy.rotX,
+        rotY: newProperties.rotation ? newProperties.rotation[1] : proxy.rotY,
+        rotZ: newProperties.rotation ? newProperties.rotation[2] : proxy.rotZ,
+        scaleX: newProperties.scale ? newProperties.scale[0] : proxy.scaleX,
+        scaleY: newProperties.scale ? newProperties.scale[1] : proxy.scaleY,
+        curvature: newProperties.curvature !== undefined ? newProperties.curvature : proxy.curvature,
+        waveFrequency: newProperties.waveFrequency !== undefined ? newProperties.waveFrequency : proxy.waveFrequency,
+        duration: duration,
+        ease: ease,
+        onUpdate: () => {
+            // Sync GSAP proxy values to the WebGL object
+            photo.position = [proxy.posX, proxy.posY, proxy.posZ];
+            photo.rotation = [proxy.rotX, proxy.rotY, proxy.rotZ];
+            photo.scale = [proxy.scaleX, proxy.scaleY];
+            photo.curvature = proxy.curvature;
+            photo.waveFrequency = proxy.waveFrequency;
+
+            // Continuously re-render during animation
+            requestAnimationFrame(render);
+        }
+    });
+}
+
+
+
+
+
+window.animatePhoto = animatePhoto;
+
+
+
+// 🔹 **Function to update an image's properties by name**
+function updatePhoto(name, newProperties) {
+    if (!photos[name]) {
+        console.warn(`Photo "${name}" not found.`);
+        return;
+    }
+
+    Object.assign(photos[name], newProperties);
+    requestAnimationFrame(render);
+}
+
+window.updatePhoto = updatePhoto;
+
+
+// Modify `loadTexture` to accept a callback for async texture loading
+function loadTexture(gl, url, callback) {
     const texture = gl.createTexture();
     const image = new Image();
     image.onload = () => {
@@ -319,35 +407,33 @@ function loadTexture(gl, url) {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        requestAnimationFrame(render);
+
+        if (callback) callback(texture);
     };
     image.src = url;
-    return texture;
 }
 
-const texture = loadTexture(gl, "B-180914_Broad_036.jpg");
-gl.activeTexture(gl.TEXTURE0);
-gl.bindTexture(gl.TEXTURE_2D, texture);
-const textureUniform = gl.getUniformLocation(program, "u_texture");
-gl.uniform1i(textureUniform, 0);
 
-
+// 
 function render() {
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    gl.uniform1f(curvatureUniform, params.curvature);
-    gl.uniform1f(waveFrequencyUniform, params.waveFrequency);
-    gl.uniform1f(scaleXUniform, params.scaleX);
-    gl.uniform1f(scaleYUniform, params.scaleY);
-    gl.uniform1f(rotXUniform, params.rotX);
-    gl.uniform1f(rotYUniform, params.rotY);
-    gl.uniform1f(rotZUniform, params.rotZ);
+    Object.values(photos).forEach(img => {
+        if (!img.texture) return; // Skip if texture not loaded
 
-    gl.uniform3f(positionUniform, params.posX, params.posY, params.posZ)
+        gl.uniform1f(curvatureUniform, img.curvature);
+        gl.uniform1f(waveFrequencyUniform, img.waveFrequency);
+        gl.uniform1f(scaleXUniform, img.scale[0]);
+        gl.uniform1f(scaleYUniform, img.scale[1]);
+        gl.uniform1f(rotXUniform, img.rotation[0]);
+        gl.uniform1f(rotYUniform, img.rotation[1]);
+        gl.uniform1f(rotZUniform, img.rotation[2]);
+        gl.uniform3f(positionUniform, img.position[0], img.position[1], img.position[2]);
 
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+        gl.bindTexture(gl.TEXTURE_2D, img.texture);
+        gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    });
 
     requestAnimationFrame(render);
 }
@@ -356,22 +442,26 @@ render();
 
 
 
-const gui = new GUI();
-gui.add(params, "curvature", 0.0, 1.0, 0.01).name("Curvature");
-gui.add(params, "waveFrequency", 0.1, 10.0, 0.1).name("Wave Frequency");
-gui.add(params, "scaleX", 0.1, 3.0, 0.1).name("Scale X");
-gui.add(params, "scaleY", 0.1, 3.0, 0.1).name("Scale Y");
 
-gui.add(params, "rotX", 0, 360, 1).name("Rotate X");
-gui.add(params, "rotY", 0, 360, 1).name("Rotate Y");
-gui.add(params, "rotZ", 0, 360, 1).name("Rotate Z");
+// const gui = new GUI();
+// gui.add(params, "curvature", 0.0, 1.0, 0.01).name("Curvature");
+// gui.add(params, "waveFrequency", 0.1, 10.0, 0.1).name("Wave Frequency");
+// gui.add(params, "scaleX", 0.1, 3.0, 0.1).name("Scale X");
+// gui.add(params, "scaleY", 0.1, 3.0, 0.1).name("Scale Y");
 
-// 🔹 Add Position Sliders
-gui.add(params, "posX", -5, 5, 0.1).name("Position X");
-gui.add(params, "posY", -5, 5, 0.1).name("Position Y");
-gui.add(params, "posZ", -10, 0, 0.1).name("Position Z");
+// gui.add(params, "rotX", 0, 360, 1).name("Rotate X");
+// gui.add(params, "rotY", 0, 360, 1).name("Rotate Y");
+// gui.add(params, "rotZ", 0, 360, 1).name("Rotate Z");
+
+// // 🔹 Add Position Sliders
+// gui.add(params, "posX", -5, 5, 0.1).name("Position X");
+// gui.add(params, "posY", -5, 5, 0.1).name("Position Y");
+// gui.add(params, "posZ", -10, 0, 0.1).name("Position Z");
 
 
+addPhoto("photo1", "B-180914_Broad_036.jpg", [0, 0, -3], [0, 0, 0], [1, 1], 0.2, 3.0);
+addPhoto("photo2", "BikeandHike-2.jpg", [-2, 1, -4], [10, 20, 5], [1.5, 1], 0.3, 2.5);
+addPhoto("photo3", "1.jpg", [2, -1, -5], [-5, -15, 30], [0.8, 1.2], 0.1, 4.0);
 
 
 

@@ -308,7 +308,85 @@ const view = new Float32Array([
 const viewUniform = gl.getUniformLocation(program, "u_view");
 gl.uniformMatrix4fv(viewUniform, false, view);
 
-function loadTexture(gl, url) {
+// function loadTexture(gl, url) {
+//     const texture = gl.createTexture();
+//     const image = new Image();
+//     image.onload = () => {
+//         gl.bindTexture(gl.TEXTURE_2D, texture);
+//         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+//         gl.generateMipmap(gl.TEXTURE_2D);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+//         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+//         requestAnimationFrame(render);
+//     };
+//     image.src = url;
+//     return texture;
+// }
+
+const texture = loadTexture(gl, "B-180914_Broad_036.jpg");
+gl.activeTexture(gl.TEXTURE0);
+gl.bindTexture(gl.TEXTURE_2D, texture);
+const textureUniform = gl.getUniformLocation(program, "u_texture");
+gl.uniform1i(textureUniform, 0);
+
+
+
+
+let imageCounter = 0; // Unique ID for each image
+const images = [];
+
+function addPhoto(url, position = [0, 0, -3], rotation = [0, 0, 0], scale = [1, 1], curvature = 0.2, waveFrequency = 3.0) {
+    const id = imageCounter++;
+    const imageObj = {
+        id,
+        texture: null,
+        url,
+        position: [...position],
+        rotation: [...rotation],
+        scale: [...scale],
+        curvature,
+        waveFrequency
+    };
+
+    loadTexture(gl, url, (texture) => {
+        imageObj.texture = texture;
+        images.push(imageObj);
+        createGUIForImage(imageObj); // Add controls for each image
+        requestAnimationFrame(render);
+    });
+
+    return imageObj;
+}
+
+window.addPhoto = addPhoto; // Expose function globally
+
+
+const gui = new GUI();
+
+function createGUIForImage(img) {
+    const folder = gui.addFolder(`Image ${img.id}`);
+
+    folder.add(img.position, 0, -5, 5, 0.1).name("Position X").onChange(() => requestAnimationFrame(render));
+    folder.add(img.position, 1, -5, 5, 0.1).name("Position Y").onChange(() => requestAnimationFrame(render));
+    folder.add(img.position, 2, -10, 0, 0.1).name("Position Z").onChange(() => requestAnimationFrame(render));
+
+    folder.add(img.rotation, 0, 0, 360, 1).name("Rotate X").onChange(() => requestAnimationFrame(render));
+    folder.add(img.rotation, 1, 0, 360, 1).name("Rotate Y").onChange(() => requestAnimationFrame(render));
+    folder.add(img.rotation, 2, 0, 360, 1).name("Rotate Z").onChange(() => requestAnimationFrame(render));
+
+    folder.add(img.scale, 0, 0.1, 3.0, 0.1).name("Scale X").onChange(() => requestAnimationFrame(render));
+    folder.add(img.scale, 1, 0.1, 3.0, 0.1).name("Scale Y").onChange(() => requestAnimationFrame(render));
+
+    folder.add(img, "curvature", 0.0, 1.0, 0.01).name("Curvature").onChange(() => requestAnimationFrame(render));
+    folder.add(img, "waveFrequency", 0.1, 10.0, 0.1).name("Wave Frequency").onChange(() => requestAnimationFrame(render));
+}
+
+
+
+// Modify `loadTexture` to accept a callback for async texture loading
+function loadTexture(gl, url, callback) {
     const texture = gl.createTexture();
     const image = new Image();
     image.onload = () => {
@@ -319,59 +397,60 @@ function loadTexture(gl, url) {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        requestAnimationFrame(render);
+
+        if (callback) callback(texture);
     };
     image.src = url;
-    return texture;
 }
-
-const texture = loadTexture(gl, "B-180914_Broad_036.jpg");
-gl.activeTexture(gl.TEXTURE0);
-gl.bindTexture(gl.TEXTURE_2D, texture);
-const textureUniform = gl.getUniformLocation(program, "u_texture");
-gl.uniform1i(textureUniform, 0);
 
 
 function render() {
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    gl.uniform1f(curvatureUniform, params.curvature);
-    gl.uniform1f(waveFrequencyUniform, params.waveFrequency);
-    gl.uniform1f(scaleXUniform, params.scaleX);
-    gl.uniform1f(scaleYUniform, params.scaleY);
-    gl.uniform1f(rotXUniform, params.rotX);
-    gl.uniform1f(rotYUniform, params.rotY);
-    gl.uniform1f(rotZUniform, params.rotZ);
+    for (let img of images) {
+        if (!img.texture) continue;
 
-    gl.uniform3f(positionUniform, params.posX, params.posY, params.posZ)
+        gl.uniform1f(curvatureUniform, img.curvature);
+        gl.uniform1f(waveFrequencyUniform, img.waveFrequency);
+        gl.uniform1f(scaleXUniform, img.scale[0]);
+        gl.uniform1f(scaleYUniform, img.scale[1]);
+        gl.uniform1f(rotXUniform, img.rotation[0]);
+        gl.uniform1f(rotYUniform, img.rotation[1]);
+        gl.uniform1f(rotZUniform, img.rotation[2]);
+        gl.uniform3f(positionUniform, img.position[0], img.position[1], img.position[2]);
 
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+        gl.bindTexture(gl.TEXTURE_2D, img.texture);
+        gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+    }
 
     requestAnimationFrame(render);
 }
+
 
 render();
 
 
 
-const gui = new GUI();
-gui.add(params, "curvature", 0.0, 1.0, 0.01).name("Curvature");
-gui.add(params, "waveFrequency", 0.1, 10.0, 0.1).name("Wave Frequency");
-gui.add(params, "scaleX", 0.1, 3.0, 0.1).name("Scale X");
-gui.add(params, "scaleY", 0.1, 3.0, 0.1).name("Scale Y");
+// const gui = new GUI();
+// gui.add(params, "curvature", 0.0, 1.0, 0.01).name("Curvature");
+// gui.add(params, "waveFrequency", 0.1, 10.0, 0.1).name("Wave Frequency");
+// gui.add(params, "scaleX", 0.1, 3.0, 0.1).name("Scale X");
+// gui.add(params, "scaleY", 0.1, 3.0, 0.1).name("Scale Y");
 
-gui.add(params, "rotX", 0, 360, 1).name("Rotate X");
-gui.add(params, "rotY", 0, 360, 1).name("Rotate Y");
-gui.add(params, "rotZ", 0, 360, 1).name("Rotate Z");
+// gui.add(params, "rotX", 0, 360, 1).name("Rotate X");
+// gui.add(params, "rotY", 0, 360, 1).name("Rotate Y");
+// gui.add(params, "rotZ", 0, 360, 1).name("Rotate Z");
 
-// 🔹 Add Position Sliders
-gui.add(params, "posX", -5, 5, 0.1).name("Position X");
-gui.add(params, "posY", -5, 5, 0.1).name("Position Y");
-gui.add(params, "posZ", -10, 0, 0.1).name("Position Z");
+// // 🔹 Add Position Sliders
+// gui.add(params, "posX", -5, 5, 0.1).name("Position X");
+// gui.add(params, "posY", -5, 5, 0.1).name("Position Y");
+// gui.add(params, "posZ", -10, 0, 0.1).name("Position Z");
 
 
+addPhoto("B-180914_Broad_036.jpg", [0, 0, -3], [0, 0, 0], [1, 1], 0.2, 3.0);
+addPhoto("BikeandHike-2.jpg", [-2, 1, -4], [10, 20, 5], [1.5, 1], 0.3, 2.5);
+addPhoto("1.jpg", [2, -1, -5], [-5, -15, 30], [0.8, 1.2], 0.1, 4.0);
 
 
 
