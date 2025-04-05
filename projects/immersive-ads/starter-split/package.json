@@ -11,14 +11,14 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "@babel/core": "^7.26.0",
-    "@babel/preset-env": "^7.26.0",
-    "babel-loader": "^9.2.1",
+    "@babel/core": "^7.26.10",
+    "@babel/preset-env": "^7.26.9",
+    "babel-loader": "^10.0.0",
     "html-webpack-plugin": "^5.6.3",
     "path-browserify": "^1.0.1",
     "replace-in-file": "^8.3.0",
-    "three": "^0.172.0",
-    "webpack": "^5.97.1",
+    "three": "^0.175.0",
+    "webpack": "^5.98.0",
     "webpack-cli": "^6.0.1"
   }
 }
