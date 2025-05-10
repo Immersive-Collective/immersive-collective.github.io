@@ -1,8 +1,6 @@
 /*
 
   Author: Sylwester Mielniczuk sylwester@workwork.fun
-  Sat 10th May 2025
-  Project: Car Game
 
 */
 
@@ -150,71 +148,9 @@ function updateCarTransform() {
   HAND_L.style.transform = `translateY(${-handOffset}px)`;
   HAND_R.style.transform = `translateY(${handOffset}px)`;
 
+
 }
 
-
-
-
-let startWorldX = 0;
-let startWorldY = 0;
-
-const START_BADGE = document.getElementById('start-badge');
-
-function initializeStartPosition() {
-  startWorldX = surfaceOffsetX;
-  startWorldY = surfaceOffsetY;
-}
-
-function updateStartBadge() {
-  const screenX = surfaceOffsetX - startWorldX + carX;
-  const screenY = surfaceOffsetY - startWorldY + carY;
-  START_BADGE.style.left = `${screenX}px`;
-  START_BADGE.style.top = `${screenY}px`;
-}
-
-
-
-
-const MAP_DATA = JSON.parse(`{
-  "mapName": "untitled",
-  "cols": 15,
-  "rows": 15,
-  "origin": { "x": 7, "y": 7 },
-  "obstacles": [
-    { "x": -700, "y": 700, "type": "red" },
-    { "x": 700, "y": 700, "type": "red" },
-    { "x": -700, "y": -700, "type": "red" },
-    { "x": 700, "y": -700, "type": "red" },
-    { "x": -700, "y": 100, "type": "blue" },
-    { "x": 100, "y": 700, "type": "blue" },
-    { "x": 700, "y": 100, "type": "green" }
-  ]
-}`);
-
-
-
-const OBSTACLES = MAP_DATA.obstacles.map((data, i) => {
-  const el = document.createElement('div');
-  el.className = `obstacle type-${data.type}`;
-  el.id = `obstacle-${i}`;
-  el.style.position = 'absolute';
-  SURFACE.appendChild(el);
-  return el;
-});
-
-
-
-
-function updateObstacles() {
-  for (let i = 0; i < OBSTACLES.length; i++) {
-    const worldX = startWorldX + MAP_DATA.obstacles[i].x;
-    const worldY = startWorldY + MAP_DATA.obstacles[i].y;
-    const screenX = surfaceOffsetX - worldX + carX;
-    const screenY = surfaceOffsetY - worldY + carY;
-    OBSTACLES[i].style.left = `${screenX}px`;
-    OBSTACLES[i].style.top = `${screenY}px`;
-  }
-}
 
 function updateSurface() {
   const angle = -(carRotation % 360) * (Math.PI / 180);
@@ -225,43 +161,6 @@ function updateSurface() {
   surfaceOffsetY += vy;
 
   SURFACE.style.backgroundPosition = `${surfaceOffsetX}px ${surfaceOffsetY}px`;
-
-  updateStartBadge();
-  updateObstacles();
-}
-
-
-/* Collision */
-
-function checkCollision() {
-  const carLeft = carX - (scaledWidth / 2);
-  const carTop = carY - (scaledHeight / 2);
-  const carRight = carLeft + scaledWidth;
-  const carBottom = carTop + scaledHeight;
-
-  for (let i = 0; i < MAP_DATA.obstacles.length; i++) {
-    const worldX = startWorldX + MAP_DATA.obstacles[i].x;
-    const worldY = startWorldY + MAP_DATA.obstacles[i].y;
-
-    const obsLeft = surfaceOffsetX - worldX + carX;
-    const obsTop = surfaceOffsetY - worldY + carY;
-    const obsRight = obsLeft + 40;
-    const obsBottom = obsTop + 40;
-
-    if (
-      carRight > obsLeft &&
-      carLeft < obsRight &&
-      carBottom > obsTop &&
-      carTop < obsBottom
-    ) {
-      const info = document.getElementById('collision-info');
-      info.textContent = `Collision with ${MAP_DATA.obstacles[i].type} obstacle`;
-      info.style.display = 'block';
-      return;
-    }
-  }
-
-  document.getElementById('collision-info').style.display = 'none';
 }
 
 
@@ -279,8 +178,6 @@ let joyRadius = 40;
 JOYSTICK.addEventListener('touchstart', handleTouch);
 JOYSTICK.addEventListener('touchmove', handleTouch);
 JOYSTICK.addEventListener('touchend', resetJoystick);
-
-
 
 function handleTouch(e) {
   e.preventDefault();
@@ -380,6 +277,8 @@ toggleBtn.addEventListener('click', () => {
 });
 
 
+
+
 function applyFriction() {
   if (!accelerating && !braking && speed > 0) {
     speed = Math.max(0, speed - FRICTION);
@@ -448,10 +347,6 @@ function renderLoop() {
   animateTail();
   animateGabby();
 
-  updateStartBadge();
-
-   checkCollision();
-
   requestAnimationFrame(renderLoop);
 }
 
@@ -495,10 +390,6 @@ function hideJoystickIfNotTouch() {
 
 // Call this at load
 hideJoystickIfNotTouch();
-
-
-
-
 
 
 
