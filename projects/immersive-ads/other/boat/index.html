@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raft Game</title>
+    <link rel="stylesheet" href="main.css" />
+</head>
+
+<body>
+    <div class="creative">
+
+
+
+<div class="bg"></div>
+<img class="logo" src="https://play2.s3.amazonaws.com/assets/s3M4ZwXmz.svg" />
+
+<div class="water-container">
+  <div class="riverbed"></div>
+  <div class="water-surface"></div>
+  <div class="boat player-boat">
+    <img class="raft" src="https://play2.s3.amazonaws.com/assets/_7PQSn5mc.webp" />
+    <div class="boy-wrapper">
+      <img class="boy" src="https://play2.s3.amazonaws.com/assets/aZeZRqsZW.webp" />
+    </div>
+  </div>
+</div>
+
+
+<div class="ui-overlay" id="startScreen">
+  <div class="start-content">
+
+    <div class="game-message">
+      <p>🛶 Let’s Paddle!</p>  
+      <p>Use the arrow keys to guide your raft and steer clear of the splashy surprises!</p>
+      <img class="arrow-keys" src="https://play2.s3.amazonaws.com/assets/OmyvP4GXD.webp"/>
+
+      
+    </div>
+
+    <button id="startButton" class="button">Start the Adventure</button>
+  </div>
+</div>
+
+
+<div class="collision-overlay" id="collisionOverlay">
+  <div class="message" data-status="">
+<span data-msg="collision">💥 Oops! You bumped into something!<br>Why not find out how real family rafting adventures feel?</span>
+    <span data-msg="end">🎉 You did it! What a splash-tastic ride!</span><br>
+    <button class="button restart-button">Try Again</button>
+  </div>
+</div>
+
+<div class="timer" id="gameTimer">Time left: 60</div>
+<div class="cta">Discover more family fun</div>
+
+
+
+
+
+
+        
+    </div>
+    <script src="main.js"></script>
+</body>
+
+</html>

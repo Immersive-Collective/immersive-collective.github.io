@@ -1,0 +1,580 @@
+@font-face {
+  font-family: FontA;
+  src: url(https://play2.s3.amazonaws.com/assets/-fCX1Gxg6.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: FontB;
+  src: url(https://play2.s3.amazonaws.com/assets/hzfV7Dv2Z.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: FontC;
+  src: url(https://play2.s3.amazonaws.com/assets/hRXYaR8w8.woff2) format('woff2');
+}
+
+@font-face {
+  font-family: FontD;
+  src: url(https://play2.s3.amazonaws.com/assets/LLKJLyOK1.woff2) format('woff2');
+}
+
+:root {
+  --boat-size: 70px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 12px;
+}
+
+body {
+  width: 300px;
+  height: 600px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid black;  
+}
+
+.creative {
+  width: 300px;
+  height: 600px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid black;
+}
+
+
+
+
+
+.bg {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ffffff;
+  z-index: -1;
+}
+
+#player {
+  position: absolute;
+  display: none;
+  opacity: 0;
+  visibility: hidden;
+  width: 0;
+  height: 0;
+}
+
+#app {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 432px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+#creative {
+  box-sizing: border-box;
+  border: 1px solid #000000;
+  overflow: hidden;
+}
+
+.static {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  font-family: FontA;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  padding: 0;
+  background: #69ADD9;
+}
+
+.logo {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  height: 4rem;
+  z-index: 9999;
+}
+
+.water-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 600px;
+  overflow: hidden;
+  background: url('https://play2.s3.amazonaws.com/assets/RKycfMm2K.webp') repeat-y;
+
+  background-size: cover;
+  z-index: 1;
+}
+
+.boat {
+  position: absolute;
+  top: 270px;
+  transition: left 0.2s ease;
+  z-index: 10;
+}
+
+.boat img {
+  width: var(--boat-size);
+  pointer-events: none;
+  user-select: none;
+}
+
+.enemy-boat {
+  position: absolute;
+  top: -100px;
+  transition: left 0.2s ease;
+  z-index: 5;
+}
+
+.enemy-boat img {
+  width: var(--boat-size);
+  pointer-events: none;
+  user-select: none;
+  transform: rotate(180deg);
+}
+
+.boat.hit img {
+  filter: brightness(0.3) sepia(1) hue-rotate(-50deg);
+  transition: filter 0.2s;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
+
+.water-container.shake {
+  animation: shake 0.3s ease;
+}
+
+.explosion {
+  position: absolute;
+  top: 250px;
+  left: 110px;
+  width: 80px;
+  height: 80px;
+  background: url('https://play2.s3.amazonaws.com/assets/your-explosion.webp') no-repeat center/contain;
+  z-index: 9999;
+}
+
+
+
+.ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 600px;
+  background: rgba(0, 0, 0, 0.17);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#startButton {
+  padding: 1rem 2rem;
+  font-size: 1.2rem;
+  font-family: FontA;
+  cursor: pointer;
+}
+
+.collision-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300px;
+  height: 600px;
+  background: rgba(0, 0, 0, 0.17);
+  color: white;
+  font-family: FontA;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  padding: 2rem;
+}
+
+.collision-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.timer {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-family: FontA;
+  font-size: 1rem;
+  color: #fff;
+  background: rgba(0,0,0,0.24);
+  padding: 0.4rem 0.6rem;
+  z-index: 20;
+}
+
+.player-boat.turn-left {
+  transform: rotate(-10deg);
+}
+
+.player-boat.turn-right {
+  transform: rotate(10deg);
+}
+
+.player-boat {
+  position: absolute;
+  top: 270px;
+  transition: left 0.2s ease, transform 0.2s ease;
+  z-index: 10;
+}
+
+
+.cta {
+
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+
+  cursor: pointer;
+  font-family: FontA;
+  font-size: 0.9rem;
+  padding: 0.75rem 1.2rem;
+  color: #0156AC;
+  background-color: #FFF350;
+  border-radius: 1000px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  transition: transform 0.25s;
+  will-change: transform;
+  z-index: 10000;
+}
+
+.cta:hover {
+  transform: rotate(3deg);
+}
+
+.button {
+  all: unset; /* resets all default button styles */
+  font-family: FontA;
+  font-size: 0.9rem;
+  padding: 0.75rem 1.2rem;
+  color: #0156AC;
+  background-color: #FFF350;
+  border-radius: 1000px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.25s;
+  white-space: nowrap;
+  margin-top: 1rem;
+}
+.button:hover {
+  transform: rotate(3deg);
+}
+
+
+
+
+.collision-overlay .button {
+  font-family: FontA;
+  font-size: 0.9rem;
+  padding: 0.75rem 1.2rem;
+  color: #0156AC;
+  background-color: #FFF350;
+  border-radius: 1000px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.25s;
+  white-space: nowrap;
+  border: none;
+  margin-top: 1rem;
+}
+
+.collision-overlay .button:hover {
+  transform: rotate(3deg);
+}
+
+
+.button,
+.restart-button {
+  all: unset;
+  font-family: FontA;
+  font-size: 0.9rem;
+  padding: 0.75rem 1.2rem;
+  color: #0156AC;
+  background-color: #FFF350;
+  border-radius: 1000px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.25s;
+  white-space: nowrap;
+  margin-top: 1rem;
+}
+
+.button:hover,
+.restart-button:hover {
+  transform: rotate(3deg);
+}
+
+
+
+.start-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  transform-origin: 50% 50%;
+}
+
+.game-message {
+  font-family: FontD;
+  font-size: 2.5rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 0.5rem 1rem;
+  text-align: center;
+  border-radius: 8px;
+  z-index: 1000;
+  line-height: 1.2;
+  transform-origin: 50% 50%;
+}
+
+.message {
+  font-family: FontD;
+  font-size: 2.5rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 0.5rem 1rem;
+  text-align: center;
+  border-radius: 8px;
+  z-index: 1000;
+  line-height: 1.2;
+  padding: 2rem;
+}
+
+.player-boat {
+  position: absolute;
+  top: 400px;
+  transition: left 0.2s ease;
+  z-index: 10;
+}
+
+.raft {
+  position: relative;
+  z-index: 1;
+}
+
+.boy-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.boy {
+  width: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+@keyframes boy-rowing {
+  0%   { transform: rotate(-14deg); }
+  40%  { transform: rotate(14deg); }
+  70%  { transform: rotate(8deg); }
+  100% { transform: rotate(-14deg); }
+}
+
+.boy-wrapper {
+  animation: boy-rowing 2s infinite cubic-bezier(0.33, 0, 0.67, 1);
+}
+
+.obstacle {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  z-index: 5;
+}
+
+.obstacle.circle {
+  border-radius: 50%;
+}
+
+.obstacle.rect {
+  width: 40px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+.trail {
+  position: absolute;
+  top: 90%; /* behind the raft */
+  left: 0;
+  width: 100%;
+  height: 25px;
+  background: rgba(255, 255, 255, 0.26);
+  border-radius: 50%;
+  filter: blur(6px);
+  z-index: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+@keyframes trailPulse {
+  0% { opacity: 0.3; transform: scaleX(1); }
+  50% { opacity: 0.1; transform: scaleX(1.4); }
+  100% { opacity: 0.3; transform: scaleX(1); }
+}
+
+.trail {
+  animation: trailPulse 1s infinite ease-in-out;
+}
+
+.obstacle {
+  position: absolute;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.obstacle-mask {
+  width: 100%;
+  height: 100%;
+  mask-image: radial-gradient(ellipse at center, rgba(0,0,0,1) 60%, rgba(0,0,0,0.5) 100%);
+  -webkit-mask-image: radial-gradient(ellipse at center, rgba(0,0,0,1) 60%, rgba(0,0,0,0.5) 100%);
+  animation: waveMask 2s infinite ease-in-out;
+}
+
+.obstacle-mask img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  animation: obstacleWave 3s infinite ease-in-out;
+}
+
+@keyframes obstacleWave {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes waveMask {
+  0% { transform: scaleY(1); }
+  50% { transform: scaleY(1.05); }
+  100% { transform: scaleY(1); }
+}
+
+.message [data-msg] {
+  display: none;
+}
+
+.message[data-status="collision"] [data-msg="collision"],
+.message[data-status="end"] [data-msg="end"] {
+  display: inline;
+}
+
+.trail-instance {
+  position: absolute;
+  width: 120px;
+  height: 60px;
+  transform: translateX(-50%);
+  background-image: url('https://play2.s3.amazonaws.com/assets/ryA9tCW4K.webp');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.6;
+  z-index: 1;
+  pointer-events: none;
+  animation: trailSplashDown 3s ease-out forwards;
+}
+
+@keyframes trailSplashDown {
+  0% {
+    transform: translateX(-50%) translateY(0) scaleX(3) scaleY(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(-50%) translateY(260px) scaleX(12) scaleY(1.5);
+    opacity: 0;
+  }
+}
+
+.arrow-keys {
+  width: 100px;
+  height: auto;
+  position: relative;
+  padding: 0.5rem;
+  margin: 0.5rem 0rem;
+}
+
+@keyframes fadeBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(-20px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.05) translateY(10px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+  }
+}
+
+.game-message,
+.message {
+  animation: fadeBounce 0.8s ease-out;
+  transform-origin: center;
+}
+
+
+.riverbed {
+  position: absolute;
+  width: 300px;
+  height: 600px;
+  background: url('bank.png') repeat-y center;
+  background-size: cover;
+  z-index: 3;
+}
+
+.water-surface {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: url('https://play2.s3.amazonaws.com/assets/RKycfMm2K.webp') repeat-y center;
+  background-size: cover;
+  opacity: 1;
+  z-index: 1;
+}
+
+
+
