@@ -1,0 +1,3 @@
+[submodule "projects/dayone-xr-london"]
+	path = projects/dayone-xr-london
+	url = https://github.com/Immersive-Collective/dayone-xr-london
