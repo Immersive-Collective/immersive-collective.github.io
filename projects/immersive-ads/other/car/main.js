@@ -21,8 +21,8 @@ const TEXTURE_WIDTH = 550;
 const TEXTURE_HEIGHT = 852;
 const CAR_SCALE = 0.15;
 
-let carX = 150;
-let carY = 400;
+let carX = 350;
+let carY = 450;
 let carRotation = 0;
 let wheelAngle = 0;
 
@@ -43,9 +43,9 @@ let braking = false;
 
 // Control values
 const MAX_SPEED = 10;
-const ACCELERATION_STEP = 0.2;
+const ACCELERATION_STEP = 0.2; // 0.2
 const BRAKE_STEP = 0.3;
-const FRICTION = 0.02;
+const FRICTION = 0.05; // 0.02
 const TURN_RATE = 0.5;
 const TURN_GRIP_FACTOR = 0.4;
 
@@ -153,17 +153,40 @@ function updateCarTransform() {
 }
 
 
-
-
 let startWorldX = 0;
 let startWorldY = 0;
 
 const START_BADGE = document.getElementById('start-badge');
 
+// function initializeStartPosition() {
+//   const startObstacle = MAP_DATA.obstacles.find(o => o.type === 'start');
+//   if (startObstacle) {
+//     startWorldX = surfaceOffsetX - startObstacle.x;
+//     startWorldY = surfaceOffsetY - startObstacle.y;
+//   } else {
+//     // fallback to center
+//     startWorldX = surfaceOffsetX;
+//     startWorldY = surfaceOffsetY;
+//   }
+// }
+
 function initializeStartPosition() {
-  startWorldX = surfaceOffsetX;
-  startWorldY = surfaceOffsetY;
+  const startObstacle = MAP_DATA.obstacles.find(o => o.type === 'start');
+  if (startObstacle) {
+    surfaceOffsetX = startObstacle.x;
+    surfaceOffsetY = startObstacle.y;
+    startWorldX = 0;
+    startWorldY = 0;
+  } else {
+    surfaceOffsetX = 0;
+    surfaceOffsetY = 0;
+    startWorldX = 0;
+    startWorldY = 0;
+  }
 }
+
+
+
 
 function updateStartBadge() {
   const screenX = surfaceOffsetX - startWorldX + carX;
@@ -173,24 +196,180 @@ function updateStartBadge() {
 }
 
 
+const CHARACTER_DATA = JSON.parse(`[
+{
+  "type": "gabby",
+  "name": "Gabby",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/gabby-hero2.png",
+  "description": "Meet Gabby, a positive, determined, and just a little bit klutzy, kid who's not afraid to be herself! She loves cats, cooking, pretending, and of c...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/gabby"
+},
+{
+  "type": "pandy-paws",
+  "name": "Pandy Paws",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/pandy-hero2.png",
+  "description": "Pandy Paws (part panda, part cat of course), is Gabby’s best stuffed animal friend. Always up for adventures, hugs, or snacks, he’s the perfect cat...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/pandy-paws"
+},
+{
+  "type": "cakey-cat",
+  "name": "Cakey Cat",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/cakey-hero2.png",
+  "description": "Half kitty, half cupcake, Cakey Cat is the easily-excitable cupcake in the kitchen! Spunky yet sensitive, Cakey can go from super happy to really w...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/cakey-cat"
+},
+{
+  "type": "catrat",
+  "name": "CatRat",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/catrat-hero3.png",
+  "description": "Meet CatRat, the playful, squeezable, collector of all things shiny. Thanks to his delicate bone structure, there’s no space too small for him to s...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/catrat"
+},
+{
+  "type": "mercat",
+  "name": "MerCat",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/mercat-hero3.png",
+  "description": "MerCat believes there’s nothing more important than feeling good, looking good, and doing good. As the resident scientist, she can always be found ...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/mercat"
+},
+{
+  "type": "dj-catnip",
+  "name": "DJ Catnip",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/djcatnip-hero2.png",
+  "description": "The hoodie-wearing DJ Catnip is the group’s music specialist. From jamming on instruments to mixing up beats, Catnip uses music to help everyone fi...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/dj-catnip"
+},
+{
+  "type": "kitty-fairy",
+  "name": "Kitty Fairy",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/kittyfairy-hero.png",
+  "description": "Meet Kitty Fairy, the tiny cat with wings who lives in the Fairy Tail Garden. Very gentle and nurturing, Kitty Fairy likes to keep a caring eye on ...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/kitty-fairy"
+},
+{
+  "type": "pillow-cat",
+  "name": "Pillow Cat",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/pillowcat-hero.png",
+  "description": "Pillow Cat is the homebody cat that is content to lie around all day. She’s often found sleeping in the bedroom, which is exactly where she stays w...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/pillow-cat"
+},
+{
+  "type": "carlita",
+  "name": "Carlita",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/carlita-hero.png",
+  "description": "Meet Carlita, part racecar and part cat, she’s charismatic, outgoing, and very confident...as long as she’s doing things she already knows she’s go...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/carlita"
+},
+{
+  "type": "baby-box",
+  "name": "Baby Box",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/babybox-hero.png",
+  "description": "Baby Box is inventive, hardworking, and creative. Whenever there’s a problem, this resourceful cat can always be counted on to create or invent jus...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/baby-box"
+},
+{
+  "type": "marty-the-party-cat",
+  "name": "Marty the Party Cat",
+  "image": "https://www.dreamworks.com/storage/cms-uploads/marty-the-party-cat-hero3.png",
+  "description": "Marty the Party Cat is an exuberant goofball with long arms and legs that can stretch and wheels that pop out of his sneakers. His big heart and ab...",
+  "url": "https://www.gabbysdollhouse.com/en/characters/marty-the-party-cat"
+}
+
+]`);
 
 
-const MAP_DATA = JSON.parse(`{
+const MAP_DATA = JSON.parse(`
+
+{
   "mapName": "untitled",
-  "cols": 15,
-  "rows": 15,
-  "origin": { "x": 7, "y": 7 },
+  "cols": 25,
+  "rows": 25,
+  "origin": {
+    "x": 12,
+    "y": 12
+  },
   "obstacles": [
-    { "x": -700, "y": 700, "type": "red" },
-    { "x": 700, "y": 700, "type": "red" },
-    { "x": -700, "y": -700, "type": "red" },
-    { "x": 700, "y": -700, "type": "red" },
-    { "x": -700, "y": 100, "type": "blue" },
-    { "x": 100, "y": 700, "type": "blue" },
-    { "x": 700, "y": 100, "type": "green" }
+    {
+      "x": 1200,
+      "y": 1200,
+      "type": "gabby"
+    },
+    {
+      "x": -200,
+      "y": 1200,
+      "type": "pandy-paws"
+    },
+    {
+      "x": 500,
+      "y": 1200,
+      "type": "cakey-cat"
+    },
+    {
+      "x": 900,
+      "y": 700,
+      "type": "catrat"
+    },
+    {
+      "x": -1000,
+      "y": 200,
+      "type": "mercat"
+    },
+    {
+      "x": -200,
+      "y": -700,
+      "type": "dj-catnip"
+    },
+    {
+      "x": 1000,
+      "y": -200,
+      "type": "kitty-fairy"
+    },
+    {
+      "x": 600,
+      "y": -600,
+      "type": "pillow-cat"
+    },
+    {
+      "x": -1200,
+      "y": -1100,
+      "type": "carlita"
+    },
+    {
+      "x": 1200,
+      "y": 400,
+      "type": "baby-box"
+    },
+    {
+      "x": 200,
+      "y": 900,
+      "type": "marty-the-party-cat"
+    },
+    {
+      "x": 0,
+      "y": 300,
+      "type": "start"
+    },
+    {
+      "x": 600,
+      "y": 500,
+      "type": "red"
+    },
+    {
+      "x": -1000,
+      "y": 800,
+      "type": "blue"
+    },
+    {
+      "x": 400,
+      "y": -200,
+      "type": "green"
+    }
   ]
-}`);
+}
 
+`);
+
+initializeStartPosition();
 
 
 const OBSTACLES = MAP_DATA.obstacles.map((data, i) => {
@@ -198,11 +377,21 @@ const OBSTACLES = MAP_DATA.obstacles.map((data, i) => {
   el.className = `obstacle type-${data.type}`;
   el.id = `obstacle-${i}`;
   el.style.position = 'absolute';
+
+  const char = CHARACTER_DATA.find(c => c.type === data.type);
+  if (char) {
+    const img = document.createElement('img');
+    img.src = char.image;
+    img.alt = data.type;
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'contain';
+    el.appendChild(img);
+  }
+
   SURFACE.appendChild(el);
   return el;
 });
-
-
 
 
 function updateObstacles() {
@@ -229,6 +418,43 @@ function updateSurface() {
   updateStartBadge();
   updateObstacles();
 }
+
+
+
+/* Minimap */
+
+const MINIMAP = document.getElementById('minimap');
+const MM_CTX = MINIMAP.getContext('2d');
+const MM_SIZE = 150;
+
+// Optional: based on map bounds, but for now assume known range
+const MM_SCALE = 0.05;
+
+function drawMinimap() {
+  MM_CTX.clearRect(0, 0, MM_SIZE, MM_SIZE);
+
+  // Draw all obstacles
+  MAP_DATA.obstacles.forEach(obs => {
+    const x = MM_SIZE / 2 + obs.x * MM_SCALE;
+    const y = MM_SIZE / 2 + obs.y * MM_SCALE;
+
+    MM_CTX.fillStyle = obs.type === "start" ? "#ff0" : "#999";
+    MM_CTX.fillRect(x - 2, y - 2, 4, 4);
+  });
+
+  // Draw car as green dot
+  const carWorldX = surfaceOffsetX;
+  const carWorldY = surfaceOffsetY;
+  const cx = MM_SIZE / 2 + -carWorldX * MM_SCALE;
+  const cy = MM_SIZE / 2 + -carWorldY * MM_SCALE;
+
+  MM_CTX.fillStyle = "#0f0";
+  MM_CTX.beginPath();
+  MM_CTX.arc(cx, cy, 3, 0, Math.PI * 2);
+  MM_CTX.fill();
+}
+
+
 
 
 /* Collision */
@@ -434,28 +660,32 @@ function updateFinalTop() {
 
 
 function renderLoop() {
+
   applyInputLogic();
 
   speed += acceleration;
   speed = Math.max(0, Math.min(speed, MAX_SPEED));
-
+  
   BRAKE_LIGHT.style.opacity = braking && speed > 0 ? '1' : '0';
-
+  
   applyFriction();
   updateFinalTop();
   updateCarTransform();
   updateSurface();
   animateTail();
   animateGabby();
-
   updateStartBadge();
-
-   checkCollision();
-
+  checkCollision();
+  drawMinimap();
+  
   requestAnimationFrame(renderLoop);
+
 }
 
 renderLoop();
+
+
+
 
 window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft') turningLeft = true;
@@ -495,13 +725,6 @@ function hideJoystickIfNotTouch() {
 
 // Call this at load
 hideJoystickIfNotTouch();
-
-
-
-
-
-
-
 
 
 

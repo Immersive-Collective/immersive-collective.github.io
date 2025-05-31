@@ -4,56 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Map Editor</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin: 0;
-      padding: 1rem;
-    }
-    #config {
-      margin-bottom: 1rem;
-    }
-    #grid {
-      display: grid;
-      gap: 1px;
-      background: #ccc;
-    }
-    .cell {
-      width: 40px;
-      height: 40px;
-      background: #eee;
-      position: relative;
-    }
-    .obstacle {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
-    .type-red { background: red; }
-    .type-blue { background: blue; }
-    .type-green { background: green; }
-    #palette {
-      display: flex;
-      gap: 1rem;
-      margin: 1rem 0;
-    }
-    .palette-item {
-      width: 40px;
-      height: 40px;
-      cursor: grab;
-    }
-    #output {
-      width: 80%;
-      margin-top: 1rem;
-    }
-  </style>
+    <link rel="stylesheet" href="map.css" />  
 </head>
+
 <body>
+
+<header id="appHeader">
+  <img src="assets/logo.svg" alt="Logo" id="appLogo">
+  <h1 id="appTitle">Map Editor</h1>
+</header>
+
+
 
   <div id="config">
     Map Name: <input type="text" id="mapName">
@@ -63,15 +24,26 @@
     <button id="exportBtn">Export</button>
     <select id="savedMaps"></select>
     <button id="loadBtn">Load</button>
+    <button id="themeToggle">🌓 Toggle Theme</button>
+
   </div>
 
   <div id="palette">
+
+    <div class="palette-item type-start" draggable="true" data-type="start" title="Start"></div>
+
+    <button id="clearBtn">🧹 Clear Map</button>
+
+    <button id="deleteBtn">🗑️</button>
+
     <div class="palette-item type-red" draggable="true" data-type="red"></div>
     <div class="palette-item type-blue" draggable="true" data-type="blue"></div>
     <div class="palette-item type-green" draggable="true" data-type="green"></div>
   </div>
 
   <div id="grid"></div>
+
+<button id="copyBtn">📋 Copy to Clipboard</button>
 
   <textarea id="output" rows="10"></textarea>
 

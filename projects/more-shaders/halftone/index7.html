@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Halftone Video Effect with Shapes</title>
+    <style>
+        .lil-gui { position: absolute; top: 10px; right: 10px; z-index: 100; }
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: black;
+}
+
+#container {
+    display: flex;
+    flex-direction: row;
+    width: 90vw;
+    max-width: 1920px;
+}
+
+#player, #halftoneCanvas {
+    flex: 1;
+    overflow: hidden;
+}
+
+video, canvas {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Responsive layout: When screen is narrow, stack elements vertically */
+@media (max-width: 768px) {
+    #container {
+        flex-direction: column;
+    }
+}
+
+
+
+    </style>
+</head>
+
+<body>
+    <div id="container">
+        <div id="player">
+            <video id="video" src="videos/it-seq1.mp4" autoplay loop muted controls></video>
+        </div>
+        <canvas id="halftoneCanvas"></canvas>
+        <canvas id="asciiCanvas" style="display: none;"></canvas>
+    </div>
+    <script type="importmap">
+        {
+            "imports": {
+                "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18/dist/lil-gui.esm.min.js"
+            }
+        }
+    </script>
+    <script type="module">
+
+        import { GUI } from 'lil-gui';
+        
+        function createHalftoneVideoEffect() {
+
+            const canvas = document.getElementById("halftoneCanvas");
+            const video = document.getElementById("video");
+            const gl = canvas.getContext("webgl");
+            if (!gl) return console.error("WebGL not supported.");
+            function updateCanvasSize() {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+            }
+            video.addEventListener("loadedmetadata", updateCanvasSize);
+            window.addEventListener("resize", updateCanvasSize);
+
+
+            const vertexShaderSource = `
+
+                attribute vec2 a_position;
+                attribute vec2 a_texCoord;
+                varying vec2 v_texCoord;
+                void main() {
+                    gl_Position = vec4(a_position, 0, 1);
+                    v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
+                }
+
+            `;
+
+
+            const fragmentShaderSource = `
+
+
+                precision mediump float;
+                varying vec2 v_texCoord;
+                uniform sampler2D u_image;
+                uniform vec2 u_resolution;
+                uniform float u_dotSize;
+                uniform vec3 u_color1;
+                uniform vec3 u_color2;
+                uniform int u_shape;
+                uniform float u_hue;       // Hue adjustment
+                uniform float u_contrast;  // Contrast adjustment
+                uniform float u_threshold; // Threshold adjustment
+                uniform bool u_blackAndWhite; // Black and white mode
+                uniform bool u_asciiMode;  // ASCII mode toggle
+
+                // Function to adjust hue
+                vec3 adjustHue(vec3 color, float hue) {
+                    const vec3 k = vec3(0.57735, 0.57735, 0.57735); // 1/sqrt(3)
+                    float cosHue = cos(hue);
+                    return color * cosHue + cross(k, color) * sin(hue) + k * dot(k, color) * (1.0 - cosHue);
+                }
+
+                // Manually map brightness to ASCII-like sizes
+                float getASCIIIntensity(float value) {
+                    if (value < 0.1) return 0.0; // Space
+                    if (value < 0.2) return 0.1; // .
+                    if (value < 0.3) return 0.2; // ,
+                    if (value < 0.4) return 0.3; // :
+                    if (value < 0.5) return 0.4; // ;
+                    if (value < 0.6) return 0.5; // o
+                    if (value < 0.7) return 0.6; // x
+                    if (value < 0.8) return 0.7; // %
+                    if (value < 0.9) return 0.8; // #
+                    return 1.0;                  // @
+                }
+
+                void main() {
+                    vec2 coord = v_texCoord * u_resolution;
+                    vec2 grid = floor(coord / u_dotSize) * u_dotSize;
+                    vec2 delta = coord - grid;
+                    vec3 color = texture2D(u_image, grid / u_resolution).rgb;
+
+                    // Adjust hue
+                    color = adjustHue(color, u_hue);
+
+                    // Calculate intensity (grayscale brightness)
+                    float intensity = dot(color, vec3(0.299, 0.587, 0.114));
+
+                    // Apply contrast
+                    intensity = (intensity - 0.5) * u_contrast + 0.5;
+
+                    // Apply threshold only if black and white mode is enabled
+                    if (u_blackAndWhite) {
+                        intensity = step(u_threshold, intensity);
+                    }
+
+                    intensity = clamp(intensity, 0.0, 1.0);
+
+                    // ASCII Mode
+                    if (u_asciiMode) {
+                        vec4 asciiTex = texture2D(u_image, v_texCoord);
+                        gl_FragColor = vec4(asciiTex.rgb, 1.0);
+                        return;
+                    }
+
+
+                    // Regular Halftone Shapes Mode
+                    float radius = (u_dotSize / 2.0) * intensity;
+                    float dist = length(delta - vec2(u_dotSize / 2.0));
+
+                    vec3 halftoneColor = mix(u_color1, u_color2, intensity);
+                    bool drawShape = false;
+
+                    if (u_shape == 0) { // Circle
+                        drawShape = dist < radius;
+                    } else if (u_shape == 1) { // Square
+                        drawShape = abs(delta.x - u_dotSize / 2.0) < radius && abs(delta.y - u_dotSize / 2.0) < radius;
+                    } else if (u_shape == 2) { // Cross
+                        drawShape = abs(delta.x - u_dotSize / 2.0) < radius || abs(delta.y - u_dotSize / 2.0) < radius;
+                    } else if (u_shape == 3) { // Horizontal Line
+                        drawShape = abs(delta.y - u_dotSize / 2.0) < radius;
+                    } else if (u_shape == 4) { // Vertical Line
+                        drawShape = abs(delta.x - u_dotSize / 2.0) < radius;
+                    } else if (u_shape == 5) { // Diagonal Line
+                        drawShape = abs(delta.x - delta.y) < radius;
+                    } else if (u_shape == 6) { // Rhomb (Diamond)
+                        drawShape = abs(delta.x - u_dotSize / 2.0) + abs(delta.y - u_dotSize / 2.0) < radius;
+                    }
+
+                    gl_FragColor = drawShape ? vec4(halftoneColor, 1) : vec4(u_color1, 1);
+                }
+
+
+
+
+            `;
+
+
+    async function loadDefaultConfig(params, gui) {
+        try {
+            const response = await fetch("config/halftone_default.json"); // Adjust path if needed
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            const config = await response.json();
+            params.dotSize = config.dotSize || params.dotSize;
+            params.color1 = config.color1 || params.color1;
+            params.color2 = config.color2 || params.color2;
+            gui.updateDisplay();
+            console.log("✅ Default configuration loaded successfully.");
+        } catch (error) {
+            console.warn("⚠️ Failed to load default config:", error);
+        }
+    }
+
+
+    function createShader(gl, type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            console.error("Shader compilation error:", gl.getShaderInfoLog(shader));
+            return null;
+        }
+        return shader;
+    }
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+            if (!vertexShader || !fragmentShader) return;
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error("Shader linking error:", gl.getProgramInfoLog(program));
+                return;
+            }
+            gl.useProgram(program);
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                -1, -1, 1, -1, -1, 1,
+                -1, 1, 1, -1, 1, 1
+            ]), gl.STATIC_DRAW);
+            const texCoordBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                0, 1, 1, 1, 0, 0,
+                0, 0, 1, 1, 1, 0
+            ]), gl.STATIC_DRAW);
+            const positionLocation = gl.getAttribLocation(program, "a_position");
+            const texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
+            gl.enableVertexAttribArray(positionLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(texCoordLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+            gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+            
+            const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+            const dotSizeLocation = gl.getUniformLocation(program, "u_dotSize");
+            const color1Location = gl.getUniformLocation(program, "u_color1");
+            const color2Location = gl.getUniformLocation(program, "u_color2");
+            const shapeLocation = gl.getUniformLocation(program, "u_shape");
+            const hueLocation = gl.getUniformLocation(program, "u_hue");
+            const contrastLocation = gl.getUniformLocation(program, "u_contrast");
+            const thresholdLocation = gl.getUniformLocation(program, "u_threshold");
+
+            const texture = gl.createTexture();
+
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            
+
+            function rebuildGUI() {
+                gui.destroy(); // Remove existing GUI
+                gui = new GUI(); // Create new GUI
+
+                // Recreate GUI elements
+                gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
+                gui.addColor(params, "color1").name("Color 1");
+                gui.addColor(params, "color2").name("Color 2");
+                gui.add(params, "shape", shapeOptions).name("Shape");
+
+                gui.add(params, "asciiMode").name("ASCII Mode").onChange(updateASCII);
+
+                gui.add(params, "hue", -3.14, 3.14, 0.01).name("Hue");
+                gui.add(params, "contrast", 0.0, 2.0, 0.01).name("Contrast");
+                gui.add(params, "threshold", 0.0, 1.0, 0.01).name("Threshold");
+                gui.add(params, "blackAndWhite").name("Black & White"); // Add black and white checkbox
+                gui.add(params, "saveConfig").name("Save Config");
+                gui.add(params, "loadConfig").name("Load Config");
+            }
+
+
+            // ASCII Character Mapping
+            const asciiCanvas = document.getElementById("asciiCanvas");
+            const asciiCtx = asciiCanvas.getContext("2d");
+
+            // ASCII character set (from darkest to brightest)
+            // const asciiChars = " .,-+";
+            // const asciiChars = " ░▒▓█■▀▄▞▛"
+            // const asciiChars = " ▁▂▃▄▅▆▇█";
+            // const asciiChars = " ╴╵╶╷┌┐└┘├┤";
+            // const asciiChars = " ╱╲╳⟋⟍＼／〳〵";
+            // const asciiChars = " ◢◣◤◥◧◨◩◪◫";
+            const asciiChars = " ⠁⠃⠇⡇⣇⣧⣷⣿░▒▓█";
+
+            // const asciiChars = [
+            //     ' ',  // Darkest
+            //     '.',  // Slightly brighter
+            //     '\'', // Small dot
+            //     '`',  // Tiny accent mark
+            //     ',',  // Light speck
+            //     ':',  // Small colon
+            //     ';',  // Slightly larger colon
+            //     '-',  // Small dash
+            //     '_',  // Underscore
+            //     '+',  // Small plus
+            //     '!',  // Exclamation mark
+            //     '*',  // Small star
+            //     'o',  // Small circle
+            //     'x',  // Medium cross
+            //     's',  // Small letter
+            //     'z',  // Small slanted letter
+            //     'v',  // Slightly bigger
+            //     'u',  // Rounded shape
+            //     'T',  // Capital letter
+            //     'C',  // Larger letter
+            //     'L',  // Block-like shape
+            //     'Y',  // Large letter
+            //     'O',  // Big circle
+            //     'X',  // Large cross
+            //     '%',  // Dense percentage sign
+            //     '#',  // Thick hash
+            //     '@'   // Brightest and densest
+            // ];
+
+
+            // Convert brightness to ASCII character
+            function getASCIIChar(value) {
+                const index = Math.floor(value * (asciiChars.length - 1));
+                return asciiChars[index];
+            }
+
+
+            function renderASCII() {
+                const w = Math.floor(video.videoWidth / params.dotSize);
+                const h = Math.floor(video.videoHeight / params.dotSize);
+
+                asciiCanvas.width = w * params.dotSize;
+                asciiCanvas.height = h * params.dotSize;
+                asciiCtx.clearRect(0, 0, asciiCanvas.width, asciiCanvas.height);
+                // asciiCtx.font = `${params.dotSize}px monospace`;
+                asciiCtx.font = `${params.dotSize}px Avenir`;
+                asciiCtx.textAlign = "center";
+                asciiCtx.textBaseline = "middle";
+
+                // Draw video frame to an offscreen canvas for pixel data
+                const offCanvas = document.createElement("canvas");
+                offCanvas.width = w;
+                offCanvas.height = h;
+                const offCtx = offCanvas.getContext("2d");
+                offCtx.drawImage(video, 0, 0, w, h);
+                const imageData = offCtx.getImageData(0, 0, w, h).data;
+
+                // Draw ASCII characters with their original color
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const index = (y * w + x) * 4;
+                        const r = imageData[index];
+                        const g = imageData[index + 1];
+                        const b = imageData[index + 2];
+
+                        // Convert brightness to ASCII character
+                        const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+                        const char = getASCIIChar(brightness);
+
+                        // Set text color to the original pixel color
+                        asciiCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+
+                        // Draw the character
+                        asciiCtx.fillText(char, x * params.dotSize + params.dotSize / 2, y * params.dotSize + params.dotSize / 2);
+                    }
+                }
+
+                updateASCIICanvasTexture(); // Ensure WebGL updates the colored ASCII canvas
+            }
+
+
+            const asciiTexture = gl.createTexture();
+
+            function updateASCIICanvasTexture() {
+                gl.bindTexture(gl.TEXTURE_2D, asciiTexture);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, asciiCanvas);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            }
+
+
+            // params
+            // 
+            const params = {
+                dotSize: 12.0,
+                color1: "#000000",
+                color2: "#69bef7",
+                shape: 0, // Default to circle
+                asciiMode: false,
+                hue: 0.0,       // Hue adjustment (in radians)
+                contrast: 1.0,  // Contrast adjustment (1.0 = no change)
+                threshold: 0.5, // Threshold adjustment (0.0 to 1.0)
+                blackAndWhite: false, // Toggle black and white mode
+
+
+                // save config
+                //
+                saveConfig: function () {
+                    const now = new Date();
+                    const filename = `halftone_config_${now.toISOString().replace(/[-T:.Z]/g, "").slice(2, 14)}.json`;
+
+                    const config = {
+                        dotSize: params.dotSize,
+                        color1: params.color1,
+                        color2: params.color2,
+                        shape: params.shape,
+                        hue: params.hue,
+                        contrast: params.contrast,
+                        threshold: params.threshold,
+                        blackAndWhite: params.blackAndWhite,
+                        asciiMode: params.asciiMode,  // Ensures ASCII mode is saved
+                        asciiChars: asciiChars,       // Saves ASCII character set
+                        font: params.font,            // Saves selected font (if applicable)
+                        filename: filename
+                    };
+
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+                    const link = document.createElement("a");
+                    link.href = dataStr;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    console.log(`Configuration saved: ${filename}`);
+                },
+
+
+                // load config
+                //
+                loadConfig: function () {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = ".json";
+                    input.onchange = (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            try {
+                                const config = JSON.parse(event.target.result);
+                                if (!config || typeof config !== "object") throw new Error("Invalid JSON format");
+
+                                // Update parameters with loaded values
+                                Object.keys(config).forEach(key => {
+                                    if (params.hasOwnProperty(key)) {
+                                        params[key] = config[key];
+                                    }
+                                });
+
+                                // Update ASCII characters if they were saved
+                                if (config.asciiChars) {
+                                    asciiChars = config.asciiChars;
+                                }
+
+                                // Update GUI to reflect the loaded settings
+                                rebuildGUI();
+
+                                console.log(`Configuration loaded: ${config.filename || file.name}`);
+                            } catch (err) {
+                                console.error("Failed to load config:", err);
+                            }
+                        };
+                        reader.readAsText(file);
+                    };
+                    input.click();
+                }
+
+
+
+            };
+
+            // shape options
+            const shapeOptions = {
+                Circle: 0,
+                Square: 1,
+                Cross: 2,
+                Line: 3,
+                VerticalLine: 4, // Vertical lines
+                DiagonalLine: 5, // Diagonal lines
+                Rhomb: 6        // Rhombs (diamonds)
+            };
+
+            //gui
+            let gui = new GUI();
+            gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
+            gui.addColor(params, "color1").name("Color 1");
+            gui.addColor(params, "color2").name("Color 2");
+
+            gui.add(params, "shape", shapeOptions).name("Shape");
+            gui.add(params, "asciiMode").name("ASCII Mode");
+
+            gui.add(params, "hue", -3.14, 3.14, 0.01).name("Hue"); // Hue in radians (-π to π)
+            gui.add(params, "contrast", 0.0, 2.0, 0.01).name("Contrast"); // Contrast (0.0 to 2.0)
+            gui.add(params, "threshold", 0.0, 1.0, 0.01).name("Threshold"); // Threshold (0.0 to 1.0)
+            gui.add(params, "blackAndWhite").name("Black & White"); // Black and white mode
+            gui.add(params, "saveConfig").name("Save Config");
+            gui.add(params, "loadConfig").name("Load Config");
+
+            // render
+
+            function render() {
+                if (video.readyState >= 2) {
+                    gl.viewport(0, 0, canvas.width, canvas.height);
+                    gl.clearColor(0, 0, 0, 0);
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+
+                    if (params.asciiMode) {
+                        renderASCII(); // Draw ASCII characters on the canvas
+                        updateASCIICanvasTexture(); // Update ASCII texture for WebGL
+                        gl.bindTexture(gl.TEXTURE_2D, asciiTexture); // Use ASCII texture
+                    } else {
+                        gl.activeTexture(gl.TEXTURE0);
+                        gl.bindTexture(gl.TEXTURE_2D, texture); // Use video texture
+                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+                    }
+
+                    gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+                    gl.uniform1f(dotSizeLocation, params.dotSize);
+                    gl.uniform3fv(color1Location, params.color1.match(/\w\w/g).map(x => parseInt(x, 16) / 255));
+                    gl.uniform3fv(color2Location, params.color2.match(/\w\w/g).map(x => parseInt(x, 16) / 255));
+                    gl.uniform1i(shapeLocation, params.shape);
+                    gl.uniform1f(hueLocation, params.hue);
+                    gl.uniform1f(contrastLocation, params.contrast);
+                    gl.uniform1f(thresholdLocation, params.threshold);
+                    gl.uniform1i(gl.getUniformLocation(program, "u_blackAndWhite"), params.blackAndWhite);
+                    gl.uniform1i(gl.getUniformLocation(program, "u_asciiMode"), params.asciiMode);
+
+                    gl.drawArrays(gl.TRIANGLES, 0, 6);
+                }
+
+                requestAnimationFrame(render);
+            }
+
+
+
+
+            video.addEventListener("play", () => render());
+
+        }
+        
+
+        createHalftoneVideoEffect();
+
+
+// fulscreen
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "f" || event.key === "F") {
+        toggleFullscreen();
+    }
+});
+
+function toggleFullscreen() {
+    const canvas = document.getElementById("halftoneCanvas");
+    const gui = document.querySelector(".lil-gui");
+    const ribbon = document.querySelector(".corner-ribbon");
+
+    if (!document.fullscreenElement) {
+        // Enter fullscreen
+        if (canvas.requestFullscreen) {
+            canvas.requestFullscreen();
+        } else if (canvas.mozRequestFullScreen) { // Firefox
+            canvas.mozRequestFullScreen();
+        } else if (canvas.webkitRequestFullscreen) { // Chrome, Safari, Opera
+            canvas.webkitRequestFullscreen();
+        } else if (canvas.msRequestFullscreen) { // IE/Edge
+            canvas.msRequestFullscreen();
+        }
+
+        // Hide GUI and ribbon
+        if (gui) gui.style.display = "none";
+        if (ribbon) ribbon.style.display = "none";
+
+    } else {
+        // Exit fullscreen
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.mozCancelFullScreen) { // Firefox
+            document.mozCancelFullScreen();
+        } else if (document.webkitExitFullscreen) { // Chrome, Safari, Opera
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) { // IE/Edge
+            document.msExitFullscreen();
+        }
+
+        // Restore GUI and ribbon after exiting fullscreen
+        if (gui) gui.style.display = "block";
+        if (ribbon) ribbon.style.display = "flex"; // Ensuring flex display restores properly
+    }
+}
+
+
+
+
+
+    </script>
+    <script src="https://immersive-collective.org/projects/ic-badge/ic.js"></script>
+</body>
+
+</html>

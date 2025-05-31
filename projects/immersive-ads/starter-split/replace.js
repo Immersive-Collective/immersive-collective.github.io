@@ -11,9 +11,9 @@ async function replacePlaceholders() {
         /draco_decoder\.js/g,
       ],
       to: [
-        'https://play2.s3.amazonaws.com/assets/vn4YjGnNY.wasm',
-        'https://play2.s3.amazonaws.com/assets/PTcU1jRMs.js',
-        'https://play2.s3.amazonaws.com/assets/_f5hQEuDW.js',
+        'https://play2.s3.amazonaws.com/assets/lCWlf1yhqY.wasm',
+        'https://play2.s3.amazonaws.com/assets/mPxSBO05b.js',
+        'https://play2.s3.amazonaws.com/assets/BR3RAZfB0.js'
       ],
     });
 

@@ -1,0 +1,79 @@
+[
+  {
+    "type": "gabby",
+    "name": "Gabby",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/gabby-hero2.png",
+    "description": "Meet Gabby, a positive, determined, and just a little bit klutzy, kid who's not afraid to be herself! She loves cats, cooking, pretending, and of c...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/gabby"
+  },
+  {
+    "type": "pandy-paws",
+    "name": "Pandy Paws",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/pandy-hero2.png",
+    "description": "Pandy Paws (part panda, part cat of course), is Gabby’s best stuffed animal friend. Always up for adventures, hugs, or snacks, he’s the perfect cat...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/pandy-paws"
+  },
+  {
+    "type": "cakey-cat",
+    "name": "Cakey Cat",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/cakey-hero2.png",
+    "description": "Half kitty, half cupcake, Cakey Cat is the easily-excitable cupcake in the kitchen! Spunky yet sensitive, Cakey can go from super happy to really w...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/cakey-cat"
+  },
+  {
+    "type": "catrat",
+    "name": "CatRat",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/catrat-hero3.png",
+    "description": "Meet CatRat, the playful, squeezable, collector of all things shiny. Thanks to his delicate bone structure, there’s no space too small for him to s...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/catrat"
+  },
+  {
+    "type": "mercat",
+    "name": "MerCat",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/mercat-hero3.png",
+    "description": "MerCat believes there’s nothing more important than feeling good, looking good, and doing good. As the resident scientist, she can always be found ...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/mercat"
+  },
+  {
+    "type": "\"dj\"-catnip",
+    "name": "\"DJ\" Catnip",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/djcatnip-hero2.png",
+    "description": "The hoodie-wearing DJ Catnip is the group’s music specialist. From jamming on instruments to mixing up beats, Catnip uses music to help everyone fi...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/dj-catnip"
+  },
+  {
+    "type": "kitty-fairy",
+    "name": "Kitty Fairy",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/kittyfairy-hero.png",
+    "description": "Meet Kitty Fairy, the tiny cat with wings who lives in the Fairy Tail Garden. Very gentle and nurturing, Kitty Fairy likes to keep a caring eye on ...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/kitty-fairy"
+  },
+  {
+    "type": "pillow-cat",
+    "name": "Pillow Cat",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/pillowcat-hero.png",
+    "description": "Pillow Cat is the homebody cat that is content to lie around all day. She’s often found sleeping in the bedroom, which is exactly where she stays w...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/pillow-cat"
+  },
+  {
+    "type": "carlita",
+    "name": "Carlita",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/carlita-hero.png",
+    "description": "Meet Carlita, part racecar and part cat, she’s charismatic, outgoing, and very confident...as long as she’s doing things she already knows she’s go...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/carlita"
+  },
+  {
+    "type": "baby-box",
+    "name": "Baby Box",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/babybox-hero.png",
+    "description": "Baby Box is inventive, hardworking, and creative. Whenever there’s a problem, this resourceful cat can always be counted on to create or invent jus...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/baby-box"
+  },
+  {
+    "type": "marty-the-party-cat",
+    "name": "Marty the Party Cat",
+    "image": "https://www.dreamworks.com/storage/cms-uploads/marty-the-party-cat-hero3.png",
+    "description": "Marty the Party Cat is an exuberant goofball with long arms and legs that can stretch and wheels that pop out of his sneakers. His big heart and ab...",
+    "url": "https://www.gabbysdollhouse.com/en/characters/marty-the-party-cat"
+  }
+]
