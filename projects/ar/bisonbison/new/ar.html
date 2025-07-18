@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pattern Marker Grid</title>
+  <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <a-scene embedded arjs="sourceType: webcam;">
+    
+<!--     <a-marker type="pattern" url="patterns/pattern-1.patt">
+      <a-box color="#FF4136" depth="0.5" height="0.5" width="0.5" position="0 0.25 0"></a-box>
+    </a-marker>
+
+    <a-marker type="pattern" url="patterns/pattern-2.patt">
+      <a-box color="#2ECC40" depth="0.5" height="0.5" width="0.5" position="0 0.25 0"></a-box>
+    </a-marker>
+
+    <a-marker type="pattern" url="patterns/pattern-3.patt">
+      <a-box color="#0074D9" depth="0.5" height="0.5" width="0.5" position="0 0.25 0"></a-box>
+    </a-marker>
+
+    <a-marker type="pattern" url="patterns/pattern-4.patt">
+      <a-box color="#B10DC9" depth="0.5" height="0.5" width="0.5" position="0 0.25 0"></a-box>
+    </a-marker>
+
+    <a-marker type="pattern" url="patterns/pattern-5.patt">
+      <a-box color="#FF851B" depth="0.5" height="0.5" width="0.5" position="0 0.25 0"></a-box>
+    </a-marker>
+
+    <a-marker type="pattern" url="patterns/pattern-6.patt">
+      <a-box color="#7FDBFF" depth="0.5" height="0.5" width="0.5" position="0 0.25 0"></a-box>
+    </a-marker>
+ -->
+
+    <a-scene embedded arjs="sourceType: webcam;">
+        <a-marker type="pattern" url="patterns/pattern-1.patt">
+            <a-entity id="animatedModel" gltf-model="src/models/bird.glb" position="0 0.1 0.1" scale="20 20 20" rotation="0 0 0" animation-mixer="clip: hover; autoplay: true;"></a-entity>
+        </a-marker>
+        <a-entity camera></a-entity>
+    </a-scene>
+
+
+
+    <!-- Camera -->
+    <a-entity camera></a-entity>
+  </a-scene>
+</body>
+</html>

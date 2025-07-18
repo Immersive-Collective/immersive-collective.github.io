@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Custom AR with AR.js</title>
+    
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar-nft.js"></script>
+
+    <style>
+        #hoverBtn, #flightBtn {
+            position: absolute;
+            width: 50px;
+            height: 25px;
+            z-index: 1000;
+        }
+        #hoverBtn { left: 10px; background-color: blue; top: 10px; }
+        #flightBtn { right: 10px; background-color: red; top: 10px; }
+    </style>
+</head>
+
+<body style="margin: 0; overflow: hidden;">
+    <div id="hoverBtn" onclick="changeAnimation('hover')"></div>
+    <div id="flightBtn" onclick="changeAnimation('flight')"></div>
+    
+    <a-scene embedded arjs="sourceType: webcam;">
+        <a-marker type="pattern" url="pattern-koshi.patt">
+            <a-entity id="animatedModel" gltf-model="src/models/bird.glb" position="0 0.1 0.1" scale="20 20 20" rotation="0 0 0" animation-mixer="clip: hover; autoplay: true;"></a-entity>
+        </a-marker>
+        <a-entity camera></a-entity>
+    </a-scene>
+
+
+<!--     <script>
+        function changeAnimation(clip) {
+            let model = document.getElementById('animatedModel');
+            //model.setAttribute('animation-mixer', 'clip', clip);
+            model.setAttribute('animation-mixer', {clip: 'hover', loop: 'repeat'});
+
+            console.log(clip + " animation requested");
+        }
+    </script> -->
+
+
+<script>
+    function changeAnimation(clip) {
+        let model = document.getElementById('animatedModel');
+        model.setAttribute('animation-mixer', 'clip', clip);
+        console.log(clip + " animation requested");
+    }
+
+    // Add the event listeners
+    document.getElementById('animatedModel').addEventListener('animation-loop', function(event) {
+        console.log("Animation looped for clip:", event.detail.action._clip.name, "Loop delta:", event.detail.loopDelta);
+    });
+
+    document.getElementById('animatedModel').addEventListener('animation-finished', function(event) {
+        console.log("Animation finished for clip:", event.detail.action._clip.name, "Direction:", event.detail.direction);
+    });
+</script>
+
+
+
+</body>
+</html>

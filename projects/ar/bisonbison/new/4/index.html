@@ -1,0 +1,333 @@
+<html>
+
+<head>
+    
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script type="importmap">
+      {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+      "mindar-image-three":"https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+    }
+  }
+</script>
+
+
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { MindARThree } from 'mindar-image-three';
+
+    const clock = new THREE.Clock();
+    const orbitingCubes = [];
+    let particleGeometry, particles;
+
+    const mindarThree = new MindARThree({
+      container: document.querySelector("#container"),
+      
+      //imageTargetSrc: "minds/savers-choc-small.mind",
+      imageTargetSrc: "minds/home-4.mind",
+
+      filterMinCF: 1,      // ← increase to reduce noise (default 0.1)
+      filterBeta: 30,        // ← increase to smooth filter (default 10)
+      warmupTolerance: 10,    // ← increase to stabilize before lock
+      missTolerance: 1       // ← lower if it loses track too slowly
+    });
+
+    const { renderer, scene, camera } = mindarThree;
+    const anchor = mindarThree.addAnchor(0);
+
+    // Plane
+    // Plane as green wireframe
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 0.55),
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+    );
+    anchor.group.add(plane);
+
+
+
+    const orbitGroup = new THREE.Group();
+    orbitGroup.rotation.x = Math.PI / 2; // Rotate group so orbit is horizontal
+    anchor.group.add(orbitGroup);
+
+
+
+    // Orbiting Cubes
+
+function addOrbitingCubes() {
+  const cubeCount = 100;
+
+  for (let i = 0; i < cubeCount; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 0.2 + Math.random() * 0.5;
+    const height = -0.1 + Math.random() * 0.2;
+    const speed = (Math.random() * 2 - 1) * 2;
+    const size = 0.01 + Math.random() * 0.03;
+    const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+
+    const cube = new THREE.Mesh(
+      new THREE.BoxGeometry(size, size, size),
+      new THREE.MeshStandardMaterial({ color })
+    );
+
+    cube.userData = {
+      angle,
+      radius,
+      height,
+      speed
+    };
+
+    cube.position.set(
+      Math.cos(angle) * radius,
+      height,
+      Math.sin(angle) * radius
+    );
+
+    orbitingCubes.push(cube);
+    orbitGroup.add(cube); // Add to rotated group
+  }
+}
+
+
+
+
+    function updateOrbitingCubes(delta) {
+      orbitingCubes.forEach((cube) => {
+        cube.userData.angle += cube.userData.speed * delta;
+        cube.position.x = Math.cos(cube.userData.angle) * cube.userData.radius;
+        cube.position.z = Math.sin(cube.userData.angle) * cube.userData.radius;
+      });
+    }
+
+
+
+    // Particles (optional)
+    function addParticles() {
+      const particleCount = 300;
+      particleGeometry = new THREE.BufferGeometry();
+      const positions = [];
+
+      for (let i = 0; i < particleCount; i++) {
+        positions.push((Math.random() - 0.5) * 1.2, 0, (Math.random() - 0.5) * 1.2);
+      }
+
+      particleGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+      const particleMaterial = new THREE.PointsMaterial({
+        color: 0xffffff,
+        size: 0.03,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: 1
+      });
+
+      particles = new THREE.Points(particleGeometry, particleMaterial);
+      particles.position.set(0, 0, 0.1);
+      anchor.group.add(particles);
+    }
+
+    function updateParticles() {
+      if (!particleGeometry || !particles) return;
+      const positions = particleGeometry.attributes.position.array;
+      for (let i = 0; i < positions.length; i += 3) {
+        positions[i + 1] += 0.01;
+        if (positions[i + 1] > 1) positions[i + 1] = 0;
+      }
+      particleGeometry.attributes.position.needsUpdate = true;
+    }
+
+
+    let mixer;
+
+    let model
+
+    // Load GLB
+    const loader = new GLTFLoader();
+    loader.load('models/dragon1.glb', (gltf) => {
+      model = gltf.scene;
+      model.scale.set(0.15, 0.15, 0.15);
+      model.position.set(0, 0, 0);
+      model.rotation.set(Math.PI / 2, 0, 0);
+      anchor.group.add(model);
+
+      // Setup animation
+      mixer = new THREE.AnimationMixer(model);
+      gltf.animations.forEach((clip) => {
+        mixer.clipAction(clip).play();
+      });
+
+      addParticles();
+      addOrbitingCubes();
+    });
+
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    directionalLight.position.set(1, 2, 1);
+    scene.add(ambientLight, directionalLight);
+
+
+
+    const euler = new THREE.Euler();
+    const rotationOverlay = document.getElementById("rotationOverlay");    
+
+    // Start AR
+    const start = async () => {
+      await mindarThree.start();
+
+
+
+    renderer.setAnimationLoop(() => {
+      const delta = clock.getDelta();
+
+      if (mixer) mixer.update(delta);
+
+      updateOrbitingCubes(delta);
+      updateParticles();
+
+      const worldQuat = new THREE.Quaternion();
+      anchor.group.getWorldQuaternion(worldQuat);
+
+      const invCameraQuat = camera.quaternion.clone().invert();
+      const relativeQuat = worldQuat.clone().multiply(invCameraQuat);
+
+      euler.setFromQuaternion(relativeQuat, 'XYZ');
+      const rx = THREE.MathUtils.radToDeg(euler.x).toFixed(1);
+      const ry = THREE.MathUtils.radToDeg(euler.y).toFixed(1);
+      const rz = THREE.MathUtils.radToDeg(euler.z).toFixed(1);
+      rotationOverlay.textContent = `Rotation: ${rx}, ${ry}, ${rz}`;
+
+      const worldPos = new THREE.Vector3();
+      anchor.group.getWorldPosition(worldPos);
+
+      const cameraPos = new THREE.Vector3();
+      camera.getWorldPosition(cameraPos);
+
+      const relativePos = worldPos.clone().sub(cameraPos);
+      const px = relativePos.x.toFixed(2);
+      const py = relativePos.y.toFixed(2);
+      const pz = relativePos.z.toFixed(2);
+      positionOverlay.textContent = `Position: ${px}, ${py}, ${pz}`;
+
+      renderer.render(scene, camera);
+    });
+
+
+
+
+
+    };
+
+    document.querySelector("#startButton").addEventListener("click", () => {
+      start();
+      document.getElementById("control").classList.add("hidden");
+    });
+
+    document.querySelector("#stopButton").addEventListener("click", () => {
+      mindarThree.stop();
+      renderer.setAnimationLoop(null);
+    });
+
+  </script>
+
+
+<style>
+
+  body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #000;
+  }
+
+  #container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+  }
+
+  #control {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      display: flex;
+      gap: 20px;
+      transition: opacity 0.5s ease;
+  }
+
+  #control.hidden {
+      opacity: 0;
+      pointer-events: none;
+  }
+
+  button {
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      background-color: #00ffff;
+      color: #111;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0, 255, 255, 0.3);
+      transition: transform 0.2s ease, background-color 0.3s ease;
+  }
+
+  button:hover {
+      background-color: #00cccc;
+      transform: scale(1.05);
+  }
+
+#rotationOverlay {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    color: #0f0;
+    font-size: 16px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-family: monospace;
+    z-index: 5;
+}
+
+#positionOverlay {
+    position: absolute;
+    bottom: 40px;
+    left: 10px;
+    color: #0ff;
+    font-size: 16px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-family: monospace;
+    z-index: 5;
+}
+
+
+
+</style>
+
+</head>
+
+<body>
+    <div id="control">
+        <button id="startButton">Start</button>
+        <button id="stopButton">Stop</button>
+    </div>
+    <div id="container"></div>
+
+    <div id="rotationOverlay">Rotation: 0, 0, 0</div>
+    <div id="positionOverlay">Position: 0, 0, 0</div>
+
+
+</body>
+
+</html>

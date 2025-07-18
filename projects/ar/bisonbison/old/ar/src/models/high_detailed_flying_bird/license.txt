@@ -1,0 +1,11 @@
+Model Information:
+* title:	High detailed flying bird
+* source:	https://sketchfab.com/3d-models/high-detailed-flying-bird-9e8af034adc445ab9a3e02acfa415661
+* author:	Al-Deezel (https://sketchfab.com/Al-dezel)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "High detailed flying bird" (https://sketchfab.com/3d-models/high-detailed-flying-bird-9e8af034adc445ab9a3e02acfa415661) by Al-Deezel (https://sketchfab.com/Al-dezel) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

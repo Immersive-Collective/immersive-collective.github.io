@@ -1,0 +1,384 @@
+<html>
+
+<head>
+    
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script type="importmap">
+      {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+      "mindar-image-three":"https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+    }
+  }
+</script>
+
+
+
+
+
+
+<script type="module">
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import { MindARThree } from 'mindar-image-three';
+
+  const clock = new THREE.Clock();
+  const mixers = [];
+
+
+  const mindarThree = new MindARThree({
+    container: document.querySelector("#container"),
+
+    imageTargetSrc: "minds/home-5.mind",
+
+    filterMinCF: 0.2,      // ← More responsive but still filtered
+    filterBeta: 10,        // ← Standard smoothing
+    warmupTolerance: 1,    // ← Quicker to activate on match
+    missTolerance: 3,      // ← Slightly more forgiving before losing track
+    maxTrack: 4            // ← Keep this for multi-tracking
+
+  });
+
+
+  const { renderer, scene, camera } = mindarThree;
+
+  const modelConfigs = [
+    { targetIndex: 0, url: 'models/dragon1.glb', scale: [0.15, 0.15, 0.15], rotation: [Math.PI / 2, 0, 0] },
+    { targetIndex: 1, url: 'models/Menabrea.glb', scale: [0.5, 0.5, 0.5], rotation: [0, 0, 0] },
+    { targetIndex: 2, url: 'models/Cube.glb', scale: [0.5, 0.5, 0.5], rotation: [Math.PI / 2, Math.PI / 2, 0] },
+    { targetIndex: 3, url: 'models/Dad.glb', scale: [0.25, 0.25, 0.25], rotation: [0, 0, 0] },
+    { targetIndex: 4, url: 'models/Eye.glb', scale: [0.25, 0.25, 0.25], rotation: [0, 0, 0] }
+  ];
+
+  const loader = new GLTFLoader();
+
+  modelConfigs.forEach(config => {
+    const anchor = mindarThree.addAnchor(config.targetIndex);
+
+    // Debug plane
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 0.55),
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+    );
+    anchor.group.add(plane);
+
+    const orbitGroup = new THREE.Group();
+    orbitGroup.rotation.x = Math.PI / 2;
+    anchor.group.add(orbitGroup);
+
+    const orbitingCubes = [];
+
+    loader.load(config.url, (gltf) => {
+      const model = gltf.scene;
+      model.scale.set(...config.scale);
+      model.rotation.set(...config.rotation);
+      model.position.set(0, 0, 0);
+      anchor.group.add(model);
+
+      const mixer = new THREE.AnimationMixer(model);
+      gltf.animations.forEach((clip) => {
+        mixer.clipAction(clip).play();
+      });
+      mixers.push(mixer);
+
+      addOrbitingCubesToGroup(orbitGroup, orbitingCubes);
+      addParticlesToAnchor(anchor.group);
+      anchor.userData = { orbitingCubes };
+    });
+  });
+
+
+  function addLighs() {
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    directionalLight.position.set(1, 2, 1);
+    scene.add(ambientLight, directionalLight);
+
+
+  }
+
+
+  function addOrbitingCubesToGroup(group, cubesArray) {
+    for (let i = 0; i < 100; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 0.2 + Math.random() * 0.5;
+      const height = -0.1 + Math.random() * 0.2;
+      const speed = (Math.random() * 2 - 1) * 2;
+      const size = 0.01 + Math.random() * 0.03;
+      const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+
+      const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(size, size, size),
+        new THREE.MeshStandardMaterial({ color })
+      );
+
+      cube.userData = { angle, radius, height, speed };
+      cube.position.set(Math.cos(angle) * radius, height, Math.sin(angle) * radius);
+
+      cubesArray.push(cube);
+      group.add(cube);
+    }
+  }
+
+  function updateOrbitingCubes(delta) {
+    mindarThree.anchors.forEach(anchor => {
+      if (!anchor.userData.orbitingCubes) return;
+      anchor.userData.orbitingCubes.forEach(cube => {
+        cube.userData.angle += cube.userData.speed * delta;
+        cube.position.x = Math.cos(cube.userData.angle) * cube.userData.radius;
+        cube.position.z = Math.sin(cube.userData.angle) * cube.userData.radius;
+      });
+    });
+  }
+
+
+    function playBlip() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(playBlip);
+        return;
+      }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.2);
+    }  
+
+  function addParticlesToAnchor(group) {
+    const particleCount = 300;
+    const geometry = new THREE.BufferGeometry();
+    const positions = [];
+
+    for (let i = 0; i < particleCount; i++) {
+      positions.push((Math.random() - 0.5) * 1.2, 0, (Math.random() - 0.5) * 1.2);
+    }
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+    const material = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.03,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 1
+    });
+
+    const particles = new THREE.Points(geometry, material);
+    particles.position.set(0, 0, 0.1);
+    group.add(particles);
+
+    geometry.userData = { particles };
+  }
+
+  const euler = new THREE.Euler();
+  const rotationOverlay = document.getElementById("rotationOverlay");
+  const positionOverlay = document.getElementById("positionOverlay");
+
+  const start = async () => {
+
+    await mindarThree.start();
+
+    addLighs();
+
+
+  // Renderer
+
+
+renderer.setAnimationLoop(() => {
+  const delta = clock.getDelta();
+
+  mixers.forEach(mixer => mixer.update(delta));
+  updateOrbitingCubes(delta);
+
+  const cameraPos = new THREE.Vector3();
+  camera.getWorldPosition(cameraPos);
+
+  let detectedAnchors = [];
+
+  mindarThree.anchors.forEach((anchor, index) => {
+    if (anchor.group.visible) {
+      detectedAnchors.push(index);
+
+      const worldQuat = new THREE.Quaternion();
+      anchor.group.getWorldQuaternion(worldQuat);
+
+      const invCameraQuat = camera.quaternion.clone().invert();
+      const relativeQuat = worldQuat.clone().multiply(invCameraQuat);
+
+      euler.setFromQuaternion(relativeQuat, 'XYZ');
+      const rx = THREE.MathUtils.radToDeg(euler.x).toFixed(1);
+      const ry = THREE.MathUtils.radToDeg(euler.y).toFixed(1);
+      const rz = THREE.MathUtils.radToDeg(euler.z).toFixed(1);
+
+      const worldPos = new THREE.Vector3();
+      anchor.group.getWorldPosition(worldPos);
+      const relativePos = worldPos.clone().sub(cameraPos);
+      const px = relativePos.x.toFixed(2);
+      const py = relativePos.y.toFixed(2);
+      const pz = relativePos.z.toFixed(2);
+
+      // Optional: display each anchor's data separately in the console
+      console.log(`Anchor ${index}: pos=(${px},${py},${pz}), rot=(${rx},${ry},${rz})`);
+    }
+  });
+
+  // Display active anchors list
+  const anchorStatusOverlay = document.getElementById("anchorStatusOverlay");
+  anchorStatusOverlay.textContent = detectedAnchors.length > 0
+    ? `Detected Anchors: ${detectedAnchors.join(', ')}`
+    : `Detected Anchors: None`;
+
+  renderer.render(scene, camera);
+});
+
+
+
+
+
+
+
+  };
+
+
+
+
+  document.querySelector("#startButton").addEventListener("click", () => {
+    start();
+    document.getElementById("control").classList.add("hidden");
+  });
+
+  document.querySelector("#stopButton").addEventListener("click", () => {
+    mindarThree.stop();
+    renderer.setAnimationLoop(null);
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+
+<style>
+
+  body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #000;
+  }
+
+  #container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+  }
+
+  #control {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      display: flex;
+      gap: 20px;
+      transition: opacity 0.5s ease;
+  }
+
+  #control.hidden {
+      opacity: 0;
+      pointer-events: none;
+  }
+
+  button {
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      background-color: #00ffff;
+      color: #111;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0, 255, 255, 0.3);
+      transition: transform 0.2s ease, background-color 0.3s ease;
+  }
+
+  button:hover {
+      background-color: #00cccc;
+      transform: scale(1.05);
+  }
+
+#rotationOverlay {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    color: #0f0;
+    font-size: 16px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-family: monospace;
+    z-index: 5;
+}
+
+#positionOverlay {
+    position: absolute;
+    bottom: 40px;
+    left: 10px;
+    color: #0ff;
+    font-size: 16px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-family: monospace;
+    z-index: 5;
+}
+
+#anchorStatusOverlay {
+  position: absolute;
+  bottom: 70px;
+  left: 10px;
+  color: #ff0;
+  font-size: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-family: monospace;
+  z-index: 5;
+}
+
+
+
+</style>
+
+</head>
+
+<body>
+    <div id="control">
+        <button id="startButton">Start</button>
+        <button id="stopButton">Stop</button>
+    </div>
+    <div id="container"></div>
+
+    <div id="anchorStatusOverlay">Detected Anchor: None</div>
+    <div id="rotationOverlay">Rotation: 0, 0, 0</div>
+    <div id="positionOverlay">Position: 0, 0, 0</div>
+
+
+</body>
+
+</html>

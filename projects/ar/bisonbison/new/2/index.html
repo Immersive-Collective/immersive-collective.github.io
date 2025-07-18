@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MindAR Multi-Target with Sound</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script>
+    const version = 'v=' + Date.now();
+    document.write(`
+      <script src="https://aframe.io/releases/1.5.0/aframe.min.js?${version}"><\/script>
+      <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js?${version}"><\/script>
+    `);
+  </script>
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+    a-scene { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+  </style>
+
+  <script>
+    const targets = [
+      { model: 'pelican.glb', sound: 'pelican.mp3' },
+      { model: 'girrafe.glb', sound: 'giraffe.mp3' },
+      { model: 'croc.glb',     sound: 'croc.mp3' },
+      { model: 'bear.glb',     sound: 'bear.mp3' },
+      { model: 'owl.glb',      sound: 'owl.mp3' },
+      { model: 'seagul.glb',   sound: 'seagul.mp3' }
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const assetsEl = document.querySelector('a-assets');
+      const sceneEl = document.querySelector('a-scene');
+
+      targets.forEach(({ model, sound }, index) => {
+        const modelId = `model${index}`;
+        const soundId = `sound${index}`;
+
+        // Add model asset
+        const modelAsset = document.createElement('a-asset-item');
+        modelAsset.setAttribute('id', modelId);
+        modelAsset.setAttribute('src', `models/${model}?${version}`);
+        assetsEl.appendChild(modelAsset);
+
+        // Add sound asset
+        const soundAsset = document.createElement('audio');
+        soundAsset.setAttribute('id', soundId);
+        soundAsset.setAttribute('src', `sounds/${sound}?${version}`);
+        assetsEl.appendChild(soundAsset);
+
+        // Create target entity
+        const entity = document.createElement('a-entity');
+        entity.setAttribute('mindar-image-target', `targetIndex: ${index}`);
+
+        // Add model
+        const modelEl = document.createElement('a-gltf-model');
+        modelEl.setAttribute('src', `#${modelId}`);
+        modelEl.setAttribute('position', '0 0 0');
+        modelEl.setAttribute('scale', '0.3 0.3 0.3');
+        entity.appendChild(modelEl);
+
+        // Add a-sound element
+        const soundEl = document.createElement('a-sound');
+        soundEl.setAttribute('src', `#${soundId}`);
+        soundEl.setAttribute('autoplay', 'false');
+        soundEl.setAttribute('loop', 'false');
+        entity.appendChild(soundEl);
+
+        // Add event listener to play sound on target found
+        entity.addEventListener('targetFound', () => {
+          const soundComponent = soundEl.components.sound;
+          if (soundComponent && !soundComponent.isPlaying) {
+            soundComponent.playSound();
+          }
+        });
+
+        sceneEl.appendChild(entity);
+      });
+    });
+
+    window.addEventListener('click', async () => {
+      if (typeof DeviceMotionEvent?.requestPermission === 'function') {
+        try { await DeviceMotionEvent.requestPermission(); } catch {}
+      }
+      if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+        try { await DeviceOrientationEvent.requestPermission(); } catch {}
+      }
+    }, { once: true });
+  </script>
+</head>
+
+<body>
+  <a-scene mindar-image="imageTargetSrc: targets-all.mind?${version}"
+           color-space="sRGB"
+           renderer="colorManagement: true, physicallyCorrectLights"
+           device-orientation-permission-ui="enabled: false"
+           vr-mode-ui="enabled: false">
+    <a-assets></a-assets>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  </a-scene>
+</body>
+</html>

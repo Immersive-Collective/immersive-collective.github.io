@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MindAR Multi-Target</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- A-Frame & MindAR, version appended dynamically -->
+  <script>
+    const version = 'v=' + Date.now();
+    document.write(`
+      <script src="https://aframe.io/releases/1.5.0/aframe.min.js?${version}"><\/script>
+      <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js?${version}"><\/script>
+    `);
+  </script>
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+    a-scene { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+  </style>
+
+  <script>
+    const assets = ['pelican.glb', 'girrafe.glb', 'croc.glb', 'bear.glb', 'owl.glb', 'seagul.glb'];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const assetContainer = document.querySelector('a-assets');
+      const scene = document.querySelector('a-scene');
+
+      assets.forEach((file, index) => {
+        const id = `model${index + 1}`;
+
+        const asset = document.createElement('a-asset-item');
+        asset.setAttribute('id', id);
+        asset.setAttribute('src', `models/${file}?${version}`);
+        assetContainer.appendChild(asset);
+
+        const entity = document.createElement('a-entity');
+        entity.setAttribute('mindar-image-target', `targetIndex: ${index}`);
+        const model = document.createElement('a-gltf-model');
+        model.setAttribute('src', `#${id}`);
+        model.setAttribute('position', '0 0 0');
+        model.setAttribute('scale', '0.3 0.3 0.3');
+        entity.appendChild(model);
+        scene.appendChild(entity);
+      });
+    });
+
+    window.addEventListener('click', async () => {
+      if (typeof DeviceMotionEvent?.requestPermission === 'function') {
+        try { await DeviceMotionEvent.requestPermission(); } catch {}
+      }
+      if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+        try { await DeviceOrientationEvent.requestPermission(); } catch {}
+      }
+    }, { once: true });
+  </script>
+</head>
+<body>
+  <a-scene mindar-image="imageTargetSrc: targets-all.mind?${version}"
+           color-space="sRGB"
+           renderer="colorManagement: true, physicallyCorrectLights"
+           device-orientation-permission-ui="enabled: false"
+           vr-mode-ui="enabled: false">
+    <a-assets></a-assets>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  </a-scene>
+</body>
+</html>

@@ -5,6 +5,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 
 // Expose THREE globally
 window.THREE = THREE;
@@ -14,6 +15,8 @@ window.OrbitControls = OrbitControls;
 window.VRButton = VRButton;
 window.XRControllerModelFactory = XRControllerModelFactory;
 window.XRHandModelFactory = XRHandModelFactory;
+window.CSS2DRenderer = CSS2DRenderer;
+window.CSS2DObject = CSS2DObject;
 
 // Create DRACOLoader instance
 const dracoLoader = new DRACOLoader();

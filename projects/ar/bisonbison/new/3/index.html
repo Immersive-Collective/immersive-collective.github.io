@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MindAR Multi-Target</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script>
+    window.version = 'v=' + Date.now();
+    document.write(`
+      <script src="https://aframe.io/releases/1.5.0/aframe.min.js?${window.version}"><\/script>
+      <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js?${window.version}"><\/script>
+    `);
+  </script>
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+    a-scene { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+  </style>
+
+  <script>
+    let audioCtx;
+    const audioBufferCache = {};
+
+    async function playSound(url) {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+      try {
+        let buffer = audioBufferCache[url];
+        if (!buffer) {
+          const res = await fetch(url);
+          const arrayBuffer = await res.arrayBuffer();
+          buffer = await audioCtx.decodeAudioData(arrayBuffer);
+          audioBufferCache[url] = buffer;
+        }
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start();
+      } catch (err) {
+        console.error(`[Audio] Error playing ${url}:`, err);
+      }
+    }
+
+    function playBlip() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().then(playBlip);
+        return;
+      }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.2);
+    }
+
+const assets = [
+  { model: 'pelican.glb', sound: 'sounds/pelican.mp3', position: '0 0 0', rotation: '0 0 0', scale: '0.3 0.3 0.3' },
+  { model: 'girrafe.glb', sound: 'sounds/girrafe2.mp3', position: '0 0 0', rotation: '0 0 0', scale: '0.3 0.3 0.3' },
+  { model: 'croc.glb',    sound: 'sounds/croc.mp3',     position: '0 0 0', rotation: '0 0 0', scale: '0.3 0.3 0.3' },
+  { model: 'bear.glb',    sound: 'sounds/bear.mp3',     position: '0 0 0', rotation: '0 0 0', scale: '0.3 0.3 0.3' },
+  { model: 'owl.glb',     sound: 'sounds/owl.mp3',      position: '0 0 0', rotation: '0 0 0', scale: '0.3 0.3 0.3' },
+  { model: 'seagul.glb',  sound: 'sounds/seagul.mp3',   position: '0 0 0', rotation: '0 0 0', scale: '0.3 0.3 0.3' },
+  { model: 'coin.glb',    sound: 'sounds/coin.mp3',     position: '0 0 0', rotation: '0 0 0', scale: '0.3 0.3 0.3' },
+  { model: 'book.glb',    sound: 'sounds/coin.mp3',     position: '0 0 0', rotation: '0 0 0', scale: '0.2 0.2 0.2' },
+  { model: 'balls.glb',   sound: 'sounds/balls.mp3',    position: '0 0 0', rotation: '0 0 0', scale: '0.15 0.15 0.15', animate: true }
+];
+
+
+
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const assetContainer = document.querySelector('a-assets');
+      const scene = document.querySelector('a-scene');
+
+      assets.forEach((item, index) => {
+        const id = `model${index + 1}`;
+
+        const asset = document.createElement('a-asset-item');
+        asset.setAttribute('id', id);
+        asset.setAttribute('src', `models/${item.model}?${window.version}`);
+        assetContainer.appendChild(asset);
+
+        const entity = document.createElement('a-entity');
+        entity.setAttribute('mindar-image-target', `targetIndex: ${index}`);
+
+        const model = document.createElement('a-gltf-model');
+        model.setAttribute('src', `#${id}`);
+        model.setAttribute('position', item.position || '0 0 0');
+        model.setAttribute('rotation', item.rotation || '0 0 0');
+        model.setAttribute('scale', item.scale || '0.3 0.3 0.3');
+
+
+        // if (item.animate) model.setAttribute('animation-mixer', '');
+      if (item.animate) {
+        model.setAttribute('animation', 'property: position; to: 0 0.2 0; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate');
+      }
+
+
+
+        entity.appendChild(model);
+
+        entity.addEventListener('targetFound', () => {
+          playBlip();
+          playSound(item.sound);
+        });
+
+        entity.addEventListener('targetLost', () => {
+          playBlip();
+        });
+
+        scene.appendChild(entity);
+      });
+    });
+
+    window.addEventListener('click', async () => {
+      if (typeof DeviceMotionEvent?.requestPermission === 'function') {
+        try { await DeviceMotionEvent.requestPermission(); } catch {}
+      }
+      if (typeof DeviceOrientationEvent?.requestPermission === 'function') {
+        try { await DeviceOrientationEvent.requestPermission(); } catch {}
+      }
+    }, { once: true });
+  </script>
+</head>
+<body>
+
+
+<a-scene
+  mindar-image="imageTargetSrc: targets-all3.mind?${window.version}; maxTrack: 2"
+  color-space="sRGB"
+  renderer="antialias: true; colorManagement: true; physicallyCorrectLights: true; logarithmicDepthBuffer: true;"
+  device-orientation-permission-ui="enabled: false"
+  vr-mode-ui="enabled: false"
+  embedded
+  loading-screen="enabled: false"
+  gesture-detector
+>
+  
+  <a-assets timeout="5000"></a-assets>
+  
+  <a-camera
+    position="0 0 0"
+    look-controls="enabled: false"
+  ></a-camera>
+
+</a-scene>
+
+
+
+
+</body>
+</html>
