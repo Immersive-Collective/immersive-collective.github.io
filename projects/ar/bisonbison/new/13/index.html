@@ -1,0 +1,1457 @@
+<html>
+
+<head>
+    
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+
+<script type="importmap">
+      {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+      "mindar-image-three":"https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+    }
+  }
+</script>
+
+
+<script type="module">
+
+  import * as THREE from 'three';
+  import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+  import { MindARThree } from 'mindar-image-three';
+  import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+
+  let audioCtx = null;
+
+
+  const clock = new THREE.Clock();
+  const mixers = [];
+
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+
+  let clickableMeshes = [];
+
+
+  /* Play Sound */
+  const audioBufferCache = {};
+
+
+
+let timelineLength = 60 / 200 * 4; // 1.2s for a 4-beat loop at 200 BPM
+let heartbeatStartTime = null;
+
+function playSound(url, loop = true, fadeDuration = 0.5, offset = 0, analyserId = null) {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioBufferCache[url]) {
+    console.warn(`[Audio] Buffer for ${url} not loaded`);
+    return null;
+  }
+
+  const buffer = audioBufferCache[url];
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.loop = loop;
+
+  const gainNode = audioCtx.createGain();
+  gainNode.gain.setValueAtTime(0.0, audioCtx.currentTime);
+  gainNode.gain.linearRampToValueAtTime(1.0, audioCtx.currentTime + fadeDuration);
+
+  const analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 64;
+
+  source.connect(gainNode).connect(analyser).connect(audioCtx.destination);
+
+  source.gainNode = gainNode;
+  source.analyser = analyser;
+  source.analyserId = analyserId;
+
+  const startTime = audioCtx.currentTime;
+  source.start(startTime, offset);
+
+  source._meta = {
+    startTime,
+    offset
+  };
+
+  return source;
+}
+
+
+
+
+
+document.getElementById("pauseToggleButton").addEventListener("click", () => {
+  isPaused = !isPaused;
+  const now = audioCtx.currentTime;
+
+  if (metronomeSource) {
+    metronomeSource.stop();
+    metronomeOffset = (now - metronomeSource._meta.startTime + metronomeSource._meta.offset) % metronomeSource.buffer.duration;
+    metronomeSource = null;
+  }
+
+  mindarThree.anchors.forEach(anchor => {
+    const data = anchor.userData;
+    if (!data) return;
+
+    if (data.audioSource) {
+      data.audioSource.stop();
+      data.audioPausedAt = (now - data.audioSource._meta.startTime + data.audioSource._meta.offset) % data.audioSource.buffer.duration;
+      data.audioSource = null;
+      data.audioPlaying = false;
+    }
+
+    if (data.mixer) {
+      data.mixer.timeScale = isPaused ? 0 : 1;
+    }
+
+    if (data.actions) {
+      const idle = Object.values(data.actions).find(a => a._clip?.name.toLowerCase().includes("idle"));
+      const nonIdle = Object.values(data.actions).find(a => !a._clip?.name.toLowerCase().includes("idle"));
+      const current = data.currentAction;
+
+      if (isPaused && current && current !== idle) {
+        current.fadeOut(0.2);
+        if (idle) {
+          idle.reset().fadeIn(0.2).play();
+          data.currentAction = idle;
+        }
+      } else if (!isPaused && current && current !== nonIdle) {
+        current.fadeOut(0.2);
+        if (nonIdle) {
+          nonIdle.reset().fadeIn(0.2).play();
+          data.currentAction = nonIdle;
+        }
+      }
+    }
+  });
+
+  if (!isPaused) {
+    heartbeatStartTime = now;
+    metronomeSource = playSound(METRONOME_URL, true, 0, metronomeOffset || 0);
+    mindarThree.anchors.forEach(anchor => {
+      const data = anchor.userData;
+      if (data?.audioPath && anchor.group.visible) {
+        const resumed = playSound(data.audioPath, true, 0.3, data.audioPausedAt || 0);
+        if (resumed) {
+          data.audioSource = resumed;
+          data.audioPlaying = true;
+        }
+      }
+    });
+  }
+
+  document.getElementById("pauseToggleButton").textContent = isPaused ? "Resume" : "Pause";
+});
+
+
+
+/* Spectrum Analyser */
+
+let analyser, frequencyData, spectrumCanvasCtx;
+
+
+function initSpectrum() {
+  const canvas = document.getElementById("spectrumCanvas");
+  if (!canvas) {
+    console.warn("Spectrum canvas element not found");
+    return;
+  }
+
+  spectrumCanvasCtx = canvas.getContext("2d");
+
+  function resizeCanvas() {
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+  }
+
+  resizeCanvas(); // Initial sizing
+  window.addEventListener("resize", resizeCanvas);
+  console.log("✅ Spectrum initialized:", spectrumCanvasCtx);
+}
+
+
+
+function drawMultiSpectrum(sources) {
+  if (!spectrumCanvasCtx) return;
+
+  const ctx = spectrumCanvasCtx;
+  const canvas = ctx.canvas;
+  const width = canvas.width;
+  const height = canvas.height;
+
+  ctx.clearRect(0, 0, width, height);
+
+  const colors = ["#0ff", "#f0f", "#ff0", "#0f0", "#f00"];
+  const barCount = 32;
+  const barWidth = width / (sources.length * barCount || 1);
+
+  sources.forEach((source, groupIndex) => {
+    if (!source.analyser) return;
+
+    const dataArray = new Uint8Array(source.analyser.frequencyBinCount);
+    source.analyser.getByteFrequencyData(dataArray);
+
+    for (let i = 0; i < barCount && i < dataArray.length; i++) {
+      const value = dataArray[i];
+      const barHeight = (value / 255) * height;
+      ctx.fillStyle = colors[groupIndex % colors.length];
+      ctx.fillRect((groupIndex * barCount + i) * barWidth, height - barHeight, barWidth, barHeight);
+    }
+  });
+}
+
+
+
+
+
+
+
+  function fadeOutAndStop(source, duration = 0.5) {
+    if (!source || !source.gainNode) return;
+
+    const gain = source.gainNode;
+    const now = audioCtx.currentTime;
+
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.linearRampToValueAtTime(0.0, now + duration);
+
+    source.stop(now + duration);
+  }
+
+
+
+
+  const mindarThree = new MindARThree({
+    container: document.querySelector("#container"), // DOM container for rendering
+    imageTargetSrc: "minds/targets.mind", // .mind file generated from training images
+
+    filterMinCF: 0.001,     // Minimum confidence for feature match (0–1, lower = more sensitive)
+    filterBeta: 10000,       // Temporal smoothing factor (higher = smoother but slower updates)
+
+    warmupTolerance: 15,   // Number of initial frames before AR target is considered found
+    missTolerance: 3,     // Number of missed frames before AR target is considered lost
+
+    maxTrack: 3           // Maximum number of image targets tracked simultaneously
+  });
+
+
+
+  const { renderer, scene, camera } = mindarThree;
+
+  const labelRenderer = new CSS2DRenderer();
+  labelRenderer.setSize(window.innerWidth, window.innerHeight);
+  labelRenderer.domElement.style.position = 'absolute';
+  labelRenderer.domElement.style.top = '0px';
+  labelRenderer.domElement.style.pointerEvents = 'none';
+  labelRenderer.domElement.style.zIndex = '4';
+  document.getElementById("container").appendChild(labelRenderer.domElement);
+
+  
+
+  const modelConfigs = [
+
+
+    { targetIndex: 1, name: `Cyber Girl`, url: 'models/avatars/cyber-girl-1.glb', scale: [0.5, 0.5, 0.5], rotation: [Math.PI / 2, 0, 0], audio:"audio/drums/1.m4a" },
+
+    { targetIndex: 2, name: `Demon`, url: 'models/avatars/Demon.glb', scale: [0.5, 0.5, 0.5], rotation: [Math.PI / 2, 0, 0], audio:"audio/drums/2.m4a" },
+
+    { targetIndex: 0, name: `Matilda`, url: 'models/avatars/matilda-anim5.glb', scale: [0.5, 0.5, 0.5], rotation: [Math.PI / 2, 0, 0], audio:"audio/drums/3.m4a" }
+
+
+     // deltarune is the best.
+
+    // { targetIndex: 1, name: `Butterflies Garden`, url: 'models/12_animated_butterflies.glb', scale: [1, 1, 1], rotation: [Math.PI / 2, 0, 0] }
+
+
+  ];
+
+
+
+let isPaused = false;
+let metronomeSource = null;
+
+
+const METRONOME_URL = "audio/warmup/0.m4a";
+
+const preloadMetronome = async () => {
+  const res = await fetch(METRONOME_URL);
+  const arrayBuffer = await res.arrayBuffer();
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const buffer = await audioCtx.decodeAudioData(arrayBuffer);
+  audioBufferCache[METRONOME_URL] = buffer;
+};
+
+
+
+Promise.all([
+  ...modelConfigs.map(config => {
+    if (!config.audio) return;
+    return fetch(config.audio)
+      .then(res => res.arrayBuffer())
+      .then(buffer => new Promise(resolve => {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx.decodeAudioData(buffer, decoded => {
+          audioBufferCache[config.audio] = decoded;
+          resolve();
+        });
+      }));
+  }),
+  preloadMetronome()
+]).then(() => {
+  console.log("✅ All audio preloaded");
+});
+
+
+
+
+
+  const anchorStates = modelConfigs.map((config, i) => ({
+    index: config.targetIndex,
+    name: config.name || `Treasure ${i + 1}`,
+    found: false
+  }));
+
+  function updateTreasureListUI() {
+    const treasureList = document.getElementById("treasureList");
+    const status = document.getElementById("treasureStatus");
+    const allFound = anchorStates.every(state => state.found);
+    treasureList.innerHTML = anchorStates.map(state => {
+      const color = state.found ? "#fff" : "#666";
+      return `<div style="color:${color};">${state.name}</div>`;
+    }).join("");
+    if (status) status.textContent = allFound ? "🎉 All treasures hunted!" : "";
+  }
+
+
+
+  function logDev(message, important = false) {
+    const logBox = document.getElementById("devLog");
+    const time = new Date().toISOString().split("T")[1].replace("Z", "");
+    const line = `[${time}] ${message}`;
+    if (important) console.warn(line);
+    else console.log(line);
+    logBox.textContent = `${line}\n` + logBox.textContent.split('\n').slice(0, 40).join('\n');
+  }
+
+
+  function playBlip() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().then(playBlip);
+      return;
+    }
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.2);
+  }
+
+
+
+  function addOrbitingCubesToGroup(group, cubesArray) {
+    for (let i = 0; i < 100; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 0.2 + Math.random() * 0.5;
+      const height = -0.1 + Math.random() * 0.2;
+      const speed = (Math.random() * 2 - 1) * 2;
+      const size = 0.01 + Math.random() * 0.03;
+      const color = new THREE.Color(Math.random(), Math.random(), Math.random());
+      const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(size, size, size),
+        new THREE.MeshStandardMaterial({ color })
+      );
+      cube.userData = { angle, radius, height, speed };
+      cube.position.set(Math.cos(angle) * radius, height, Math.sin(angle) * radius);
+      cubesArray.push(cube);
+      group.add(cube);
+    }
+  }
+
+
+
+  function updateOrbitingCubes(delta) {
+    mindarThree.anchors.forEach(anchor => {
+      if (!anchor.userData.orbitingCubes) return;
+      anchor.userData.orbitingCubes.forEach(cube => {
+        cube.userData.angle += cube.userData.speed * delta;
+        cube.position.x = Math.cos(cube.userData.angle) * cube.userData.radius;
+        cube.position.z = Math.sin(cube.userData.angle) * cube.userData.radius;
+      });
+    });
+  }
+
+
+  /* Connecting Lines */
+
+
+
+
+
+
+  /* Particles */
+  function addParticlesToAnchor(group) {
+    const particleCount = 300;
+    const geometry = new THREE.BufferGeometry();
+    const positions = [];
+    for (let i = 0; i < particleCount; i++) {
+      positions.push((Math.random() - 0.5) * 1.2, 0, (Math.random() - 0.5) * 1.2);
+    }
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const material = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.03,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 1
+    });
+    const particles = new THREE.Points(geometry, material);
+    particles.position.set(0, 0, 0.1);
+    group.add(particles);
+  }
+
+
+  /* Lights */
+  function addLights() {
+    scene.add(
+      new THREE.AmbientLight(0xffffff, 1),
+      new THREE.DirectionalLight(0xffffff, 0.5).position.set(1, 2, 1)
+    );
+  }
+
+
+
+  // const loader = new GLTFLoader();
+  import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+
+  const loader = new GLTFLoader();
+  loader.setDRACOLoader(dracoLoader);
+  
+  const loadingPromises = [];
+
+  modelConfigs.forEach(config => {
+
+
+  const anchor = mindarThree.addAnchor(config.targetIndex);
+
+  const buttonGeometry = new THREE.PlaneGeometry(0.4, 0.15);
+  const buttonMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+  const buttonMesh = new THREE.Mesh(buttonGeometry, buttonMaterial);
+  buttonMesh.position.set(0, -1.2, 0);
+  buttonMesh.name = `button-${config.name}`;
+  clickableMeshes.push(buttonMesh);
+  anchor.group.add(buttonMesh);
+
+
+
+anchor.onTargetFound = () => {
+  if (config.audio && !anchor.userData.audioPlaying) {
+    if (!heartbeatStartTime) {
+      heartbeatStartTime = Math.ceil(audioCtx.currentTime / timelineLength) * timelineLength;
+    }
+
+    if (metronomeSource) {
+      fadeOutAndStop(metronomeSource, 0.3);
+      metronomeSource = null;
+    }
+
+    const source = playSound(config.audio, true, 0.5, 0, `anchor-${config.targetIndex}`);
+    if (source) {
+      console.log(`[AUDIO] Playing ${config.audio} with analyser ID: anchor-${config.targetIndex}`);
+      anchor.userData.audioSource = source;
+      anchor.userData.audioPlaying = true;
+    }
+  }
+};
+
+
+
+
+
+
+
+anchor.onTargetLost = () => {
+  if (anchor.userData.audioPlaying && anchor.userData.audioSource) {
+    fadeOutAndStop(anchor.userData.audioSource, 0.5);
+    anchor.userData.audioPlaying = false;
+    anchor.userData.audioSource = null;
+
+    // ✅ Resume metronome only if no anchor has audio playing
+    const stillPlaying = mindarThree.anchors.some(a => a.userData?.audioPlaying);
+    if (!stillPlaying) {
+      metronomeSource = playSound(METRONOME_URL, true, 0);
+    }
+  }
+};
+
+
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'label';
+    labelDiv.textContent = config.name;
+  
+    Object.assign(labelDiv.style, {
+      color: '#0ff',
+      fontSize: '12px',
+      fontFamily: 'monospace',
+      padding: '2px 4px',
+      borderRadius: '4px',
+      background: 'rgba(0, 0, 0, 0.5)',
+      pointerEvents: 'none',
+      userSelect: 'none',
+      whiteSpace: 'nowrap',
+      display: 'none'
+    });
+  
+    let labelObject = null;
+
+    try {
+      if (typeof CSS2DObject === 'undefined') {
+        throw new Error('CSS2DObject is undefined – check CSS2DRenderer import.');
+      }
+      labelObject = new CSS2DObject(labelDiv);
+      labelObject.position.set(0, 0.4, 0);
+      anchor.group.add(labelObject);
+      if (!anchor.userData) anchor.userData = {};
+      anchor.userData.labelObject = labelObject;
+      logDev(`✅ Label attached to anchor ${config.targetIndex}: ${config.name}`, true);
+    } catch (err) {
+      logDev(`❌ Label attach failed for anchor ${config.targetIndex}: ${err.message}`, true);
+    }
+
+
+    const plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 0.55),
+      new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true })
+    );
+    anchor.group.add(plane);
+
+    const orbitGroup = new THREE.Group();
+    orbitGroup.rotation.x = Math.PI / 2;
+    anchor.group.add(orbitGroup);
+    const orbitingCubes = [];
+
+    const loadPromise = new Promise((resolve) => {
+
+
+
+    loader.load(config.url, (gltf) => {
+      logDev(`Loaded model: ${config.name} (anchor ${config.targetIndex})`, true);
+
+      const model = gltf.scene;
+      model.scale.set(...config.scale);
+      model.rotation.set(...config.rotation);
+      model.position.set(0, 0, 0);
+
+      model.traverse(child => {
+        if (child.isMesh) {
+          child.material.transparent = true;
+          child.material.opacity = 0;
+          child.visible = true;
+          logDev(`Mesh: ${child.name} | opacity: ${child.material.opacity} | visible: ${child.visible}`, true);
+        }
+      });
+
+      anchor.group.add(model);
+      anchor.group.visible = false;
+
+      const mixer = new THREE.AnimationMixer(model);
+      const actions = {};
+
+      gltf.animations.forEach((clip) => {
+        actions[clip.name] = mixer.clipAction(clip);
+      });
+
+      // Attach to userData
+      anchor.userData = {
+        ...anchor.userData,
+        model,
+        mixer,
+        actions,
+        currentAction: null,
+        fadeOpacity: 0,
+        fadeTarget: 0,
+        orbitingCubes: []
+      };
+
+      // ✅ Auto-play first clip if available
+      const firstClip = gltf.animations[0];
+      if (firstClip) {
+        const action = actions[firstClip.name];
+        action.reset().fadeIn(0.2).play();
+        anchor.userData.currentAction = action;
+      }
+
+      // ✅ Create animation buttons
+
+      if (!document.getElementById("animToggleButton")) {
+        const toggleBtn = document.createElement("button");
+        toggleBtn.id = "animToggleButton";
+        toggleBtn.textContent = Object.keys(actions)[0];
+        toggleBtn.dataset.target = config.targetIndex;
+        document.getElementById("animationControls").appendChild(toggleBtn);
+      }
+
+
+      // Push to shared mixer list
+      mixers.push(mixer);
+
+      addOrbitingCubesToGroup(orbitGroup, anchor.userData.orbitingCubes);
+      addParticlesToAnchor(anchor.group);
+
+      if (config.audio) {
+        anchor.userData.audioPath = config.audio;
+        anchor.userData.audioSource = null;
+        anchor.userData.audioPlaying = false;
+      }
+
+      resolve();
+    }, undefined, (error) => {
+      logDev(`❌ Error loading ${config.name}: ${error.message}`, true);
+    });
+
+
+
+
+
+});
+
+
+
+    loadingPromises.push(loadPromise);
+
+
+  });
+
+
+  const euler = new THREE.Euler();
+
+
+
+  /* Render Loop */
+
+
+const startRendering = () => {
+  renderer.setAnimationLoop(() => {
+    const delta = clock.getDelta();
+
+    mixers.forEach(mixer => mixer.update(delta));
+    updateOrbitingCubes(delta);
+    udpateGyroStars();
+
+    const cameraPos = new THREE.Vector3();
+    camera.getWorldPosition(cameraPos);
+    const detectedAnchors = [];
+
+    mindarThree.anchors.forEach((anchor, index) => {
+      if (anchor.group.visible) {
+        detectedAnchors.push(index);
+        const anchorMatrixWorld = anchor.group.matrixWorld.clone();
+        const cameraMatrixWorld = camera.matrixWorld.clone();
+        const cameraInverse = new THREE.Matrix4().copy(cameraMatrixWorld).invert();
+        const relativeMatrix = new THREE.Matrix4().multiplyMatrices(cameraInverse, anchorMatrixWorld);
+        const position = new THREE.Vector3();
+        const quaternion = new THREE.Quaternion();
+        const scale = new THREE.Vector3();
+        relativeMatrix.decompose(position, quaternion, scale);
+        const euler = new THREE.Euler().setFromQuaternion(quaternion, 'XYZ');
+        const px = position.x.toFixed(2);
+        const py = position.y.toFixed(2);
+        const pz = position.z.toFixed(2);
+        const rx = THREE.MathUtils.radToDeg(euler.x).toFixed(1);
+        const ry = THREE.MathUtils.radToDeg(euler.y).toFixed(1);
+        const rz = THREE.MathUtils.radToDeg(euler.z).toFixed(1);
+        document.getElementById("rotationOverlay").textContent = `Rotation: ${rx}, ${ry}, ${rz}`;
+        document.getElementById("positionOverlay").textContent = `Position: ${px}, ${py}, ${pz}`;
+        const state = anchorStates.find(s => s.index === index);
+        if (state && !state.found) {
+          state.found = true;
+          updateTreasureListUI();
+          playBlip();
+        }
+      }
+    });
+
+    const anchorStatusOverlay = document.getElementById("anchorStatusOverlay");
+    anchorStatusOverlay.textContent = detectedAnchors.length > 0
+      ? `Detected Anchors: ${detectedAnchors.join(', ')}`
+      : `Detected Anchors: None`;
+
+    const FADE_SPEED = 2.5;
+
+    mindarThree.anchors.forEach(anchor => {
+      const data = anchor.userData;
+      if (!data?.model) return;
+
+      const targetOpacity = anchor.group.visible ? 1 : 0;
+      data.fadeTarget = targetOpacity;
+      data.fadeOpacity = data.fadeOpacity ?? 0;
+
+      if (data.fadeOpacity !== data.fadeTarget) {
+        const dir = data.fadeTarget > data.fadeOpacity ? 1 : -1;
+        data.fadeOpacity += dir * delta * FADE_SPEED;
+        data.fadeOpacity = Math.max(0, Math.min(1, data.fadeOpacity));
+
+        data.model.traverse(child => {
+          if (child.isMesh && child.material?.transparent) {
+            child.material.opacity = data.fadeOpacity;
+          }
+        });
+      }
+    });
+
+    renderer.render(scene, camera);
+    labelRenderer.render(scene, camera);
+
+    mindarThree.anchors.forEach(anchor => {
+      if (anchor.userData.labelObject) {
+        anchor.userData.labelObject.element.style.display = anchor.group.visible ? 'block' : 'none';
+      }
+    });
+
+    if (heartbeatStartTime !== null) {
+      const now = audioCtx.currentTime;
+      const t = (now - heartbeatStartTime) % timelineLength;
+      const percent = (t / timelineLength) * 100;
+      document.getElementById("timelineBar").style.width = `${percent}%`;
+    }
+
+    // Spectrum visualizer
+    const activeSources = mindarThree.anchors
+      .map(a => a.userData?.audioSource)
+      .filter(src => src?.analyser);
+
+    if (activeSources.length === 0) {
+      console.log("[DEBUG] drawMultiSpectrum skipped – no active sources");
+    } else {
+      console.log(`[DEBUG] drawMultiSpectrum called | sources: ${activeSources.length}`);
+    }
+
+    drawMultiSpectrum(activeSources);
+
+
+
+
+  });
+};
+
+
+
+
+["touchstart", "pointerdown"].forEach(evtName => {
+  document.getElementById("modelControls").addEventListener(evtName, (e) => {
+    const target = e.target;
+    if (!target.matches("button")) return;
+
+    const action = target.dataset.action;
+    const activeAnchor = mindarThree.anchors.find(a => a.group.visible && a.userData?.model);
+    if (!activeAnchor) return;
+
+    const model = activeAnchor.userData.model;
+
+    switch (action) {
+      case "scale-up":
+        model.scale.multiplyScalar(1.1);
+        break;
+      case "scale-down":
+        model.scale.multiplyScalar(0.9);
+        break;
+      case "rotate":
+        model.rotation.y += THREE.MathUtils.degToRad(10);
+        break;
+    }
+
+    e.preventDefault(); // Prevent fallback click/zoom
+  }, { passive: false });
+});
+
+
+["touchstart", "pointerdown"].forEach(evtName => {
+  document.getElementById("animationControls").addEventListener(evtName, (e) => {
+    const btn = e.target;
+    if (!btn.matches("#animToggleButton")) return;
+
+    const activeAnchor = mindarThree.anchors.find(a => a.group.visible && a.userData?.model);
+    if (!activeAnchor) return;
+
+    const actions = activeAnchor.userData.actions;
+    const current = activeAnchor.userData.currentAction;
+    const names = Object.keys(actions);
+    let nextIndex = 0;
+
+    if (current) {
+      const currentName = Object.entries(actions).find(([_, act]) => act === current)?.[0];
+      const currentIndex = names.indexOf(currentName);
+      nextIndex = (currentIndex + 1) % names.length;
+    }
+
+    const nextName = names[nextIndex];
+    const nextAction = actions[nextName];
+
+    if (current && current !== nextAction) current.fadeOut(0.2);
+    nextAction.reset().fadeIn(0.2).play();
+
+    activeAnchor.userData.currentAction = nextAction;
+    btn.textContent = nextName;
+
+    e.preventDefault();
+  }, { passive: false });
+});
+
+
+
+
+  /* Start */
+
+const start = async () => {
+  await mindarThree.start();
+  addLights();
+
+  updateTreasureListUI();
+  await Promise.all(loadingPromises);
+
+  heartbeatStartTime = Math.ceil(audioCtx.currentTime / timelineLength) * timelineLength;
+  //playSound("audio/drums/0.m4a", true, 0); // Metronome
+
+  startRendering();
+  initSpectrum();
+  initGyroStars(scene);
+};
+
+
+document.querySelector("#startButton").addEventListener("click", async () => {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    await preloadMetronome();
+    heartbeatStartTime = Math.ceil(audioCtx.currentTime / timelineLength) * timelineLength;
+    metronomeSource = playSound(METRONOME_URL, true, 0);
+
+    if (metronomeSource) logDev("🔊 Metronome started");
+
+    await start(); // May throw
+  } catch (err) {
+    logDev(`❌ Start failed: ${err.message}`, true);
+  } finally {
+    document.getElementById("control").classList.add("hidden"); // Always hide the UI
+  }
+});
+
+
+
+// document.querySelector("#startButton").addEventListener("click", async () => {
+//   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+//   if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+//   logDev("Starting AR session...");
+//   await start();
+//   document.getElementById("control").classList.add("hidden");
+// });
+
+
+  // document.querySelector("#startButton").addEventListener("click", () => {
+  //   logDev("🟢 Starting AR session...");
+  //   start();
+  //   document.getElementById("control").classList.add("hidden");
+  // });
+
+  document.querySelector("#stopButton").addEventListener("click", () => {
+    logDev("🔴 Stopping AR session...");
+    mindarThree.stop();
+    renderer.setAnimationLoop(null);
+  });
+
+
+
+window.addEventListener("pointerdown", (event) => {
+  pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(pointer, camera);
+  const intersects = raycaster.intersectObjects(clickableMeshes, true);
+
+  for (const intersect of intersects) {
+    if (intersect.object.name.startsWith("button-")) {
+      logDev(`[INTERACT] Clicked on ${intersect.object.name}`, true);
+      playBlip();
+
+      const anchor = mindarThree.anchors.find(a => a.group.children.includes(intersect.object));
+      if (anchor?.userData?.model) {
+        anchor.userData.model.rotation.y += THREE.MathUtils.degToRad(10);
+      }
+
+      break;
+    }
+  }
+});
+
+
+window.addEventListener("DOMContentLoaded", () => {
+
+  initMotionOverlay(); // ✅ Initialize motion button
+  
+  document.getElementById("toggleDevLog").addEventListener("click", () => {
+    const devLog = document.getElementById("devLog");
+    devLog.classList.toggle("hidden");
+  });
+});
+
+let gyroStarGroup = null;
+let gyroRotation = { yaw: 0, pitch: 0, roll: 0 };
+
+let gyroHorizonRing = null;
+
+
+function initGyroStars(scene) {
+  gyroStarGroup = new THREE.Group();
+  scene.add(gyroStarGroup);
+
+  const starCount = 1000;
+  const positions = new Float32Array(starCount * 3);
+  for (let i = 0; i < starCount; i++) {
+    const x = (Math.random() - 0.5) * 40;
+    const y = Math.random() * 20; // only above horizon
+    const z = (Math.random() - 0.5) * 40;
+    positions[i * 3 + 0] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.15,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.8,
+    depthWrite: false
+  });
+
+  const stars = new THREE.Points(geometry, material);
+  gyroStarGroup.add(stars);
+
+  const ringGeometry = new THREE.RingGeometry(9.8, 10, 64);
+  const ringMaterial = new THREE.MeshBasicMaterial({
+    color: 0x00ffff,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 0.6
+  });
+  gyroHorizonRing = new THREE.Mesh(ringGeometry, ringMaterial);
+  gyroHorizonRing.rotation.x = Math.PI / 2;
+  gyroStarGroup.add(gyroHorizonRing);
+
+  window.addEventListener('devicemotion', (event) => {
+    const rot = event.rotationRate;
+    if (!rot) return;
+
+    gyroRotation.yaw = -(rot.alpha || 0) * 0.001;
+    gyroRotation.pitch = (rot.beta || 0) * 0.001;
+    gyroRotation.roll = (rot.gamma || 0) * 0.001;
+  });
+}
+
+
+
+function udpateGyroStars() {
+
+
+  if (gyroStarGroup) {
+    gyroStarGroup.rotation.x += gyroRotation.yaw * 0.25;
+    gyroStarGroup.rotation.y -= gyroRotation.pitch * 0.25;
+    gyroStarGroup.rotation.z += gyroRotation.roll * 0.25;
+  }
+
+  if (gyroHorizonRing) {
+    gyroHorizonRing.rotation.x = gyroStarGroup.rotation.x;
+    gyroHorizonRing.rotation.y = gyroStarGroup.rotation.y;
+    gyroHorizonRing.rotation.z = gyroStarGroup.rotation.z;
+  }
+
+
+
+}
+
+
+
+
+function initMotionOverlay() {
+
+  const overlay = document.getElementById('motionOverlay');
+  const motionButton = document.getElementById('motionButton');
+
+  let motionDetected = false;
+
+  function updateStatus(acc, rot) {
+    overlay.textContent =
+      `Motion API: active | Acc: ${acc.x?.toFixed(1) || 0}, ${acc.y?.toFixed(1) || 0}, ${acc.z?.toFixed(1) || 0} | ` +
+      `Gyro: ${rot.alpha?.toFixed(1) || 0}, ${rot.beta?.toFixed(1) || 0}, ${rot.gamma?.toFixed(1) || 0}`;
+  }
+
+  function attachMotionListeners() {
+    if (motionDetected) return;
+    motionDetected = true;
+    window.addEventListener('devicemotion', (event) => {
+      updateStatus(event.accelerationIncludingGravity || {}, event.rotationRate || {});
+    });
+    motionButton.style.display = 'none';
+    overlay.textContent = 'Motion API: active (listening)';
+  }
+
+  if (typeof DeviceMotionEvent?.requestPermission === 'function') {
+    motionButton.style.display = 'block';
+    motionButton.addEventListener('click', () => {
+      DeviceMotionEvent.requestPermission()
+        .then(response => {
+          if (response === 'granted') {
+            attachMotionListeners();
+          } else {
+            overlay.textContent = 'Motion API: permission denied';
+          }
+        })
+        .catch(() => {
+          overlay.textContent = 'Motion API: permission error';
+        });
+    });
+  } else if ('DeviceMotionEvent' in window) {
+    attachMotionListeners();
+  } else {
+    overlay.textContent = 'Motion API: not supported';
+    motionButton.style.display = 'none';
+  }
+}
+
+
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function (event) {
+  const now = new Date().getTime();
+  if (now - lastTouchEnd <= 300) {
+    event.preventDefault();
+  }
+  lastTouchEnd = now;
+}, false);
+
+
+// Prevent iOS double-tap zoom
+document.addEventListener('touchstart', function (e) {
+  if (e.touches.length > 1) {
+    e.preventDefault(); // Block pinch zoom
+  }
+}, { passive: false });
+
+let lastTouch = 0;
+document.addEventListener('touchend', function (e) {
+  const now = Date.now();
+  if (now - lastTouch <= 350) {
+    e.preventDefault(); // Block double-tap zoom
+  }
+  lastTouch = now;
+}, { passive: false });
+
+
+
+
+
+
+
+</script>
+
+
+
+
+
+
+
+
+
+<style>
+
+  body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #000;
+  }
+
+  #container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+  }
+
+  #control {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      display: flex;
+      gap: 20px;
+      transition: opacity 0.5s ease;
+  }
+
+  #control.hidden {
+      opacity: 0;
+      pointer-events: none;
+  }
+
+  button {
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 12px;
+      background-color: #00ffff;
+      color: #111;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0, 255, 255, 0.3);
+      transition: transform 0.2s ease, background-color 0.3s ease;
+  }
+
+  button:hover {
+      background-color: #00cccc;
+      transform: scale(1.05);
+  }
+
+/* Shared overlay styling */
+
+.overlay-box {
+  position: absolute;
+  font-size: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  font-family: monospace;
+  z-index: 5;
+}
+
+
+
+#treasureUI {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  font-family: monospace;
+  color: #ccc;
+  text-align: right;
+  background: rgba(0,0,0,0.5);
+  padding: 0.25rem;
+  border-radius: 2px;
+}
+
+#treasureHeader {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+#treasureStatus {
+  margin-top: 8px;
+  color: #0f0;
+}
+
+
+.mindar-ui-overlay.mindar-ui-scanning {
+  background-color: rgba(0, 0, 0, 0); /* transparent overlay */
+  z-index: 2;
+  position: absolute;
+  display: flex;
+  opacity: 0.2!important;  
+}
+
+.mindar-ui-scanning .scanline {
+  background: yellow!important;; /* or full: rgb(255, 255, 255) */
+  height: 1px!important;;
+  animation: move 4s linear infinite;
+  border: 1px dashed yellow!important;
+  transform: none;
+  opacity: 0.8!important;  
+}
+
+.mindar-ui-scanning .inner {
+  border: none;
+  padding: 0px;
+  border-radius: 0px;
+  box-sizing: content-box;
+  opacity: 0.75!important;
+}
+
+
+#toggleDevLog {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 6;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: monospace;
+  background: #333;
+  color: #0ff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: none;
+}
+
+#devLog.hidden {
+  display: none;
+}
+
+.dev-overlay {
+  position: absolute;
+  left: 10px;
+  top: 45px;
+  font-size: 0.7rem;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-family: monospace;
+  z-index: 5;
+  color: white;
+  width: 40%;  
+}
+
+
+.label {
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+
+
+
+
+#motionButton {
+  position: absolute;
+  bottom: 140px;
+  left: 10px;
+  z-index: 6;
+  font-family: monospace;
+  font-size: 14px;
+  background: #222;
+  color: #f0f;
+  border: 1px solid #f0f;
+  border-radius: 4px;
+  padding: 6px 10px;
+  cursor: pointer;
+  display: none;
+}
+
+#motionOverlay {
+  color: #f0f;
+}
+
+
+/* Individual positioning and color */
+#rotationOverlay {
+  color: #0f0;
+}
+
+#positionOverlay {
+  color: #0ff;
+}
+
+#anchorStatusOverlay {
+  color: #ff0;
+}
+
+#statusOverlay {
+  position: absolute;
+  left: 0px;
+  bottom: 0px;
+  z-index: 5;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  padding: 6px 6px;
+  font-family: monospace;
+  font-size: 16px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  display: none;
+}
+
+
+#modelControls {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  gap: 12px;
+}
+
+#modelControls button {
+  padding: 12px 18px;
+  font-size: 20px;
+  font-family: monospace;
+  font-weight: bold;
+  background: #111;
+  color: #0ff;
+  border: 2px solid #0ff;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.2);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Hover (desktop) */
+#modelControls button:hover {
+  background: #0ff;
+  color: #111;
+  box-shadow: 0 0 16px rgba(0, 255, 255, 0.5);
+  transform: scale(1.05);
+}
+
+/* Active (tap/click) */
+#modelControls button:active {
+  background: #0aa;
+  color: #000;
+  transform: scale(0.95);
+  box-shadow: 0 0 4px rgba(0, 255, 255, 0.2);
+}
+
+
+
+button {
+  touch-action: manipulation;
+  font-size: 16px; /* avoid zoom on tap */
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+#animationControls {
+  position: absolute;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+}
+
+#animationControls button {
+  padding: 6px 10px;
+  font-size: 14px;
+  font-family: monospace;
+  background: #111;
+  color: #0ff;
+  border: 1px solid #0ff;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(0, 255, 255, 0.2);
+  transition: all 0.1s ease;
+}
+#animationControls button:hover {
+  background: #0ff;
+  color: #000;
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.5);
+}
+
+#timelineBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: yellow;
+  width: 0%;
+  z-index: 7;
+  pointer-events: none;
+  transition: none;
+}
+
+#spectrumCanvas {
+  position: absolute;
+  bottom: 4px; /* just above the yellow timelineBar */
+  left: 0;
+  width: 100%;
+  height: 30px;
+  z-index: 7;
+  pointer-events: none;
+}
+
+
+
+
+</style>
+
+</head>
+
+<body>
+
+
+  <button id="motionButton">Enable Motion</button>
+
+
+  <button id="toggleDevLog">Dev Mode</button>
+
+  <div id="devLog" class="dev-overlay hidden"></div>
+
+  <div id="control">
+
+      <button id="startButton">Start</button>
+      <button id="stopButton">Stop</button>
+  </div>
+  <div id="container"></div>
+
+
+<div id="animationControls"></div>
+
+<div id="modelControls">
+  <button id="pauseToggleButton">Pause</button>
+  <button data-action="scale-up">+</button>
+  <button data-action="scale-down">−</button>
+  <button data-action="rotate">R</button>
+</div>
+
+
+<canvas id="spectrumCanvas"></canvas>
+
+<div id="timelineBar"></div>
+
+
+
+<div id="statusOverlay" class="overlay-box">
+  <div id="motionOverlay">Motion: n/a</div>
+  <div id="rotationOverlay">Rotation: 0, 0, 0</div>
+  <div id="positionOverlay">Position: 0, 0, 0</div>
+  <div id="anchorStatusOverlay">Detected Anchor: None</div>
+</div>
+
+  <div id="treasureUI">
+    <div id="treasureHeader">Treasure Hunt</div>
+    <div id="treasureList"></div>
+    <div id="treasureStatus"></div>
+  </div>
+
+
+
+
+</body>
+
+</html>
