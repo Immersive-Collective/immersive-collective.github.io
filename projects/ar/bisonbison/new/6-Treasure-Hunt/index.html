@@ -189,37 +189,78 @@
 
       const detectedAnchors = [];
 
-      mindarThree.anchors.forEach((anchor, index) => {
-        if (anchor.group.visible) {
-          detectedAnchors.push(index);
 
-          const worldQuat = new THREE.Quaternion();
-          anchor.group.getWorldQuaternion(worldQuat);
+mindarThree.anchors.forEach((anchor, index) => {
+  if (anchor.group.visible) {
+    detectedAnchors.push(index);
 
-          const invCameraQuat = camera.quaternion.clone().invert();
-          const relativeQuat = worldQuat.clone().multiply(invCameraQuat);
-          euler.setFromQuaternion(relativeQuat, 'XYZ');
-          const rx = THREE.MathUtils.radToDeg(euler.x).toFixed(1);
-          const ry = THREE.MathUtils.radToDeg(euler.y).toFixed(1);
-          const rz = THREE.MathUtils.radToDeg(euler.z).toFixed(1);
+    // WORLD → CAMERA SPACE TRANSFORM
+    const anchorMatrixWorld = anchor.group.matrixWorld.clone();
+    const cameraMatrixWorld = camera.matrixWorld.clone();
+    const cameraInverse = new THREE.Matrix4().copy(cameraMatrixWorld).invert();
 
-          const worldPos = new THREE.Vector3();
-          anchor.group.getWorldPosition(worldPos);
-          const relativePos = worldPos.clone().sub(cameraPos);
-          const px = relativePos.x.toFixed(2);
-          const py = relativePos.y.toFixed(2);
-          const pz = relativePos.z.toFixed(2);
+    const relativeMatrix = new THREE.Matrix4().multiplyMatrices(cameraInverse, anchorMatrixWorld);
 
-          const state = anchorStates.find(s => s.index === index);
-          if (state && !state.found) {
-            state.found = true;
-            updateTreasureListUI();
-            playBlip();
-          }
+    const position = new THREE.Vector3();
+    const quaternion = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    relativeMatrix.decompose(position, quaternion, scale);
 
-          console.log(`Anchor ${index}: pos=(${px},${py},${pz}), rot=(${rx},${ry},${rz})`);
-        }
-      });
+    const euler = new THREE.Euler().setFromQuaternion(quaternion, 'XYZ');
+
+    const px = position.x.toFixed(2);
+    const py = position.y.toFixed(2);
+    const pz = position.z.toFixed(2);
+    const rx = THREE.MathUtils.radToDeg(euler.x).toFixed(1);
+    const ry = THREE.MathUtils.radToDeg(euler.y).toFixed(1);
+    const rz = THREE.MathUtils.radToDeg(euler.z).toFixed(1);
+
+    document.getElementById("rotationOverlay").textContent = `Rotation: ${rx}, ${ry}, ${rz}`;
+    document.getElementById("positionOverlay").textContent = `Position: ${px}, ${py}, ${pz}`;
+
+    const state = anchorStates.find(s => s.index === index);
+    if (state && !state.found) {
+      state.found = true;
+      updateTreasureListUI();
+      playBlip();
+    }
+
+    console.log(`Anchor ${index} RELATIVE pos=(${px},${py},${pz}) rot=(${rx},${ry},${rz})`);
+  }
+});
+
+
+      // mindarThree.anchors.forEach((anchor, index) => {
+      //   if (anchor.group.visible) {
+      //     detectedAnchors.push(index);
+
+      //     const worldQuat = new THREE.Quaternion();
+      //     anchor.group.getWorldQuaternion(worldQuat);
+
+      //     const invCameraQuat = camera.quaternion.clone().invert();
+      //     const relativeQuat = worldQuat.clone().multiply(invCameraQuat);
+      //     euler.setFromQuaternion(relativeQuat, 'XYZ');
+      //     const rx = THREE.MathUtils.radToDeg(euler.x).toFixed(1);
+      //     const ry = THREE.MathUtils.radToDeg(euler.y).toFixed(1);
+      //     const rz = THREE.MathUtils.radToDeg(euler.z).toFixed(1);
+
+      //     const worldPos = new THREE.Vector3();
+      //     anchor.group.getWorldPosition(worldPos);
+      //     const relativePos = worldPos.clone().sub(cameraPos);
+      //     const px = relativePos.x.toFixed(2);
+      //     const py = relativePos.y.toFixed(2);
+      //     const pz = relativePos.z.toFixed(2);
+
+      //     const state = anchorStates.find(s => s.index === index);
+      //     if (state && !state.found) {
+      //       state.found = true;
+      //       updateTreasureListUI();
+      //       playBlip();
+      //     }
+
+      //     console.log(`Anchor ${index}: pos=(${px},${py},${pz}), rot=(${rx},${ry},${rz})`);
+      //   }
+      // });
 
       const anchorStatusOverlay = document.getElementById("anchorStatusOverlay");
       anchorStatusOverlay.textContent = detectedAnchors.length > 0
@@ -356,6 +397,32 @@
 #treasureStatus {
   margin-top: 8px;
   color: #0f0;
+}
+
+
+.mindar-ui-overlay.mindar-ui-scanning {
+  background-color: rgba(0, 0, 0, 0); /* transparent overlay */
+  z-index: 2;
+  position: absolute;
+  display: flex;
+  opacity: 0.2!important;  
+}
+
+.mindar-ui-scanning .scanline {
+  background: yellow!important;; /* or full: rgb(255, 255, 255) */
+  height: 1px!important;;
+  animation: move 4s linear infinite;
+  border: 1px dashed yellow!important;
+  transform: none;
+  opacity: 0.70!important;  
+}
+
+.mindar-ui-scanning .inner {
+  border: none;
+  padding: 0px;
+  border-radius: 0px;
+  box-sizing: content-box;
+  opacity: 0.2!important;
 }
 
 
