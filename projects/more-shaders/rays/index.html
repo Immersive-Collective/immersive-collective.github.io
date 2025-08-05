@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WebGL2 Radial Rays Effect + GUI + Presets + Inertia + Grain + Animated Light</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0; padding: 0; background: #000;
+      width: 100vw; height: 100vh; overflow: hidden; border: 0; outline: none;
+    }
+    canvas {
+      display: block; width: 100vw; height: 100vh; object-fit: contain;
+      background: #000; position: absolute; top:0; margin: 0; padding: 0; border: 0;
+    }
+    .dg { position: absolute; top: 10px; right: 10px; z-index: 100; }
+    #preset-controls {
+      position: absolute; top: 10px; left: 10px; z-index: 110;
+      color: #eee; font-family: sans-serif; background: rgba(0,0,0,0.3);
+      border-radius: 8px; padding: 10px 18px 12px 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+    #preset-controls input[type=file] { display: none; }
+    #preset-controls label, #preset-controls button {
+      cursor: pointer; padding: 2px 12px; background: #191919;
+      border-radius: 4px; border: 1px solid #444; font-size: 13px;
+      color: #eee; margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="preset-controls">
+  <button id="save-preset-btn">Export Preset</button>
+  <label for="preset-file">Import Preset<input type="file" id="preset-file" accept=".json"></label>
+  <span id="preset-status" style="font-size:13px;"></span>
+</div>
+<script type="importmap">
+{
+  "imports": {
+    "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.18/dist/lil-gui.esm.min.js"
+  }
+}
+</script>
+<script type="module">
+import { GUI } from 'lil-gui';
+
+// --- GUI-controlled parameters ---
+const params = {
+  strength: 0.32,
+  samples: 40,
+  rayMix: 1.5,
+  invert: false,
+  brightness: 1.0,
+  mouseInertia: 0.07,       // new: how fast the "center" follows your mouse
+  grainStrength: 0.04,      // new: film grain/noise amount
+
+  lightBase: 0.2,              // minimum light, never goes to 0
+  lightAnimSpeed: 0.25,        // speed of modulation (as before)
+  lightRandomness: 0.15,       // 0 = smooth, 1 = totally random/strobe
+  lightIntensity: 1.0
+
+};
+
+// --- Mouse handling & inertia ---
+let mouse = { x: 0.5, y: 0.5, smoothX: 0.5, smoothY: 0.5 };
+const canvas = document.getElementById('c');
+window.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - rect.left) / rect.width;
+  mouse.y = (e.clientY - rect.top) / rect.height;
+});
+
+// --- Vertex & Fragment Shader Sources ---
+const vertexShaderSource = `#version 300 es
+in vec2 position;
+uniform vec2 uCanvasRes;
+uniform vec2 uImageRes;
+out vec2 vUv;
+void main() {
+  float imgAspect = uImageRes.x / uImageRes.y;
+  float canvasAspect = uCanvasRes.x / uCanvasRes.y;
+  vec2 scale = vec2(1.0);
+  if (canvasAspect > imgAspect) scale.x = imgAspect / canvasAspect;
+  else scale.y = canvasAspect / imgAspect;
+  vUv = vec2(position.x * 0.5 + 0.5, 1.0 - (position.y * 0.5 + 0.5));
+  gl_Position = vec4(position * scale, 0.0, 1.0);
+}
+`;
+
+const fragmentShaderSource = `#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uRes;
+uniform float uTime;
+uniform vec2 uCenter;
+uniform float uStrength;
+uniform int uSamples;
+uniform float uRayMix;
+uniform bool uInvert;
+uniform float uBrightness;
+uniform float uGrain;      // new: film grain
+uniform float uLight;      // new: animated light multiplier
+in vec2 vUv;
+out vec4 outColor;
+
+// Fast 2D hash-based noise (for grain)
+float hash21(vec2 p) {
+  p = fract(p*vec2(123.34, 456.21));
+  p += dot(p, p+78.233);
+  return fract(p.x * p.y);
+}
+
+void main() {
+  vec2 center = uCenter;
+  vec4 base = texture(uTex, vUv);
+  float alpha = base.a;
+  float ray = 0.0;
+  int samples = uSamples;
+  float strength = uStrength;
+  for (int i = 0; i < 100; ++i) {
+    if (i >= samples) break;
+    float t = float(i) / float(samples-1);
+    vec2 uv = mix(center, vUv, t + strength * (1.0-t));
+    vec4 col = texture(uTex, uv);
+    ray += col.a * col.r * (1.0-t);
+  }
+  ray /= float(samples);
+  float rays = ray * uRayMix * smoothstep(0.2, 0.8, alpha);
+  // Animated, flickering "light source" (center brightness)
+  float animLight = uLight;
+  vec3 color = mix(base.rgb, vec3(1.0), rays) * uBrightness * animLight;
+  if (uInvert) color = 1.0 - color;
+  // Add grain/noise (screen-space, animated)
+  float grain = (hash21(gl_FragCoord.xy + uTime*76.1) - 0.5) * uGrain;
+  color += grain;
+  outColor = vec4(color, base.a);
+  outColor.rgb *= outColor.a;
+}
+`;
+
+// --- WebGL setup ---
+function createShader(gl, source, type) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, source);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+function createProgram(gl, vs, fs) {
+  const p = gl.createProgram();
+  gl.attachShader(p, vs);
+  gl.attachShader(p, fs);
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+
+const gl = canvas.getContext('webgl2', { alpha: false });
+if (!gl) { alert('WebGL2 not supported'); throw new Error('WebGL2 not supported'); }
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+
+const positions = new Float32Array([
+  -1, -1, 1, -1, -1, 1,
+  -1, 1, 1, -1, 1, 1
+]);
+const positionBuffer = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+
+const vs = createShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
+const fs = createShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
+const program = createProgram(gl, vs, fs);
+
+const posLoc = gl.getAttribLocation(program, 'position');
+const uTexLoc = gl.getUniformLocation(program, 'uTex');
+const uResLoc = gl.getUniformLocation(program, 'uRes');
+const uTimeLoc = gl.getUniformLocation(program, 'uTime');
+const uCanvasResLoc = gl.getUniformLocation(program, 'uCanvasRes');
+const uImageResLoc = gl.getUniformLocation(program, 'uImageRes');
+const uCenterLoc = gl.getUniformLocation(program, 'uCenter');
+const uStrengthLoc = gl.getUniformLocation(program, 'uStrength');
+const uSamplesLoc = gl.getUniformLocation(program, 'uSamples');
+const uRayMixLoc = gl.getUniformLocation(program, 'uRayMix');
+const uInvertLoc = gl.getUniformLocation(program, 'uInvert');
+const uBrightnessLoc = gl.getUniformLocation(program, 'uBrightness');
+const uGrainLoc = gl.getUniformLocation(program, 'uGrain');
+const uLightLoc = gl.getUniformLocation(program, 'uLight');
+
+const vao = gl.createVertexArray();
+gl.bindVertexArray(vao);
+gl.enableVertexAttribArray(posLoc);
+gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+let imgTex = gl.createTexture();
+let imgLoaded = false;
+let imgWidth = 1, imgHeight = 1;
+function updateTexture(img) {
+  gl.bindTexture(gl.TEXTURE_2D, imgTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+  imgWidth = img.width;
+  imgHeight = img.height;
+  imgLoaded = true;
+}
+// --- AUTOLOAD rocky.png ---
+const img = new window.Image();
+img.onload = () => { updateTexture(img); resize(); };
+img.src = 'rocky-ext1.png';
+
+// --- GUI setup ---
+const gui = new GUI();
+gui.add(params, "strength", 0.0, 1.0, 0.01).name("Rays Strength");
+gui.add(params, "samples", 5, 100, 1).name("Ray Samples");
+gui.add(params, "rayMix", 0.1, 3.0, 0.01).name("Ray Mix");
+gui.add(params, "invert").name("Invert Color");
+gui.add(params, "brightness", 0.5, 2.0, 0.01).name("Brightness");
+gui.add(params, "mouseInertia", 0.01, 0.3, 0.005).name("Mouse Inertia");
+gui.add(params, "grainStrength", 0.0, 0.25, 0.001).name("Film Grain");
+gui.add(params, "lightBase", 0.01, 1.0, 0.01).name("Light Minimum");
+gui.add(params, "lightIntensity", 0.5, 2.5, 0.01).name("Light Amplitude");
+gui.add(params, "lightAnimSpeed", 0.01, 3.0, 0.01).name("Light Speed");
+gui.add(params, "lightRandomness", 0.0, 1.0, 0.01).name("Strobe/Random");
+
+// --- Preset export/load ---
+function exportPreset() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const fname = `preset-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
+  const presetObj = Object.assign({}, params);
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(presetObj, null, 2));
+  const a = document.createElement('a');
+  a.href = dataStr;
+  a.download = fname;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  showStatus("Preset exported.");
+}
+function importPreset(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const json = JSON.parse(e.target.result);
+      // Accept all expected params, ignore extra, update GUI
+      for (const k in params) if (k in json) params[k] = json[k];
+      gui.controllers.forEach(ctrl => ctrl.updateDisplay && ctrl.updateDisplay());
+      showStatus("Preset loaded.");
+    } catch (err) { showStatus("Error loading preset.", true); }
+  };
+  reader.readAsText(file);
+}
+
+// --- Load preset from server on startup ---
+function loadPresetFromUrl(url) {
+  fetch(url).then(r => {
+    if (!r.ok) throw new Error("Preset not found");
+    return r.json();
+  }).then(json => {
+    for (const k in params) if (k in json) params[k] = json[k];
+    gui.controllers.forEach(ctrl => ctrl.updateDisplay && ctrl.updateDisplay());
+    showStatus("Preset loaded from file.");
+  }).catch(() => { showStatus("Could not load default preset.", true); });
+}
+loadPresetFromUrl("presets/preset-20250805-104648.json");
+
+// --- Status feedback ---
+const statusSpan = document.getElementById('preset-status');
+let statusTimeout = null;
+function showStatus(msg, error) {
+  statusSpan.textContent = msg;
+  statusSpan.style.color = error ? "#f55" : "#0f0";
+  clearTimeout(statusTimeout);
+  statusTimeout = setTimeout(() => { statusSpan.textContent = ""; }, 1800);
+}
+// --- Event listeners ---
+document.getElementById('save-preset-btn').onclick = exportPreset;
+document.getElementById('preset-file').onchange = function(e) {
+  const file = e.target.files[0];
+  if (file) importPreset(file);
+  this.value = "";
+};
+
+
+
+
+
+let startTime = performance.now();
+let prevRand = 1.0;  // For smooth random flicker interpolation
+
+function render(now) {
+  mouse.smoothX += (mouse.x - mouse.smoothX) * params.mouseInertia;
+  mouse.smoothY += (mouse.y - mouse.smoothY) * params.mouseInertia;
+
+  // Light animation blending: smooth <-> random
+  const t = (now - startTime) * 0.001 * params.lightAnimSpeed;
+  const sinPart = 0.5 + 0.5 * Math.sin(t * Math.PI * 2.0); // 0..1
+  // Fast random strobe-like flicker (different every ~0.08s at max speed)
+  const randStep = Math.floor(t * (5 + params.lightRandomness * 40)); // up to 45Hz
+  const randVal = Math.random() * 0.9 + 0.1;
+  // Hold previous for short time for more strobing effect:
+  if (window._randCache !== randStep) {
+    prevRand = randVal;
+    window._randCache = randStep;
+  }
+  // Blend between sine and random
+  const animVal = (1 - params.lightRandomness) * sinPart + params.lightRandomness * prevRand;
+  // Never below lightBase:
+  const lightAmount = params.lightBase + animVal * (params.lightIntensity - params.lightBase);
+
+  const centerX = 0.5 + (mouse.smoothX - 0.5) * 0.1;
+  const centerY = 0.5 + (mouse.smoothY - 0.5) * 0.1;
+
+  resize();
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  if (imgLoaded) {
+    gl.useProgram(program);
+    gl.bindVertexArray(vao);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, imgTex);
+    gl.uniform1i(uTexLoc, 0);
+    gl.uniform2f(uResLoc, canvas.width, canvas.height);
+    gl.uniform2f(uCanvasResLoc, canvas.width, canvas.height);
+    gl.uniform2f(uImageResLoc, imgWidth, imgHeight);
+    gl.uniform1f(uTimeLoc, (now-startTime)*0.001);
+    gl.uniform2f(uCenterLoc, centerX, centerY);
+    gl.uniform1f(uStrengthLoc, params.strength);
+    gl.uniform1i(uSamplesLoc, params.samples);
+    gl.uniform1f(uRayMixLoc, params.rayMix);
+    gl.uniform1i(uInvertLoc, params.invert ? 1 : 0);
+    gl.uniform1f(uBrightnessLoc, params.brightness);
+    gl.uniform1f(uGrainLoc, params.grainStrength);
+    gl.uniform1f(uLightLoc, lightAmount);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+  requestAnimationFrame(render);
+}
+render();
+
+
+
+
+
+</script>
+</body>
+</html>
