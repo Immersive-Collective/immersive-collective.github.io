@@ -74,6 +74,26 @@ window.addEventListener('mousemove', e => {
   mouse.y = (e.clientY - rect.top) / rect.height;
 });
 
+window.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - rect.left) / rect.width;
+  mouse.y = (e.clientY - rect.top) / rect.height;
+});
+
+// --- Touch support for mobile ---
+canvas.addEventListener('touchstart', handleTouch, {passive: false});
+canvas.addEventListener('touchmove', handleTouch, {passive: false});
+function handleTouch(e) {
+  if (e.touches && e.touches.length > 0) {
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    mouse.x = (touch.clientX - rect.left) / rect.width;
+    mouse.y = (touch.clientY - rect.top) / rect.height;
+    e.preventDefault();
+  }
+}
+
+
 // --- Vertex & Fragment Shader Sources ---
 const vertexShaderSource = `#version 300 es
 in vec2 position;
