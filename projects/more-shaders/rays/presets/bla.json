@@ -1,0 +1,13 @@
+{
+  "strength": 0.56,
+  "samples": 100,
+  "rayMix": 1.04,
+  "invert": false,
+  "brightness": 0.93,
+  "mouseInertia": 0.16,
+  "grainStrength": 0.247,
+  "lightBase": 1,
+  "lightAnimSpeed": 0.01,
+  "lightRandomness": 0.27,
+  "lightIntensity": 1.39
+}

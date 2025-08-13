@@ -22,8 +22,6 @@
   <div id="preset-status" style="position: absolute; top: 12px; left: 24px; color: #eee; font-size:13px; z-index:999;"></div>
   <input type="file" id="hidden-preset-file" accept=".json" style="display:none">
   <input type="file" id="hidden-image-upload" accept="image/*" style="display:none">
-  <input type="file" id="hidden-video-upload" accept="video/*" style="display:none">
-  <video id="video-element" style="display:none" playsinline muted></video>
   <script type="importmap">
     {
       "imports": {
@@ -193,19 +191,16 @@ gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 let imgTex = gl.createTexture();
 let imgLoaded = false;
 let imgWidth = 1, imgHeight = 1;
-let useVideo = false;
-let videoElem = document.getElementById('video-element');
-
-function updateTexture(imgOrVideo) {
+function updateTexture(img) {
   gl.bindTexture(gl.TEXTURE_2D, imgTex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgOrVideo);
-  imgWidth = imgOrVideo.videoWidth || imgOrVideo.width;
-  imgHeight = imgOrVideo.videoHeight || imgOrVideo.height;
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+  imgWidth = img.width;
+  imgHeight = img.height;
   imgLoaded = true;
 }
 
@@ -229,6 +224,7 @@ gui.add(params, "lightIntensity", 0.5, 2.5, 0.01).name("Light Amplitude");
 gui.add(params, "lightAnimSpeed", 0.01, 3.0, 0.01).name("Light Speed");
 gui.add(params, "lightRandomness", 0.0, 1.0, 0.01).name("Strobe/Random");
 
+    // Presets + Image Actions
 const actions = {
   exportPreset: function() {
     const now = new Date();
@@ -247,17 +243,14 @@ const actions = {
   },
   loadImage: function() {
     document.getElementById('hidden-image-upload').click();
-  },
-  loadVideo: function() {
-    document.getElementById('hidden-video-upload').click();
   }
 };
 
 gui.add(actions, "exportPreset").name("Export Preset");
 gui.add(actions, "importPreset").name("Import Preset");
 gui.add(actions, "loadImage").name("Load Image");
-gui.add(actions, "loadVideo").name("Load Video");
 
+    // File input handlers
 document.getElementById('hidden-preset-file').onchange = function(e) {
   const file = e.target.files[0];
   if (!file) return;
@@ -278,7 +271,6 @@ document.getElementById('hidden-preset-file').onchange = function(e) {
 document.getElementById('hidden-image-upload').onchange = function(e) {
   const file = e.target.files[0];
   if (!file) return;
-  useVideo = false;
   const url = URL.createObjectURL(file);
   const upImg = new window.Image();
   upImg.onload = function() {
@@ -292,23 +284,6 @@ document.getElementById('hidden-image-upload').onchange = function(e) {
     URL.revokeObjectURL(url);
   };
   upImg.src = url;
-  this.value = "";
-};
-document.getElementById('hidden-video-upload').onchange = function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  useVideo = true;
-  const url = URL.createObjectURL(file);
-  videoElem.src = url;
-  videoElem.currentTime = 0;
-  videoElem.muted = true;
-  videoElem.loop = true;
-  videoElem.play().then(()=>{
-    showStatus("Video loaded.");
-    videoElem.style.display = "none";
-  }).catch(()=>{
-    showStatus("Failed to play video.", true);
-  });
   this.value = "";
 };
 
@@ -355,10 +330,6 @@ function render(now) {
 
   resize();
   gl.clear(gl.COLOR_BUFFER_BIT);
-
-  if (useVideo && videoElem.readyState >= 2 && !videoElem.paused && !videoElem.ended) {
-    updateTexture(videoElem);
-  }
 
   if (imgLoaded) {
     gl.useProgram(program);

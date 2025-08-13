@@ -14,16 +14,35 @@
       background: #000; position: absolute; top:0; margin: 0; padding: 0; border: 0;
     }
     .dg { position: absolute; top: 10px; right: 10px; z-index: 100; }
+    #preset-controls {
+      position: absolute; top: 10px; left: 130px; z-index: 110;
+      color: #eee; font-family: sans-serif; background: rgba(0,0,0,0.3);
+      border-radius: 8px; padding: 10px 18px 12px 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+    #preset-controls input[type=file] { display: none; }
+    #preset-controls label, #preset-controls button {
+      cursor: pointer; padding: 2px 12px; background: #191919;
+      border-radius: 4px; border: 1px solid #444; font-size: 13px;
+      color: #eee; margin-right: 10px;
+    }
+    #image-upload-label {
+      cursor: pointer; padding: 2px 12px; background: #191919;
+      border-radius: 4px; border: 1px solid #444; font-size: 13px;
+      color: #eee; margin-right: 10px;
+    }
+    #image-upload-input { display: none; }
   </style>
   <script defer src="https://analytics.mielniczuk.com/script.js" data-website-id="33076180-1c51-4617-b67b-b91b5e1f8cf8"></script>
 </head>
 <body>
   <canvas id="c"></canvas>
-  <div id="preset-status" style="position: absolute; top: 12px; left: 24px; color: #eee; font-size:13px; z-index:999;"></div>
-  <input type="file" id="hidden-preset-file" accept=".json" style="display:none">
-  <input type="file" id="hidden-image-upload" accept="image/*" style="display:none">
-  <input type="file" id="hidden-video-upload" accept="video/*" style="display:none">
-  <video id="video-element" style="display:none" playsinline muted></video>
+  <div id="preset-controls">
+    <button id="save-preset-btn">Export Preset</button>
+    <label for="preset-file">Import Preset<input type="file" id="preset-file" accept=".json"></label>
+    <label id="image-upload-label" for="image-upload-input">Load Image<input type="file" id="image-upload-input" accept="image/*"></label>
+    <span id="preset-status" style="font-size:13px;"></span>
+  </div>
   <script type="importmap">
     {
       "imports": {
@@ -193,19 +212,16 @@ gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
 let imgTex = gl.createTexture();
 let imgLoaded = false;
 let imgWidth = 1, imgHeight = 1;
-let useVideo = false;
-let videoElem = document.getElementById('video-element');
-
-function updateTexture(imgOrVideo) {
+function updateTexture(img) {
   gl.bindTexture(gl.TEXTURE_2D, imgTex);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imgOrVideo);
-  imgWidth = imgOrVideo.videoWidth || imgOrVideo.width;
-  imgHeight = imgOrVideo.videoHeight || imgOrVideo.height;
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+  imgWidth = img.width;
+  imgHeight = img.height;
   imgLoaded = true;
 }
 
@@ -214,71 +230,11 @@ const img = new window.Image();
 img.onload = () => { updateTexture(img); resize(); };
 img.src ='aia.webp';
 
-    // --- GUI + BUTTONS INTEGRATION ---
-const gui = new GUI();
-
-gui.add(params, "strength", 0.0, 1.0, 0.01).name("Rays Strength");
-gui.add(params, "samples", 5, 100, 1).name("Ray Samples");
-gui.add(params, "rayMix", 0.1, 3.0, 0.01).name("Ray Mix");
-gui.add(params, "invert").name("Invert Color");
-gui.add(params, "brightness", 0.5, 2.0, 0.01).name("Brightness");
-gui.add(params, "mouseInertia", 0.01, 0.3, 0.005).name("Mouse Inertia");
-gui.add(params, "grainStrength", 0.0, 0.25, 0.001).name("Film Grain");
-gui.add(params, "lightBase", 0.01, 1.0, 0.01).name("Light Minimum");
-gui.add(params, "lightIntensity", 0.5, 2.5, 0.01).name("Light Amplitude");
-gui.add(params, "lightAnimSpeed", 0.01, 3.0, 0.01).name("Light Speed");
-gui.add(params, "lightRandomness", 0.0, 1.0, 0.01).name("Strobe/Random");
-
-const actions = {
-  exportPreset: function() {
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const fname = `preset-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
-    const presetObj = Object.assign({}, params);
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(presetObj, null, 2));
-    const a = document.createElement('a');
-    a.href = dataStr;
-    a.download = fname;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    showStatus("Preset exported.");
-  },
-  importPreset: function() {
-    document.getElementById('hidden-preset-file').click();
-  },
-  loadImage: function() {
-    document.getElementById('hidden-image-upload').click();
-  },
-  loadVideo: function() {
-    document.getElementById('hidden-video-upload').click();
-  }
-};
-
-gui.add(actions, "exportPreset").name("Export Preset");
-gui.add(actions, "importPreset").name("Import Preset");
-gui.add(actions, "loadImage").name("Load Image");
-gui.add(actions, "loadVideo").name("Load Video");
-
-document.getElementById('hidden-preset-file').onchange = function(e) {
+    // --- Image upload support ---
+const imageInput = document.getElementById('image-upload-input');
+imageInput.onchange = function(e) {
   const file = e.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    try {
-      const json = JSON.parse(ev.target.result);
-      for (const k in params) if (k in json) params[k] = json[k];
-        gui.controllers.forEach(ctrl => ctrl.updateDisplay && ctrl.updateDisplay());
-      showStatus("Preset loaded.");
-    } catch (err) {
-      showStatus("Error loading preset.", true);
-    }
-  };
-  reader.readAsText(file);
-  this.value = "";
-};
-document.getElementById('hidden-image-upload').onchange = function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  useVideo = false;
   const url = URL.createObjectURL(file);
   const upImg = new window.Image();
   upImg.onload = function() {
@@ -294,23 +250,44 @@ document.getElementById('hidden-image-upload').onchange = function(e) {
   upImg.src = url;
   this.value = "";
 };
-document.getElementById('hidden-video-upload').onchange = function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  useVideo = true;
-  const url = URL.createObjectURL(file);
-  videoElem.src = url;
-  videoElem.currentTime = 0;
-  videoElem.muted = true;
-  videoElem.loop = true;
-  videoElem.play().then(()=>{
-    showStatus("Video loaded.");
-    videoElem.style.display = "none";
-  }).catch(()=>{
-    showStatus("Failed to play video.", true);
-  });
-  this.value = "";
-};
+
+const gui = new GUI();
+gui.add(params, "strength", 0.0, 1.0, 0.01).name("Rays Strength");
+gui.add(params, "samples", 5, 100, 1).name("Ray Samples");
+gui.add(params, "rayMix", 0.1, 3.0, 0.01).name("Ray Mix");
+gui.add(params, "invert").name("Invert Color");
+gui.add(params, "brightness", 0.5, 2.0, 0.01).name("Brightness");
+gui.add(params, "mouseInertia", 0.01, 0.3, 0.005).name("Mouse Inertia");
+gui.add(params, "grainStrength", 0.0, 0.25, 0.001).name("Film Grain");
+gui.add(params, "lightBase", 0.01, 1.0, 0.01).name("Light Minimum");
+gui.add(params, "lightIntensity", 0.5, 2.5, 0.01).name("Light Amplitude");
+gui.add(params, "lightAnimSpeed", 0.01, 3.0, 0.01).name("Light Speed");
+gui.add(params, "lightRandomness", 0.0, 1.0, 0.01).name("Strobe/Random");
+
+function exportPreset() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const fname = `preset-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}.json`;
+  const presetObj = Object.assign({}, params);
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(presetObj, null, 2));
+  const a = document.createElement('a');
+  a.href = dataStr;
+  a.download = fname;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  showStatus("Preset exported.");
+}
+function importPreset(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const json = JSON.parse(e.target.result);
+      for (const k in params) if (k in json) params[k] = json[k];
+        gui.controllers.forEach(ctrl => ctrl.updateDisplay && ctrl.updateDisplay());
+      showStatus("Preset loaded.");
+    } catch (err) { showStatus("Error loading preset.", true); }
+  };
+  reader.readAsText(file);
+}
 
 function loadPresetFromUrl(url) {
   fetch(url).then(r => {
@@ -322,7 +299,7 @@ function loadPresetFromUrl(url) {
     showStatus("Preset loaded from file.");
   }).catch(() => { showStatus("Could not load default preset.", true); });
 }
-loadPresetFromUrl("presets/preset-20250805-104648.json");
+loadPresetFromUrl("presets/aia-preset-1.json");
 
 const statusSpan = document.getElementById('preset-status');
 let statusTimeout = null;
@@ -332,6 +309,12 @@ function showStatus(msg, error) {
   clearTimeout(statusTimeout);
   statusTimeout = setTimeout(() => { statusSpan.textContent = ""; }, 1800);
 }
+document.getElementById('save-preset-btn').onclick = exportPreset;
+document.getElementById('preset-file').onchange = function(e) {
+  const file = e.target.files[0];
+  if (file) importPreset(file);
+  this.value = "";
+};
 
 let startTime = performance.now();
 let prevRand = 1.0;
@@ -355,10 +338,6 @@ function render(now) {
 
   resize();
   gl.clear(gl.COLOR_BUFFER_BIT);
-
-  if (useVideo && videoElem.readyState >= 2 && !videoElem.paused && !videoElem.ended) {
-    updateTexture(videoElem);
-  }
 
   if (imgLoaded) {
     gl.useProgram(program);
@@ -384,6 +363,10 @@ function render(now) {
 }
 render();
 </script>
+
 <script src="https://immersive-collective.org/projects/ic-badge/ic.js"></script>
+
+
 </body>
 </html>
+
