@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>WebGL2 Video Shader • Monaco + lil-gui + One-click Upload + Render</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+  <style>
+    :root{ color-scheme:dark; }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; width:100%; margin:0; overflow:hidden; background:#0b0d12; color:#e8edf2; font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+    header{ height:48px; display:flex; align-items:center; gap:10px; padding:8px 12px; border-bottom:1px solid #21242c; }
+    header .btn{ background:#2563eb; color:#fff; border:0; padding:8px 12px; border-radius:8px; cursor:pointer; }
+    header #status{ font:12px/1.3 ui-monospace,monospace; color:#9ef99e; }
+
+    main{ display:flex; height:calc(100vh - 48px); width:100vw; overflow:hidden; }
+    #left,#right{ min-width:0; min-height:0; overflow:hidden; }
+    #left{ flex:0 0 48vw; max-width:48vw; border-right:1px solid #21242c; position:relative; contain:strict; }
+    #editor{ position:absolute; inset:0; }
+    #left > .monaco-editor, #left > .monaco-editor .overflow-guard{ position:absolute; inset:0; width:100%!important; height:100%!important; max-width:100%; max-height:100%; }
+
+    #right{ flex:1 1 auto; display:grid; grid-template-rows:auto 1fr auto auto; }
+    #controls{ padding:8px 10px; border-bottom:1px solid #21242c; display:flex; align-items:center; gap:10px; }
+    #gui{ margin-left:auto; }
+    #stage{ position:relative; background:#000; overflow:hidden; }
+    #c{ position:absolute; inset:0; width:100%; height:100%; display:block; object-fit:contain; }
+    #progressWrap{ height:10px; background:#1c1f28; display:none; }
+    #progressBar{ height:100%; width:0%; background:#22d3ee; }
+    #logs{ margin:0; padding:10px; background:#0b0b0b; color:#9ef99e; font:12px/1.35 ui-monospace,Menlo,monospace; height:160px; overflow:auto; border-top:1px solid #21242c; white-space:pre-wrap; }
+
+    a#dl{ color:#9ef99e; text-decoration:none; margin-left:8px; display:none; }
+    input[type=file]{ display:none; }
+  </style>
+
+  <script type="importmap">
+    { "imports": { "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19/dist/lil-gui.esm.min.js" } }
+  </script>
+  <script>window.require = { paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.51.0/min/vs' } };</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.51.0/min/vs/loader.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+  <header>
+    <strong>WebGL + FFmpeg</strong>
+    <button id="pick" class="btn">Load video…</button>
+    <button id="render" class="btn" disabled>Process to file</button>
+    <span id="status"></span>
+    <a id="dl" href="#" download>download</a>
+  </header>
+
+  <main>
+    <section id="left"><div id="editor"></div></section>
+    <section id="right">
+      <div id="controls">
+        <span style="opacity:.7;font:12px ui-monospace,monospace">Uniforms → warpAmp, chroma, grain, flicker</span>
+        <div id="gui"></div>
+      </div>
+      <div id="stage"><canvas id="c"></canvas></div>
+      <div id="progressWrap"><div id="progressBar"></div></div>
+      <pre id="logs"></pre>
+    </section>
+  </main>
+
+  <input id="file" type="file" accept="video/*">
+  <video id="video" playsinline muted loop controls style="display:none"></video>
+
+  <script type="module">
+    import { GUI } from 'lil-gui';
+
+    // ---------- DOM ----------
+    const statusEl = document.getElementById('status');
+    const logsEl   = document.getElementById('logs');
+    const dl       = document.getElementById('dl');
+    const pickBtn  = document.getElementById('pick');
+    const renderBtn= document.getElementById('render');
+    const file     = document.getElementById('file');
+    const video    = document.getElementById('video');
+    const cvs      = document.getElementById('c');
+    const rightPane= document.getElementById('right');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar  = document.getElementById('progressBar');
+
+    const log = (s)=>{ logsEl.textContent += (s||'') + "\n"; logsEl.scrollTop = logsEl.scrollHeight; };
+    const status = (s, err=false)=>{ statusEl.textContent = s; statusEl.style.color = err ? '#f66' : '#9ef99e'; };
+
+    // ---------- Monaco ----------
+    let monacoEditor = null;
+    const shaderTemplate = `// WebGL2 fragment BODY only. Must define: vec3 effect(vec2 uv)
+vec3 effect(vec2 uv){
+  float t = uTime;
+  float w = warpAmp*(sin(6.2831*(uv.y*2.0 + t*0.9)) + 0.6*sin(6.2831*(uv.x*3.0 - t*1.3)));
+  uv += vec2(w,-w);
+  vec2 cs = chroma * vec2(0.0025*sin(t*1.7), -0.0025*cos(t*1.1));
+  vec3 col;
+  col.r = texture(uTex, uv+cs).r;
+  col.g = texture(uTex, uv).g;
+  col.b = texture(uTex, uv-cs).b;
+  float g = (fract(sin(dot(uv*1024.0 + t*60.0, vec2(127.1,311.7)))*43758.5453) - 0.5) * grain;
+  float fl = flicker * sin(t*9.0 + uv.x*20.0);
+  col += g + fl;
+  return clamp(col,0.0,1.0);
+  }`;
+  const monacoReady = new Promise((resolve)=>{
+    window.require(['vs/editor/editor.main'], function(){
+      const edRoot = document.getElementById('editor');
+      monacoEditor = monaco.editor.create(edRoot, {
+        value: shaderTemplate, language:'glsl', theme:'vs-dark',
+        automaticLayout:false, fontSize:13, minimap:{enabled:false}
+      });
+      const left = document.getElementById('left');
+      const layout = ()=> monacoEditor.layout({ width:left.clientWidth, height:left.clientHeight });
+      new ResizeObserver(layout).observe(left); window.addEventListener('resize', layout, {passive:true}); layout();
+      resolve();
+    });
+  });
+  const getShaderBody = ()=> (monacoEditor ? monacoEditor.getValue() : shaderTemplate);
+
+    // ---------- GUI ----------
+  const params = { warpAmp:0.008, chroma:1.0, grain:0.06, flicker:0.04, fps:120 };
+  const gui = new GUI({ container: document.getElementById('gui') });
+  const ctrl = {
+    warp: gui.add(params,'warpAmp',0,0.03,0.0005).name('warp'),
+    chr : gui.add(params,'chroma',0,2,0.01).name('chroma'),
+    grn : gui.add(params,'grain',0,0.25,0.005).name('grain'),
+    flk : gui.add(params,'flicker',0,0.25,0.005).name('flicker'),
+    fps : gui.add(params,'fps',[30,60,120]).name('preview fps')
+  };
+
+    // ---------- WebGL2 Preview ----------
+  const gl = cvs.getContext('webgl2', { alpha:false, desynchronized:true, preserveDrawingBuffer:true });
+  if (!gl) { alert('WebGL2 not supported'); throw new Error('WebGL2 not supported'); }
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+  function resize(){
+    const dpr = Math.min(2, window.devicePixelRatio||1);
+    const w = Math.floor(rightPane.clientWidth * dpr);
+    const h = Math.floor((rightPane.clientHeight - 170) * dpr);
+    if (cvs.width!==w || cvs.height!==h){ cvs.width=w; cvs.height=h; gl.viewport(0,0,w,h); }
+  }
+  window.addEventListener('resize', resize, { passive:true }); resize();
+
+  const VERT = `#version 300 es
+    in vec2 position; out vec2 vUV;
+  void main(){ vUV = (position*0.5)+0.5; gl_Position = vec4(position,0.0,1.0); }`;
+
+  const wrapFrag = (body)=>{
+      // Ensure WebGL2 'texture()' call is used in preview
+    const patched = body.replace(/texture2D\s*\(/g, 'texture(');
+    return `#version 300 es
+precision highp float;
+uniform sampler2D uTex;
+uniform float uTime;
+uniform float warpAmp, chroma, grain, flicker;
+in vec2 vUV;
+out vec4 outColor;
+// USER BODY:
+    ${patched}
+vec3 effect(vec2);
+    void main(){ vec3 col = effect(vUV); outColor = vec4(col,1.0); }`;
+  };
+
+  const compile = (type, src)=>{
+    const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'shader error');
+    return s;
+  };
+  const link = (vs, fs)=>{
+    const p = gl.createProgram(); gl.attachShader(p, vs); gl.attachShader(p, fs); gl.linkProgram(p);
+    if(!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) || 'link error');
+    return p;
+  };
+
+  const quad = new Float32Array([-1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1]);
+  const vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+
+  let program = null, uniforms = {}, posLoc = -1, textureReady = false;
+
+  const rebuildProgram = ()=>{
+    try{
+      const vs = compile(gl.VERTEX_SHADER, VERT);
+      const fs = compile(gl.FRAGMENT_SHADER, wrapFrag(getShaderBody()));
+      const prog = link(vs, fs);
+      if (program) gl.deleteProgram(program);
+      program = prog; gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      posLoc = gl.getAttribLocation(program,'position'); gl.enableVertexAttribArray(posLoc);
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+      uniforms = {
+        uTex: gl.getUniformLocation(program,'uTex'),
+        uTime: gl.getUniformLocation(program,'uTime'),
+        warpAmp: gl.getUniformLocation(program,'warpAmp'),
+        chroma: gl.getUniformLocation(program,'chroma'),
+        grain: gl.getUniformLocation(program,'grain'),
+        flicker: gl.getUniformLocation(program,'flicker'),
+      };
+      gl.uniform1i(uniforms.uTex, 0);
+
+      Object.entries({warpAmp:ctrl.warp, chroma:ctrl.chr, grain:ctrl.grn, flicker:ctrl.flk}).forEach(([k,c])=>{
+        const on = !!uniforms[k];
+        c.domElement.style.opacity = on ? '1' : '.4';
+        c.domElement.style.pointerEvents = on ? 'auto' : 'none';
+      });
+
+      status('shader ok');
+    }catch(e){
+      status('shader error', true);
+      log(e.message || String(e));
+    }
+  };
+
+  monacoReady.then(()=>{
+    rebuildProgram();
+    let t; monacoEditor.onDidChangeModelContent(()=>{ clearTimeout(t); t=setTimeout(rebuildProgram,150); });
+  });
+
+  const tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    // Control image (checker) so shader can run even before video
+  const controlImg = new Image();
+  controlImg.onload = ()=>{
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,controlImg);
+    textureReady = true; resize(); status('ready');
+  };
+  controlImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAALUlEQVR4nO3BMQEAAADCoPVPbQhPoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB4J7a8AAe8dO8QAAAAASUVORK5CYII=';
+
+  let t0 = performance.now();
+  const draw = ()=>{
+    requestAnimationFrame(draw);
+    if (!program || !textureReady) return;
+
+    if (video.readyState >= 2 && !video.paused && !video.ended){
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,video);
+    }
+    gl.useProgram(program);
+    gl.uniform1f(uniforms.uTime, (performance.now()-t0)/1000.0);
+    if (uniforms.warpAmp) gl.uniform1f(uniforms.warpAmp, params.warpAmp);
+    if (uniforms.chroma)  gl.uniform1f(uniforms.chroma,  params.chroma);
+    if (uniforms.grain)   gl.uniform1f(uniforms.grain,   params.grain);
+    if (uniforms.flicker) gl.uniform1f(uniforms.flicker, params.flicker);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+  };
+  draw();
+
+    // ---------- Unified choose + preview + upload ----------
+  let uploadedName = null;
+  pickBtn.addEventListener('click', ()=> file.click());
+
+  file.addEventListener('change', async (e)=>{
+    const f = e.target.files[0]; if(!f) return;
+    try{
+      const url = URL.createObjectURL(f);
+      video.src = url; video.currentTime=0; video.muted=true; video.loop=true;
+      await video.play().catch(()=>{});
+      textureReady = true; resize(); status('previewing…');
+    }catch(err){ status('preview failed', true); log(String(err)); }
+
+    const fd = new FormData(); fd.append('video', f);
+    try{
+      const r = await fetch('/upload', { method:'POST', body:fd });
+      const j = await r.json();
+      if (!j.ok) throw new Error('upload failed');
+      uploadedName = j.filename;
+      status('uploaded ✓'); renderBtn.disabled = false;
+    }catch(err){ status('upload failed', true); log(String(err)); }
+    file.value = '';
+  });
+
+    // ---------- Build server fragment (WebGL1) ----------
+  const fragForServer = ()=>{
+      const body = getShaderBody().replace(/texture\s*\(/g, 'texture2D('); // WebGL1
+      return `
+precision mediump float;
+uniform sampler2D uTex;
+uniform float uTime;
+uniform float warpAmp, chroma, grain, flicker;
+varying vec2 vUV;
+        ${body}
+        void main(){ vec3 col = effect(vUV); gl_FragColor = vec4(col,1.0); }`;
+      };
+
+    // ---------- Render (server) ----------
+      renderBtn.addEventListener('click', async ()=>{
+        if(!uploadedName){ status('load a video first', true); return; }
+        progressWrap.style.display='block'; progressBar.style.width='0%'; dl.style.display='none'; logsEl.textContent='';
+        status('rendering…');
+
+        const body = {
+          filename: uploadedName,
+          fps: params.fps,
+          shader: fragForServer(),
+          params: { warpAmp:params.warpAmp, chroma:params.chroma, grain:params.grain, flicker:params.flicker }
+        };
+
+        let job;
+        try{
+          const r = await fetch('/run', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          const j = await r.json(); if(!j.ok) throw new Error('start failed');
+          job = j.job;
+        }catch(err){ status('failed to start render', true); log(String(err)); return; }
+
+        try{
+          const es = new EventSource('/logs/'+job);
+          es.onmessage = (ev)=>{
+            const msg = JSON.parse(ev.data);
+            if (msg.progress != null) progressBar.style.width = msg.progress + '%';
+            if (msg.log) log(msg.log);
+            if (msg.done){ es.close(); progressBar.style.width='100%'; status('done ✓'); dl.href = msg.url; dl.style.display='inline'; }
+            if (msg.error){ es.close(); status('render error', true); }
+          };
+          es.onerror = ()=> log('SSE error');
+        }catch(err){ status('SSE failed', true); log(String(err)); }
+      });
+
+    </script>
+  </body>
+  </html>
