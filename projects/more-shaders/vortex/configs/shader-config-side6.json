@@ -1,0 +1,18 @@
+{
+  "baseHue": 0.07,
+  "saturation": 0.73,
+  "valueFactor": 0.51,
+  "rgbMultR": 1.58,
+  "rgbMultG": 2,
+  "rgbMultB": 2,
+  "brightness": 0,
+  "speedOfAnimation": -0.57,
+  "sinAmplitude": 1.89,
+  "sinFrequency": 2,
+  "iterationCount": 48,
+  "innerLoopMax": 250,
+  "wavePhase": -6.28,
+  "waveOffset": -2.54,
+  "tunnelOffsetX": 0.41,
+  "tunnelOffsetY": 1.4
+}

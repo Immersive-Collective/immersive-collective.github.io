@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Shader with lil-gui – Auto Config Load</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    #glCanvas {
+      display: block;
+      margin: 0 auto;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="glCanvas"></canvas>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three/examples/jsm/",
+        "three/addons/libs/lil-gui.module.min.js": "https://unpkg.com/three/examples/jsm/libs/lil-gui.module.min.js"
+      }
+    }
+  </script>
+
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+    const vertexShaderSource = `#version 300 es
+    in vec4 aPosition;
+    void main() {
+      gl_Position = aPosition;
+  }`;
+
+  const fragmentShaderSource = `#version 300 es
+    precision highp float;
+
+    uniform float time;
+    uniform vec2 resolution;
+
+    uniform float baseHue;
+    uniform float saturation;
+    uniform float valueFactor;
+    uniform float rgbMultR;
+    uniform float rgbMultG;
+    uniform float rgbMultB;
+    uniform float brightness;
+
+    uniform float speedOfAnimation;
+    uniform float sinAmplitude;
+    uniform float sinFrequency;
+
+    uniform float iterationCount;
+    uniform float innerLoopMax;
+    uniform float wavePhase;
+    uniform float waveOffset;
+
+    uniform float tunnelOffsetX;
+    uniform float tunnelOffsetY;
+
+    out vec4 fragColor;
+
+    vec3 hsv(float h, float s, float v) {
+      vec3 k = vec3(1.0, 2.0/3.0, 1.0/3.0);
+      vec3 p = abs(fract(vec3(h) + k) * 6.0 - 5.0);
+      return v * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), s);
+    }
+
+    void main() {
+      vec3 q, p;
+      vec2 uv = (gl_FragCoord.xy / resolution.xy) * 2.0 - 1.0;
+      uv.x *= resolution.x / resolution.y;
+      uv.x += tunnelOffsetX;
+      uv.y += tunnelOffsetY;
+
+      float radius = length(uv);
+      float angle  = atan(uv.y, uv.x);
+
+      vec3 d = vec3(cos(angle), sin(angle), 1.0);
+      d.xy *= radius;
+
+      float i = 0.0;
+      float e = 0.0;
+      float R = 0.0;
+      float s = 1.0;
+      vec3 color = vec3(0.0);
+
+      q.zy -= 1.0;
+
+      for (i = 0.0; i < iterationCount; i++) {
+        float wave = sinAmplitude 
+          * sin(time * speedOfAnimation + i * sinFrequency + wavePhase)
+          + waveOffset;
+
+        color += hsv(e * R + baseHue + wave * 0.02, saturation, e * valueFactor);
+
+        s = 1.0;
+        p = q += d * e * R * 0.3;
+        R = length(p);
+
+        p = vec3(
+          log2(R) - time * 0.5 * speedOfAnimation,
+          exp2(-p.z / R - 0.01),
+          atan(p.y, p.x) * s + cos(time * speedOfAnimation) * 0.03
+        );
+
+        e = --p.y;
+
+        for (s = 1.0; s < innerLoopMax; s += s) {
+          float sinTerm = dot(sin(p.zzy * s) - 0.53, 0.5 - sin(p.yzx * s));
+          e += (sinTerm + wave * 0.1) / s * 0.2;
+        }
+      }
+
+      color *= vec3(rgbMultR, rgbMultG, rgbMultB);
+      color += brightness;
+      fragColor = vec4(color, 1.0);
+}`;
+
+function createShader(gl, type, source) {
+  const shader = gl.createShader(type);
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    console.error(gl.getShaderInfoLog(shader));
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
+
+function createProgram(gl, vertexShader, fragmentShader) {
+  const program = gl.createProgram();
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    console.error(gl.getProgramInfoLog(program));
+    gl.deleteProgram(program);
+    return null;
+  }
+  return program;
+}
+
+function main() {
+
+  const canvas = document.getElementById("glCanvas");
+  
+  const gl = canvas.getContext("webgl2");
+  
+  if (!gl) {
+    console.error("WebGL 2 not supported");
+    return;
+  }
+
+  const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+  const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+  const program = createProgram(gl, vertexShader, fragmentShader);
+  gl.useProgram(program);
+
+  const positionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1, -1, 1, -1, -1,  1,
+    -1,  1, 1, -1,  1,  1
+  ]), gl.STATIC_DRAW);
+  const positionLoc = gl.getAttribLocation(program, "aPosition");
+  gl.enableVertexAttribArray(positionLoc);
+  gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+  const uniforms = {
+    time: gl.getUniformLocation(program, "time"),
+    resolution: gl.getUniformLocation(program, "resolution"),
+    baseHue: gl.getUniformLocation(program, "baseHue"),
+    saturation: gl.getUniformLocation(program, "saturation"),
+    valueFactor: gl.getUniformLocation(program, "valueFactor"),
+    rgbMultR: gl.getUniformLocation(program, "rgbMultR"),
+    rgbMultG: gl.getUniformLocation(program, "rgbMultG"),
+    rgbMultB: gl.getUniformLocation(program, "rgbMultB"),
+    brightness: gl.getUniformLocation(program, "brightness"),
+    speedOfAnimation: gl.getUniformLocation(program, "speedOfAnimation"),
+    sinAmplitude: gl.getUniformLocation(program, "sinAmplitude"),
+    sinFrequency: gl.getUniformLocation(program, "sinFrequency"),
+    iterationCount: gl.getUniformLocation(program, "iterationCount"),
+    innerLoopMax: gl.getUniformLocation(program, "innerLoopMax"),
+    wavePhase: gl.getUniformLocation(program, "wavePhase"),
+    waveOffset: gl.getUniformLocation(program, "waveOffset"),
+    tunnelOffsetX: gl.getUniformLocation(program, "tunnelOffsetX"),
+    tunnelOffsetY: gl.getUniformLocation(program, "tunnelOffsetY")
+  };
+
+  const settings = {
+    baseHue: 0.05,
+    saturation: 0.6,
+    valueFactor: 0.5,
+    rgbMultR: 1.0,
+    rgbMultG: 1.0,
+    rgbMultB: 1.0,
+    brightness: 0.0,
+    speedOfAnimation: 1.0,
+    sinAmplitude: 1.0,
+    sinFrequency: 2.0,
+    iterationCount: 50,
+    innerLoopMax: 450,
+    wavePhase: 0.0,
+    waveOffset: 0.0,
+    tunnelOffsetX: 0.0,
+    tunnelOffsetY: 0.0
+  };
+
+  let controllers = [];
+  const actions = {
+    saveConfig() {
+      const config = { ...settings };
+      const jsonStr = JSON.stringify(config, null, 2);
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "shader-config.json";
+      link.click();
+    },
+    loadConfig() {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "application/json";
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const config = JSON.parse(ev.target.result);
+            Object.assign(settings, config);
+            controllers.forEach(ctrl => ctrl.updateDisplay());
+          } catch (err) {
+            console.error("Error parsing config file:", err);
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    }
+  };
+
+  const gui = new GUI();
+  const colorFolder = gui.addFolder("Color");
+  controllers.push(colorFolder.add(settings, "baseHue", 0, 1, 0.01).name("Hue"));
+  controllers.push(colorFolder.add(settings, "saturation", 0, 1, 0.01).name("Saturation"));
+  controllers.push(colorFolder.add(settings, "valueFactor", 0, 1, 0.01).name("Value"));
+  controllers.push(colorFolder.add(settings, "rgbMultR", 0, 2, 0.01).name("Red Mult"));
+  controllers.push(colorFolder.add(settings, "rgbMultG", 0, 2, 0.01).name("Green Mult"));
+  controllers.push(colorFolder.add(settings, "rgbMultB", 0, 2, 0.01).name("Blue Mult"));
+  controllers.push(colorFolder.add(settings, "brightness", -0.5, 0.5, 0.01).name("Brightness"));
+
+  const terrainFolder = gui.addFolder("Terrain & Animation");
+  controllers.push(terrainFolder.add(settings, "speedOfAnimation", -10, 10, 0.01).name("Speed"));
+  controllers.push(terrainFolder.add(settings, "sinAmplitude", 0, 10, 0.01).name("Sin Amplitude"));
+  controllers.push(terrainFolder.add(settings, "sinFrequency", 0.1, 30, 0.1).name("Sin Frequency"));
+
+  const extraFolder = gui.addFolder("Additional Params");
+  controllers.push(extraFolder.add(settings, "iterationCount", 1, 200, 1).name("Iteration Cnt"));
+  controllers.push(extraFolder.add(settings, "innerLoopMax", 50, 1000, 50).name("Inner Loop Max"));
+  controllers.push(extraFolder.add(settings, "wavePhase", -6.28, 6.28, 0.01).name("Wave Phase"));
+  controllers.push(extraFolder.add(settings, "waveOffset", -10, 10, 0.01).name("Wave Offset"));
+  controllers.push(extraFolder.add(settings, "tunnelOffsetX", -10.0, 10.0, 0.01).name("Tunnel X"));
+  controllers.push(extraFolder.add(settings, "tunnelOffsetY", -10.0, 10.0, 0.01).name("Tunnel Y"));
+
+  gui.add(actions, "saveConfig").name("Save Config");
+  gui.add(actions, "loadConfig").name("Load Config");
+
+      // Auto load config if file exists
+  fetch("configs/shader-config-side2.json")
+  .then(r => r.ok ? r.json() : null)
+  .then(config => {
+    if (config) {
+      Object.assign(settings, config);
+      controllers.forEach(ctrl => ctrl.updateDisplay());
+      console.log("Loaded config on startup");
+    }
+  })
+  .catch(() => console.log("No startup config found"));
+
+  function resizeCanvas() {
+    canvas.width = window.innerWidth * 0.5;
+    canvas.height = window.innerHeight * 0.5;
+    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+  }
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+
+  function render(timeMS) {
+    const t = timeMS * 0.001;
+    gl.uniform1f(uniforms.time, t);
+    gl.uniform2f(uniforms.resolution, gl.canvas.width, gl.canvas.height);
+    gl.uniform1f(uniforms.baseHue, settings.baseHue);
+    gl.uniform1f(uniforms.saturation, settings.saturation);
+    gl.uniform1f(uniforms.valueFactor, settings.valueFactor);
+    gl.uniform1f(uniforms.rgbMultR, settings.rgbMultR);
+    gl.uniform1f(uniforms.rgbMultG, settings.rgbMultG);
+    gl.uniform1f(uniforms.rgbMultB, settings.rgbMultB);
+    gl.uniform1f(uniforms.brightness, settings.brightness);
+    gl.uniform1f(uniforms.speedOfAnimation, settings.speedOfAnimation);
+    gl.uniform1f(uniforms.sinAmplitude, settings.sinAmplitude);
+    gl.uniform1f(uniforms.sinFrequency, settings.sinFrequency);
+    gl.uniform1f(uniforms.iterationCount, settings.iterationCount);
+    gl.uniform1f(uniforms.innerLoopMax, settings.innerLoopMax);
+    gl.uniform1f(uniforms.wavePhase, settings.wavePhase);
+    gl.uniform1f(uniforms.waveOffset, settings.waveOffset);
+    gl.uniform1f(uniforms.tunnelOffsetX, settings.tunnelOffsetX);
+    gl.uniform1f(uniforms.tunnelOffsetY, settings.tunnelOffsetY);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+}
+
+main();
+
+
+
+</script>
+</body>
+</html>
