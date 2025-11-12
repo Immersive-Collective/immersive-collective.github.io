@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+
+  <meta charset="utf-8">
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+  <style>
+    /* make sure your canvas has this id */
+    #canvas {
+      touch-action: none;        /* Chrome/Edge/Firefox */
+      -ms-touch-action: none;    /* old Edge */
+    }
+    html, body { overscroll-behavior: none; }
+  </style>
+
+
+  <body style="margin:0;background:#FFFFFF;">
+    <canvas id="canvas" tabindex="1" style="display:block;width:100vw;height:100vh"></canvas>
+    <script type="module">
+      import createModule from './index.js';
+      const canvas = document.getElementById('canvas');
+      createModule({ canvas });
+    </script>
+  </body>
+  </html>
