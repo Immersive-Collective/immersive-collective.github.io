@@ -8,37 +8,37 @@
     <style>
         .lil-gui { position: absolute; top: 10px; right: 10px; z-index: 100; }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    background: black;
-}
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: black;
+        }
 
-#container {
-    display: flex;
-    flex-direction: row;
-    width: 90vw;
-    max-width: 1920px;
-}
+        #container {
+            display: flex;
+            flex-direction: row;
+            width: 90vw;
+            max-width: 1920px;
+        }
 
-#player, #halftoneCanvas {
-    flex: 1;
-    overflow: hidden;
-}
+        #player, #halftoneCanvas {
+            flex: 1;
+            overflow: hidden;
+        }
 
-video, canvas {
-    width: 100%;
-    height: auto;
-    display: block;
-}
+        video, canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
 
 /* Responsive layout: When screen is narrow, stack elements vertically */
 @media (max-width: 768px) {
@@ -49,7 +49,7 @@ video, canvas {
 
 
 
-    </style>
+</style>
 </head>
 
 <body>
@@ -83,7 +83,6 @@ video, canvas {
                 gl.viewport(0, 0, canvas.width, canvas.height);
             }
             video.addEventListener("loadedmetadata", updateCanvasSize);
-            video.addEventListener("canplay", updateCanvasSize);
             window.addEventListener("resize", updateCanvasSize);
 
 
@@ -200,8 +199,8 @@ video, canvas {
             `;
 
 
-    async function loadDefaultConfig(params, gui) {
-        try {
+            async function loadDefaultConfig(params, gui) {
+                try {
             const response = await fetch("config/halftone_default.json"); // Adjust path if needed
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             const config = await response.json();
@@ -226,81 +225,82 @@ video, canvas {
         }
         return shader;
     }
-            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-            if (!vertexShader || !fragmentShader) return;
-            const program = gl.createProgram();
-            gl.attachShader(program, vertexShader);
-            gl.attachShader(program, fragmentShader);
-            gl.linkProgram(program);
-            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-                console.error("Shader linking error:", gl.getProgramInfoLog(program));
-                return;
-            }
-            gl.useProgram(program);
-            const positionBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-                -1, -1, 1, -1, -1, 1,
-                -1, 1, 1, -1, 1, 1
-            ]), gl.STATIC_DRAW);
-            const texCoordBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-                0, 1, 1, 1, 0, 0,
-                0, 0, 1, 1, 1, 0
-            ]), gl.STATIC_DRAW);
-            const positionLocation = gl.getAttribLocation(program, "a_position");
-            const texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
-            gl.enableVertexAttribArray(positionLocation);
-            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(texCoordLocation);
-            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-            gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
-            
-            const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-            const dotSizeLocation = gl.getUniformLocation(program, "u_dotSize");
-            const color1Location = gl.getUniformLocation(program, "u_color1");
-            const color2Location = gl.getUniformLocation(program, "u_color2");
-            const shapeLocation = gl.getUniformLocation(program, "u_shape");
-            const hueLocation = gl.getUniformLocation(program, "u_hue");
-            const contrastLocation = gl.getUniformLocation(program, "u_contrast");
-            const thresholdLocation = gl.getUniformLocation(program, "u_threshold");
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    if (!vertexShader || !fragmentShader) return;
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error("Shader linking error:", gl.getProgramInfoLog(program));
+        return;
+    }
+    gl.useProgram(program);
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        -1, -1, 1, -1, -1, 1,
+        -1, 1, 1, -1, 1, 1
+    ]), gl.STATIC_DRAW);
+    const texCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        0, 1, 1, 1, 0, 0,
+        0, 0, 1, 1, 1, 0
+    ]), gl.STATIC_DRAW);
+    const positionLocation = gl.getAttribLocation(program, "a_position");
+    const texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
+    gl.enableVertexAttribArray(positionLocation);
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(texCoordLocation);
+    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
-            const texture = gl.createTexture();
+    const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+    const dotSizeLocation = gl.getUniformLocation(program, "u_dotSize");
+    const color1Location = gl.getUniformLocation(program, "u_color1");
+    const color2Location = gl.getUniformLocation(program, "u_color2");
+    const shapeLocation = gl.getUniformLocation(program, "u_shape");
+    const hueLocation = gl.getUniformLocation(program, "u_hue");
+    const contrastLocation = gl.getUniformLocation(program, "u_contrast");
+    const thresholdLocation = gl.getUniformLocation(program, "u_threshold");
 
-            gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-            
+    const texture = gl.createTexture();
 
-            function rebuildGUI() {
-                gui.destroy(); // Remove existing GUI
-                gui = new GUI(); // Create new GUI
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
-                // Recreate GUI elements
-                gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
-                gui.addColor(params, "color1").name("Color 1");
-                gui.addColor(params, "color2").name("Color 2");
-                gui.add(params, "shape", shapeOptions).name("Shape");
 
-                gui.add(params, "asciiMode").name("ASCII Mode").onChange(updateASCII);
+    function rebuildGUI() {
+        gui.destroy();
+        gui = new GUI();
 
-                gui.add(params, "hue", -3.14, 3.14, 0.01).name("Hue");
-                gui.add(params, "contrast", 0.0, 2.0, 0.01).name("Contrast");
-                gui.add(params, "threshold", 0.0, 1.0, 0.01).name("Threshold");
-                gui.add(params, "blackAndWhite").name("Black & White"); // Add black and white checkbox
-                gui.add(params, "saveConfig").name("Save Config");
-                gui.add(params, "loadConfig").name("Load Config");
-            }
+        gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
+        gui.addColor(params, "color1").name("Color 1");
+        gui.addColor(params, "color2").name("Color 2");
+        gui.add(params, "shape", shapeOptions).name("Shape");
+
+        gui.add(params, "asciiMode").name("ASCII Mode").onChange(updateASCII);
+
+        gui.add(params, "hue", -3.14, 3.14, 0.01).name("Hue");
+        gui.add(params, "contrast", 0.0, 2.0, 0.01).name("Contrast");
+        gui.add(params, "threshold", 0.0, 1.0, 0.01).name("Threshold");
+        gui.add(params, "blackAndWhite").name("Black & White");
+        gui.add(params, "loadVideo").name("Load Video");
+        gui.add(params, "saveConfig").name("Save Config");
+        gui.add(params, "loadConfig").name("Load Config");
+    }
+
 
 
             // ASCII Character Mapping
-            const asciiCanvas = document.getElementById("asciiCanvas");
-            const asciiCtx = asciiCanvas.getContext("2d");
+    const asciiCanvas = document.getElementById("asciiCanvas");
+    const asciiCtx = asciiCanvas.getContext("2d");
 
             // ASCII character set (from darkest to brightest)
             // const asciiChars = " .,-+";
@@ -309,17 +309,7 @@ video, canvas {
             // const asciiChars = " ╴╵╶╷┌┐└┘├┤";
             // const asciiChars = " ╱╲╳⟋⟍＼／〳〵";
             // const asciiChars = " ◢◣◤◥◧◨◩◪◫";
-            // const asciiChars = " ⠁⠃⠇⡇⣇⣧⣷⣿░▒▓█";
-            // const asciiChars = " ·•◦○◍◎●◉⦿";
-            // const asciiChars = " .,-+·•◦○◍◎●◉⦿░▒▓█■▀▄▞▛▁▂▃▄▅▆▇█╴╵╶╷┌┐└┘├┤╱╲╳⟋⟍＼／〳〵◢◣◤◥◧◨◩◪◫⠁⠃⠇⡇⣇⣧⣷⣿";
-            //const asciiChars = " .,-+·•◦╴╵╶╷╱╲⟋⟍＼／〳〵○◍◎◢◣◤◥◧◨◩◪◫●◉⦿░▒▓█■▀▄▞▛";
-            // ▁▂▃▄▅▆▇█┌┐└┘├┤⠁⠃⠇⡇⣇⣧⣷⣿
-            // const asciiChars = "⺅亻𠂉𠆢个人卩阝☻☺☹☃☠卍";
-            // const asciiChars = " .-☻☺☹☃☠卍";
-            // const asciiChars = " ･•․⁑∗⋆★☆✧✦✪✫✬✭✮✯✰-☻☺☹☃☠卍░▒▓█";
-            const asciiChars = "°⊙○◌☉☀☼☽☾⨀⨁⨂";
-
-
+    const asciiChars = " ⠁⠃⠇⡇⣇⣧⣷⣿░▒▓█";
 
             // const asciiChars = [
             //     ' ',  // Darkest
@@ -353,56 +343,51 @@ video, canvas {
 
 
             // Convert brightness to ASCII character
-            function getASCIIChar(value) {
-                const index = Math.floor(value * (asciiChars.length - 1));
-                return asciiChars[index];
-            }
+    function getASCIIChar(value) {
+        const index = Math.floor(value * (asciiChars.length - 1));
+        return asciiChars[index];
+    }
 
 
-            function renderASCII() {
-                const w = Math.floor(video.videoWidth / params.dotSize);
-                const h = Math.floor(video.videoHeight / params.dotSize);
+    function renderASCII() {
+        const w = Math.floor(video.videoWidth / params.dotSize);
+        const h = Math.floor(video.videoHeight / params.dotSize);
 
-                asciiCanvas.width = w * params.dotSize;
-                asciiCanvas.height = h * params.dotSize;
-                asciiCtx.clearRect(0, 0, asciiCanvas.width, asciiCanvas.height);
+        asciiCanvas.width = w * params.dotSize;
+        asciiCanvas.height = h * params.dotSize;
+        asciiCtx.clearRect(0, 0, asciiCanvas.width, asciiCanvas.height);
                 // asciiCtx.font = `${params.dotSize}px monospace`;
-                // asciiCtx.font = `${params.dotSize}px Avenir`;
-                let rsize = Math.ceil(1 + Math.random()*500)
-                //asciiCtx.font = `${params.dotSize}px Helvetica`;
-                asciiCtx.font = `${rsize}px Helvetica`;
-
-
-                asciiCtx.textAlign = "center";
-                asciiCtx.textBaseline = "middle";
+        asciiCtx.font = `${params.dotSize}px Avenir`;
+        asciiCtx.textAlign = "center";
+        asciiCtx.textBaseline = "middle";
 
                 // Draw video frame to an offscreen canvas for pixel data
-                const offCanvas = document.createElement("canvas");
-                offCanvas.width = w;
-                offCanvas.height = h;
-                const offCtx = offCanvas.getContext("2d");
-                offCtx.drawImage(video, 0, 0, w, h);
-                const imageData = offCtx.getImageData(0, 0, w, h).data;
+        const offCanvas = document.createElement("canvas");
+        offCanvas.width = w;
+        offCanvas.height = h;
+        const offCtx = offCanvas.getContext("2d");
+        offCtx.drawImage(video, 0, 0, w, h);
+        const imageData = offCtx.getImageData(0, 0, w, h).data;
 
                 // Draw ASCII characters with their original color
-                for (let y = 0; y < h; y++) {
-                    for (let x = 0; x < w; x++) {
-                        const index = (y * w + x) * 4;
-                        const r = imageData[index];
-                        const g = imageData[index + 1];
-                        const b = imageData[index + 2];
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const index = (y * w + x) * 4;
+                const r = imageData[index];
+                const g = imageData[index + 1];
+                const b = imageData[index + 2];
 
                         // Convert brightness to ASCII character
-                        const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
-                        const char = getASCIIChar(brightness);
+                const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+                const char = getASCIIChar(brightness);
 
                         // Set text color to the original pixel color
-                        asciiCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                asciiCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
 
                         // Draw the character
-                        asciiCtx.fillText(char, x * params.dotSize + params.dotSize / 2, y * params.dotSize + params.dotSize / 2);
-                    }
-                }
+                asciiCtx.fillText(char, x * params.dotSize + params.dotSize / 2, y * params.dotSize + params.dotSize / 2);
+            }
+        }
 
                 updateASCIICanvasTexture(); // Ensure WebGL updates the colored ASCII canvas
             }
@@ -420,18 +405,41 @@ video, canvas {
 
 
             // params
-            // 
+            //
+            let videoObjectURL = null;
+
             const params = {
                 dotSize: 12.0,
                 color1: "#000000",
                 color2: "#69bef7",
-                shape: 0, // Default to circle
+                shape: 0,
                 asciiMode: false,
-                hue: 0.0,       // Hue adjustment (in radians)
-                contrast: 1.0,  // Contrast adjustment (1.0 = no change)
-                threshold: 0.5, // Threshold adjustment (0.0 to 1.0)
-                blackAndWhite: false, // Toggle black and white mode
+                hue: 0.0,
+                contrast: 1.0,
+                threshold: 0.5,
+                blackAndWhite: false,
 
+                loadVideo: function () {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "video/*";
+                    input.onchange = (e) => {
+                        const file = e.target.files && e.target.files[0];
+                        if (!file) return;
+
+                        if (videoObjectURL) URL.revokeObjectURL(videoObjectURL);
+                        videoObjectURL = URL.createObjectURL(file);
+
+                        video.src = videoObjectURL;
+                        video.loop = true;
+                        video.muted = true;
+                        video.playsInline = true;
+
+                        video.load();
+                        video.play().catch(() => { });
+                    };
+                    input.click();
+                },
 
                 // save config
                 //
@@ -448,9 +456,9 @@ video, canvas {
                         contrast: params.contrast,
                         threshold: params.threshold,
                         blackAndWhite: params.blackAndWhite,
-                        asciiMode: params.asciiMode,  // Ensures ASCII mode is saved
-                        asciiChars: asciiChars,       // Saves ASCII character set
-                        font: params.font,            // Saves selected font (if applicable)
+                        asciiMode: params.asciiMode,
+                        asciiChars: asciiChars,
+                        font: params.font,
                         filename: filename
                     };
 
@@ -464,7 +472,6 @@ video, canvas {
 
                     console.log(`Configuration saved: ${filename}`);
                 },
-
 
                 // load config
                 //
@@ -481,19 +488,16 @@ video, canvas {
                                 const config = JSON.parse(event.target.result);
                                 if (!config || typeof config !== "object") throw new Error("Invalid JSON format");
 
-                                // Update parameters with loaded values
                                 Object.keys(config).forEach(key => {
                                     if (params.hasOwnProperty(key)) {
                                         params[key] = config[key];
                                     }
                                 });
 
-                                // Update ASCII characters if they were saved
                                 if (config.asciiChars) {
                                     asciiChars = config.asciiChars;
                                 }
 
-                                // Update GUI to reflect the loaded settings
                                 rebuildGUI();
 
                                 console.log(`Configuration loaded: ${config.filename || file.name}`);
@@ -505,10 +509,11 @@ video, canvas {
                     };
                     input.click();
                 }
-
-
-
             };
+
+
+
+            
 
             // shape options
             const shapeOptions = {
@@ -522,6 +527,7 @@ video, canvas {
             };
 
             //gui
+            //gui
             let gui = new GUI();
             gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
             gui.addColor(params, "color1").name("Color 1");
@@ -530,12 +536,14 @@ video, canvas {
             gui.add(params, "shape", shapeOptions).name("Shape");
             gui.add(params, "asciiMode").name("ASCII Mode");
 
-            gui.add(params, "hue", -3.14, 3.14, 0.01).name("Hue"); // Hue in radians (-π to π)
-            gui.add(params, "contrast", 0.0, 2.0, 0.01).name("Contrast"); // Contrast (0.0 to 2.0)
-            gui.add(params, "threshold", 0.0, 1.0, 0.01).name("Threshold"); // Threshold (0.0 to 1.0)
-            gui.add(params, "blackAndWhite").name("Black & White"); // Black and white mode
+            gui.add(params, "hue", -3.14, 3.14, 0.01).name("Hue");
+            gui.add(params, "contrast", 0.0, 2.0, 0.01).name("Contrast");
+            gui.add(params, "threshold", 0.0, 1.0, 0.01).name("Threshold");
+            gui.add(params, "blackAndWhite").name("Black & White");
+            gui.add(params, "loadVideo").name("Load Video");
             gui.add(params, "saveConfig").name("Save Config");
             gui.add(params, "loadConfig").name("Load Config");
+
 
             // render
 
@@ -585,21 +593,21 @@ video, canvas {
 
 // fulscreen
 
-document.addEventListener("keydown", (event) => {
-    if (event.key === "f" || event.key === "F") {
-        toggleFullscreen();
-    }
-});
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "f" || event.key === "F") {
+                toggleFullscreen();
+            }
+        });
 
-function toggleFullscreen() {
-    const canvas = document.getElementById("halftoneCanvas");
-    const gui = document.querySelector(".lil-gui");
-    const ribbon = document.querySelector(".corner-ribbon");
+        function toggleFullscreen() {
+            const canvas = document.getElementById("halftoneCanvas");
+            const gui = document.querySelector(".lil-gui");
+            const ribbon = document.querySelector(".corner-ribbon");
 
-    if (!document.fullscreenElement) {
+            if (!document.fullscreenElement) {
         // Enter fullscreen
-        if (canvas.requestFullscreen) {
-            canvas.requestFullscreen();
+                if (canvas.requestFullscreen) {
+                    canvas.requestFullscreen();
         } else if (canvas.mozRequestFullScreen) { // Firefox
             canvas.mozRequestFullScreen();
         } else if (canvas.webkitRequestFullscreen) { // Chrome, Safari, Opera
@@ -634,8 +642,8 @@ function toggleFullscreen() {
 
 
 
-    </script>
-    <script src="https://immersive-collective.org/projects/ic-badge/ic.js"></script>
+</script>
+<script src="https://immersive-collective.org/projects/ic-badge/ic.js"></script>
 </body>
 
 </html>
