@@ -211,33 +211,77 @@ function downloadJson(obj, filename) {
   URL.revokeObjectURL(url);
 }
 
+
+
 let importInput = null;
+
+function sanitizePresetName(s) {
+  const name = String(s ?? "").replace(/\.[a-z0-9]+$/i, "").trim();
+  if (!name) return "";
+  return name.replace(/\s+/g, " ").slice(0, 96);
+}
+
+function deriveImportedPresetName(json, fileName) {
+  const candidates = [
+    json && typeof json === "object" ? json.name : "",
+    json && typeof json === "object" ? json.presetName : "",
+    json && typeof json === "object" ? json.title : "",
+    fileName || "",
+  ];
+  for (const c of candidates) {
+    const n = sanitizePresetName(c);
+    if (n) return n;
+  }
+  return `preset-${nowStamp()}`;
+}
+
 function ensureImportInput() {
   if (importInput) return importInput;
+
   importInput = document.createElement("input");
   importInput.type = "file";
   importInput.accept = "application/json,.json";
   importInput.style.position = "fixed";
   importInput.style.left = "-9999px";
   importInput.style.top = "-9999px";
+
   importInput.addEventListener("change", async () => {
     const file = importInput.files && importInput.files[0];
     importInput.value = "";
     if (!file) return;
+
     try {
       const text = await file.text();
       const json = JSON.parse(text);
       if (!json || typeof json !== "object") throw new Error("Invalid JSON");
+
       const settings = json.settings && typeof json.settings === "object" ? json.settings : json;
+      if (!settings || typeof settings !== "object") throw new Error("Invalid settings");
+
+      const baseName = deriveImportedPresetName(json, file.name);
+      const name = await ensureUniquePresetName(baseName);
+
       applySettings(settings, { rebuild: true, log: true });
-      console.info("[ink] imported settings from", file.name);
+
+      await idbPutPreset(name, safeCloneSettings(params));
+      presetState.selected = name;
+      presetState.presetName = name;
+      await refreshPresetList();
+      refreshGuiDisplays();
+
+      console.info("[ink] imported preset:", name);
     } catch (e) {
       console.error("[ink] import failed", e);
     }
   });
+
   document.body.appendChild(importInput);
   return importInput;
 }
+
+
+
+
 
 function idbOpen() {
   return new Promise((resolve, reject) => {
@@ -311,6 +355,18 @@ async function idbListPresetNames() {
     db.close();
   }
 }
+
+async function ensureUniquePresetName(baseName) {
+  const base = sanitizePresetName(baseName) || `preset-${nowStamp()}`;
+  let name = base;
+  let i = 2;
+  while (true) {
+    const existing = await idbGetPreset(name);
+    if (!existing) return name;
+    name = `${base}-${i++}`;
+  }
+}
+
 
 console.groupCollapsed("[ink] caps");
 console.log("WebGL:", gl.getParameter(gl.VERSION));
@@ -1134,7 +1190,7 @@ const gForce = gui.addFolder("Force field");
 track(wirePersist(gForce.add(params, "forceStrength", 0.00, 1.50, 0.01).listen(), false));
 track(wirePersist(gForce.add(params, "forceDissipation", 0.985, 0.9999, 0.0001).listen(), false));
 track(wirePersist(gForce.add(params, "forceDiffusion", 0.00, 0.50, 0.005).listen(), false));
-track(wirePersist(gForce.add(params, "maxVel", 0.10, 2.0, 0.01).listen(), false));
+track(wirePersist(gForce.add(params, "maxVel", 0.01, 10.0, 0.01).listen(), false));
 gForce.open();
 
 const gDye = gui.addFolder("Dye");
@@ -1154,8 +1210,8 @@ gInput.open();
 
 
 const gEmit = gui.addFolder("Emitters");
-track(wirePersist(gEmit.add(params, "emitters", 0, 8, 1).listen(), false));
-track(wirePersist(gEmit.add(params, "emitterRate", 0.0, 3.0, 0.01).listen(), false));
+track(wirePersist(gEmit.add(params, "emitters", 0, 10000, 1).listen(), false));
+track(wirePersist(gEmit.add(params, "emitterRate", 0.0, 1000.0, 0.01).listen(), false));
 track(wirePersist(gEmit.add(params, "emitterPush", 0.0, 0.25, 0.005).listen(), false));
 track(wirePersist(gEmit.add(params, "emitterSwirl", 0.0, 1.5, 0.01).listen(), false));
 gEmit.open();
@@ -1219,6 +1275,8 @@ const presetState = {
 const gPresets = gui.addFolder("Presets");
 track(gPresets.add(presetState, "presetName").name("Preset name").listen());
 
+
+
 let presetSelectCtrl = null;
 
 function setPresetOptions(names) {
@@ -1234,6 +1292,12 @@ function setPresetOptions(names) {
   if (presetSelectCtrl && typeof presetSelectCtrl.destroy === "function") presetSelectCtrl.destroy();
 
   presetSelectCtrl = gPresets.add(presetState, "selected", opts).name("Selected").listen();
+  presetSelectCtrl.onChange(() => {
+    const name = (presetState.selected || "").trim();
+    if (!name) return;
+    presetState.load();
+  });
+
   track(presetSelectCtrl);
 }
 
