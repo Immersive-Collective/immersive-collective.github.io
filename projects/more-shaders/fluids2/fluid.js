@@ -1,6 +1,6 @@
 import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm";
 
-const DEFAULT_PRESET_URL = new URL("./default-preset.json", import.meta.url).toString();
+const DEFAULT_PRESET_URL = new URL("settings-20251217-113747.json", import.meta.url).toString();
 
 
 const canvas = document.getElementById("c");
@@ -1138,7 +1138,7 @@ track(wirePersist(gForce.add(params, "maxVel", 0.10, 2.0, 0.01).listen(), false)
 gForce.open();
 
 const gDye = gui.addFolder("Dye");
-track(wirePersist(gDye.add(params, "dyeDissipation", 0.990, 0.99997, 0.0001).listen(), false));
+track(wirePersist(gDye.add(params, "dyeDissipation", 0.001, 1.5, 0.001).listen(), false));
 track(wirePersist(gDye.add(params, "dyeDiffusion", 0.00, 0.50, 0.005).listen(), false));
 track(wirePersist(gDye.add(params, "fade", 0.990, 0.99999, 0.00001).listen(), false));
 gDye.open();
