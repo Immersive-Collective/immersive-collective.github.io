@@ -1,0 +1,33 @@
+{
+  "v": 1,
+  "exportedAt": 1765968576467,
+  "settings": {
+    "paused": false,
+    "debug": true,
+    "timeScale": 1.67,
+    "dtMax": 0.008,
+    "quality": 1,
+    "exposure": 0.6,
+    "dyeGain": 0.87,
+    "background": 0.01,
+    "baseScale": 0.6,
+    "baseStrength": 0.205,
+    "baseDrift": 0.3,
+    "turbulence": 0.29,
+    "forceStrength": 1.5,
+    "forceDissipation": 0.985,
+    "forceDiffusion": 0.055,
+    "maxVel": 1.61,
+    "dyeDissipation": 0.99997,
+    "dyeDiffusion": 0.5,
+    "fade": 0.99999,
+    "radius": 0.01,
+    "dyeAmount": 8,
+    "pushGain": 0.02,
+    "swirlGain": 0.17,
+    "emitters": 8,
+    "emitterRate": 3,
+    "emitterPush": 0.25,
+    "emitterSwirl": 0
+  }
+}

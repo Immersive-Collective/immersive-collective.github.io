@@ -1,5 +1,8 @@
 import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm";
 
+const DEFAULT_PRESET_URL = new URL("./default-preset.json", import.meta.url).toString();
+
+
 const canvas = document.getElementById("c");
 const gl = canvas.getContext("webgl2", {
   alpha: false,
@@ -62,7 +65,7 @@ const params = {
   dyeDiffusion: 0.12,
   fade: 0.9994,
 
-  radius: 0.045,
+  radius: 0.0001,
   dyeAmount: 2.6,
   pushGain: 0.12,
   swirlGain: 0.75,
@@ -121,13 +124,40 @@ function persistLastDebounced() {
   }, 200);
 }
 
+
+
+
+
+
+
+
+async function loadDefaultPresetIntoParams() {
+  try {
+    const res = await fetch(DEFAULT_PRESET_URL, { cache: "no-store" });
+    if (!res.ok) return false;
+
+    const json = await res.json();
+    if (!json || typeof json !== "object") return false;
+
+    const settings = json.settings && typeof json.settings === "object" ? json.settings : json;
+    if (!settings || typeof settings !== "object") return false;
+
+    applySettings(settings, { rebuild: false, log: true, persist: false });
+    if (params.debug) console.info("[ink] default preset loaded", DEFAULT_PRESET_URL);
+    return true;
+  } catch (e) {
+    console.warn("[ink] default preset load failed", e);
+    return false;
+  }
+}
+
 function loadLastIntoParams() {
   try {
     const raw = localStorage.getItem(STORAGE_LAST);
     if (!raw) return false;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object" || parsed.v !== 1 || !parsed.settings) return false;
-    applySettings(parsed.settings, { rebuild: false, log: true });
+    applySettings(parsed.settings, { rebuild: false, log: true, persist: false });
     return true;
   } catch (e) {
     console.warn("[ink] load last failed", e);
@@ -135,8 +165,12 @@ function loadLastIntoParams() {
   }
 }
 
-function applySettings(obj, { rebuild, log }) {
+function applySettings(obj, { rebuild, log, persist } = {}) {
   if (!obj || typeof obj !== "object") return;
+
+  const doRebuild = !!rebuild;
+  const doLog = !!log;
+  const doPersist = persist !== false;
 
   persistBlocked = true;
   try {
@@ -153,11 +187,16 @@ function applySettings(obj, { rebuild, log }) {
 
   refreshGuiDisplays();
 
-  if (rebuild) rebuildAndReset();
-  if (!rebuild) persistLastDebounced();
+  if (doRebuild) rebuildAndReset();
+  if (!doRebuild && doPersist) persistLastDebounced();
 
-  if (log) console.info("[ink] settings applied");
+  if (doLog) console.info("[ink] settings applied");
 }
+
+
+
+
+
 
 function downloadJson(obj, filename) {
   const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
@@ -983,7 +1022,9 @@ function display() {
   gl.uniform1f(U.display.exposure, params.exposure);
   gl.uniform1f(U.display.dyeGain, params.dyeGain);
   gl.uniform1f(U.display.background, params.background);
-  gl.uniform1f(U.display.canvasAspect, canvas.width / Math.max(1, canvas.height));
+
+  //gl.uniform1f(U.display.canvasAspect, canvas.width / Math.max(1, canvas.height));
+  
   bindTex(0, sim.dye.readTex);
   drawFullscreen(null, canvas.width, canvas.height, "display");
 }
@@ -1035,9 +1076,12 @@ function reset(randomize) {
   const y = 0.52;
 
   splatForce(x, y, 0.0, 0.0, 0.35);
-  splatDye(x, y, 2.5, 0.6, 2.8);
-  splatDye(x + 0.06, y - 0.05, 0.6, 2.6, 2.8);
-  splatDye(x - 0.06, y + 0.05, 2.8, 2.4, 0.6);
+
+  // splatDye(x, y, 2.5, 0.6, 2.8);
+  // splatDye(x + 0.06, y - 0.05, 0.6, 2.6, 2.8);
+  // splatDye(x - 0.06, y + 0.05, 2.8, 2.4, 0.6);
+
+
 
   emitterAccum = 0;
   emitterPhase = randomize ? Math.random() * 10 : 0;
@@ -1080,7 +1124,7 @@ track(wirePersist(gLook.add(params, "background", 0.0, 0.25, 0.005).listen(), fa
 gLook.open();
 
 const gBase = gui.addFolder("Base flow");
-track(wirePersist(gBase.add(params, "baseScale", 0.6, 6.0, 0.01).listen(), false));
+track(wirePersist(gBase.add(params, "baseScale", 0.001, 20.0, 0.001).listen(), false));
 track(wirePersist(gBase.add(params, "baseStrength", 0.00, 0.50, 0.005).listen(), false));
 track(wirePersist(gBase.add(params, "baseDrift", 0.00, 0.30, 0.005).listen(), false));
 track(wirePersist(gBase.add(params, "turbulence", 0.00, 1.00, 0.01).listen(), false));
@@ -1099,12 +1143,15 @@ track(wirePersist(gDye.add(params, "dyeDiffusion", 0.00, 0.50, 0.005).listen(), 
 track(wirePersist(gDye.add(params, "fade", 0.990, 0.99999, 0.00001).listen(), false));
 gDye.open();
 
+const INPUT_RADIUS = { min: 0.0001, max: 0.100, step: 0.0001, keyStep: 0.0001 };
+
 const gInput = gui.addFolder("Input");
-track(wirePersist(gInput.add(params, "radius", 0.010, 0.100, 0.001).listen(), false));
+track(wirePersist(gInput.add(params, "radius", INPUT_RADIUS.min, INPUT_RADIUS.max, INPUT_RADIUS.step).listen(), false));
 track(wirePersist(gInput.add(params, "dyeAmount", 0.2, 8.0, 0.05).listen(), false));
 track(wirePersist(gInput.add(params, "pushGain", 0.00, 0.35, 0.005).listen(), false));
 track(wirePersist(gInput.add(params, "swirlGain", 0.00, 2.0, 0.01).listen(), false));
 gInput.open();
+
 
 const gEmit = gui.addFolder("Emitters");
 track(wirePersist(gEmit.add(params, "emitters", 0, 8, 1).listen(), false));
@@ -1213,6 +1260,7 @@ let pointerDown = false;
 let last = null;
 
 let controlsHidden = false;
+const uiDisplayCache = new Map();
 
 function isTypingTarget(el) {
   if (!el) return false;
@@ -1224,19 +1272,42 @@ function isTypingTarget(el) {
 
 function toggleControlsHidden(force) {
   controlsHidden = typeof force === "boolean" ? force : !controlsHidden;
-  gui.domElement.style.display = controlsHidden ? "none" : "";
-  if (params.debug) console.info("[ink] controls", controlsHidden ? "hidden" : "shown");
+
+  const body = document.body;
+  if (controlsHidden) {
+    uiDisplayCache.clear();
+
+    for (const el of body.children) {
+      if (el === canvas) continue;
+      uiDisplayCache.set(el, el.style.display);
+      el.style.display = "none";
+    }
+
+    if (params.debug) console.info("[ink] ui hidden");
+    return;
+  }
+
+  for (const [el, prev] of uiDisplayCache) {
+    el.style.display = prev;
+  }
+  uiDisplayCache.clear();
+
+  if (params.debug) console.info("[ink] ui shown");
 }
+
+
 
 async function toggleFullscreen() {
   try {
     if (document.fullscreenElement) {
       await document.exitFullscreen();
       if (params.debug) console.info("[ink] fullscreen off");
-    } else {
-      await canvas.requestFullscreen({ navigationUI: "hide" });
-      if (params.debug) console.info("[ink] fullscreen on");
+      return;
     }
+
+    const root = document.documentElement;
+    await root.requestFullscreen({ navigationUI: "hide" });
+    if (params.debug) console.info("[ink] fullscreen on");
   } catch (e) {
     console.error("[ink] fullscreen toggle failed", e);
   }
@@ -1293,7 +1364,8 @@ window.addEventListener(
     if (e.repeat) return;
     if (isTypingTarget(e.target)) return;
 
-    const k = (e.key || "").toLowerCase();
+    const key = e.key || "";
+    const k = key.toLowerCase();
 
     if (k === "f") {
       e.preventDefault();
@@ -1301,20 +1373,65 @@ window.addEventListener(
       return;
     }
 
+    if (k === "g") {
+      e.preventDefault();
+      toggleControlsHidden();
+      return;
+    }
+   
+
     if (k === "s") {
       e.preventDefault();
       saveCanvasPng();
       return;
     }
 
+    if (k === "r") {
+      e.preventDefault();
+
+      pointerDown = false;
+      last = null;
+
+      if (typeof emitterAccum === "number") emitterAccum = 0;
+      if (typeof emitterPhase === "number") emitterPhase = Math.random() * 10;
+      if (typeof t === "number") t = 0;
+      if (typeof frame === "number") frame = 0;
+      if (typeof lastT === "number") lastT = performance.now();
+
+      reset(true);
+
+      if (params.debug) console.info("[ink] restart");
+      return;
+    }
+
+
     if (k === "escape") {
       e.preventDefault();
       toggleControlsHidden();
       return;
     }
+
+    const isBracketLeft = key === "[" || e.code === "BracketLeft";
+    const isBracketRight = key === "]" || e.code === "BracketRight";
+
+    if (isBracketLeft || isBracketRight) {
+      e.preventDefault();
+
+    const step = INPUT_RADIUS.keyStep;
+
+    const next = params.radius + (isBracketRight ? step : -step);
+    params.radius = Math.min(INPUT_RADIUS.max, Math.max(INPUT_RADIUS.min, next));
+
+
+      refreshGuiDisplays();
+      persistLastDebounced();
+
+      if (params.debug) console.info("[ink] radius", params.radius.toFixed(3));
+    }
   },
   { passive: false }
 );
+
 
 function toCanvasUV(e) {
   const rect = canvas.getBoundingClientRect();
@@ -1324,20 +1441,11 @@ function toCanvasUV(e) {
 }
 
 function canvasUvToSimUv(cx, cy) {
-  const a = canvas.width / Math.max(1, canvas.height);
-  let x = cx;
-  let y = cy;
-
-  if (a > 1) {
-    x = (cx - 0.5) * a + 0.5;
-  } else {
-    y = (cy - 0.5) / Math.max(a, 1e-6) + 0.5;
-  }
-
-  x = Math.min(1, Math.max(0, x));
-  y = Math.min(1, Math.max(0, y));
+  const x = Math.min(1, Math.max(0, cx));
+  const y = Math.min(1, Math.max(0, cy));
   return [x, y];
 }
+
 
 canvas.addEventListener("pointerdown", (e) => {
   pointerDown = true;
@@ -1399,6 +1507,9 @@ canvas.addEventListener("dblclick", () => {
 });
 
 
+
+
+
 /* Boot */
 function rebuildAndReset() {
   rebuild();
@@ -1407,7 +1518,8 @@ function rebuildAndReset() {
 
 resizeCanvas();
 
-/* Restore last settings before building sim content on first load. */
+/* Restore default preset first, then restore last saved settings on top. */
+await loadDefaultPresetIntoParams();
 loadLastIntoParams();
 
 rebuildAndReset();
@@ -1418,6 +1530,11 @@ window.addEventListener("resize", () => {
 });
 
 refreshPresetList().catch(() => {});
+
+
+
+
+
 
 /* Main loop */
 let lastT = performance.now();
