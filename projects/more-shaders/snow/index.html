@@ -1911,48 +1911,102 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     // Boot
     // -------------------------------------------------------------------------
 
+
+  async function loadDefaultPresetFromFile() {
+    try {
+      const response = await fetch("presets/snow-settings-20251224-110244.json", {
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        console.warn(
+          "[snow] default preset fetch failed:",
+          response.status,
+          response.statusText
+          );
+        return;
+      }
+
+      const json = await response.json();
+
+        // Accept both formats:
+        // 1) { "v": 1, "settings": { ... } }
+        // 2) { ...paramsDirectly }
+      const settings =
+      json && typeof json === "object" && json.settings && typeof json.settings === "object"
+      ? json.settings
+      : json;
+
+      if (!settings || typeof settings !== "object") {
+        console.warn("[snow] default preset JSON has no settings object");
+        return;
+      }
+
+        // Apply without rebuild/GUI/persist – world not built yet
+      applySettings(settings, {
+        rebuild: false,
+        updateGui: false,
+        persist: false
+      });
+    } catch (e) {
+      console.warn("[snow] default preset load failed", e);
+    }
+  }
+
+
+
+
   function init() {
-    loadLastSettings(params);
+    // First, load defaults from presets/snow-default.json
+    // If the fetch fails, params stay at built-in DEFAULTS.
+    loadDefaultPresetFromFile()
+    .catch((e) => {
+      console.warn("[snow] default preset load error (ignored):", e);
+    })
+    .finally(() => {
+        // After defaults are in, continue normal boot.
 
-    setupScene();
-    snowTex = makeRadialTexture(96);
+      setupScene();
+      snowTex = makeRadialTexture(96);
 
-    rebuildWorld();
-    
-    setupGui();
-    refreshGuiDisplays();
-    refreshPresetList();
+      rebuildWorld();
 
-    handleResize();
-    window.addEventListener("resize", handleResize, { passive: true });
+      setupGui();
+      refreshGuiDisplays();
+      refreshPresetList();
 
-    window.addEventListener("keydown", onKeyDown);
+      handleResize();
+      window.addEventListener("resize", handleResize, { passive: true });
 
-    addEventListener(
-      "pagehide",
-      () => saveLastNow(params),
-      { capture: true }
-      );
-    addEventListener(
-      "beforeunload",
-      () => saveLastNow(params),
-      { capture: true }
-      );
-    addEventListener(
-      "visibilitychange",
-      () => {
-        if (document.visibilityState === "hidden") {
-          saveLastNow(params);
-        }
-      },
-      { capture: true }
-      );
+      window.addEventListener("keydown", onKeyDown);
 
-  // WebXR + desktop: XR session will drive this when active
-    renderer.setAnimationLoop(animate);
+      addEventListener(
+        "pagehide",
+        () => saveLastNow(params),
+        { capture: true }
+        );
+      addEventListener(
+        "beforeunload",
+        () => saveLastNow(params),
+        { capture: true }
+        );
+      addEventListener(
+        "visibilitychange",
+        () => {
+          if (document.visibilityState === "hidden") {
+            saveLastNow(params);
+          }
+        },
+        { capture: true }
+        );
+
+        // WebXR + desktop: XR session will drive this when active
+      renderer.setAnimationLoop(animate);
+    });
   }
 
   init();
+
 
 
 
