@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <title>Three.js – Snowdrifts, Gusts, Sticking & Presets (importmap)</title>
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+
+  <link rel="icon" href="data:,">
+  
   <style>
     * {
       box-sizing: border-box;
@@ -1545,35 +1551,96 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     }
 
     function exportSettings() {
+      const hasSelection =
+      presetState.selected && presetState.selected !== "<none>";
+
+      const baseName = hasSelection
+      ? presetState.selected
+      : (presetState.presetName || `preset-${nowStamp()}`);
+
+      const name = sanitizePresetName(baseName);
+
       const payload = {
         v: 1,
+        kind: "snow-preset",
         exportedAt: Date.now(),
+        name,
         settings: safeCloneSettings(params)
       };
-      downloadJson(payload, `snow-settings-${nowStamp()}.json`);
+
+      const safeName = name
+      ? name.replace(/\s+/g, "-")
+      : `preset-${nowStamp()}`;
+
+      const filename = `snow-${safeName}.json`;
+      downloadJson(payload, filename);
     }
 
     function importSettings() {
       const input = ensureImportInput();
+
       input.onchange = async () => {
         const file = input.files && input.files[0];
         input.value = "";
         if (!file) return;
+
         try {
           const text = await file.text();
           const json = JSON.parse(text);
-          if (!json || typeof json !== "object") throw new Error("Invalid JSON");
-          const settings =
+
+          if (!json || typeof json !== "object") {
+            throw new Error("Invalid JSON root");
+          }
+
+          // Accept both:
+          //   { v: 1, kind, name, settings: { ... } }
+          //   { ...paramsDirectly }
+          const srcSettings =
           json.settings && typeof json.settings === "object"
           ? json.settings
           : json;
-          applySettings(settings, { rebuild: true, updateGui: true, persist: true });
+
+          if (!srcSettings || typeof srcSettings !== "object") {
+            throw new Error("No settings object found");
+          }
+
+          // Merge onto DEFAULTS so missing keys get sane values
+          const merged = { ...DEFAULTS, ...srcSettings };
+
+          applySettings(merged, {
+            rebuild: true,
+            updateGui: true,
+            persist: true
+          });
+
+          // Update preset name in GUI if present in file
+          let importedName = null;
+          if (typeof json.name === "string" && json.name.trim()) {
+            importedName = sanitizePresetName(json.name);
+          } else if (
+            typeof json.presetName === "string" &&
+            json.presetName.trim()
+            ) {
+            importedName = sanitizePresetName(json.presetName);
+          }
+
+          if (importedName) {
+            presetState.presetName = importedName;
+            presetState.selected = importedName;
+            if (presetSelectCtrl) {
+              await refreshPresetList();
+            }
+          }
         } catch (e) {
           console.error("[snow] import failed", e);
         }
       };
+
       input.click();
     }
+
+
+
 
     function setupGui() {
       gui = new GUI({ width: 380 });
@@ -1929,21 +1996,27 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
       const json = await response.json();
 
-        // Accept both formats:
-        // 1) { "v": 1, "settings": { ... } }
-        // 2) { ...paramsDirectly }
-      const settings =
-      json && typeof json === "object" && json.settings && typeof json.settings === "object"
+    // Accept both formats:
+    // 1) { "v": 1, "settings": { ... } }
+    // 2) { ...paramsDirectly }
+      const srcSettings =
+      json &&
+      typeof json === "object" &&
+      json.settings &&
+      typeof json.settings === "object"
       ? json.settings
       : json;
 
-      if (!settings || typeof settings !== "object") {
+      if (!srcSettings || typeof srcSettings !== "object") {
         console.warn("[snow] default preset JSON has no settings object");
         return;
       }
 
-        // Apply without rebuild/GUI/persist – world not built yet
-      applySettings(settings, {
+    // Merge onto DEFAULTS so missing keys get sane values
+      const merged = Object.assign({}, DEFAULTS, srcSettings);
+
+    // Apply without rebuild/GUI/persist – world not built yet
+      applySettings(merged, {
         rebuild: false,
         updateGui: false,
         persist: false
@@ -1952,6 +2025,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       console.warn("[snow] default preset load failed", e);
     }
   }
+
 
 
 
