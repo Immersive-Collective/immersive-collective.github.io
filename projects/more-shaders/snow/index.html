@@ -1,0 +1,1961 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Three.js – Snowdrifts, Gusts, Sticking & Presets (importmap)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a1220;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    #app {
+      position: fixed;
+      inset: 0;
+    }
+    .hud {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      font: 12px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      color: rgba(255,255,255,0.92);
+      background: rgba(0,0,0,0.28);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px;
+      padding: 10px 12px;
+      backdrop-filter: blur(8px);
+      user-select: none;
+      pointer-events: none;
+      max-width: 380px;
+    }
+    .hud b {
+      color: rgba(255,255,255,0.98);
+    }
+  </style>
+
+  <!-- Import map for Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div class="hud">
+    <b>Snowdrifts + gusts + sticking snow + presets</b><br />
+    Drag: orbit · Wheel: zoom · Right-drag: pan<br />
+    Gust parameters, sticking, drifts, and presets are all controlled from the GUI.
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { VRButton } from "three/addons/webxr/VRButton.js";
+    import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm";
+
+    // -------------------------------------------------------------------------
+    // Helpers / persistence utilities
+    // -------------------------------------------------------------------------
+
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+    function nowStamp() {
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      return (
+        d.getFullYear() +
+        pad(d.getMonth() + 1) +
+        pad(d.getDate()) +
+        "-" +
+        pad(d.getHours()) +
+        pad(d.getMinutes()) +
+        pad(d.getSeconds())
+        );
+    }
+
+    function safeCloneSettings(src) {
+      const out = {};
+      for (const k of Object.keys(src)) {
+        const v = src[k];
+        if (typeof v === "number" || typeof v === "boolean" || typeof v === "string") {
+          out[k] = v;
+        }
+      }
+      return out;
+    }
+
+    function downloadJson(obj, filename) {
+      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    // localStorage (last used settings)
+    const STORAGE_LAST = "snow:lastSettings:v1";
+
+    let persistTimer = 0;
+    let persistBlocked = false;
+
+    function saveLastNow(params) {
+      if (persistBlocked) return;
+      try {
+        const payload = {
+          v: 1,
+          savedAt: Date.now(),
+          settings: safeCloneSettings(params)
+        };
+        localStorage.setItem(STORAGE_LAST, JSON.stringify(payload));
+      } catch (e) {
+        console.warn("[snow] save last failed", e);
+      }
+    }
+
+    function saveLastDebounced(params) {
+      if (persistBlocked) return;
+      if (persistTimer) clearTimeout(persistTimer);
+      persistTimer = setTimeout(() => {
+        persistTimer = 0;
+        saveLastNow(params);
+      }, 200);
+    }
+
+    function loadLastSettings(params) {
+      try {
+        const raw = localStorage.getItem(STORAGE_LAST);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || !parsed.settings) return;
+        applySettings(parsed.settings, { rebuild: false, updateGui: false, persist: false });
+      } catch (e) {
+        console.warn("[snow] load last failed", e);
+      }
+    }
+
+    // IndexedDB presets -------------------------------------------------------
+
+    const IDB_NAME = "snow-presets";
+    const IDB_STORE = "presets";
+    const IDB_VERSION = 1;
+
+    function idbOpen() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) {
+            db.createObjectStore(IDB_STORE, { keyPath: "name" });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function idbPutPreset(name, settings) {
+      const db = await idbOpen();
+      try {
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(IDB_STORE, "readwrite");
+          tx.onerror = () => reject(tx.error);
+          tx.objectStore(IDB_STORE).put({ name, savedAt: Date.now(), settings });
+          tx.oncomplete = () => resolve();
+        });
+      } finally {
+        db.close();
+      }
+    }
+
+    async function idbGetPreset(name) {
+      const db = await idbOpen();
+      try {
+        return await new Promise((resolve, reject) => {
+          const tx = db.transaction(IDB_STORE, "readonly");
+          tx.onerror = () => reject(tx.error);
+          const req = tx.objectStore(IDB_STORE).get(name);
+          req.onsuccess = () => resolve(req.result || null);
+          req.onerror = () => reject(req.error);
+        });
+      } finally {
+        db.close();
+      }
+    }
+
+    async function idbDeletePreset(name) {
+      const db = await idbOpen();
+      try {
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(IDB_STORE, "readwrite");
+          tx.onerror = () => reject(tx.error);
+          tx.objectStore(IDB_STORE).delete(name);
+          tx.oncomplete = () => resolve();
+        });
+      } finally {
+        db.close();
+      }
+    }
+
+    async function idbListPresetNames() {
+      const db = await idbOpen();
+      try {
+        return await new Promise((resolve, reject) => {
+          const tx = db.transaction(IDB_STORE, "readonly");
+          tx.onerror = () => reject(tx.error);
+          const req = tx.objectStore(IDB_STORE).getAllKeys();
+          req.onsuccess = () => {
+            const list = (req.result || []).map(String).sort();
+            resolve(list);
+          };
+          req.onerror = () => reject(req.error);
+        });
+      } finally {
+        db.close();
+      }
+    }
+
+    function sanitizePresetName(s) {
+      const name = String(s ?? "").replace(/\.[a-z0-9]+$/i, "").trim();
+      if (!name) return "";
+      return name.replace(/\s+/g, " ").slice(0, 96);
+    }
+
+    // File input for JSON import ---------------------------------------------
+
+    let importInput = null;
+    function ensureImportInput() {
+      if (importInput) return importInput;
+      importInput = document.createElement("input");
+      importInput.type = "file";
+      importInput.accept = "application/json,.json";
+      importInput.style.position = "fixed";
+      importInput.style.left = "-9999px";
+      importInput.style.top = "-9999px";
+      document.body.appendChild(importInput);
+      return importInput;
+    }
+
+    // -------------------------------------------------------------------------
+    // Parameters (includes gust/turbulence)
+    // -------------------------------------------------------------------------
+
+    const DEFAULTS = {
+      // Core
+      paused: false,
+      debug: false,
+      timeScale: 1.0,
+      dtMax: 0.020,
+      pixelRatio: 1.75,
+
+      // Flakes & base wind
+      visualCount: 180000,
+      windStrength: 0.75,
+      windSpeed: 0.14,
+      fallSpeed: 0.42,
+      fallJitter: 0.45,
+      flakeSize: 3.0,
+      flakeSizeJitter: 0.35,
+
+      // Gusts / turbulence
+      gustMinInterval: 1.4,
+      gustMaxInterval: 3.2,
+      gustTornadoChance: 0.22,
+      gustStrengthMul: 1.0,
+      gustSwirlMul: 1.0,
+      gustUpdraftMul: 1.0,
+      gustScour: 0.0100,
+      gustRedeposit: 0.0080,
+
+      // Drifts / cover
+      driftGrid: 128,
+      driftMaxHeight: 3.6,
+      coverBase: 0.06,
+      coverMacroAmp: 0.09,
+      coverMacroFreq: 2.4,
+      coverMicroAmp: 0.05,
+      coverMicroFreq: 8.5,
+      driftDiffusion: 0.07,
+      driftAdvection: 0.125,
+      obstacleShapeInterval: 10,
+      driftWriteInterval: 8,
+      normalUpdateInterval: 36,
+
+      // Settlers & deposition
+      settlerCount: 8000,
+      groundDepositBudget: 420,
+      depositUnit: 0.00035,
+      objectTestsPerFrame: 900,
+      objectDeposit: 0.002,
+
+      // Sticking decals
+      stuckMax: 24000,
+      decalSize: 0.14
+    };
+
+    const params = { ...DEFAULTS };
+
+    // -------------------------------------------------------------------------
+    // Scene globals
+    // -------------------------------------------------------------------------
+
+    const GROUND_SIZE = 50;
+    const HALF_GROUND = GROUND_SIZE * 0.5;
+    const visualBounds = { x: 22, z: 22, yMin: -2.0, yMax: 22.0 };
+    const settleBounds = { x: 22, z: 22, yMin: -2.0, yMax: 18.0 };
+
+    let scene, camera, renderer, controls;
+    let ground, cube;
+    const cones = [];
+    const rocks = [];
+
+    let snowTex;
+
+    // Drifts (heightfield)
+    let DRIFT_GRID = 0;
+    let DRIFT_STRIDE = 0;
+    let DRIFT_VERTS = 0;
+    let driftHeights = null;
+    let driftHeightsTmp = null;
+    let driftGeo = null;
+    let driftPosAttr = null;
+    let driftPosArray = null;
+    let snowSurface = null;
+
+    // Visual flakes
+    let snowGeo = null;
+    let snowMat = null;
+    let snowPoints = null;
+
+    // Sticking decals
+    let stuck = null;
+    let stuckGeo = null;
+    let stuckMat = null;
+    let stuckCount = 0;
+    let stuckWrite = 0;
+
+    // Settlers
+    let SETTLER_COUNT = 0;
+    let settlerPos = null;
+    let settlerPrev = null;
+    let settlerVel = null;
+    let depositTokens = 0;
+
+    // Colliders
+    let colliderObjects = [];
+    let colliderBounds = [];
+    const boundCenter = new THREE.Vector3();
+    const raycaster = new THREE.Raycaster();
+    const segDir = new THREE.Vector3();
+    const segDelta = new THREE.Vector3();
+    const hitFrom = new THREE.Vector3();
+    const tmpNormal = new THREE.Vector3();
+    const tmpMatrix3 = new THREE.Matrix3();
+
+    // Decal helpers
+    const tmpM = new THREE.Matrix4();
+    const tmpQ = new THREE.Quaternion();
+    const tmpS = new THREE.Vector3();
+    const tmpP = new THREE.Vector3();
+    const zAxis = new THREE.Vector3(0, 0, 1);
+
+    // Gust system -------------------------------------------------------------
+
+    class Gust {
+      constructor() {
+        this.x = 0;
+        this.z = 0;
+        this.radius = 1;
+        this.strength = 0;
+        this.swirl = 0;
+        this.updraft = 0;
+        this.ttl = 0;
+        this.life = 0;
+      }
+      reset(x, z, radius, strength, swirl, updraft, ttl) {
+        this.x = x;
+        this.z = z;
+        this.radius = radius;
+        this.strength = strength;
+        this.swirl = swirl;
+        this.updraft = updraft;
+        this.ttl = ttl;
+        this.life = ttl;
+      }
+      step(dt) {
+        this.life = Math.max(0, this.life - dt);
+      }
+      get active() {
+        return this.life > 0;
+      }
+      get fade() {
+        if (this.ttl <= 1e-6) return 0;
+        const t = this.life / this.ttl;
+        return t * t;
+      }
+    }
+
+    const GUST_MAX = 6;
+    const gusts = Array.from({ length: GUST_MAX }, () => new Gust());
+    let gustSpawnTimer = 0;
+
+    const gustTmp = new THREE.Vector3();
+    const gustPosRad = new Float32Array(GUST_MAX * 3);
+    const gustParams = new Float32Array(GUST_MAX * 3);
+
+    function spawnGusts(dt) {
+      gustSpawnTimer -= dt;
+      if (gustSpawnTimer > 0) return;
+
+      const minI = clamp(params.gustMinInterval, 0.2, 20.0);
+      const maxI = clamp(params.gustMaxInterval, minI + 0.1, 40.0);
+      gustSpawnTimer = minI + Math.random() * (maxI - minI);
+
+      if (!cones.length) return;
+      const tpos = cones[(Math.random() * cones.length) | 0].position;
+      const gx = tpos.x + (Math.random() * 2 - 1) * 2.2;
+      const gz = tpos.z + (Math.random() * 2 - 1) * 2.2;
+
+      const tornadoChance = clamp(params.gustTornadoChance, 0.0, 1.0);
+      const isTornado = Math.random() < tornadoChance;
+
+      const radius = isTornado ? (1.8 + Math.random() * 1.2) : (3.4 + Math.random() * 3.2);
+      const strength =
+      (isTornado ? (2.4 + Math.random() * 2.2) : (0.9 + Math.random() * 1.2)) *
+      clamp(params.gustStrengthMul, 0.0, 4.0);
+      const swirlSign = Math.random() < 0.5 ? -1 : 1;
+      const swirl =
+      swirlSign *
+      (isTornado ? 4.4 : 2.2) *
+      clamp(params.gustSwirlMul, 0.0, 4.0);
+      const updraft =
+      (isTornado ? (2.2 + Math.random() * 2.0) : (0.20 + Math.random() * 0.55)) *
+      clamp(params.gustUpdraftMul, 0.0, 4.0);
+      const ttl = isTornado ? (1.5 + Math.random() * 1.8) : (1.1 + Math.random() * 1.8);
+
+      // find slot
+      let slot = 0;
+      for (let i = 0; i < gusts.length; i++) {
+        if (!gusts[i].active) {
+          slot = i;
+          break;
+        }
+      }
+      gusts[slot].reset(gx, gz, radius, strength, swirl, updraft, ttl);
+    }
+
+    function gustWindAt(x, z, heightAboveSnow, out) {
+      out.set(0, 0, 0);
+      for (let i = 0; i < gusts.length; i++) {
+        const g = gusts[i];
+        if (!g.active) continue;
+
+        const dx = x - g.x;
+        const dz = z - g.z;
+        const r2 = dx * dx + dz * dz;
+        const r = g.radius;
+        if (r2 > r * r) continue;
+
+        const rr = Math.max(1e-6, Math.sqrt(r2));
+        const npx = dx / rr;
+        const npz = dz / rr;
+
+        const heightK = 1.0 / (1.0 + Math.max(0, heightAboveSnow) * 1.15);
+        const radial = 1.0 - rr / r;
+        const k = g.fade * g.strength * radial * radial * heightK;
+
+        const tx = -npz;
+        const tz = npx;
+
+        out.x += tx * (g.swirl * k) + (-npx) * (0.18 * k);
+        out.z += tz * (g.swirl * k) + (-npz) * (0.18 * k);
+        out.y += g.updraft * k * (radial * radial);
+      }
+      return out;
+    }
+
+    function applyGustScour(baseWindX, baseWindZ) {
+      const scourBase = clamp(params.gustScour, 0.0, 0.10);
+      const redepBase = clamp(params.gustRedeposit, 0.0, 0.10);
+      if (scourBase === 0 && redepBase === 0) return;
+
+      for (let i = 0; i < gusts.length; i++) {
+        const g = gusts[i];
+        if (!g.active) continue;
+
+        const fade = g.fade;
+        const scour = -scourBase * fade;
+        const redeposit = redepBase * fade;
+
+        // scour around gust center, redeposit downwind
+        depositHeightAtWorld(g.x, g.z, scour, 0, 0);
+        depositHeightAtWorld(g.x, g.z, scour * 0.7, 0, 0);
+        depositHeightAtWorld(g.x, g.z, redeposit, baseWindX, baseWindZ);
+      }
+    }
+
+    // GUI / presets -----------------------------------------------------------
+
+    let gui = null;
+    const guiControllers = [];
+
+    const presetState = {
+      presetName: "",
+      selected: "<none>"
+    };
+    let presetSelectCtrl = null;
+
+    // Drift deposition kernel -------------------------------------------------
+
+    const KERNEL_RADIUS = 3;
+    const KERNEL_SIGMA = 1.05;
+    const driftKernel = [];
+
+    (function buildKernel() {
+      let sum = 0;
+      for (let dz = -KERNEL_RADIUS; dz <= KERNEL_RADIUS; dz++) {
+        for (let dx = -KERNEL_RADIUS; dx <= KERNEL_RADIUS; dx++) {
+          const r2 = dx * dx + dz * dz;
+          const w = Math.exp(-r2 / (2 * KERNEL_SIGMA * KERNEL_SIGMA));
+          driftKernel.push({ dx, dz, w });
+          sum += w;
+        }
+      }
+      for (const k of driftKernel) k.w /= sum || 1;
+    })();
+
+    // -------------------------------------------------------------------------
+    // Apply settings (clamps)
+    // -------------------------------------------------------------------------
+
+  function applySettings(obj, { rebuild = false, updateGui = true, persist = true } = {}) {
+    if (!obj || typeof obj !== "object") return;
+
+    persistBlocked = true;
+    try {
+      for (const [k, v] of Object.entries(obj)) {
+        if (!(k in params)) continue;
+        const T = typeof params[k];
+        if (T === "number" && typeof v === "number" && Number.isFinite(v)) params[k] = v;
+        if (T === "boolean" && typeof v === "boolean") params[k] = v;
+        if (T === "string" && typeof v === "string") params[k] = v;
+      }
+
+      params.timeScale = clamp(params.timeScale, 0.05, 5.0);
+      params.dtMax = clamp(params.dtMax, 0.005, 0.05);
+      params.pixelRatio = clamp(params.pixelRatio, 0.5, 3.0);
+
+      params.windStrength = clamp(params.windStrength, 0.0, 3.0);
+      params.windSpeed = clamp(params.windSpeed, 0.01, 1.0);
+
+      params.fallSpeed = clamp(params.fallSpeed, 0.001, 10.5);
+      params.fallJitter = clamp(params.fallJitter, 0.0, 0.9);
+      params.flakeSize = clamp(params.flakeSize, 0.01, 10.0);
+      params.flakeSizeJitter = clamp(params.flakeSizeJitter, 0.0, 0.9);
+
+      params.visualCount = clamp(params.visualCount | 0, 20000, 600000);
+      params.settlerCount = clamp(params.settlerCount | 0, 1000, 30000);
+
+      params.driftGrid = clamp(params.driftGrid | 0, 32, 256);
+      params.driftMaxHeight = clamp(params.driftMaxHeight, 0.5, 8.0);
+
+      params.coverBase = clamp(params.coverBase, 0.0, 0.30);
+      params.coverMacroAmp = clamp(params.coverMacroAmp, 0.0, 0.30);
+      params.coverMacroFreq = clamp(params.coverMacroFreq, 0.5, 6.0);
+      params.coverMicroAmp = clamp(params.coverMicroAmp, 0.0, 0.20);
+      params.coverMicroFreq = clamp(params.coverMicroFreq, 2.0, 16.0);
+
+      params.driftDiffusion = clamp(params.driftDiffusion, 0.0, 0.25);
+      params.driftAdvection = clamp(params.driftAdvection, 0.0, 0.30);
+
+      params.groundDepositBudget = clamp(params.groundDepositBudget | 0, 1, 5000);
+      params.depositUnit = clamp(params.depositUnit, 0.0, 0.01);
+
+      params.objectTestsPerFrame = clamp(params.objectTestsPerFrame | 0, 0, 5000);
+      params.objectDeposit = clamp(params.objectDeposit, 0.0, 0.05);
+
+      params.stuckMax = clamp(params.stuckMax | 0, 1000, 120000);
+      params.decalSize = clamp(params.decalSize, 0.04, 0.80);
+
+      params.obstacleShapeInterval = clamp(params.obstacleShapeInterval | 0, 1, 600);
+      params.driftWriteInterval = clamp(params.driftWriteInterval | 0, 1, 120);
+      params.normalUpdateInterval = clamp(params.normalUpdateInterval | 0, 4, 600);
+
+        // Gust params
+      params.gustMinInterval = clamp(params.gustMinInterval, 0.1, 20.0);
+      params.gustMaxInterval = clamp(
+        params.gustMaxInterval,
+        Math.max(params.gustMinInterval + 0.1, 0.2),
+        40.0
+        );
+      params.gustTornadoChance = clamp(params.gustTornadoChance, 0.0, 1.0);
+      params.gustStrengthMul = clamp(params.gustStrengthMul, 0.0, 4.0);
+      params.gustSwirlMul = clamp(params.gustSwirlMul, 0.0, 4.0);
+      params.gustUpdraftMul = clamp(params.gustUpdraftMul, 0.0, 4.0);
+      params.gustScour = clamp(params.gustScour, 0.0, 0.10);
+      params.gustRedeposit = clamp(params.gustRedeposit, 0.0, 0.10);
+    } finally {
+      persistBlocked = false;
+    }
+
+    if (rebuild) rebuildWorld();
+    if (updateGui) refreshGuiDisplays();
+    if (persist) saveLastDebounced(params);
+  }
+
+    // -------------------------------------------------------------------------
+    // Snow texture (point sprite)
+    // -------------------------------------------------------------------------
+
+  function makeRadialTexture(size = 96) {
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const g = c.getContext("2d");
+
+    const grad = g.createRadialGradient(
+      size / 2, size / 2, 0,
+      size / 2, size / 2, size / 2
+      );
+    grad.addColorStop(0.00, "rgba(255,255,255,1.00)");
+    grad.addColorStop(0.42, "rgba(255,255,255,0.92)");
+    grad.addColorStop(0.78, "rgba(255,255,255,0.22)");
+    grad.addColorStop(1.00, "rgba(255,255,255,0.00)");
+
+    g.clearRect(0, 0, size, size);
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    g.fill();
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.anisotropy = 4;
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+    return tex;
+  }
+
+    // -------------------------------------------------------------------------
+    // Drifts: heightfield
+    // -------------------------------------------------------------------------
+
+  function gridIndex(i, j) {
+    return j * DRIFT_STRIDE + i;
+  }
+
+  function initSnowCover() {
+    if (!driftHeights) return;
+    const base = Math.max(0, params.coverBase);
+    const macroAmp = Math.max(0, params.coverMacroAmp);
+    const macroFreq = Math.max(0.1, params.coverMacroFreq);
+    const microAmp = Math.max(0, params.coverMicroAmp);
+    const microFreq = Math.max(0.1, params.coverMicroFreq);
+    const TAU = Math.PI * 2;
+
+    for (let j = 0; j <= DRIFT_GRID; j++) {
+      for (let i = 0; i <= DRIFT_GRID; i++) {
+        const u = i / DRIFT_GRID;
+        const v = j / DRIFT_GRID;
+
+        const sin1 = Math.sin((u * macroFreq + 0.11) * TAU);
+        const cos1 = Math.cos((v * macroFreq - 0.07) * TAU);
+        const sin2 = Math.sin(((u * 0.75 + v * 0.90) * macroFreq + 0.31) * TAU);
+        const macro = (sin1 + cos1 + sin2) * (1.0 / 3.0);
+
+        const sin3 = Math.sin(((u * microFreq + v * (microFreq * 0.70)) + 0.19) * TAU);
+        const cos2 = Math.cos(((v * microFreq - u * (microFreq * 0.80)) - 0.23) * TAU);
+        const micro = (sin3 + cos2) * 0.5;
+
+        const h = base + macro * macroAmp + micro * microAmp;
+        driftHeights[gridIndex(i, j)] =
+        clamp(h, 0, Math.max(0.5, params.driftMaxHeight));
+      }
+    }
+  }
+
+  function applyHeightsToGeometry() {
+    if (!driftHeights || !driftPosArray) return;
+    for (let v = 0; v < DRIFT_VERTS; v++) {
+      driftPosArray[v * 3 + 1] = driftHeights[v];
+    }
+    driftPosAttr.needsUpdate = true;
+  }
+
+  function sampleSnowHeight(x, z) {
+    if (!driftHeights) return 0;
+    let u = (x + HALF_GROUND) / GROUND_SIZE;
+    let v = (z + HALF_GROUND) / GROUND_SIZE;
+    u = clamp(u, 0, 0.999999);
+    v = clamp(v, 0, 0.999999);
+
+    const fx = u * DRIFT_GRID;
+    const fz = v * DRIFT_GRID;
+
+    const i0 = fx | 0;
+    const j0 = fz | 0;
+    const i1 = Math.min(DRIFT_GRID, i0 + 1);
+    const j1 = Math.min(DRIFT_GRID, j0 + 1);
+
+    const tx = fx - i0;
+    const tz = fz - j0;
+
+    const h00 = driftHeights[gridIndex(i0, j0)];
+    const h10 = driftHeights[gridIndex(i1, j0)];
+    const h01 = driftHeights[gridIndex(i0, j1)];
+    const h11 = driftHeights[gridIndex(i1, j1)];
+
+    const hx0 = h00 + (h10 - h00) * tx;
+    const hx1 = h01 + (h11 - h01) * tx;
+    return hx0 + (hx1 - hx0) * tz;
+  }
+
+  function depositHeightAtWorld(x, z, amount, windX = 0, windZ = 0) {
+    if (!driftHeights || amount === 0) return;
+
+      // push deposits slightly downwind (turbulence bias)
+    const drift = 0.35;
+    const nx = x + windX * drift;
+    const nz = z + windZ * drift;
+
+    let u = (nx + HALF_GROUND) / GROUND_SIZE;
+    let v = (nz + HALF_GROUND) / GROUND_SIZE;
+    u = clamp(u, 0, 1);
+    v = clamp(v, 0, 1);
+
+    const ci = clamp((u * DRIFT_GRID) | 0, 0, DRIFT_GRID);
+    const cj = clamp((v * DRIFT_GRID) | 0, 0, DRIFT_GRID);
+
+    const maxH = Math.max(0.5, params.driftMaxHeight);
+    const baseAmount = amount;
+
+    for (const k of driftKernel) {
+      const i = ci + k.dx;
+      const j = cj + k.dz;
+      if (i < 0 || i > DRIFT_GRID || j < 0 || j > DRIFT_GRID) continue;
+      const idx = gridIndex(i, j);
+      const h = driftHeights[idx];
+      const shelter = clamp(1.0 - h / maxH, 0.1, 1.0);
+      const delta = baseAmount * k.w * shelter;
+      driftHeights[idx] = clamp(h + delta, 0, maxH);
+    }
+  }
+
+  function evolveDrifts(windX, windZ) {
+    if (!driftHeights || !driftHeightsTmp) return;
+
+    const diff = clamp(params.driftDiffusion, 0.0, 0.25);
+    const adv = clamp(params.driftAdvection, 0.0, 0.30);
+    if (diff <= 0 && adv <= 0) return;
+
+    const wx = clamp(windX, -1, 1);
+    const wz = clamp(windZ, -1, 1);
+
+    for (let j = 0; j <= DRIFT_GRID; j++) {
+      const jb = j > 0 ? j - 1 : j;
+      const jf = j < DRIFT_GRID ? j + 1 : j;
+      for (let i = 0; i <= DRIFT_GRID; i++) {
+        const ib = i > 0 ? i - 1 : i;
+        const ifw = i < DRIFT_GRID ? i + 1 : i;
+
+        const idx = gridIndex(i, j);
+        const h = driftHeights[idx];
+
+        const hL = driftHeights[gridIndex(ib, j)];
+        const hR = driftHeights[gridIndex(ifw, j)];
+        const hD = driftHeights[gridIndex(i, jb)];
+        const hU = driftHeights[gridIndex(i, jf)];
+        const avg = (hL + hR + hD + hU) * 0.25;
+
+          // simple upwind sample
+        const upI = clamp(i - Math.round(wx), 0, DRIFT_GRID);
+        const upJ = clamp(j - Math.round(wz), 0, DRIFT_GRID);
+        const upH = driftHeights[gridIndex(upI, upJ)];
+
+        let nh = h + diff * (avg - h) + adv * (upH - h);
+        nh = Math.max(0, nh * 0.99982);
+        driftHeightsTmp[idx] = nh;
+      }
+    }
+
+    const tmp = driftHeights;
+    driftHeights = driftHeightsTmp;
+    driftHeightsTmp = tmp;
+  }
+
+  function shapeDriftsAroundObstacles(windX, windZ) {
+    if (!driftHeights || !colliderBounds.length) return;
+    const wx = windX;
+    const wz = windZ;
+    const len = Math.sqrt(wx * wx + wz * wz);
+    if (len < 1e-4) return;
+
+    const nx = wx / len;
+    const nz = wz / len;
+
+    for (const cb of colliderBounds) {
+      const ox = cb.center.x;
+      const oz = cb.center.z;
+
+      const scourX = ox - nx * (cb.radius * 1.20);
+      const scourZ = oz - nz * (cb.radius * 1.20);
+
+      const driftX = ox + nx * (cb.radius * 1.55);
+      const driftZ = oz + nz * (cb.radius * 1.55);
+
+      depositHeightAtWorld(scourX, scourZ, -0.0016, 0, 0);
+      depositHeightAtWorld(driftX, driftZ, 0.0030, wx, wz);
+    }
+  }
+
+  function buildSnowSurface() {
+    if (snowSurface) {
+      scene.remove(snowSurface);
+      snowSurface.geometry.dispose();
+      snowSurface.material.dispose();
+    }
+
+    DRIFT_GRID = clamp(params.driftGrid | 0, 32, 256);
+    DRIFT_STRIDE = DRIFT_GRID + 1;
+    DRIFT_VERTS = DRIFT_STRIDE * DRIFT_STRIDE;
+
+    driftHeights = new Float32Array(DRIFT_VERTS);
+    driftHeightsTmp = new Float32Array(DRIFT_VERTS);
+
+    driftGeo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE, DRIFT_GRID, DRIFT_GRID);
+    driftGeo.rotateX(-Math.PI / 2);
+
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0xf7faff,
+      roughness: 0.995,
+      metalness: 0.0,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2
+    });
+
+    snowSurface = new THREE.Mesh(driftGeo, mat);
+    snowSurface.position.y = 0.02;
+    snowSurface.receiveShadow = true;
+    scene.add(snowSurface);
+
+    driftPosAttr = driftGeo.attributes.position;
+    driftPosArray = driftPosAttr.array;
+
+    initSnowCover();
+    applyHeightsToGeometry();
+    driftGeo.computeVertexNormals();
+    driftGeo.attributes.normal.needsUpdate = true;
+  }
+
+    // -------------------------------------------------------------------------
+    // Visual flakes (GPU point sprites + gust uniforms)
+    // -------------------------------------------------------------------------
+
+  function buildSnowField() {
+    if (snowPoints) {
+      scene.remove(snowPoints);
+      snowGeo.dispose();
+      snowMat.dispose();
+    }
+
+    const count = clamp(params.visualCount | 0, 20000, 600000);
+    const pos = new Float32Array(count * 3);
+    const seeds = new Float32Array(count);
+
+    for (let i = 0; i < count; i++) {
+      const p = i * 3;
+      pos[p + 0] = (Math.random() * 2 - 1) * visualBounds.x;
+      pos[p + 1] = visualBounds.yMin + Math.random() * (visualBounds.yMax - visualBounds.yMin);
+      pos[p + 2] = (Math.random() * 2 - 1) * visualBounds.z;
+      seeds[i] = Math.random();
+    }
+
+    snowGeo = new THREE.BufferGeometry();
+    snowGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    snowGeo.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
+
+    snowMat = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: {
+        uTime: { value: 0 },
+        uTex: { value: snowTex },
+        uWind: { value: new THREE.Vector2(0, 0) },
+        uBounds: { value: new THREE.Vector2(visualBounds.x, visualBounds.z) },
+        uYTop: { value: visualBounds.yMax },
+        uYBot: { value: visualBounds.yMin },
+        uGroundY: { value: 0.06 },
+        uFallSpeed: { value: params.fallSpeed },
+        uFallJitter: { value: params.fallJitter },
+        uFlakeSize: { value: params.flakeSize },
+        uFlakeSizeJitter: { value: params.flakeSizeJitter },
+        uGustPosRad: { value: gustPosRad },
+        uGustParams: { value: gustParams }
+      },
+      vertexShader: `
+          uniform float uTime;
+          uniform vec2 uWind;
+          uniform vec2 uBounds;
+          uniform float uYTop;
+          uniform float uYBot;
+          uniform float uGroundY;
+
+          uniform float uFallSpeed;
+          uniform float uFallJitter;
+          uniform float uFlakeSize;
+          uniform float uFlakeSizeJitter;
+
+          uniform float uGustPosRad[${GUST_MAX * 3}];
+          uniform float uGustParams[${GUST_MAX * 3}];
+
+          attribute float aSeed;
+
+          varying float vAlpha;
+
+          float wrapCoord(float x, float halfSpan) {
+            float span = halfSpan * 2.0;
+            return -halfSpan + mod(x + halfSpan + span * 1000.0, span);
+          }
+
+          float jitter01(float x) {
+            return fract(sin(x) * 43758.5453123);
+          }
+
+          void main() {
+            vec3 p = position;
+
+            float spanY = (uYTop - uYBot);
+
+            float jf = jitter01(aSeed * 91.7 + 3.1);
+            float fallMul = mix(1.0 - uFallJitter, 1.0 + uFallJitter, jf);
+            float speed = max(0.001, uFallSpeed) * fallMul;
+
+            float phase = aSeed * 37.0;
+            float y = uYTop - mod(uTime * speed + phase, spanY);
+
+            float nearGround = clamp(1.0 - (y - uYBot) / 6.0, 0.0, 1.0);
+
+            float flutter =
+              sin(uTime * 1.15 + aSeed * 83.0) * 0.10 +
+              sin(uTime * 1.85 + aSeed * 19.0) * 0.05;
+
+            vec2 drift =
+              uWind * (0.22 + 0.16 * sin(aSeed * 11.0)) +
+              vec2(flutter * 0.18,
+                   cos(uTime * 0.9 + aSeed * 41.0) * 0.03);
+
+            vec2 gustVec = vec2(0.0);
+            float lift = 0.0;
+
+            for (int gi = 0; gi < ${GUST_MAX}; gi++) {
+              float gx = uGustPosRad[gi * 3 + 0];
+              float gz = uGustPosRad[gi * 3 + 1];
+              float gr = uGustPosRad[gi * 3 + 2];
+
+              float gs  = uGustParams[gi * 3 + 0];
+              float gsw = uGustParams[gi * 3 + 1];
+              float gup = uGustParams[gi * 3 + 2];
+
+              vec2 d = vec2(p.x - gx, p.z - gz);
+              float r2 = dot(d, d);
+              float rr = sqrt(max(r2, 1e-6));
+              if (rr > gr) continue;
+
+              float radial = 1.0 - rr / gr;
+              float k = radial * radial * nearGround * gs;
+
+              vec2 n = d / rr;
+              vec2 t = vec2(-n.y, n.x);
+
+              gustVec += t * (gsw * k) + (-n) * (0.12 * k);
+              lift += gup * k * (radial * radial);
+            }
+
+            y += lift * 0.12;
+
+            float x = p.x + drift.x * uTime + gustVec.x;
+            float z = p.z + drift.y * uTime + gustVec.y;
+
+            x = wrapCoord(x, uBounds.x);
+            z = wrapCoord(z, uBounds.y);
+
+            vec3 worldPos = vec3(x, y, z);
+            vec4 mvPosition = modelViewMatrix * vec4(worldPos, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+
+            float js = jitter01(aSeed * 13.9 + 7.7);
+            float sizeMul = mix(1.0 - uFlakeSizeJitter, 1.0 + uFlakeSizeJitter, js);
+            float size = max(0.05, uFlakeSize) * sizeMul;
+
+            gl_PointSize = size * (300.0 / -mvPosition.z);
+
+            float groundFade = clamp((y - uGroundY) / 0.9, 0.0, 1.0);
+            vAlpha = (mix(0.55, 0.95, fract(aSeed * 4.77))
+                     * (0.65 + 0.35 * nearGround)) * groundFade;
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D uTex;
+          varying float vAlpha;
+
+          void main() {
+            vec4 tex = texture2D(uTex, gl_PointCoord);
+            float a = tex.a * vAlpha;
+            if (a < 0.01) discard;
+            gl_FragColor = vec4(1.0, 1.0, 1.0, a);
+          }
+          `
+        });
+
+snowPoints = new THREE.Points(snowGeo, snowMat);
+snowPoints.frustumCulled = false;
+scene.add(snowPoints);
+}
+
+    // -------------------------------------------------------------------------
+    // Decals (sticking snow)
+    // -------------------------------------------------------------------------
+
+function buildStuckSystem() {
+  if (stuck) {
+    scene.remove(stuck);
+    stuck.geometry.dispose();
+    stuck.material.dispose();
+  }
+
+  const max = Math.max(1000, params.stuckMax | 0);
+  stuckGeo = new THREE.CircleGeometry(Math.max(0.05, params.decalSize), 20);
+  stuckMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.97,
+    metalness: 0.0,
+    map: snowTex,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+    emissive: new THREE.Color(0x202020),
+    emissiveIntensity: 0.65
+  });
+
+  stuck = new THREE.InstancedMesh(stuckGeo, stuckMat, max);
+  stuck.frustumCulled = false;
+  stuck.renderOrder = 3;
+  scene.add(stuck);
+
+  stuckCount = 0;
+  stuckWrite = 0;
+  stuck.count = 0;
+  stuck.instanceMatrix.needsUpdate = true;
+}
+
+function addStuckSnow(point, normal) {
+  if (!stuck) return;
+  if (!Number.isFinite(point.x + point.y + point.z)) return;
+
+  tmpNormal.set(0, 1, 0);
+  if (normal && Number.isFinite(normal.x + normal.y + normal.z)) {
+    tmpNormal.copy(normal);
+  }
+
+  const len = tmpNormal.length();
+  if (len < 1e-6) tmpNormal.set(0, 1, 0);
+  else tmpNormal.multiplyScalar(1.0 / len);
+
+  const max = stuck.instanceMatrix.count;
+  const idx = stuckWrite % max;
+
+  const up01 = clamp((tmpNormal.y + 1.0) * 0.5, 0.0, 1.0);
+
+  const lift = 0.008 + Math.random() * 0.012;
+  tmpP.copy(point).addScaledVector(tmpNormal, lift);
+
+  const baseSize = Math.max(0.05, params.decalSize);
+  const slopeMul = 0.25 + 0.75 * up01;
+  const base = baseSize * (0.55 + Math.random() * 1.05) * slopeMul;
+
+  const anis = 0.70 + Math.random() * 0.85;
+  const steep = 1.0 - up01;
+  const sx = base * (1.0 - 0.15 * steep);
+  const sy = base * anis * (1.0 + 0.35 * steep);
+  tmpS.set(sx, sy, 1);
+
+  tmpQ.setFromUnitVectors(zAxis, tmpNormal);
+  tmpQ.multiply(new THREE.Quaternion().setFromAxisAngle(tmpNormal, Math.random() * Math.PI * 2));
+
+  tmpM.compose(tmpP, tmpQ, tmpS);
+  stuck.setMatrixAt(idx, tmpM);
+
+  stuckWrite++;
+  stuckCount = Math.min(stuckCount + 1, max);
+  stuck.count = stuckCount;
+  stuck.instanceMatrix.needsUpdate = true;
+}
+
+    // -------------------------------------------------------------------------
+    // Settlers (CPU flakes building drifts + decals)
+    // -------------------------------------------------------------------------
+
+function buildSettlers() {
+  SETTLER_COUNT = clamp(params.settlerCount | 0, 1000, 30000);
+  settlerPos = new Float32Array(SETTLER_COUNT * 3);
+  settlerPrev = new Float32Array(SETTLER_COUNT * 3);
+  settlerVel = new Float32Array(SETTLER_COUNT * 3);
+  for (let i = 0; i < SETTLER_COUNT; i++) respawnSettler(i);
+    depositTokens = 0;
+}
+
+function respawnSettler(i) {
+  const p = i * 3;
+  const x = (Math.random() * 2 - 1) * settleBounds.x;
+  const y = settleBounds.yMax * (0.72 + Math.random() * 0.28);
+  const z = (Math.random() * 2 - 1) * settleBounds.z;
+
+  settlerPos[p + 0] = x;
+  settlerPos[p + 1] = y;
+  settlerPos[p + 2] = z;
+
+  settlerPrev[p + 0] = x;
+  settlerPrev[p + 1] = y;
+  settlerPrev[p + 2] = z;
+
+  settlerVel[p + 0] = (Math.random() * 2 - 1) * 0.02;
+  settlerVel[p + 1] = -(0.35 + Math.random() * 0.35);
+  settlerVel[p + 2] = (Math.random() * 2 - 1) * 0.02;
+}
+
+function buildColliderBounds(objs) {
+  const out = [];
+  for (const obj of objs) {
+    if (!obj.geometry.boundingSphere) obj.geometry.computeBoundingSphere();
+    const bs = obj.geometry.boundingSphere;
+    boundCenter.copy(bs.center);
+    obj.localToWorld(boundCenter);
+    const sx = obj.scale.x;
+    const sy = obj.scale.y;
+    const sz = obj.scale.z;
+    const maxS = Math.max(Math.abs(sx), Math.abs(sy), Math.abs(sz));
+    const radius = bs.radius * maxS;
+    out.push({
+      obj,
+      center: boundCenter.clone(),
+      radius
+    });
+  }
+  return out;
+}
+
+const gustVec = new THREE.Vector3();
+
+function updateSettlers(dt, baseWindX, baseWindZ) {
+  if (!settlerPos || dt <= 0) return;
+
+  depositTokens += params.groundDepositBudget * dt;
+  let depositsRemaining = Math.max(0, Math.floor(depositTokens));
+  if (depositsRemaining > 0) {
+    depositTokens -= depositsRemaining;
+  }
+
+  const depositUnit = params.depositUnit;
+  const objectDepositAmount = params.objectDeposit;
+  const maxObjectTests = clamp(params.objectTestsPerFrame | 0, 0, 5000);
+  let objectTests = 0;
+
+  const gravity = 1.5;
+
+  for (let i = 0; i < SETTLER_COUNT; i++) {
+    const p = i * 3;
+
+    const px = settlerPos[p + 0];
+    const py = settlerPos[p + 1];
+    const pz = settlerPos[p + 2];
+
+    let vx = settlerVel[p + 0];
+    let vy = settlerVel[p + 1];
+    let vz = settlerVel[p + 2];
+
+    settlerPrev[p + 0] = px;
+    settlerPrev[p + 1] = py;
+    settlerPrev[p + 2] = pz;
+
+        // base wobble
+    vx += (Math.random() * 2 - 1) * 0.25 * dt;
+    vz += (Math.random() * 2 - 1) * 0.25 * dt;
+
+        // global wind
+    vx += baseWindX * dt * 0.5;
+    vz += baseWindZ * dt * 0.5;
+
+        // gust field (local turbulence + updraft)
+    const snowY = sampleSnowHeight(px, pz);
+    gustWindAt(px, pz, py - snowY, gustVec);
+    vx += gustVec.x * dt;
+    vy += gustVec.y * dt;
+    vz += gustVec.z * dt;
+
+    vy -= gravity * dt;
+
+    let nx = px + vx * dt;
+    let ny = py + vy * dt;
+    let nz = pz + vz * dt;
+
+        // wrap in XZ
+    if (nx < -settleBounds.x) nx += settleBounds.x * 2;
+    if (nx > settleBounds.x) nx -= settleBounds.x * 2;
+    if (nz < -settleBounds.z) nz += settleBounds.z * 2;
+    if (nz > settleBounds.z) nz -= settleBounds.z * 2;
+
+    const groundY = sampleSnowHeight(nx, nz);
+
+        // Hit ground -> deposit and respawn
+    if (ny <= groundY + 0.02) {
+      if (depositsRemaining > 0 && depositUnit > 0) {
+        depositHeightAtWorld(nx, nz, depositUnit, baseWindX, baseWindZ);
+        depositsRemaining--;
+      }
+      respawnSettler(i);
+      continue;
+    }
+
+    settlerPos[p + 0] = nx;
+    settlerPos[p + 1] = ny;
+    settlerPos[p + 2] = nz;
+
+    settlerVel[p + 0] = vx;
+    settlerVel[p + 1] = vy;
+    settlerVel[p + 2] = vz;
+
+        // Object collisions (trees, rocks, cube)
+    if (!colliderBounds.length || objectTests >= maxObjectTests) continue;
+
+    const prevX = settlerPrev[p + 0];
+    const prevY = settlerPrev[p + 1];
+    const prevZ = settlerPrev[p + 2];
+
+    segDelta.set(nx - prevX, ny - prevY, nz - prevZ);
+    const segLen = segDelta.length();
+    if (segLen < 1e-4) continue;
+    segDir.copy(segDelta).multiplyScalar(1.0 / segLen);
+
+    hitFrom.set(prevX, prevY, prevZ);
+    raycaster.set(hitFrom, segDir);
+    raycaster.far = segLen;
+
+    let hitSomething = false;
+
+    for (const cb of colliderBounds) {
+      if (objectTests >= maxObjectTests) break;
+
+      const dx = cb.center.x - nx;
+      const dy = cb.center.y - ny;
+      const dz = cb.center.z - nz;
+      const dist2 = dx * dx + dy * dy + dz * dz;
+      const r = cb.radius + 0.4;
+      if (dist2 > r * r) continue;
+
+      const intersections = raycaster.intersectObject(cb.obj, false);
+      objectTests++;
+      if (!intersections.length) continue;
+
+      const hit = intersections[0];
+      tmpNormal.set(0, 1, 0);
+      if (hit.face) {
+        tmpNormal.copy(hit.face.normal);
+        tmpMatrix3.getNormalMatrix(hit.object.matrixWorld);
+        tmpNormal.applyMatrix3(tmpMatrix3).normalize();
+      }
+
+      addStuckSnow(hit.point, tmpNormal);
+
+      if (objectDepositAmount > 0 && depositsRemaining > 0) {
+        depositHeightAtWorld(hit.point.x, hit.point.z, objectDepositAmount, baseWindX, baseWindZ);
+        depositsRemaining--;
+      }
+
+      respawnSettler(i);
+      hitSomething = true;
+      break;
+    }
+
+    if (hitSomething) continue;
+  }
+
+      depositTokens += depositsRemaining; // put back unused
+    }
+
+    // -------------------------------------------------------------------------
+    // Scene / world setup
+    // -------------------------------------------------------------------------
+    function setupScene() {
+      const container = document.getElementById("app");
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a1220);
+      scene.fog = new THREE.FogExp2(0x0a1220, 0.020);
+
+      camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        200
+        );
+      camera.position.set(10, 7, 12);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.xr.enabled = true; // WebXR ON
+
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, params.pixelRatio));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      container.appendChild(renderer.domElement);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.minDistance = 3;
+      controls.maxDistance = 40;
+      controls.target.set(0, 0.5, 0);
+      controls.update();
+
+      // WebXR “Enter VR” button (Quest 3 etc.)
+      const sessionInit = {
+        optionalFeatures: ["local-floor", "bounded-floor"]
+      };
+      const vrButton = VRButton.createButton(renderer, sessionInit);
+      document.body.appendChild(vrButton);
+
+      // Disable desktop OrbitControls while in XR so they don't fight head pose
+      renderer.xr.addEventListener("sessionstart", () => {
+        if (controls) controls.enabled = false;
+      });
+      renderer.xr.addEventListener("sessionend", () => {
+        if (controls) controls.enabled = true;
+      });
+
+      // Lights
+      scene.add(new THREE.HemisphereLight(0xdce7ff, 0x0b0f18, 0.72));
+
+      const dir = new THREE.DirectionalLight(0xffffff, 1.05);
+      dir.position.set(8, 14, 6);
+      dir.castShadow = true;
+      dir.shadow.mapSize.set(2048, 2048);
+      dir.shadow.camera.left = -26;
+      dir.shadow.camera.right = 26;
+      dir.shadow.camera.top = 26;
+      dir.shadow.camera.bottom = -26;
+      dir.shadow.camera.near = 0.1;
+      dir.shadow.camera.far = 120;
+      scene.add(dir);
+
+      // Ground
+      const groundMat = new THREE.MeshStandardMaterial({
+        color: 0x0f1726,
+        roughness: 1.0,
+        metalness: 0.0
+      });
+      ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE),
+        groundMat
+        );
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Axes helper at origin
+      const axes = new THREE.AxesHelper(5);
+      scene.add(axes);
+
+      // Cube centered at origin (sitting on ground)
+      const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
+      const cubeMat = new THREE.MeshStandardMaterial({
+        color: 0x4e9cff,
+        roughness: 0.4,
+        metalness: 0.2
+      });
+      cube = new THREE.Mesh(cubeGeo, cubeMat);
+      cube.position.set(0, 0.5, 0);
+      cube.castShadow = true;
+      //scene.add(cube);
+
+
+      // Trees (cones)
+      const coneGeo = new THREE.ConeGeometry(0.9, 3.3, 24, 1);
+      const coneMat = new THREE.MeshStandardMaterial({
+        color: 0x27d66b,
+        roughness: 0.75
+      });
+
+      const treePositions = [
+        [-6, 1.65, -3],
+        [-2, 1.65,  4],
+        [ 3, 1.65, -1],
+        [ 7, 1.65,  5],
+        [ 1, 1.65,  8]
+      ];
+
+      for (let i = 0; i < treePositions.length; i++) {
+        const [x, y, z] = treePositions[i];
+        const m = new THREE.Mesh(coneGeo, coneMat);
+        m.position.set(x, y, z);
+        m.rotation.y = (i * 0.9) % (Math.PI * 2);
+        m.castShadow = true;
+        m.receiveShadow = true;
+        scene.add(m);
+        cones.push(m);
+      }
+
+      // Rocks
+      const rockGeo = new THREE.IcosahedronGeometry(1.1, 0);
+      const rockMat = new THREE.MeshStandardMaterial({
+        color: 0x2b3442,
+        roughness: 1.0
+      });
+
+      const rockPos = [
+        [-9, 1.0,  6],
+        [-7, 0.8, -8],
+        [ 8, 1.0, -6]
+      ];
+
+      for (let i = 0; i < rockPos.length; i++) {
+        const [x, y, z] = rockPos[i];
+        const r = new THREE.Mesh(rockGeo, rockMat);
+        r.position.set(x, y, z);
+        r.scale.setScalar(1.0 + i * 0.25);
+        r.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
+        r.castShadow = true;
+        r.receiveShadow = true;
+        scene.add(r);
+        rocks.push(r);
+      }
+
+      colliderObjects = [...cones, ...rocks, cube];
+      colliderBounds = buildColliderBounds(colliderObjects);
+    }
+
+
+    function rebuildWorld() {
+      buildSnowSurface();
+      buildSnowField();
+      buildStuckSystem();
+      buildSettlers();
+      colliderBounds = buildColliderBounds(colliderObjects);
+    }
+
+    // -------------------------------------------------------------------------
+    // GUI (with gust controls + preset dropdown)
+    // -------------------------------------------------------------------------
+
+    function trackController(ctrl, { rebuild = false, instant = true } = {}) {
+      guiControllers.push(ctrl);
+      const needsFinish = typeof ctrl.onFinishChange === "function";
+
+      if (needsFinish && !instant) {
+        ctrl.onChange(() => {
+          saveLastDebounced(params);
+        });
+        ctrl.onFinishChange(() => {
+          if (rebuild) rebuildWorld();
+          saveLastDebounced(params);
+        });
+      } else {
+        ctrl.onChange(() => {
+          if (rebuild) rebuildWorld();
+          saveLastDebounced(params);
+        });
+      }
+      return ctrl;
+    }
+
+    function refreshGuiDisplays() {
+      for (const c of guiControllers) {
+        c.updateDisplay();
+      }
+    }
+
+    async function refreshPresetList() {
+      try {
+        const names = await idbListPresetNames();
+        const opts = names.length ? names : ["<none>"];
+        presetSelectCtrl.options(opts);
+        if (!names.includes(presetState.selected)) {
+          presetState.selected = names[0] || "<none>";
+        }
+        presetSelectCtrl.updateDisplay();
+      } catch (e) {
+        console.error("[snow] refresh presets failed", e);
+      }
+    }
+
+    async function savePreset() {
+      const name = sanitizePresetName(presetState.presetName || `preset-${nowStamp()}`);
+      if (!name) return;
+      presetState.presetName = name;
+      const settings = safeCloneSettings(params);
+      try {
+        await idbPutPreset(name, settings);
+        presetState.selected = name;
+        await refreshPresetList();
+        saveLastDebounced(params);
+      } catch (e) {
+        console.error("[snow] preset save failed", e);
+      }
+    }
+
+    async function loadPreset() {
+      const name = sanitizePresetName(presetState.selected);
+      if (!name || name === "<none>") return;
+      try {
+        const row = await idbGetPreset(name);
+        if (!row || !row.settings) {
+          console.warn("[snow] preset not found:", name);
+          return;
+        }
+        applySettings(row.settings, { rebuild: true, updateGui: true, persist: true });
+        presetState.presetName = name;
+      } catch (e) {
+        console.error("[snow] preset load failed", e);
+      }
+    }
+
+    async function deletePreset() {
+      const name = sanitizePresetName(presetState.selected);
+      if (!name || name === "<none>") return;
+      try {
+        await idbDeletePreset(name);
+        presetState.selected = "<none>";
+        await refreshPresetList();
+      } catch (e) {
+        console.error("[snow] preset delete failed", e);
+      }
+    }
+
+    function exportSettings() {
+      const payload = {
+        v: 1,
+        exportedAt: Date.now(),
+        settings: safeCloneSettings(params)
+      };
+      downloadJson(payload, `snow-settings-${nowStamp()}.json`);
+    }
+
+    function importSettings() {
+      const input = ensureImportInput();
+      input.onchange = async () => {
+        const file = input.files && input.files[0];
+        input.value = "";
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const json = JSON.parse(text);
+          if (!json || typeof json !== "object") throw new Error("Invalid JSON");
+          const settings =
+          json.settings && typeof json.settings === "object"
+          ? json.settings
+          : json;
+          applySettings(settings, { rebuild: true, updateGui: true, persist: true });
+        } catch (e) {
+          console.error("[snow] import failed", e);
+        }
+      };
+      input.click();
+    }
+
+    function setupGui() {
+      gui = new GUI({ width: 380 });
+
+      trackController(gui.add(params, "paused").name("Paused"), { instant: true });
+      trackController(gui.add(params, "debug").name("Debug logs"), { instant: true });
+
+      const sim = gui.addFolder("Simulation");
+      trackController(sim.add(params, "timeScale", 0.05, 2.0, 0.01).name("Time scale"));
+      trackController(sim.add(params, "dtMax", 0.008, 0.050, 0.001).name("dt max (clamp)"));
+      trackController(sim.add(params, "pixelRatio", 0.5, 2.5, 0.01).name("Pixel ratio"), {
+        rebuild: false
+      });
+      sim.open();
+
+      const wind = gui.addFolder("Wind");
+      trackController(wind.add(params, "windStrength", 0.0, 2.0, 0.01).name("Strength"));
+      trackController(wind.add(params, "windSpeed", 0.02, 0.40, 0.005).name("Speed"));
+      wind.open();
+
+      const gustFolder = gui.addFolder("Gusts");
+      trackController(
+        gustFolder.add(params, "gustMinInterval", 0.2, 6.0, 0.1).name("Min interval")
+        );
+      trackController(
+        gustFolder.add(params, "gustMaxInterval", 0.4, 12.0, 0.1).name("Max interval")
+        );
+      trackController(
+        gustFolder.add(params, "gustTornadoChance", 0.0, 0.6, 0.01).name("Tornado chance")
+        );
+      trackController(
+        gustFolder.add(params, "gustStrengthMul", 0.3, 2.0, 0.01).name("Strength mul")
+        );
+      trackController(
+        gustFolder.add(params, "gustSwirlMul", 0.3, 2.0, 0.01).name("Swirl mul")
+        );
+      trackController(
+        gustFolder.add(params, "gustUpdraftMul", 0.0, 2.0, 0.01).name("Updraft mul")
+        );
+      trackController(
+        gustFolder.add(params, "gustScour", 0.0, 0.03, 0.0005).name("Scour")
+        );
+      trackController(
+        gustFolder.add(params, "gustRedeposit", 0.0, 0.03, 0.0005).name("Redeposit")
+        );
+      gustFolder.open();
+
+      const flakes = gui.addFolder("Flakes");
+      trackController(
+        flakes.add(params, "visualCount", 20000, 600000, 5000).name("Visual flakes"),
+        { rebuild: true, instant: false }
+        );
+      trackController(flakes.add(params, "fallSpeed", 0.001, 10.5, 0.001).name("Fall speed"));
+      trackController(flakes.add(params, "fallJitter", 0.0, 0.9, 0.01).name("Fall jitter"));
+      trackController(flakes.add(params, "flakeSize", 0.01, 10.0, 0.01).name("Flake size"));
+      trackController(
+        flakes.add(params, "flakeSizeJitter", 0.0, 0.9, 0.01).name("Size jitter")
+        );
+      flakes.open();
+
+      const drifts = gui.addFolder("Drifts");
+      trackController(drifts.add(params, "driftGrid", 32, 256, 1).name("Grid"), {
+        rebuild: true,
+        instant: false
+      });
+      trackController(
+        drifts.add(params, "driftMaxHeight", 0.5, 8.0, 0.1).name("Max height")
+        );
+      trackController(drifts.add(params, "coverBase", 0.0, 0.30, 0.005).name("Base cover"));
+      trackController(
+        drifts.add(params, "coverMacroAmp", 0.0, 0.30, 0.005).name("Macro amp")
+        );
+      trackController(
+        drifts.add(params, "coverMacroFreq", 0.5, 6.0, 0.1).name("Macro freq")
+        );
+      trackController(
+        drifts.add(params, "coverMicroAmp", 0.0, 0.20, 0.005).name("Micro amp")
+        );
+      trackController(
+        drifts.add(params, "coverMicroFreq", 2.0, 16.0, 0.1).name("Micro freq")
+        );
+      trackController(
+        drifts.add(params, "depositUnit", 0.00005, 0.0015, 0.00001).name("Deposit unit")
+        );
+      trackController(
+        drifts.add(params, "driftDiffusion", 0.0, 0.25, 0.001).name("Diffusion")
+        );
+      trackController(
+        drifts.add(params, "driftAdvection", 0.0, 0.30, 0.001).name("Advection")
+        );
+      trackController(
+        drifts.add(params, "obstacleShapeInterval", 1, 60, 1).name("Obstacle shape N")
+        );
+      trackController(
+        drifts.add(params, "driftWriteInterval", 1, 60, 1).name("Write mesh N")
+        );
+      trackController(
+        drifts.add(params, "normalUpdateInterval", 4, 180, 1).name("Normals N")
+        );
+      drifts.open();
+
+      const sticking = gui.addFolder("Sticking");
+      trackController(
+        sticking.add(params, "settlerCount", 1000, 30000, 500).name("Settlers"),
+        { rebuild: true, instant: false }
+        );
+      trackController(
+        sticking.add(params, "groundDepositBudget", 20, 1200, 10).name("Deposit budget")
+        );
+      trackController(
+        sticking.add(params, "objectTestsPerFrame", 0, 5000, 50).name("Ray tests/frame")
+        );
+      trackController(
+        sticking.add(params, "objectDeposit", 0.0, 0.02, 0.0005).name("Object deposit")
+        );
+      trackController(
+        sticking.add(params, "stuckMax", 1000, 60000, 500).name("Max decals"),
+        { rebuild: true, instant: false }
+        );
+      trackController(
+        sticking.add(params, "decalSize", 0.06, 0.50, 0.01).name("Decal size"),
+        { rebuild: true, instant: false }
+        );
+      sticking.open();
+
+      const misc = {
+        resetDefaults() {
+          applySettings(DEFAULTS, { rebuild: true, updateGui: true, persist: true });
+        }
+      };
+      gui.add(misc, "resetDefaults").name("Reset to defaults");
+
+      const presets = gui.addFolder("Presets");
+      presets.add(presetState, "presetName").name("Save as").listen();
+      presetSelectCtrl = presets.add(presetState, "selected", ["<none>"]).name("Saved presets");
+
+      presets.add({ savePreset }, "savePreset").name("Save");
+      presets.add({ loadPreset }, "loadPreset").name("Load");
+      presets.add({ deletePreset }, "deletePreset").name("Delete");
+      presets.add({ exportJson: exportSettings }, "exportJson").name("Export JSON");
+      presets.add({ importJson: importSettings }, "importJson").name("Import JSON");
+      presets.open();
+
+
+      gui.close()
+
+    }
+
+    // -------------------------------------------------------------------------
+    // Events / main loop
+    // -------------------------------------------------------------------------
+
+    function handleResize() {
+
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    const clock = new THREE.Clock();
+    let frame = 0;
+    let simTime = 0;
+
+    function animate() {
+      const rawDt = clamp(
+        clock.getDelta(),
+        0.0,
+        Math.max(0.001, params.dtMax)
+        );
+      const timeScale = clamp(params.timeScale, 0.05, 5.0);
+      const dt = params.paused ? 0.0 : rawDt * timeScale;
+
+      if (!params.paused) simTime += dt;
+      const t = simTime;
+
+  // Base wind
+      const wA =
+      Math.sin(t * params.windSpeed) * 0.48 +
+      Math.sin(t * (params.windSpeed * 2.4)) * 0.16;
+      const wB =
+      Math.cos(t * (params.windSpeed * 0.92)) * 0.44 +
+      Math.sin(t * (params.windSpeed * 2.1)) * 0.14;
+      const baseWindX = wA * params.windStrength;
+      const baseWindZ = wB * params.windStrength;
+
+  // Gust lifecycle
+      if (!params.paused) {
+        spawnGusts(dt);
+        for (let i = 0; i < gusts.length; i++) {
+          gusts[i].step(dt);
+        }
+      }
+
+  // Feed gust arrays for GPU snow
+      for (let i = 0; i < GUST_MAX; i++) {
+        const g = gusts[i];
+        const fade = g.active ? g.fade : 0.0;
+
+        gustPosRad[i * 3 + 0] = g.x;
+        gustPosRad[i * 3 + 1] = g.z;
+        gustPosRad[i * 3 + 2] = g.radius;
+
+        gustParams[i * 3 + 0] = g.strength * fade;
+        gustParams[i * 3 + 1] = g.swirl * fade;
+        gustParams[i * 3 + 2] = g.updraft * fade;
+      }
+
+  // GPU flakes
+      if (snowMat) {
+        snowMat.uniforms.uTime.value = t;
+        snowMat.uniforms.uWind.value.set(baseWindX, baseWindZ);
+        snowMat.uniforms.uFallSpeed.value = params.fallSpeed;
+        snowMat.uniforms.uFallJitter.value = params.fallJitter;
+        snowMat.uniforms.uFlakeSize.value = params.flakeSize;
+        snowMat.uniforms.uFlakeSizeJitter.value = params.flakeSizeJitter;
+      }
+
+  // Drifts / settlers (freeze when paused)
+      if (!params.paused) {
+        if (driftHeights) {
+          applyGustScour(baseWindX, baseWindZ);
+
+          if (frame % clamp(params.obstacleShapeInterval | 0, 1, 600) === 0) {
+            shapeDriftsAroundObstacles(baseWindX, baseWindZ);
+          }
+          evolveDrifts(baseWindX, baseWindZ);
+
+          if (frame % clamp(params.driftWriteInterval | 0, 1, 120) === 0) {
+            applyHeightsToGeometry();
+          }
+          if (
+            frame % clamp(params.normalUpdateInterval | 0, 1, 240) === 0 &&
+            driftGeo
+            ) {
+            driftGeo.computeVertexNormals();
+          driftGeo.attributes.normal.needsUpdate = true;
+        }
+      }
+
+      updateSettlers(dt, baseWindX, baseWindZ);
+    }
+
+  // Small cube motion (just a tiny movement)
+    // cube.rotation.y += 0.4 * dt;
+    // cube.rotation.x += 0.2 * dt;
+
+    const inXR = renderer.xr.isPresenting;
+
+    if (!inXR && controls) {
+      controls.update();
+    }
+
+    renderer.render(scene, camera);
+
+    frame++;
+  }
+
+
+
+// -------------------------------------------------------------------------
+// Keyboard: fullscreen (F) and UI toggle (ESC)
+// -------------------------------------------------------------------------
+
+  let uiHidden = false;
+
+/**
+ * Toggle visibility of GUI and HUD without destroying state.
+ */
+  function setUIHidden(hidden) {
+    uiHidden = hidden;
+
+    if (gui && gui.domElement) {
+      gui.domElement.style.display = hidden ? "none" : "";
+    }
+
+    const hud = document.querySelector(".hud");
+    if (hud) {
+      hud.style.display = hidden ? "none" : "";
+    }
+  }
+
+/**
+ * Cross-browser fullscreen state check.
+ */
+  function isFullscreen() {
+    return (
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement
+      );
+  }
+
+/**
+ * Toggle fullscreen on the document root.
+ */
+  function toggleFullscreen() {
+    const el = document.documentElement;
+
+    if (!isFullscreen()) {
+      if (el.requestFullscreen) el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+      else if (el.msRequestFullscreen) el.msRequestFullscreen();
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+      else if (document.msExitFullscreen) document.msExitFullscreen();
+    }
+  }
+
+/**
+ * Unified key handler.
+ */
+  function onKeyDown(e) {
+    const tag = e.target && e.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+    if (e.code === "KeyF") {
+      e.preventDefault();
+      toggleFullscreen();
+      return;
+    }
+
+    if (e.code === "Escape") {
+      e.preventDefault();
+      setUIHidden(!uiHidden);
+    }
+  }
+
+
+    // -------------------------------------------------------------------------
+    // Boot
+    // -------------------------------------------------------------------------
+
+  function init() {
+    loadLastSettings(params);
+
+    setupScene();
+    snowTex = makeRadialTexture(96);
+
+    rebuildWorld();
+    
+    setupGui();
+    refreshGuiDisplays();
+    refreshPresetList();
+
+    handleResize();
+    window.addEventListener("resize", handleResize, { passive: true });
+
+    window.addEventListener("keydown", onKeyDown);
+
+    addEventListener(
+      "pagehide",
+      () => saveLastNow(params),
+      { capture: true }
+      );
+    addEventListener(
+      "beforeunload",
+      () => saveLastNow(params),
+      { capture: true }
+      );
+    addEventListener(
+      "visibilitychange",
+      () => {
+        if (document.visibilityState === "hidden") {
+          saveLastNow(params);
+        }
+      },
+      { capture: true }
+      );
+
+  // WebXR + desktop: XR session will drive this when active
+    renderer.setAnimationLoop(animate);
+  }
+
+  init();
+
+
+
+</script>
+</body>
+</html>
