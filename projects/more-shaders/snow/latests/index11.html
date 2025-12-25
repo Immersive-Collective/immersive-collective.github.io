@@ -1585,7 +1585,7 @@ function setupClouds() {
 
   cloudLayer = new THREE.InstancedMesh(geo, cloudMaterial, sliceCount);
     // draw clouds after snow points (2) and stuck decals (3)
-  cloudLayer.renderOrder = 4;
+  //cloudLayer.renderOrder = 4;
 
   const dummy = new THREE.Object3D();
   for (let i = 0; i < sliceCount; i++) {

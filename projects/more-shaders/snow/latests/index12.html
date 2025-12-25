@@ -1157,9 +1157,10 @@
         params.cloudSoftness = clamp(params.cloudSoftness, 0.0, 1.0);
       }
 
-    // apply fog + background color from params (fogNear, fogFar, fogColor)
-      if (scene) {
-        updateFogFromParams();
+    // apply fog to scene now that it’s clamped
+      if (scene && scene.fog) {
+        scene.fog.near = params.fogNear;
+        scene.fog.far = params.fogFar;
       }
 
     // On preset / import loads we pass rebuild: true
