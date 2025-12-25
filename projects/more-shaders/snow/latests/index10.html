@@ -930,7 +930,7 @@
 
     // JSON file presets (edit / extend this list)
     const FILE_PRESET_URLS = [
-      "presets/snow-Hello.json",
+      "presets/snow-Final.json",
       "presets/snow-Forrest.json",
       "presets/snow-Moist-1.json",
       "presets/snow-More-Snow.json",
@@ -972,9 +972,6 @@
       for (const k of driftKernel) k.w /= sum || 1;
     })();
 
-    // -------------------------------------------------------------------------
-    // Apply settings (clamps)
-    // -------------------------------------------------------------------------
 
   function applySettings(
     obj,
@@ -3201,7 +3198,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     async function loadDefaultPresetFromFile() {
       try {
-        const response = await fetch("presets/snow-Hello.json", {
+        const response = await fetch("presets/snow-Final.json", {
           cache: "no-store"
         });
 

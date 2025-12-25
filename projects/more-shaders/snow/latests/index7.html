@@ -373,17 +373,9 @@
       forestMinScale: 0.7,
       forestMaxScale: 1.6,
       forestSeed: 1234,
-      forestJitter: 1.0,
+      forestJitter: 1.0
 
-      // Clouds
-      cloudEnabled: true,
-      cloudHeightBase: 18.0,
-      cloudHeightRange: 6.0,
-      cloudRadius: 40.0,
-      cloudSliceCount: 10,
-      cloudSpeed: 0.010,
-      cloudDensity: 0.85,
-      cloudSoftness: 0.25
+
 
     };
 
@@ -421,9 +413,22 @@
       scene.fog = new THREE.Fog(color, params.fogNear, params.fogFar);
     }
 
-    // Clouds runtime
+    // clouds
     let cloudLayer = null;
     let cloudMaterial = null;
+
+    const cloudParams = {
+      enabled: true,
+      heightBase: 18.0,
+      heightRange: 6.0,
+      radius: 40.0,
+      sliceCount: 10,
+      speed: 0.010,    // UV scroll speed
+      density: 0.85,   // how “thick” clouds are
+      softness: 0.25   // edge softness
+    };
+
+
 
 
 
@@ -930,7 +935,7 @@
 
     // JSON file presets (edit / extend this list)
     const FILE_PRESET_URLS = [
-      "presets/snow-Hello.json",
+      "presets/snow-Final.json",
       "presets/snow-Forrest.json",
       "presets/snow-Moist-1.json",
       "presets/snow-More-Snow.json",
@@ -976,59 +981,34 @@
     // Apply settings (clamps)
     // -------------------------------------------------------------------------
 
-  function applySettings(
-    obj,
-    { rebuild = false, updateGui = true, persist = true } = {}
-    ) {
+  function applySettings(obj, { rebuild = false, updateGui = true, persist = true } = {}) {
     if (!obj || typeof obj !== "object") return;
 
     persistBlocked = true;
     try {
-    // Accept all primitive keys, even if they didn't exist in DEFAULTS yet
       for (const [k, v] of Object.entries(obj)) {
-        const cur = params[k];
-        const tCur = typeof cur;
-
-        if (tCur === "number" && typeof v === "number" && Number.isFinite(v)) {
-          params[k] = v;
-        } else if (tCur === "boolean" && typeof v === "boolean") {
-          params[k] = v;
-        } else if (tCur === "string" && typeof v === "string") {
-          params[k] = v;
-        } else if (cur === undefined) {
-        // New param that wasn’t in DEFAULTS yet – accept sane primitives
-          if (typeof v === "number" && Number.isFinite(v)) {
-            params[k] = v;
-          } else if (typeof v === "boolean") {
-            params[k] = v;
-          } else if (typeof v === "string") {
-            params[k] = v;
-          }
-        }
+        if (!(k in params)) continue;
+        const T = typeof params[k];
+        if (T === "number" && typeof v === "number" && Number.isFinite(v)) params[k] = v;
+        if (T === "boolean" && typeof v === "boolean") params[k] = v;
+        if (T === "string" && typeof v === "string") params[k] = v;
       }
 
-    // --- clamps: same as before + extras for clouds / forest ---
-
-    // core sim
       params.timeScale = clamp(params.timeScale, 0.05, 5.0);
       params.dtMax = clamp(params.dtMax, 0.005, 0.05);
       params.pixelRatio = clamp(params.pixelRatio, 0.5, 3.0);
 
-    // wind
       params.windStrength = clamp(params.windStrength, 0.0, 3.0);
-      params.windSpeed = clamp(params.windSpeed, 0.01, 1.0);
+      params.windSpeed = clamp(params.windSpeed, 0.0, 1.0);
 
-    // flakes
       params.fallSpeed = clamp(params.fallSpeed, 0.001, 10.5);
       params.fallJitter = clamp(params.fallJitter, 0.0, 0.9);
       params.flakeSize = clamp(params.flakeSize, 0.01, 10.0);
       params.flakeSizeJitter = clamp(params.flakeSizeJitter, 0.0, 0.9);
 
-    // counts
       params.visualCount = clamp(params.visualCount | 0, 20000, 600000);
       params.settlerCount = clamp(params.settlerCount | 0, 1000, 30000);
 
-    // drifts
       params.driftGrid = clamp(params.driftGrid | 0, 32, 256);
       params.driftMaxHeight = clamp(params.driftMaxHeight, 0.5, 8.0);
 
@@ -1041,41 +1021,20 @@
       params.driftDiffusion = clamp(params.driftDiffusion, 0.0, 0.25);
       params.driftAdvection = clamp(params.driftAdvection, 0.0, 0.30);
 
-      params.groundDepositBudget = clamp(
-        params.groundDepositBudget | 0,
-        1,
-        5000
-        );
+      params.groundDepositBudget = clamp(params.groundDepositBudget | 0, 1, 5000);
       params.depositUnit = clamp(params.depositUnit, 0.0, 0.01);
 
-    // sticking / decals
-      params.objectTestsPerFrame = clamp(
-        params.objectTestsPerFrame | 0,
-        0,
-        5000
-        );
+      params.objectTestsPerFrame = clamp(params.objectTestsPerFrame | 0, 0, 5000);
       params.objectDeposit = clamp(params.objectDeposit, 0.0, 0.05);
 
       params.stuckMax = clamp(params.stuckMax | 0, 1000, 120000);
       params.decalSize = clamp(params.decalSize, 0.04, 0.80);
 
-      params.obstacleShapeInterval = clamp(
-        params.obstacleShapeInterval | 0,
-        1,
-        600
-        );
-      params.driftWriteInterval = clamp(
-        params.driftWriteInterval | 0,
-        1,
-        120
-        );
-      params.normalUpdateInterval = clamp(
-        params.normalUpdateInterval | 0,
-        4,
-        600
-        );
+      params.obstacleShapeInterval = clamp(params.obstacleShapeInterval | 0, 1, 600);
+      params.driftWriteInterval = clamp(params.driftWriteInterval | 0, 1, 120);
+      params.normalUpdateInterval = clamp(params.normalUpdateInterval | 0, 4, 600);
 
-    // gusts
+        // Gust params
       params.gustMinInterval = clamp(params.gustMinInterval, 0.1, 20.0);
       params.gustMaxInterval = clamp(
         params.gustMaxInterval,
@@ -1085,99 +1044,46 @@
       params.gustTornadoChance = clamp(params.gustTornadoChance, 0.0, 1.0);
       params.gustStrengthMul = clamp(params.gustStrengthMul, 0.0, 4.0);
       params.gustSwirlMul = clamp(params.gustSwirlMul, 0.0, 4.0);
+
       params.gustUpdraftMul = clamp(params.gustUpdraftMul, 0.0, 4.0);
       params.gustScour = clamp(params.gustScour, 0.0, 0.10);
       params.gustRedeposit = clamp(params.gustRedeposit, 0.0, 0.10);
 
-    // fog
       params.fogNear = clamp(params.fogNear, 0.1, 200.0);
       params.fogFar = clamp(params.fogFar, params.fogNear + 1.0, 400.0);
 
-    // forest
-      if (typeof params.forestCount === "number") {
-        params.forestCount = clamp(params.forestCount | 0, 0, 400);
-      }
-      if (typeof params.forestRadius === "number") {
-        params.forestRadius = clamp(
-          params.forestRadius,
-          1.0,
-          HALF_GROUND - 1.0
-          );
-      }
-      if (typeof params.forestInnerRadius === "number") {
-        params.forestInnerRadius = clamp(
-          params.forestInnerRadius,
-          0.0,
-          Math.max((params.forestRadius || 0) - 1.0, 0.0)
-          );
-      }
-      if (typeof params.forestMinScale === "number") {
-        params.forestMinScale = Math.max(0.2, params.forestMinScale);
-      }
-      if (typeof params.forestMaxScale === "number") {
-        params.forestMaxScale = Math.max(
-          params.forestMinScale || 0.2,
-          params.forestMaxScale
-          );
-      }
-      if (typeof params.forestJitter === "number") {
-        params.forestJitter = clamp(params.forestJitter, 0.0, 3.0);
-      }
 
-    // clouds
-      if (typeof params.cloudHeightBase === "number") {
-        params.cloudHeightBase = clamp(params.cloudHeightBase, 0.0, 200.0);
-      }
-      if (typeof params.cloudHeightRange === "number") {
-        params.cloudHeightRange = clamp(params.cloudHeightRange, 0.0, 80.0);
-      }
-      if (typeof params.cloudRadius === "number") {
-        params.cloudRadius = clamp(params.cloudRadius, 5.0, 400.0);
-      }
-      if (typeof params.cloudSliceCount === "number") {
-        params.cloudSliceCount = clamp(
-          params.cloudSliceCount | 0,
-          4,
-          512
-          );
-      }
-      if (typeof params.cloudSpeed === "number") {
-        params.cloudSpeed = clamp(params.cloudSpeed, 0.0, 0.05);
-      }
-      if (typeof params.cloudDensity === "number") {
-        params.cloudDensity = clamp(params.cloudDensity, 0.0, 2.0);
-      }
-      if (typeof params.cloudSoftness === "number") {
-        params.cloudSoftness = clamp(params.cloudSoftness, 0.0, 1.0);
-      }
+      params.forestCount = clamp(params.forestCount | 0, 0, 400);
+      params.forestRadius = clamp(params.forestRadius, 1.0, HALF_GROUND - 1.0);
+      params.forestInnerRadius = clamp(
+        params.forestInnerRadius,
+        0.0,
+        Math.max(params.forestRadius - 1.0, 0.0)
+        );
+      params.forestMinScale = clamp(params.forestMinScale, 0.2, 4.0);
+      params.forestMaxScale = clamp(
+        params.forestMaxScale,
+        params.forestMinScale,
+        6.0
+        );
+      params.forestSeed = params.forestSeed | 0;
+      params.forestJitter = clamp(params.forestJitter, 0.0, 3.0);
 
-    // apply fog to scene now that it’s clamped
-      if (scene && scene.fog) {
-        scene.fog.near = params.fogNear;
-        scene.fog.far = params.fogFar;
-      }
 
-    // On preset / import loads we pass rebuild: true
-      if (rebuild) {
-        rebuildWorld();
-      // forest + clouds depend on params but are built separately
-        rebuildForest();
-        rebuildClouds();
-      } else {
-      // No full rebuild: at least push new cloud uniforms
-        applyCloudParamsToUniforms();
-      }
 
-      if (updateGui && gui) {
-        refreshGuiDisplays();
-      }
 
-      if (persist && !persistBlocked) {
-        saveLastDebounced(params);
-      }
     } finally {
       persistBlocked = false;
     }
+
+    if (scene) updateFogFromParams();
+
+    if (rebuild) rebuildWorld();
+
+
+
+    if (updateGui) refreshGuiDisplays();
+    if (persist) saveLastDebounced(params);
   }
 
     // -------------------------------------------------------------------------
@@ -1459,7 +1365,6 @@ const CLOUD_FRAGMENT_SHADER = /* glsl */ `
   uniform float uRadius;
   uniform float uDensity;
   uniform float uSoftness;
-  uniform float uSpeed;
   uniform vec3 uCloudColor;
   uniform vec3 uSkyColor;
 
@@ -1503,22 +1408,13 @@ const CLOUD_FRAGMENT_SHADER = /* glsl */ `
   void main() {
     vec2 uv = vWorldPos.xz / uRadius;
 
-    float scroll = uTime * uSpeed;
+    float scroll = uTime * 0.02;
     vec2 p = uv * 1.2 + vec2(scroll, vLayer * 0.27);
 
     float n = fbm(p);
 
-    // center of the cloud band in noise space
-    float center = 1.0 - uDensity;
-
-    // softness controls *band width* around that center
-    float halfWidth = max(0.001, uSoftness * 0.5);
-
-    // alpha = 0 below center - halfWidth
-    // alpha = 1 above center + halfWidth
-    // smooth fade in between → nice white → transparent gradient
-    float alpha = smoothstep(center - halfWidth, center + halfWidth, n);
-
+    float threshold = 1.0 - uDensity;
+    float alpha = smoothstep(threshold, threshold + uSoftness, n);
 
     float dist = length(vWorldPos.xz) / uRadius;
     float edgeFade = smoothstep(1.0, 0.6, dist);
@@ -1526,9 +1422,6 @@ const CLOUD_FRAGMENT_SHADER = /* glsl */ `
 
     float hFade = smoothstep(0.0, 0.4, vLayer) * smoothstep(1.0, 0.5, vLayer);
     alpha *= hFade;
-
-    // boost opacity a bit so they punch through snow
-    alpha = clamp(alpha * 1.35, 0.0, 1.0);
 
     if (alpha < 0.02) discard;
 
@@ -1538,15 +1431,14 @@ const CLOUD_FRAGMENT_SHADER = /* glsl */ `
 `;
 
 
-
 function setupClouds() {
-  if (!params.cloudEnabled) return;
+  if (!cloudParams.enabled) return;
 
-  const sliceCount = Math.max(1, params.cloudSliceCount | 0);
+  const sliceCount = Math.max(1, cloudParams.sliceCount | 0);
 
   const geo = new THREE.PlaneGeometry(
-    params.cloudRadius * 2.0,
-    params.cloudRadius * 1.4,
+    cloudParams.radius * 2.0,
+    cloudParams.radius * 1.4,
     1,
     1
     );
@@ -1567,25 +1459,21 @@ function setupClouds() {
     fragmentShader: CLOUD_FRAGMENT_SHADER,
     transparent: true,
     depthWrite: false,
-    depthTest: true,
-    side: THREE.DoubleSide
+    depthTest: true
   });
 
   cloudMaterial.uniforms = {
     uTime: { value: 0 },
-    uRadius: { value: params.cloudRadius },
-    uHeightBase: { value: params.cloudHeightBase },
-    uHeightRange: { value: params.cloudHeightRange },
-    uDensity: { value: params.cloudDensity },
-    uSoftness: { value: params.cloudSoftness },
-    uSpeed: { value: params.cloudSpeed },
+    uRadius: { value: cloudParams.radius },
+    uHeightBase: { value: cloudParams.heightBase },
+    uHeightRange: { value: cloudParams.heightRange },
+    uDensity: { value: cloudParams.density },
+    uSoftness: { value: cloudParams.softness },
     uCloudColor: { value: new THREE.Color(0xf5f7ff) },
     uSkyColor: { value: new THREE.Color(0x0a1220) }
   };
 
   cloudLayer = new THREE.InstancedMesh(geo, cloudMaterial, sliceCount);
-    // draw clouds after snow points (2) and stuck decals (3)
-  cloudLayer.renderOrder = 4;
 
   const dummy = new THREE.Object3D();
   for (let i = 0; i < sliceCount; i++) {
@@ -1600,43 +1488,11 @@ function setupClouds() {
   scene.add(cloudLayer);
 }
 
+
 function updateClouds(dt) {
   if (!cloudMaterial) return;
   cloudMaterial.uniforms.uTime.value += dt;
 }
-
-function applyCloudParamsToUniforms() {
-  if (!cloudMaterial) return;
-  const u = cloudMaterial.uniforms;
-  u.uRadius.value = params.cloudRadius;
-  u.uHeightBase.value = params.cloudHeightBase;
-  u.uHeightRange.value = params.cloudHeightRange;
-  u.uDensity.value = params.cloudDensity;
-  u.uSoftness.value = params.cloudSoftness;
-  u.uSpeed.value = params.cloudSpeed;
-}
-
-function disposeClouds() {
-  if (cloudLayer) {
-    scene.remove(cloudLayer);
-    cloudLayer.geometry.dispose();
-    cloudLayer.material.dispose();
-    cloudLayer = null;
-    cloudMaterial = null;
-  }
-}
-
-function rebuildClouds() {
-  disposeClouds();
-  if (!params.cloudEnabled) return;
-  setupClouds();
-  applyCloudParamsToUniforms();
-}
-
-
-
-
-
 
 
 
@@ -1832,31 +1688,23 @@ function buildSnowField() {
                      * (0.65 + 0.35 * nearGround)) * groundFade;
           }
       `,
-
       fragmentShader: `
           uniform sampler2D uTex;
           varying float vAlpha;
 
           void main() {
             vec4 tex = texture2D(uTex, gl_PointCoord);
-            // make each flake a bit less opaque, so background (clouds) can bleed through
-            float a = tex.a * vAlpha * 0.65;
+            float a = tex.a * vAlpha;
             if (a < 0.01) discard;
             gl_FragColor = vec4(1.0, 1.0, 1.0, a);
           }
         `
       });
 
-
-
-
 snowPoints = new THREE.Points(snowGeo, snowMat);
 snowPoints.frustumCulled = false;
-// render before stuck decals & clouds (which will have higher renderOrder)
-snowPoints.renderOrder = 2;
 scene.add(snowPoints);
 }
-
 
     // -------------------------------------------------------------------------
     // Decals (sticking snow)
@@ -2756,91 +2604,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           );
       //gustFolder.open();
 
-
-
-        const cloudFolder = gui.addFolder("Clouds");
-
-        cloudFolder
-        .add(params, "cloudEnabled")
-        .name("Enabled")
-        .onChange((v) => {
-          params.cloudEnabled = !!v;
-
-          if (!params.cloudEnabled) {
-            if (cloudLayer) cloudLayer.visible = false;
-          } else {
-            if (!cloudLayer) {
-              rebuildClouds();
-            } else {
-              cloudLayer.visible = true;
-              applyCloudParamsToUniforms();
-            }
-          }
-
-          saveLastDebounced(params);
-        });
-
-        cloudFolder
-        .add(params, "cloudHeightBase", 0.0, 100.0, 0.5)
-        .name("Base height")
-        .onChange(() => {
-          applyCloudParamsToUniforms();
-          saveLastDebounced(params);
-        });
-
-        cloudFolder
-        .add(params, "cloudHeightRange", 0.0, 25.0, 0.5)
-        .name("Height range")
-        .onChange(() => {
-          applyCloudParamsToUniforms();
-          saveLastDebounced(params);
-        });
-
-        cloudFolder
-        .add(params, "cloudRadius", 1.0, 300.0, 1.0)
-        .name("Radius")
-        .onChange(() => {
-          rebuildClouds();
-          saveLastDebounced(params);
-        });
-
-        cloudFolder
-        .add(params, "cloudSliceCount", 1, 256, 1)
-        .name("Slices")
-        .onChange(() => {
-          rebuildClouds();
-          saveLastDebounced(params);
-        });
-
-        cloudFolder
-        .add(params, "cloudDensity", 0.0, 1.0, 0.01)
-        .name("Density")
-        .onChange(() => {
-          applyCloudParamsToUniforms();
-          saveLastDebounced(params);
-        });
-
-        cloudFolder
-        .add(params, "cloudSoftness", 0.001, 1, 0.001)
-        .name("Softness")
-        .onChange(() => {
-          applyCloudParamsToUniforms();
-          saveLastDebounced(params);
-        });
-
-        cloudFolder
-        .add(params, "cloudSpeed", -0.05, 0.05, 0.001)
-        .name("Scroll speed")
-        .onChange(() => {
-          applyCloudParamsToUniforms();
-          saveLastDebounced(params);
-        });
-
-
-
-
-
-
         const flakes = gui.addFolder("Flakes");
         trackController(
           flakes.add(params, "visualCount", 20000, 600000, 5000).name("Visual flakes"),
@@ -3201,7 +2964,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     async function loadDefaultPresetFromFile() {
       try {
-        const response = await fetch("presets/snow-Hello.json", {
+        const response = await fetch("presets/snow-Final.json", {
           cache: "no-store"
         });
 
