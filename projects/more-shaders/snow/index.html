@@ -1826,6 +1826,24 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       depositTokens += depositsRemaining; // put back unused
     }
 
+
+    // -------------------------------------------------------------------------
+    // Camera idle auto-rotate (desktop only, not in XR)
+    // -------------------------------------------------------------------------
+    const AUTO_ROTATE_IDLE_SECONDS = 1.5;   // how long to wait
+    const AUTO_ROTATE_SPEED = 0.35;        // OrbitControls autoRotateSpeed
+    let lastInteractionTime = performance.now() * 0.001; // seconds
+    let autoRotateEnabled = true;
+
+    function markUserInteraction() {
+      lastInteractionTime = performance.now() * 0.001;
+      if (controls) {
+        // disable auto-rotate immediately when the user touches the controls
+        controls.autoRotate = false;
+      }
+    }
+
+
     // -------------------------------------------------------------------------
     // Scene / world setup
     // -------------------------------------------------------------------------
@@ -1852,6 +1870,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       renderer.shadowMap.enabled = true;
       container.appendChild(renderer.domElement);
 
+
+
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
@@ -1872,8 +1892,30 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       // Optional: keep target a bit above the surface (helps a lot)
       // controls.target.y = groundY + margin;
 
+      // Auto-rotate is controlled per-frame based on idle time
+      controls.autoRotate = false;
+      controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
+
+      // Any pointer/touch/wheel interaction on the canvas resets idle timer
+      const orbitInteractionEvents = [
+        "pointerdown",
+        "pointermove",
+        "wheel",
+        "touchstart",
+        "touchmove"
+      ];
+
+      for (const ev of orbitInteractionEvents) {
+        renderer.domElement.addEventListener(ev, markUserInteraction, {
+          passive: true
+        });
+      }
 
       controls.update();
+
+
+
+
 
       // WebXR “Enter VR” button (Quest 3 etc.)
       const sessionInit = {
@@ -2621,13 +2663,25 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
       }
 
-  // Small cube motion (just a tiny movement)
-    // cube.rotation.y += 0.4 * dt;
-    // cube.rotation.x += 0.2 * dt;
+
+
+      // Small cube motion (just a tiny movement)
+      // cube.rotation.y += 0.4 * dt;
+      // cube.rotation.x += 0.2 * dt;
 
       const inXR = renderer.xr.isPresenting;
 
       if (!inXR && controls) {
+        const nowSeconds = performance.now() * 0.001;
+        const idleSeconds = nowSeconds - lastInteractionTime;
+
+        const shouldAutoRotate =
+        autoRotateEnabled &&
+        idleSeconds >= AUTO_ROTATE_IDLE_SECONDS;
+
+        controls.autoRotate = shouldAutoRotate;
+        controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
+
         controls.update();
       }
 
@@ -2635,6 +2689,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
       frame++;
     }
+
 
 
 
