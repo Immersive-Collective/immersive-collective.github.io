@@ -1,5 +1,14 @@
 # WebXR Snowdrifts – VR Snow Simulation (Three.js)
 
+https://immersive-collective.org/projects/more-shaders/snow/
+
+https://github.com/user-attachments/assets/d3259663-f4c8-4f91-80f6-d2d0fd44cfa5
+
+<img width="1795" height="950" alt="Screenshot 2025-12-25 at 16 30 47" src="https://github.com/user-attachments/assets/acf94608-90a0-4220-b0ff-4f48f49354c2" />
+
+https://www.youtube.com/watch?v=PSrn-rUYy_8
+
+
 Single-file Three.js experiment that simulates heavy snowfall with gusts, snow drifts, sticking snow on geometry, volumetric-style clouds, procedural forest, imported GLB models, presets, and minimal WebAudio – all running in the browser and ready for WebXR (Quest 3). 
 
 ---
