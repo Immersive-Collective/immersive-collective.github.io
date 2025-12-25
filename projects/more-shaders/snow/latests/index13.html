@@ -1,0 +1,3123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+
+  <!-- Server injects these -->
+  <meta name="i2i-proj-short" content="{{ proj_short|default('', true) }}">
+  <meta name="i2i-proj-name"  content="{{ proj_name  |default('Realtime LCM', true) }}">
+  <meta name="i2i-proj-cfg"   content='{{ proj_cfg|default("{}", true) }}'>
+
+  <title>Realtime LCM (img2img) — SVG Draw + Layers V3</title>
+  
+  <link rel="icon" href="/static/favicon.ico" />
+
+  <script type="importmap">
+    { "imports": { "lil-gui": "/static/libs/js/lil-gui/dist/lil-gui.esm.min.js" } }
+  </script>
+
+  <style>
+
+    :root {
+      --gap: 14px;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --shadow-1: 0 1px 2px rgba(0,0,0,.24), 0 4px 12px rgba(0,0,0,.18);
+      --shadow-2: 0 2px 8px rgba(0,0,0,.25), 0 12px 28px rgba(0,0,0,.2);
+
+      --bg:#0b0b0c; --panel:#111114; --panel-2:#16161a;
+      --border:#242428; --text:#e9e9ea; --muted:#b8b8be;
+      --accent:#6d8dff; --accent-2:#5b5bff; --hover:rgba(255,255,255,.06);
+
+      /* button tokens (light/dark override below) */
+      --btn-bg: transparent;
+      --btn-bg-hover: transparent;
+      --btn-border: var(--border);
+
+      color-scheme: dark;
+    }
+
+    [data-theme="dark"] {
+      --bg:#0b0b0c; --panel:#111114; --panel-2:#16161a;
+      --border:#242428; --text:#e9e9ea; --muted:#b8b8be;
+      --accent:#6d8dff; --accent-2:#5b5bff; --hover:rgba(255,255,255,.06);
+
+      /* transparent buttons in dark mode */
+      --btn-bg: transparent;
+      --btn-bg-hover: transparent;
+      --btn-border: var(--border);
+
+      color-scheme: dark;
+    }
+
+    [data-theme="light"] {
+      --bg:#f7f7f9; --panel:#ffffff; --panel-2:#f2f3f5;
+      --border:#dedfe3; --text:#0e0f13; --muted:#555a66;
+      --accent:#335cff; --accent-2:#2b4eff; --hover:rgba(0,0,0,.05);
+
+      /* subtle filled buttons in light mode */
+      --btn-bg: var(--panel-2);
+      --btn-bg-hover: color-mix(in oklab, var(--panel-2) 80%, var(--hover));
+      --btn-border: var(--border);
+
+      color-scheme: light;
+    }
+
+    html, body { height:100%; }
+    html, body {
+      margin:0; padding:0; background:var(--bg); color:var(--text);
+      font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+    * { box-sizing:border-box; }
+    a { color: var(--accent); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .wrap { display:flex; flex-direction:column; min-height:100svh; }
+
+    .app-header{
+      position:sticky; top:0; z-index:60; background:var(--bg);
+      backdrop-filter:saturate(1.2) blur(6px);
+      padding:10px var(--gap);
+      display:grid; grid-template-columns:1fr auto 1fr; align-items:center;
+      border-bottom:1px solid color-mix(in oklab, var(--border) 70%, transparent);
+    }
+    .hdr-left{justify-self:start; display:flex; align-items:center; gap:10px; font-weight:700; letter-spacing:.3px; font-size:16px;}
+    .hdr-middle{justify-self:center; position:relative; display:flex; align-items:center; gap:8px}
+    .hdr-right{justify-self=end; display:flex; align-items:center; gap:8px}
+
+/* Buttons & chips — transparent in dark, filled in light via vars */
+.chip, .btn-sm, .btn {
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text);
+  border-radius: 999px;
+  cursor: pointer; user-select: none;
+  transition: .15s ease background, .15s ease border-color, .15s ease transform, .15s ease box-shadow;
+  will-change: transform;
+}
+.chip { padding:8px 12px; }
+.btn-sm { padding:6px 10px; border-radius:var(--radius-sm); font-size:12px; }
+.btn    { padding:10px 14px; border-radius:10px; }
+
+.chip:hover, .btn-sm:hover, .btn:hover { background: var(--btn-bg-hover); }
+.btn-sm:active, .btn:active { transform: translateY(1px); }
+
+.chip.active {
+  background: var(--btn-bg); /* stays transparent in dark */
+  border-color: color-mix(in oklab, var(--border) 70%, var(--accent-2));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent-2) 35%, transparent);
+}
+.btn-sm.active { outline:2px solid var(--accent-2); outline-offset:0; }
+
+.chip:focus-visible, .btn-sm:focus-visible, .btn:focus-visible, .dropdown-item:focus-visible {
+  outline:2px solid var(--accent); outline-offset:2px;
+}
+
+.modes { display:flex; gap:8px; padding:10px var(--gap) var(--gap); flex-wrap:wrap; }
+
+.grid { display:grid; grid-template-columns: 1fr 1fr; gap: var(--gap); padding: 0 var(--gap) var(--gap); }
+.pane {
+  background:var(--panel); border:1px solid var(--border);
+  border-radius:var(--radius-lg); overflow:hidden; position:relative; min-height:40svh;
+  box-shadow: var(--shadow-1);
+}
+.pane h3 {
+  position:absolute; z-index:2; top:8px; left:10px; margin:0; font-size:12px; letter-spacing:.3px; opacity:.85;
+  background:color-mix(in oklab, var(--panel) 70%, transparent);
+  padding:4px 6px; border-radius:8px; border:1px solid color-mix(in oklab, var(--border) 70%, transparent);
+}
+video, img, canvas { width:100%; height:100%; object-fit:cover; display:block; }
+.src { position:absolute; inset:0; display:none; }
+.src.show { display:block; }
+
+#drawWrap { position:absolute; inset:0; }
+#drawSvg  { width:100%; height:100%; display:block; background:transparent; touch-action:none; }
+.draw-toolbar {
+  position:absolute; right:10px; top:10px; display:flex; gap:8px; z-index:3; flex-wrap:wrap; align-items:center;
+  background:color-mix(in oklab, var(--panel) 86%, transparent);
+  border:1px solid var(--border); border-radius:12px; padding:8px; box-shadow: var(--shadow-1);
+}
+.swatch { width:28px; height:28px; border-radius:8px; border:1px solid var(--border); display:inline-flex; align-items:center; justify-content:center; background:var(--panel-2); }
+.thickness { min-width:46px; text-align:center; font-size:12px; opacity:.9; }
+.range { display:inline-flex; align-items:center; gap:6px; font-size:12px; opacity:.95; padding:2px 6px; border:1px solid var(--border); border-radius:8px; background:var(--panel-2); }
+input[type="color"] { appearance:none; background:transparent; border:none; width:24px; height:24px; cursor:pointer; }
+input[type="range"] { cursor:pointer; accent-color: var(--accent); }
+
+.layers-panel {
+  position:absolute; top:54px; right:10px; z-index:3; width:180px;
+  background:var(--panel-2); border:1px solid var(--border); border-radius:12px; padding:8px; display:flex; flex-direction:column; gap:8px;
+  box-shadow: var(--shadow-1);
+}
+.layers-header { display:flex; align-items:center; justify-content:space-between; font-size:12px; opacity:.95; }
+.layers-buttons { display:flex; gap:6px; }
+.layers-buttons .btn-sm { padding:4px 8px; }
+#layersList { display:flex; flex-direction:column; gap:6px; max-height:40svh; overflow:auto; scrollbar-width:thin; }
+.layer-item {
+  display:flex; align-items:center; gap:8px; padding:6px; border:1px solid var(--border);
+  border-radius:8px; cursor:pointer; background:var(--panel); transition:.15s background;
+}
+.layer-item:hover { background:color-mix(in oklab, var(--panel) 85%, var(--hover)); }
+.layer-item .box {
+  width:24px; height:16px; border:1px solid var(--border); border-radius:4px; background:color-mix(in oklab, var(--panel-2) 80%, var(--hover));
+}
+.layer-item.active { outline:2px solid var(--accent-2); outline-offset:1px; }
+.layer-item .layer-rename { outline: none; }
+.layer-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.layer-actions label.btn-sm { display:inline-flex; align-items:center; gap:6px; }
+.layer-actions input[type=file] { display:none; }
+
+.controls { display:grid; grid-template-columns: 1fr; gap: var(--gap); padding: 0 var(--gap) var(--gap); }
+.action-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+.action-row .spacer { flex:1; }
+.btn:disabled { opacity:.55; cursor:not-allowed; }
+.status {
+  font-size:12px; opacity:.95; padding:6px 10px; border-radius:999px;
+  border:1px solid var(--border); background:var(--panel-2);
+}
+
+.row { display:grid; grid-template-columns: 1fr; gap:8px; }
+label { font-size:12px; color:var(--muted); }
+textarea {
+  width:100%; min-height:90px; resize:vertical; padding:10px 12px; border-radius:12px;
+  border:1px solid var(--border); background:var(--panel); color:var(--text);
+  font: 14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
+
+.tips {
+  background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:12px;
+  color:color-mix(in oklab, var(--text) 82%, var(--muted));
+  box-shadow: var(--shadow-1);
+  display: none;
+}
+.tips strong { color:var(--text); }
+.tips ul { margin:8px 0 0 18px; padding:0; }
+.tips li { margin:4px 0; }
+
+.dropdown{
+  position:absolute; top:36px; right:0;
+  background:var(--panel-2); border:1px solid var(--border); border-radius:12px; padding:8px; min-width:260px;
+  display:none; z-index:1000; box-shadow: var(--shadow-2);
+}
+#projectsMenu{ position:absolute; z-index:1000; }
+.dropdown.show{display:block}
+.dropdown-section{padding:6px 0; border-top:1px solid var(--border)}
+.dropdown-section:first-child{border-top:none}
+.dropdown-item{
+  width:100%; text-align:left; border:1px solid var(--border); background:var(--panel);
+  border-radius:8px; padding:8px; margin:4px 0; cursor:pointer; font-size:13px; transition:.15s background;
+}
+.dropdown-item:hover{ background:color-mix(in oklab, var(--panel) 85%, var(--hover)); }
+.dropdown-label{font-size:11px; opacity:.8; margin:6px 2px}
+
+#overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.5); color:var(--text); z-index:9999; padding:24px; }
+#overlay.show { display:flex; }
+#overlay .modal{
+  width:min(560px,92vw); background:var(--panel-2); border:1px solid var(--border);
+  border-radius:12px; padding:14px; text-align:left; box-shadow: var(--shadow-2);
+}
+.modal h4{margin:0 0 8px 0}
+.modal .row{display:flex; gap:8px; margin:8px 0}
+.modal input[type=text]{flex:1; background:var(--panel); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:8px}
+.modal .actions{display:flex; justify-content:flex-end; gap:8px; margin-top:10px}
+
+.toast{
+  position:fixed; right:14px; bottom:14px; background:var(--panel-2);
+  border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:13px; z-index:1001; box-shadow: var(--shadow-1);
+}
+
+#drawSvg.grab { cursor: grab; }
+#drawSvg.grabbing { cursor: grabbing; }
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: 1fr; }
+  .pane { min-height:45svh; }
+  .layers-panel { width: 46vw; }
+}
+
+/* Modal content wrappers */
+.modal__body{ padding:14px; }
+.modal__status{ padding:14px; }
+.modal__status--error{ color:#ffb4b4; }
+
+/* Projects tabs */
+.proj-tabs{ display:flex; gap:8px; margin: 0 0 10px 0; }
+.proj-tabs .chip{ padding:6px 10px; }
+.proj-tabs .chip.active{
+  background: var(--btn-bg);
+  border-color: color-mix(in oklab, var(--border) 70%, var(--accent-2));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent-2) 35%, transparent);
+}
+
+/* Small utilities */
+.m-0{ margin:0; }
+
+/* ===== Projects modal & grid ===== */
+#overlay .modal.modal--projects{
+  width: min(1600px, 98vw);
+  max-height: 90svh;
+  overflow: auto;
+}
+
+#overlay .modal.modal--projects .proj-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  max-height: 80svh;
+  overflow: auto;
+}
+
+#overlay .modal.modal--projects .proj-card{
+  border: 1px solid var(--border);
+  background: var(--panel);
+  border-radius: 10px;
+  box-shadow: var(--shadow-1);
+  display: flex;
+  flex-direction: column;
+}
+
+#overlay .modal.modal--projects .proj-card .thumb{
+  aspect-ratio: 4/3;
+  background: #0b0b0c;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+#overlay .modal.modal--projects .proj-card .thumb img{
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+
+#overlay .modal.modal--projects .proj-card .body{
+  padding: 8px; display: flex; flex-direction: column; gap: 6px;
+}
+#overlay .modal.modal--projects .proj-card .title-row{
+  display: flex; align-items: center; justify-content: space-between;
+}
+#overlay .modal.modal--projects .proj-card .name{ font-weight: 600; font-size: 13px; line-height: 1.2; }
+#overlay .modal.modal--projects .proj-card .badge{ font-size: 10px; padding: 1px 6px; border:1px solid var(--accent); color:var(--accent); border-radius:999px; }
+#overlay .modal.modal--projects .proj-card .meta{ font-size: 11px; opacity:.85; display:flex; gap:6px; align-items:center; }
+#overlay .modal.modal--projects .proj-card .meta .dot{ opacity:.6; }
+#overlay .modal.modal--projects .proj-card .actions{ display:flex; gap:6px; align-items:center; position:relative; }
+#overlay .modal.modal--projects .proj-card .actions .btn-sm{ padding:4px 8px; font-size:11px; }
+#overlay .modal.modal--projects .proj-card .rename{
+  display:none; margin-top:4px;
+  background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+  border-radius:8px; padding:6px 8px;
+}
+#overlay .modal.modal--projects .proj-card .menu{
+  display:none; position:absolute; right:0; top:28px;
+  background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:6px;
+  z-index:10; min-width:160px; box-shadow:var(--shadow-2);
+}
+#overlay .modal.modal--projects .proj-card .menu .dropdown-item{
+  width:100%; text-align:left; border:1px solid var(--border); background:var(--panel);
+  border-radius:8px; padding:8px; margin:4px 0; cursor:pointer; font-size:13px;
+}
+#overlay .modal.modal--projects .proj-card .menu .dropdown-item.danger{ border-color:#693232 }
+
+@media (min-width: 900px){
+  #overlay .modal.modal--projects{ width: min(1400px, 98vw); }
+  #overlay .modal.modal--projects .proj-grid{
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+}
+@media (min-width: 1200px){
+  #overlay .modal.modal--projects .proj-grid{
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+@media (min-width: 1600px){
+  #overlay .modal.modal--projects{ width: min(1600px, 98vw); }
+  #overlay .modal.modal--projects .proj-grid{
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 520px){
+  #overlay .modal.modal--projects .proj-grid{
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+}
+
+/* Brush cursor */
+#brushCursor{
+  position:absolute;
+  z-index:4;
+  pointer-events:none;
+  border:1px solid currentColor;
+  border-radius:50%;
+  transform:translate(-50%,-50%);
+  box-sizing:border-box;
+  display:none;
+}
+
+/* Left vertical mode dock */
+.mode-dock{
+  position:fixed; top:64px; left:0px; z-index:50;
+  display:flex; flex-direction:column; gap:0px; padding:8px;
+  background:color-mix(in oklab, var(--panel) 86%, transparent);
+  border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow-1);
+  backdrop-filter:saturate(1.1) blur(6px);
+}
+
+/* Shift content right so the dock doesn’t overlap */
+@media (min-width: 700px){
+  .grid, .controls { padding-left: 56px; }
+}
+
+.mode-btn { color: var(--text); }
+.mode-btn.active { color: var(--accent); }
+.mode-btn:hover { color: color-mix(in oklab, var(--text) 90%, var(--accent)); }
+
+.mode-btn .icon{
+  inline-size: 22px;
+  block-size: 22px;
+  background: currentColor;
+  -webkit-mask: var(--icon) no-repeat center / contain;
+  mask: var(--icon) no-repeat center / contain;
+  display: inline-block;
+}
+
+/* === Mode dock: NO backgrounds on buttons (all themes) === */
+.mode-dock{
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.mode-dock .mode-btn{
+  appearance: none;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 6px;           /* keep a decent click target */
+  border-radius: 10px;    /* shape only for focus ring */
+  color: var(--text);
+}
+
+.mode-dock .mode-btn:hover,
+.mode-dock .mode-btn:active{
+  background: transparent !important;
+}
+
+.mode-dock .mode-btn.active{
+  background: transparent !important;
+  color: var(--accent);   /* highlight via color only */
+}
+
+.mode-dock .mode-btn:focus-visible{
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Icon stays as a pure mask, no box fill behind it */
+.mode-dock .mode-btn .icon{
+  inline-size: 22px;
+  block-size: 22px;
+  background: currentColor;  /* paints the SVG mask only */
+  -webkit-mask: var(--icon) no-repeat center / contain;
+  mask: var(--icon) no-repeat center / contain;
+  display: inline-block;
+}
+
+/* Optional: kill tap highlight on mobile */
+.mode-dock .mode-btn{
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+  <input id="projImportInput" type="file" accept="application/json" style="display:none" />
+  <div id="overlay"></div>
+
+  <div class="wrap">
+    <header class="app-header">
+      <div class="hdr-left">
+        <span id="projName">Realtime LCM (img2img)</span>
+      </div>
+      <div class="hdr-middle">
+        <button id="btnProjects" class="btn-sm">Projects ▾</button>
+        <div id="projectsMenu" class="dropdown">
+          <div class="dropdown-section">
+            <button class="dropdown-item" id="projOpenModal">Projects…</button>
+            <button class="dropdown-item" id="projSaveDb">Save (DB)</button>
+            <button class="dropdown-item" id="projReset">Reset to Blank</button>
+          </div>
+        </div>
+        <button id="btnSave" class="btn-sm">Save (DB)</button>
+        <button id="themeToggle" class="btn-sm" aria-label="Toggle theme">🌙</button>
+      </div>
+      <div class="hdr-right"></div>
+    </header>
+
+    <!-- Vertical mode dock -->
+    <div class="mode-dock" aria-label="Source modes">
+
+      <button class="mode-btn active" data-mode="webcam" title="Webcam">
+        <span class="icon" style="--icon:url('/static/images/icons/webcam.svg')"></span>
+      </button>
+      <button class="mode-btn" data-mode="image" title="Upload image">
+        <span class="icon" style="--icon:url('/static/images/icons/image.svg')"></span>
+      </button>
+      <button class="mode-btn" data-mode="video" title="Video file">
+        <span class="icon" style="--icon:url('/static/images/icons/video.svg')"></span>
+      </button>
+
+      <!-- inside .mode-dock with the other buttons -->
+      <button class="mode-btn" data-mode="hls" title="Stream (HLS)">
+        <span class="icon" style="--icon:url('/static/images/icons/stream.svg')"></span>
+      </button>
+
+      <button class="mode-btn" data-mode="draw" title="Draw (SVG)">
+        <span class="icon" style="--icon:url('/static/images/icons/draw.svg')"></span>
+      </button>
+
+
+
+
+    </div>
+
+    <div class="grid">
+      <div class="pane">
+        <h3 id="srcTitle">Source</h3>
+
+        <div id="srcWebcam" class="src show">
+          <video id="cam" autoplay playsinline muted></video>
+          <div style="position:absolute;left:10px;bottom:10px;display:flex;gap:8px;">
+            <button id="btnScan" class="btn-sm">Scan cameras</button>
+            <button id="btnSwapFacing" class="btn-sm">Swap facing</button>
+          </div>
+        </div>
+
+        <div id="srcImage" class="src">
+          <input id="fileImage" type="file" accept="image/*" style="position:absolute;z-index:3;right:3px;top:10px" />
+          <img id="imgUpload" alt="uploaded" />
+        </div>
+
+        <div id="srcVideo" class="src">
+          <input id="fileVideo" type="file" accept="video/*" style="position:absolute;z-index:3;right:3px;top:10px" />
+          <video id="vidFile" autoplay muted loop controls playsinline style="background:#000"></video>
+        </div>
+
+        <div id="srcHls" class="src">
+          <div style="position:absolute;left:10px;top:10px;display:flex;gap:8px;z-index:3;">
+            <input id="hlsUrl" type="text" placeholder="https://your-host/path/stream.m3u8" style="min-width:360px" />
+            <button id="hlsPlay" class="btn-sm">Play</button>
+            <button id="hlsStop"  class="btn-sm">Stop</button>
+          </div>
+          <video id="vidHls" autoplay muted playsinline controls style="background:#000"></video>
+        </div>
+
+
+        <div id="srcDraw" class="src">
+          <div id="drawWrap">
+            <div class="draw-toolbar">
+              <button id="toolFree"  class="btn-sm">Freehand</button>
+              <button id="toolLine"  class="btn-sm">Line</button>
+              <button id="toolRect"  class="btn-sm">Square</button>
+              <button id="toolCirc"  class="btn-sm">Circle</button>
+
+              <span class="thickness" id="thicknessReadout">3px</span>
+
+              <label class="swatch" title="Stroke color"><input id="colorPick" type="color" value="#ffffff" /></label>
+              <label class="swatch" title="Fill color"><input id="fillPick" type="color" value="#000000" /></label>
+              <span class="range" title="Fill opacity">
+                <span>fill α</span>
+                <input id="fillAlpha" type="range" min="0" max="1" step="0.05" value="0" />
+                <span id="fillAlphaVal">0.00</span>
+              </span>
+              <label class="swatch" title="Background color"><input id="bgPick" type="color" value="#0d0d10" /></label>
+
+              <button id="drawUndo" class="btn-sm">Undo</button>
+              <button id="drawRedo" class="btn-sm">Redo</button>
+              <button id="drawClear" class="btn-sm">Clear Layer</button>
+
+              <button id="toolErase" class="btn-sm">Eraser</button>
+              <span class="range" title="Eraser size">
+                <span>erase</span>
+                <input id="eraseSize" type="range" min="4" max="120" step="2" value="24" />
+                <span id="eraseSizeVal">24</span>
+              </span>
+            </div>
+
+            <div class="layers-panel" id="layersPanel">
+              <div class="layers-header">
+                <span>Layers</span>
+                <div class="layers-buttons">
+                  <button id="layerAdd" class="btn-sm" title="Add layer">+</button>
+                  <button id="layerDel" class="btn-sm" title="Delete selected layer">−</button>
+                </div>
+              </div>
+              <div id="layersList"></div>
+              <div class="layer-actions">
+                <label class="btn-sm">Load BG<input id="fileBg" type="file" accept="image/*"></label>
+                <label class="btn-sm">Load to Layer<input id="fileLayer" type="file" accept="image/*"></label>
+              </div>
+            </div>
+
+            <svg id="drawSvg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="pane">
+        <h3>Output</h3>
+        <img id="out" alt="Model output" />
+      </div>
+    </div>
+
+    <section class="controls">
+      <div class="action-row">
+        <button id="btnStart" class="btn">Start live</button>
+        <button id="btnStop"  class="btn">Stop live</button>
+        <button id="btnSnap"  class="btn">Process one frame</button>
+        <span class="spacer"></span>
+        <span id="httpHint" class="status">http/https</span>
+        <span id="status" class="status">idle</span>
+      </div>
+
+      <div class="row">
+        <label for="promptInput">Prompt</label>
+        <textarea id="promptInput" placeholder="Describe the look you want">cinematic portrait, dramatic lighting</textarea>
+      </div>
+
+      <div id="gallery" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;"></div>
+
+      <div class="tips">
+        <strong>Speed vs. Quality</strong>
+        <ul>
+          <li><strong>Faster:</strong> Steps 2–4, Guidance 0–2, lower source resolution (e.g., 640×480).</li>
+          <li><strong>More stylized:</strong> Higher Strength (0.6–0.9) deviates more from the source.</li>
+          <li><strong>More faithful:</strong> Lower Strength (0.2–0.5) keeps the structure.</li>
+          <li><strong>Sharper but slower:</strong> Steps 6–8 and higher resolution.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <canvas id="hidden" style="display:none;"></canvas>
+
+  <script type="module">
+    import { GUI } from "lil-gui";
+
+    let autosaveTimer = null;
+
+    function kB(n){ return Math.round((n||0)/1024); }
+    function logGroup(title, obj){
+      try{ console.groupCollapsed(title); console.log(obj); console.groupEnd(); }
+      catch{ console.log(title, obj); }
+    }
+
+    // ===== Project wiring (DB, not localStorage for modes/settings) =====
+    const metaShort = document.querySelector('meta[name="i2i-proj-short"]')?.content || "";
+    const metaName  = document.querySelector('meta[name="i2i-proj-name"]')?.content  || "Realtime LCM (img2img)";
+    const metaCfgRaw= document.querySelector('meta[name="i2i-proj-cfg"]')?.content || "{}";
+    const projNameEl = document.getElementById("projName");
+    projNameEl.textContent = metaName || "Realtime LCM (img2img)";
+
+    // Parse project cfg from server
+    function safeParseCfg(str){ try { return str ? JSON.parse(str) : {}; } catch { return {}; } }
+    const projCfg = safeParseCfg(metaCfgRaw);
+    projCfg.ui     = projCfg.ui     || {};
+    projCfg.model  = projCfg.model  || {};
+    projCfg.prompt = projCfg.prompt || {};
+
+    // Remove legacy client-side projects & avoid quota
+    try { localStorage.removeItem("i2i-projects-v3"); } catch {}
+
+    // Small helpers
+    function toast(msg, ms=1400){
+      const t = document.createElement("div");
+      t.className = "toast";
+      t.textContent = msg;
+      document.body.appendChild(t);
+      setTimeout(()=>{ t.remove(); }, ms);
+    }
+    function dd(el, show){ el.classList.toggle("show", !!show); }
+
+    // Run a callback once an element is visible and non-zero sized
+    function whenVisible(el, fn) {
+      const ro = new ResizeObserver(entries => {
+        for (const e of entries) {
+          const { width, height } = e.contentRect || {};
+          if (width > 2 && height > 2) {
+            ro.disconnect();
+            try { fn(); } catch {}
+            break;
+          }
+        }
+      });
+      ro.observe(el);
+    }
+
+
+    // ===== DOM refs =====
+    const modeBtns = Array.from(document.querySelectorAll(".mode-btn"));
+
+    const srcTitle = document.getElementById("srcTitle");
+    const sections = {
+      webcam: document.getElementById("srcWebcam"),
+      image : document.getElementById("srcImage"),
+      video : document.getElementById("srcVideo"),
+      hls   : document.getElementById("srcHls"),
+      draw  : document.getElementById("srcDraw"),
+    };
+
+    const cam = document.getElementById("cam");
+    const btnScan = document.getElementById("btnScan");
+    const btnSwapFacing = document.getElementById("btnSwapFacing");
+    const fileImage = document.getElementById("fileImage");
+    const imgUpload = document.getElementById("imgUpload");
+    const fileVideo = document.getElementById("fileVideo");
+    const vidFile = document.getElementById("vidFile");
+
+    // HLS refs
+    const hlsUrl  = document.getElementById("hlsUrl");
+    const hlsPlay = document.getElementById("hlsPlay");
+    const hlsStop = document.getElementById("hlsStop");
+    const vidHls  = document.getElementById("vidHls");
+
+
+    const drawSvg = document.getElementById("drawSvg");
+    const drawClear = document.getElementById("drawClear");
+    const drawUndo = document.getElementById("drawUndo");
+    const drawRedo = document.getElementById("drawRedo");
+
+    const layersPanel = document.getElementById("layersPanel");
+    const layersList  = document.getElementById("layersList");
+    const layerAddBtn = document.getElementById("layerAdd");
+    const layerDelBtn = document.getElementById("layerDel");
+    const fileBg      = document.getElementById("fileBg");
+    const fileLayer   = document.getElementById("fileLayer");
+
+    const out = document.getElementById("out");
+    const hidden = document.getElementById("hidden");
+    const ctx = hidden.getContext("2d");
+
+    const statusEl = document.getElementById("status");
+    const httpHint = document.getElementById("httpHint");
+    const promptEl = document.getElementById("promptInput");
+    const gallery = document.getElementById("gallery");
+
+    const btnProjects = document.getElementById("btnProjects");
+    const projectsMenu = document.getElementById("projectsMenu");
+    const btnSave = document.getElementById("btnSave");
+    const projSaveDb = document.getElementById("projSaveDb");
+    const projReset = document.getElementById("projReset");
+
+    const toolBtns = {
+      free : document.getElementById("toolFree"),
+      line : document.getElementById("toolLine"),
+      rect : document.getElementById("toolRect"),
+      circ : document.getElementById("toolCirc"),
+      erase: document.getElementById("toolErase"),
+    };
+
+    const colorPick = document.getElementById("colorPick");
+    const fillPick  = document.getElementById("fillPick");
+    const fillAlpha = document.getElementById("fillAlpha");
+    const fillAlphaVal = document.getElementById("fillAlphaVal");
+    const bgPick    = document.getElementById("bgPick");
+    const thicknessReadout = document.getElementById("thicknessReadout");
+
+
+
+    function inlineSvg(img) {
+      fetch(img.src, {cache: "force-cache"})
+      .then(r => r.text())
+      .then(txt => {
+        const svg = new DOMParser().parseFromString(txt, "image/svg+xml").documentElement;
+
+          // remove hardcoded fills/strokes
+        svg.querySelectorAll("[fill]").forEach(n => n.removeAttribute("fill"));
+        svg.querySelectorAll("[stroke]").forEach(n => n.removeAttribute("stroke"));
+
+          // default to inheriting text color
+        svg.setAttribute("fill", "currentColor");
+        svg.setAttribute("stroke", "currentColor");
+
+          // keep sizing friendly
+        svg.setAttribute("width", "22");
+        svg.setAttribute("height", "22");
+        img.replaceWith(svg);
+      })
+      .catch(console.warn);
+    }
+
+    document.querySelectorAll(".mode-btn img").forEach(inlineSvg);
+
+
+
+    // ===== Projects modal (unchanged API surface; minor UI glue) =====
+    const overlayEl = document.getElementById("overlay");
+    const btnProjectsModal = document.getElementById("projOpenModal");
+
+    let projTab = "active"; // "active" | "archived"
+
+
+    function showModal(innerHTML) {
+      overlayEl.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        ${innerHTML}
+      </div>`;
+      overlayEl.classList.add("show");
+      const esc = (e)=>{ if(e.key==="Escape"){ hideModal(); } };
+      overlayEl.dataset._esc = "1";
+      window.addEventListener("keydown", esc, { once:true });
+      overlayEl.onclick = (e)=>{ if (e.target === overlayEl) hideModal(); };
+    }
+    function hideModal(){
+      overlayEl.classList.remove("show");
+      overlayEl.innerHTML = "";
+    }
+
+    async function apiJSON(url, opts={}){
+      const res = await fetch(url, opts);
+      const isJSON = res.headers.get("content-type")?.includes("application/json");
+      const body = isJSON ? await res.json().catch(()=> ({})) : {};
+      if (!res.ok) {
+        const msg = body?.error || `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+      return body;
+    }
+
+  // === REPLACE your existing listProjects() with this ===
+    async function listProjects() {
+    // Fetch ALL projects (no query param).
+    // Server ignores ?status= anyway; the UI filters below.
+      const j = await apiJSON(`/i2i/projects`, {
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      const arr = Array.isArray(j.projects) ? j.projects : [];
+
+    // Normalize status strings defensively.
+      return arr.map(p => ({
+        ...p,
+        _status_norm: String(p.status || "Active").trim().toLowerCase()
+      }));
+    }
+
+  // === REPLACE your existing renderProjectsTab() with this ===
+    async function renderProjectsTab(tab) {
+    // Always fetch all, then filter here.
+      const all = await listProjects();
+
+      const wantArchived = (tab === "archived");
+      const filtered = all.filter(p => {
+        const isArchived =
+        p._status_norm === "archived" || /archiv/i.test(p.status || "");
+        return wantArchived ? isArchived : !isArchived;
+      });
+
+      const currentShort =
+      document.querySelector('meta[name="i2i-proj-short"]')?.content || "";
+
+      showModal(projectsListHTML(filtered, currentShort));
+      overlayEl.querySelector(".modal")?.classList.add("modal--projects");
+
+      const root = overlayEl.querySelector(".modal");
+      const btnClose = root.querySelector("#closeModal");
+      const btnCreate = root.querySelector("#createProj");
+      const inpName = root.querySelector("#newProjName");
+      const inpDesc = root.querySelector("#newProjDesc");
+
+      btnClose.onclick = hideModal;
+      btnCreate.onclick = async () => {
+        const name = (inpName.value || "").trim();
+        const desc = (inpDesc.value || "").trim();
+        if (!name) {
+          toast("Name required");
+          inpName.focus();
+          return;
+        }
+        btnCreate.disabled = true;
+        try {
+          await createProject(name, desc);
+        await renderProjectsTab(projTab); // re-render current tab
+        toast("Created");
+      } catch (e) {
+        toast(`Create failed: ${e.message}`);
+      } finally {
+        btnCreate.disabled = false;
+      }
+    };
+
+    // Tabs click → swap and re-render
+    root.querySelector(".proj-tabs")?.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-tab]");
+      if (!btn) return;
+      projTab = btn.dataset.tab === "archived" ? "archived" : "active";
+      await renderProjectsTab(projTab);
+    });
+
+    wireProjectCardInteractions(root);
+  }
+
+
+  async function createProject(name, desc=""){
+    const fd = new FormData();
+    fd.append("name", name); fd.append("desc", desc);
+    const j = await apiJSON("/i2i/projects?json=1", { method:"POST", body: fd });
+    return j.project;
+  }
+
+  async function renameProject(short_id, newName){
+    const fd = new FormData();
+    fd.append("name", newName);
+    const j = await apiJSON(`/i2i/projects/${encodeURIComponent(short_id)}/rename`, { method:"POST", body: fd });
+    return j.project;
+  }
+
+  async function archiveProject(short_id){
+      // Soft-delete / archive
+    const fd = new FormData();
+    fd.append("confirm", `DELETE-${short_id}`);
+    const j = await apiJSON(`/i2i/projects/${encodeURIComponent(short_id)}/delete`, { method:"POST", body: fd });
+    return j.project;
+  }
+
+  async function restoreProject(short_id){
+      // If your API has a restore endpoint, wire it here. Fallback to a generic one:
+    const j = await apiJSON(`/i2i/projects/${encodeURIComponent(short_id)}/restore`, { method:"POST" });
+    return j.project;
+  }
+
+  async function deleteProjectPermanently(short_id){
+      // Hard-delete. Adjust the endpoint/confirm token to your server.
+    const fd = new FormData();
+    fd.append("confirm", `NUKE-${short_id}`);
+    const j = await apiJSON(`/i2i/projects/${encodeURIComponent(short_id)}/purge`, { method:"POST", body: fd });
+    return j.ok ? true : false;
+  }
+
+
+
+  function wireProjectCardInteractions(modalRoot){
+    modalRoot.querySelector(".proj-grid")?.addEventListener("click", async (e)=>{
+      const card = e.target.closest(".proj-card"); if (!card) return;
+      const sid = card.dataset.sid;
+
+      if (e.target.classList.contains("open")){
+        window.location.href = `/i2i/projects/${encodeURIComponent(sid)}`;
+        return;
+      }
+
+      if (e.target.classList.contains("save")){
+        const val = card.querySelector("input.rename")?.value.trim();
+        if (!val){ toast("Name required"); return; }
+        e.target.disabled = true;
+        try{ await renameProject(sid, val); toast("Renamed"); }
+        catch(err){ toast(`Rename failed: ${err.message}`); }
+        finally{ e.target.disabled = false; }
+        return;
+      }
+
+      if (e.target.classList.contains("more")){
+        const menu = card.querySelector(".menu");
+        const showing = menu?.style.display === "block";
+        document.querySelectorAll(".proj-card .menu").forEach(m=> m.style.display="none");
+        if (menu) menu.style.display = showing ? "none" : "block";
+        return;
+      }
+
+      if (e.target.classList.contains("copyid")){
+        try{ await navigator.clipboard.writeText(sid); toast("Project ID copied"); }
+        catch{ toast(sid); }
+        card.querySelector(".menu").style.display = "none";
+        return;
+      }
+
+      if (e.target.classList.contains("archive")){
+        const ok = confirm(`Archive this project?\n\n${sid}`);
+        if (!ok) return;
+        try{
+          await archiveProject(sid);
+          await renderProjectsTab(projTab);
+          toast("Archived");
+        }catch(err){ toast(`Archive failed: ${err.message}`); }
+        return;
+      }
+
+      if (e.target.classList.contains("restore")){
+        const ok = confirm(`Restore this project to Active?\n\n${sid}`);
+        if (!ok) return;
+        try{
+          await restoreProject(sid);
+          await renderProjectsTab(projTab);
+          toast("Restored");
+        }catch(err){ toast(`Restore failed: ${err.message}`); }
+        return;
+      }
+
+      if (e.target.classList.contains("purge") || e.target.closest(".purge")){
+        const ok = confirm(`PERMANENTLY delete this project?\nThis cannot be undone.\n\n${sid}`);
+        if (!ok) return;
+        try{
+          await hardDeleteProject(sid);
+          await renderProjectsTab(projTab);
+          toast("Deleted");
+        }catch(err){ toast(`Delete failed: ${err.message}`); }
+        return;
+      }
+    });
+
+    document.addEventListener("click", (ev)=>{
+      if (!modalRoot.contains(ev.target)) return;
+      const btn = ev.target.closest(".more");
+      if (!btn) modalRoot.querySelectorAll(".proj-card .menu").forEach(m=> m.style.display="none");
+    });
+  }
+
+
+
+
+
+
+  function projectsTabsHTML(){
+    return `
+          <div class="proj-tabs">
+            <button class="chip ${projTab==='active'?'active':''}" data-tab="active">Active</button>
+            <button class="chip ${projTab==='archived'?'active':''}" data-tab="archived">Archived</button>
+          </div>
+    `;
+  }
+
+  function projectsListHTML(projects, currentShort){
+    const card = (p)=>{
+      const isCurrent   = p.short_id === currentShort;
+      const isArchived  = String(p.status || "").trim().toLowerCase() === "archived";
+      const thumb       = p.thumb_url || "/static/images/icons/placeholder.png";
+      const badgeLabel  = isArchived ? "Archived" : (isCurrent ? "Current" : null);
+
+      return `
+        <div class="proj-card" data-sid="${p.short_id}">
+          <div class="thumb"><img src="${thumb}" alt="thumbnail" loading="lazy"/></div>
+          <div class="body">
+            <div class="title-row">
+              <div class="name">${p.name || "(Untitled)"}</div>
+        ${badgeLabel ? `<span class="badge">${badgeLabel}</span>` : ``}
+            </div>
+            <div class="meta">
+              <span class="muted">${p.status || (isArchived ? "Archived" : "Active")}</span>
+        ${p.created_at ? `<span class="dot">•</span><span class="muted">${new Date(p.created_at).toLocaleString()}</span>` : ``}
+            </div>
+            <div class="actions">
+              <button class="btn-sm open">Open</button>
+              <button class="btn-sm save">Rename</button>
+              <button class="btn-sm more" title="More">⋯</button>
+              <div class="menu">
+                <button class="dropdown-item copyid">Copy ID</button>
+                ${isArchived
+                  ? `<button class="dropdown-item restore">Restore</button>`
+                  : `<button class="dropdown-item danger archive">Archive</button>`
+                }
+                <button class="dropdown-item danger purge">Delete permanently</button>
+              </div>
+            </div>
+            <input class="rename" type="text" value="${(p.name||"").replace(/"/g,'&quot;')}" />
+          </div>
+                </div>`;
+              };
+
+              const list = projects.map(card).join("");
+
+              return `
+      <div class="modal__body">
+        <h4 class="m-0">Projects</h4>
+        ${projectsTabsHTML()}
+        <div class="row proj-controls">
+          <input id="newProjName" type="text" placeholder="New project name" />
+          <input id="newProjDesc" type="text" placeholder="Optional description" />
+          <button id="createProj" class="btn-sm">Create</button>
+          <button id="closeModal" class="btn-sm">Close</button>
+        </div>
+        <div class="proj-grid">
+                ${list || `<div class="muted">No projects yet.</div>`}
+        </div>
+              </div>`;
+            }
+
+
+
+
+
+            async function setCurrentProjectHeader(){
+              const sid = document.querySelector('meta[name="i2i-proj-short"]')?.content || "";
+              const name = document.querySelector('meta[name="i2i-proj-name"]')?.content || "Realtime LCM (img2img)";
+              const hdr = document.querySelector(".hdr-left");
+              if (!hdr) return;
+              let thumb = null;
+              try{
+                if (sid){
+                  const res = await fetch(`/i2i/projects/${encodeURIComponent(sid)}/summary`, { cache:"no-store" });
+                  if (res.ok){
+                    const j = await res.json();
+                    thumb = j.thumb_url || null;
+                  }
+                }
+              }catch{}
+              hdr.innerHTML = `
+                ${thumb ? `<img src="${thumb}" alt="" style="width:28px;height:28px;border-radius:6px;object-fit:cover;border:1px solid var(--border)" />` : ``}
+        <span id="projName">${name}</span>
+        <span class="chip" title="This is the active project">Current</span>
+              `;
+            }
+
+
+            async function hardDeleteProject(short_id){
+              const fd = new FormData();
+              fd.append("confirm", `PURGE-${short_id}`);
+              const j = await apiJSON(`/i2i/projects/${encodeURIComponent(short_id)}/purge`, {
+                method: "POST",
+                body: fd
+              });
+      return j; // { ok:true, deleted: <short_id> }
+    }
+
+
+
+
+    async function openProjectsModal(){
+      showModal(`<div class="modal__status">Loading…</div>`);
+      overlayEl.querySelector('.modal')?.classList.add('modal--projects');
+      try{
+        await renderProjectsTab(projTab);
+      }catch(e){
+        showModal(`<div class="modal__status modal__status--error">Error: ${e.message}</div>`);
+        overlayEl.querySelector('.modal')?.classList.add('modal--projects');
+      }
+    }
+
+
+
+
+    btnProjectsModal?.addEventListener("click", ()=>{
+      projectsMenu.classList.remove("show");
+      openProjectsModal();
+    });
+
+    // ===== State (now hydrated from projCfg — NO localStorage for modes) =====
+    const MODE = { WEBCAM:"webcam", IMAGE:"image", VIDEO:"video", HLS:"hls", DRAW:"draw" };
+
+
+    let mode = MODE.WEBCAM;
+
+    let currentStream = null;
+    let inFlight = false;
+    let avgLatencyMs = 900;
+    let liveTimer = null;
+    let facing = "user";
+
+    httpHint.textContent = location.protocol === "https:" ? "https ✓" : "http (limited cameras)";
+
+    // Initial state with projCfg overrides
+    const state = {
+      Prompt   : typeof projCfg.prompt.text === "string" ? projCfg.prompt.text : (promptEl.value || ""),
+      Strength : typeof projCfg.model.strength === "number" ? projCfg.model.strength : 0.5,
+      Guidance : typeof projCfg.model.guidance === "number" ? projCfg.model.guidance : 1.0,
+      Steps    : typeof projCfg.model.steps    === "number" ? projCfg.model.steps    : 4,
+      Scale    : (projCfg.ui && (projCfg.ui.i2iScale === 1 || projCfg.ui.i2iScale === 2 || projCfg.ui.i2iScale === 4)) ? projCfg.ui.i2iScale : 1,
+      Live     : false,
+      Camera   : "(click Scan)",
+      Resolution: projCfg.ui.resolution || "1280x720",
+      Flip_X   : !!projCfg.ui.flipX,
+      Flip_Y   : !!projCfg.ui.flipY
+    };
+
+
+    // Preload prompt textbox from cfg
+    promptEl.value = state.Prompt;
+    promptEl.addEventListener("input", () => {
+      state.Prompt = promptEl.value;
+      projCfg.prompt.text = state.Prompt;
+      queueAutosave();
+    });
+
+    // GUI (create after state is hydrated)
+    const gui = new GUI({ title: "Params" });
+    const gSrc = gui.addFolder("Source");
+    const gModel = gui.addFolder("Model"); gModel.open();
+    const ctrlCamera = gSrc.add(state, "Camera", ["(click Scan)"]).name("Device").onChange(() => restartWebcam());
+    gSrc.add(state, "Resolution", ["640x480","1280x720","1920x1080"]).onChange(()=> {
+      projCfg.ui.resolution = state.Resolution;
+      if (mode===MODE.WEBCAM) restartWebcam();
+      queueAutosave();
+    });
+    gSrc.add(state, "Flip_X").onChange(()=>{ projCfg.ui.flipX = state.Flip_X; queueAutosave(); });
+    gSrc.add(state, "Flip_Y").onChange(()=>{ projCfg.ui.flipY = state.Flip_Y; queueAutosave(); });
+    gSrc.close();
+    gModel.add(state, "Strength", 0.05, 1, 0.01).onFinishChange(()=>{ projCfg.model.strength = state.Strength; queueAutosave(); });
+    gModel.add(state, "Guidance", 0, 6, 0.1).onFinishChange(()=>{ projCfg.model.guidance = state.Guidance; queueAutosave(); });
+
+    gModel.add(state, "Steps", 2, 30, 1)
+    .onFinishChange(()=>{ projCfg.model.steps = state.Steps; queueAutosave(); })
+    .listen();
+
+    gModel.add(state, "Scale", { "1×": 1, "2×": 2, "4×": 4 })
+    .onFinishChange(()=>{
+      const v = Number(state.Scale);
+      state.Scale = (v === 1 || v === 2 || v === 4) ? v : 1;
+      projCfg.ui.i2iScale = state.Scale;
+      queueAutosave();
+    })
+    .listen();
+
+
+    // selection & transforms
+    let selectedNode = null;
+
+    function applyTransform(node){
+      const s  = parseFloat(node.dataset.s  || "1");
+      const tx = parseFloat(node.dataset.tx || "0");
+      const ty = parseFloat(node.dataset.ty || "0");
+      node.setAttribute("transform", `translate(${tx} ${ty}) scale(${s})`);
+      queueAutosave();
+    }
+
+    function setSelected(node){
+      selectedNode = node || null;
+      if (selectedNode && !selectedNode.dataset.s){
+        selectedNode.dataset.s  = "1";
+        selectedNode.dataset.tx = "0";
+        selectedNode.dataset.ty = "0";
+        applyTransform(selectedNode);
+      }
+    }
+
+    function zoomSelected(factor){
+      let target = selectedNode;
+      if (!target){
+        const g = activeLayerGroup();
+        if (g && g.getAttribute("data-type") !== "bg") target = g;
+      }
+      if (!target) return;
+      const s0 = parseFloat(target.dataset.s || "1");
+      let s1 = Math.max(0.1, Math.min(10, s0 * factor));
+      target.dataset.s = String(s1);
+      applyTransform(target);
+    }
+
+    function getLayerXform(g){
+      const s  = parseFloat(g.dataset.s  || "1");
+      const tx = parseFloat(g.dataset.tx || "0");
+      const ty = parseFloat(g.dataset.ty || "0");
+      return { s, tx, ty };
+    }
+    function setLayerXform(g, s, tx, ty){
+      g.dataset.s  = String(s);
+      g.dataset.tx = String(tx);
+      g.dataset.ty = String(ty);
+      g.setAttribute("transform", `matrix(${s} 0 0 ${s} ${tx} ${ty})`);
+      queueAutosave();
+    }
+
+    function zoomActiveLayer(factor){
+      const g = activeLayerGroup();
+      if (!g || g.getAttribute("data-type") === "bg") return;
+      let c = lastPointer;
+      if (!c){
+        const vb = drawSvg.viewBox.baseVal;
+        c = { x: vb.x + vb.width/2, y: vb.y + vb.height/2 };
+      }
+      const { s, tx, ty } = getLayerXform(g);
+      const s1 = Math.max(0.1, Math.min(10, s * factor));
+      const k = s1 / s;
+      const tx1 = (1 - k) * c.x + k * tx;
+      const ty1 = (1 - k) * c.y + k * ty;
+      setLayerXform(g, s1, tx1, ty1);
+    }
+
+    // === SET_MODE  ===
+    function setMode(m){
+      // stop current live sources when switching away
+      if (mode === MODE.WEBCAM) stopWebcam();
+      if (mode === MODE.HLS)    stopHls();
+
+      mode = m;
+      projCfg.ui.sourceMode = m;
+
+      Object.values(sections).forEach(el => el.classList.remove("show"));
+
+      if (m===MODE.WEBCAM){
+        sections.webcam.classList.add("show");
+        srcTitle.textContent = "Source — Webcam";
+        restartWebcam();
+      } else if (m===MODE.IMAGE){
+        sections.image.classList.add("show");
+        srcTitle.textContent = "Source — Uploaded Image";
+      } else if (m===MODE.VIDEO){
+        sections.video.classList.add("show");
+        srcTitle.textContent = "Source — Video File";
+      } else if (m===MODE.HLS){
+        sections.hls.classList.add("show");
+        srcTitle.textContent = "Source — Stream (HLS)";
+        // >>> insert this line:
+        if (projCfg.ui.hlsUrl) { playHls(projCfg.ui.hlsUrl).catch(()=>{}); }
+      } else {
+        sections.draw.classList.add("show");
+        srcTitle.textContent = "Source — Draw (SVG)";
+        whenVisible(drawSvg, () => { ensureViewBox(true); updateBgRect(); });
+      }
+
+      modeBtns.forEach(b=> b.classList.toggle("active", b.dataset.mode===m));
+      queueAutosave();
+      showBrushCursor(false);
+    }
+
+
+    modeBtns.forEach(b => b.addEventListener("click", ()=> setMode(b.dataset.mode)));
+
+    // webcam
+    function selectedDeviceId(){ const map = ctrlCamera?._idMap || null; return map ? (map[state.Camera] || null) : null; }
+    function parseRes(){ const [w,h] = state.Resolution.split("x").map(Number); return { width:{ ideal:w }, height:{ ideal:h } }; }
+    function stopWebcam(){ if (currentStream){ currentStream.getTracks().forEach(t=>t.stop()); currentStream=null; } }
+    async function restartWebcam(){
+      if (mode!==MODE.WEBCAM) return; stopWebcam();
+      try{
+        const devId = selectedDeviceId();
+        const base = { audio:false, video:{ ...parseRes() } };
+        if (devId) base.video.deviceId = { exact: devId }; else base.video.facingMode = { ideal: facing };
+        const stream = await navigator.mediaDevices.getUserMedia(base);
+        currentStream = stream; cam.srcObject = stream; await cam.play(); statusEl.textContent = "camera ready";
+      }catch(e){ statusEl.textContent = "camera error"; }
+    }
+    btnScan.onclick = async () => {
+      try { const tmp=await navigator.mediaDevices.getUserMedia({video:true,audio:false}); tmp.getTracks().forEach(t=>t.stop()); } catch{}
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter(d=>d.kind==="videoinput");
+      const labels = cams.map((d,i)=> d.label || `Camera ${i+1}`); const ids = cams.map(d=>d.deviceId);
+      if (!labels.length){ ctrlCamera.options(["(none found)"]).setValue("(none found)"); ctrlCamera._idMap = {}; return; }
+      const map = {}; labels.forEach((name,i)=> map[name]=ids[i]); ctrlCamera._idMap = map;
+      const names = Object.keys(map); ctrlCamera.options(names); if (!names.includes(state.Camera)) ctrlCamera.setValue(names[0]);
+      await restartWebcam();
+    };
+    btnSwapFacing.onclick = async () => { facing = (facing==="user"?"environment":"user"); ctrlCamera.setValue("(click Scan)"); await restartWebcam(); };
+
+    // uploads
+    fileImage.addEventListener("change", async (e)=>{
+      const f = e.target.files?.[0]; if (!f) return;
+      const url = URL.createObjectURL(f);
+      imgUpload.onload = ()=> URL.revokeObjectURL(url);
+      imgUpload.src = url; setMode(MODE.IMAGE);
+    });
+    fileVideo.addEventListener("change", async (e)=>{
+      const f = e.target.files?.[0]; if (!f) return;
+      const url = URL.createObjectURL(f);
+      vidFile.onloadeddata = ()=> {};
+      vidFile.src = url; setMode(MODE.VIDEO);
+    });
+
+
+
+
+
+
+    let hlsLib = null; // hls.js instance
+    let hlsObj = null; // active player instance (if using hls.js)
+
+    async function ensureHlsLib(){
+      if (window.Hls) return window.Hls;
+      if (!hlsLib) {
+        // Load hls.js dynamically if needed
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          // Use any stable CDN version you prefer:
+          s.src = "https://cdn.jsdelivr.net/npm/hls.js@latest";
+          s.async = true;
+          s.onload = resolve;
+          s.onerror = () => reject(new Error("Failed to load hls.js"));
+          document.head.appendChild(s);
+        });
+      }
+      hlsLib = window.Hls;
+      return hlsLib;
+    }
+
+    async function playHls(url){
+      stopHls(); // clean slate
+
+      // Try native HLS first (Safari, some browsers)
+      if (vidHls.canPlayType('application/vnd.apple.mpegurl')) {
+        vidHls.src = url;
+        await vidHls.play().catch(()=>{});
+        statusEl.textContent = "HLS (native) playing…";
+        return;
+      }
+
+      // Fallback to hls.js for browsers without native support
+      const Hls = await ensureHlsLib();
+      if (!Hls || !Hls.isSupported()){
+        statusEl.textContent = "HLS not supported in this browser";
+        return;
+      }
+
+      hlsObj = new Hls({ lowLatencyMode: true });
+      hlsObj.attachMedia(vidHls);
+      hlsObj.on(Hls.Events.MEDIA_ATTACHED, () => {
+        hlsObj.loadSource(url);
+      });
+      hlsObj.on(Hls.Events.MANIFEST_PARSED, async () => {
+        try{ await vidHls.play(); }catch(e){}
+        statusEl.textContent = "HLS (hls.js) playing…";
+      });
+      hlsObj.on(Hls.Events.ERROR, (e, data) => {
+        console.warn("[HLS] error", data);
+        statusEl.textContent = "HLS error (see console)";
+      });
+    }
+
+    function stopHls(){
+      try{
+        if (hlsObj){ hlsObj.destroy(); hlsObj = null; }
+      }catch{}
+      if (vidHls){
+        try{ vidHls.pause(); }catch{}
+        vidHls.removeAttribute("src");
+        vidHls.load();
+      }
+      statusEl.textContent = "HLS stopped";
+    }
+
+
+    hlsPlay.addEventListener("click", async () => {
+      let val = (hlsUrl.value || "").trim();
+      if (!val) { toast("Enter an HLS URL or a local folder path"); hlsUrl.focus(); return; }
+
+      // Looks like a URL?
+      const looksLikeUrl = /^(https?:)?\/\//i.test(val) || val.startsWith("/hls/");
+      // Looks like a local path (no scheme, has a slash, or starts with / or ~)
+      const looksLikePath = !looksLikeUrl && (/^~?\//.test(val) || val.includes("/"));
+
+      try {
+        let finalUrl = val;
+
+        if (looksLikePath) {
+          // Expand ~ to home (client-side best effort; server will receive absolute anyway if you type it)
+          if (val.startsWith("~")) {
+            // We cannot expand ~ reliably in browser; send raw to server which expects absolute.
+            // Encourage the user to paste absolute path. We'll still try as-is.
+          }
+          // Mount the folder and get a URL back
+          const res = await fetch("/hls/mount", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ root: val })
+          });
+          const j = await res.json();
+          if (!res.ok || !j.ok) throw new Error(j.error || `HTTP ${res.status}`);
+          if (!j.url) throw new Error("Mount ok, but no playlist found; specify the exact .m3u8 filename");
+          finalUrl = j.url;  // e.g. "/hls/abcd1234/stream.m3u8"
+          // Show the resolved URL so users can see/copy it
+          hlsUrl.value = finalUrl;
+        }
+
+        // Persist + play
+        projCfg.ui.hlsUrl = finalUrl;
+        queueAutosave();
+        // Same-origin path → make absolute for player
+        const abs = finalUrl.startsWith("/") ? new URL(finalUrl, location.origin).toString() : finalUrl;
+        await playHls(abs);
+      } catch (err) {
+        console.error("[HLS] play error:", err);
+        toast(`HLS error: ${err.message}`);
+      }
+    });
+
+
+    hlsStop.addEventListener("click", ()=> stopHls());
+
+
+
+
+    // DRAW + LAYERS
+    const TOOL = { FREE:"free", LINE:"line", RECT:"rect", CIRC:"circ", ERASE:"erase", GRAB:"grab" };
+    let tool = projCfg.ui.drawTool || TOOL.FREE;
+    let lastDrawTool = TOOL.FREE;
+    let drawing=false, startPt=null, strokeW= typeof projCfg.ui.strokeW === "number" ? projCfg.ui.strokeW : 3, activeDrawEl=null;
+
+    let strokeColor = projCfg.ui.strokeColor || "#ffffff";
+    let fillColor   = projCfg.ui.fillColor   || "#000000";
+    let fillOpacity = typeof projCfg.ui.fillAlpha === "number" ? projCfg.ui.fillAlpha : 0.0;
+    let bgColor     = projCfg.ui.bgColor     || "#0d0d10";
+
+    // Prime UI controls from cfg before listeners
+    document.getElementById("colorPick").value = strokeColor;
+    document.getElementById("fillPick").value  = fillColor;
+    document.getElementById("fillAlpha").value = String(fillOpacity);
+    document.getElementById("bgPick").value    = bgColor;
+
+
+    // === BRUSH_CURSOR_SETUP (ADD) ===
+    const brushCursor = document.createElement("div");
+    brushCursor.id = "brushCursor";
+    document.getElementById("drawWrap").appendChild(brushCursor);
+
+    function _hexToRGBA(hex, a=1){
+      const h = (hex||"#ffffff").replace('#','');
+      const b = h.length===3 ? h.split('').map(c=>c+c).join('') : h.padEnd(6,'0').slice(0,6);
+      const r = parseInt(b.slice(0,2),16), g = parseInt(b.slice(2,4),16), bl= parseInt(b.slice(4,6),16);
+      return `rgba(${r}, ${g}, ${bl}, ${a})`;
+    }
+    function _cursorSizePx(){
+      return tool === TOOL.ERASE ? Math.max(2, parseInt(eraseSize.value,10)) : Math.max(2, strokeW);
+    }
+    function refreshBrushCursorStyle(){
+      const sz = _cursorSizePx();
+      brushCursor.style.width  = sz + "px";
+      brushCursor.style.height = sz + "px";
+      const border = tool === TOOL.ERASE ? "#ff6b6b" : (strokeColor || "#ffffff");
+      brushCursor.style.color = border;
+      const wantFill = (tool === TOOL.RECT || tool === TOOL.CIRC) && fillOpacity > 0;
+      brushCursor.style.background = wantFill ? _hexToRGBA(fillColor || "#000000", Math.min(0.25, fillOpacity)) : "transparent";
+    }
+    function showBrushCursor(show){
+      const canShow = (mode === MODE.DRAW) && (tool !== TOOL.GRAB);
+      brushCursor.style.display = (show && canShow) ? "block" : "none";
+    }
+
+
+    const eraseSize = document.getElementById("eraseSize");
+    const eraseSizeVal = document.getElementById("eraseSizeVal");
+    if (typeof projCfg.ui.eraseSize === "number") eraseSize.value = String(projCfg.ui.eraseSize);
+    eraseSizeVal.textContent = eraseSize.value;
+    let eraserRadius = parseInt(eraseSize.value,10) / 2;
+    eraseSize.addEventListener("input", ()=>{
+      eraseSizeVal.textContent = eraseSize.value;
+      eraserRadius = parseInt(eraseSize.value,10) / 2;
+      projCfg.ui.eraseSize = parseInt(eraseSize.value,10);
+      queueAutosave();
+    });
+
+    const history=[];   // undo stack
+    const redoStack=[]; // redo stack
+
+    let layersRoot = null;
+    const layers = [];           // { id, g, name, hidden? }
+    let activeLayer = 1;
+
+    // === SET_TOOL 
+    const setTool = (t)=>{
+      if (t !== TOOL.ERASE) lastDrawTool = t;
+      tool = t;
+      projCfg.ui.drawTool = t;
+      Object.values(toolBtns).forEach(b=> b.classList.remove("active"));
+      ({[TOOL.FREE]:toolBtns.free,[TOOL.LINE]:toolBtns.line,[TOOL.RECT]:toolBtns.rect,[TOOL.CIRC]:toolBtns.circ,[TOOL.ERASE]:toolBtns.erase}[t])?.classList.add("active");
+      queueAutosave();
+      // brush cursor update
+      refreshBrushCursorStyle();
+      showBrushCursor(true);
+    };
+
+
+    function toggleEraser(){ setTool(tool === TOOL.ERASE ? (lastDrawTool||TOOL.FREE) : TOOL.ERASE); }
+
+    toolBtns.free.onclick  = ()=> setTool(TOOL.FREE);
+    toolBtns.line.onclick  = ()=> setTool(TOOL.LINE);
+    toolBtns.rect.onclick  = ()=> setTool(TOOL.RECT);
+    toolBtns.circ.onclick  = ()=> setTool(TOOL.CIRC);
+    toolBtns.erase.onclick = ()=> setTool(TOOL.ERASE);
+    setTool(tool);
+
+    // === SET_STROKEW (REPLACE) ===
+    const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
+    const setStrokeW = (w)=>{
+      strokeW = clamp(w, 1, 64);
+      thicknessReadout.textContent = `${strokeW}px`;
+      projCfg.ui.strokeW = strokeW;
+      queueAutosave();
+      refreshBrushCursorStyle();
+    };
+
+    setStrokeW(strokeW);
+
+    const updateFillAlphaLabel = ()=> fillAlphaVal.textContent = Number(fillOpacity).toFixed(2);
+    colorPick.addEventListener("input", ()=> { strokeColor = colorPick.value; projCfg.ui.strokeColor = strokeColor; queueAutosave(); });
+    fillPick .addEventListener("input", ()=> { fillColor   = fillPick.value;  projCfg.ui.fillColor   = fillColor;   queueAutosave(); });
+    fillAlpha.addEventListener("input", ()=> { fillOpacity = parseFloat(fillAlpha.value); projCfg.ui.fillAlpha = fillOpacity; updateFillAlphaLabel(); queueAutosave(); });
+    updateFillAlphaLabel();
+    bgPick   .addEventListener("input", ()=>{ bgColor = bgPick.value; projCfg.ui.bgColor = bgColor; updateBgRect(); queueAutosave(); });
+
+    function ensureViewBox(force=false){
+      // Wait until the draw pane is actually laid out
+      const r = drawSvg.getBoundingClientRect();
+      if (!force && (r.width < 2 || r.height < 2)) {
+        requestAnimationFrame(()=>ensureViewBox(true));
+        return;
+      }
+
+      // If no viewBox or forced, set one from current CSS size (not 0)
+      const w = Math.max(10, Math.round(r.width || 1024));
+      const h = Math.max(10, Math.round(r.height || 768));
+      if (!drawSvg.getAttribute("viewBox") || force) {
+        drawSvg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+      }
+
+      ensureLayersRoot();
+      updateBgRect();
+    }
+
+
+    async function externalizeDataImages(){
+      const imgs = Array.from(drawSvg.querySelectorAll("image"));
+      if (!imgs.length || !metaShort) return;
+      for (const im of imgs) {
+        const href = im.getAttribute("href") || im.getAttributeNS("http://www.w3.org/1999/xlink","href");
+        if (!href || !href.startsWith("data:")) continue;
+        const fd = new FormData();
+        fd.append("proj", metaShort);
+        fd.append("data_url", href);
+        let url = null;
+        try{
+          const res = await fetch("/i2i/svg/asset", { method:"POST", body: fd });
+          if (res.ok){
+            const j = await res.json();
+            url = j?.url || null;
+          }
+        }catch{}
+        if (url){
+          im.setAttribute("href", url);
+          // im.setAttributeNS("http://www.w3.org/1999/xlink", "href", url);
+          im.removeAttribute("crossorigin");
+        }
+      }
+    }
+
+
+
+    async function gzipString(str){
+      if (!("CompressionStream" in window) || !Blob.prototype.stream) return null;
+      const cs = new CompressionStream("gzip");
+      const te = new TextEncoder();
+      const inputStream  = new Blob([te.encode(str)]).stream();
+      const gzipStream   = inputStream.pipeThrough(cs);
+      return await new Response(gzipStream).blob();
+    }
+
+    // ===== Single atomic saver: SVG + cfg_json =====
+    async function saveSvgAndCfgToDb(){
+      if (!metaShort) return;
+      try {
+        await externalizeDataImages();
+        const svg = new XMLSerializer().serializeToString(drawSvg);
+        const svgBytes = new TextEncoder().encode(svg).length;
+        const gz  = await gzipString(svg);
+        const fd = new FormData();
+        fd.append("proj", metaShort);
+        if (gz){
+          fd.append("svg_gz", new File([gz], "svg.xml.gz", { type: "application/gzip" }));
+          console.debug("[i2i] saving SVG (gzipped)", { svgBytes, gzBytes: gz.size });
+        } else {
+          fd.append("svg", svg);
+          console.debug("[i2i] saving SVG (plain)", { svgBytes });
+        }
+        fd.append("cfg_json", JSON.stringify(projCfg));
+        const res = await fetch("/i2i/svg/save", { method:"POST", body: fd });
+        const txt = await res.text();
+        let j = {};
+        try{ j = JSON.parse(txt); }catch{}
+        if (!res.ok || !j?.ok){
+          console.error("[i2i] saveSvg error", res.status, txt);
+          toast(`Save failed (${res.status}) — see console`);
+          return;
+        }
+        logGroup("[i2i] saveSvg ok", j);
+      } catch (e) {
+        console.error("[i2i] saveSvgAndCfgToDb error:", e);
+        toast("Save failed — see console");
+      }
+    }
+
+
+
+
+    function queueAutosave(){
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(saveSvgAndCfgToDb, 700);
+    }
+
+    function toAbsUrl(u) {
+      try { return new URL(u, window.location.origin).toString(); }
+      catch { return u; }
+    }
+
+    function probeImageLoad(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload  = () => resolve({ ok:true, w: img.naturalWidth, h: img.naturalHeight });
+        img.onerror = () => reject(new Error(`image load failed: ${url}`));
+        img.src = url;
+      });
+    }
+
+    window.addEventListener("error", (e) => console.error("[i2i] window error:", e.message, e.error || ""));
+    window.addEventListener("unhandledrejection", (e) => console.error("[i2i] unhandled rejection:", e.reason));
+
+    function addGalleryThumb(rawUrlOrDataUrl){
+      const thumbUrl = toAbsUrl(rawUrlOrDataUrl);
+      const wrap = document.createElement("div");
+      wrap.style.width = "92px"; wrap.style.height = "92px";
+      wrap.style.border = "1px solid var(--border)"; wrap.style.borderRadius = "8px";
+      wrap.style.overflow = "hidden"; wrap.style.cursor = "pointer"; wrap.style.background = "#000";
+
+      const im = document.createElement("img");
+      im.src = thumbUrl; im.alt = "output";
+      im.style.width = "100%"; im.style.height = "100%"; im.style.objectFit = "cover";
+      wrap.appendChild(im);
+
+      wrap.title = "Click to load into selected layer";
+      wrap.addEventListener("click", async ()=>{
+        ensureLayersRoot();
+        const abs = toAbsUrl(thumbUrl);
+        try { const r = await probeImageLoad(abs); if (!r?.ok) throw new Error("probe not ok"); }
+        catch (err) { console.error("[i2i] gallery probe:", err); toast("Image failed to load (see console)"); return; }
+
+        try {
+          const { w, h } = vbSize();
+          const g = activeLayerGroup();
+          const simg = document.createElementNS("http://www.w3.org/2000/svg", "image");
+          simg.setAttribute("x", 0); simg.setAttribute("y", 0);
+          simg.setAttribute("width", w); simg.setAttribute("height", h);
+          simg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+          
+          simg.setAttribute("href", abs);
+
+          simg.removeAttribute("crossorigin");
+          simg.addEventListener("load", () => console.debug("[i2i] gallery → inserted image ok", { url: abs, layer: activeLayer }));
+          simg.addEventListener("error", (e) => { console.error("[i2i] gallery SVG <image> error", e); toast("Layer image failed (see console)"); });
+          g.appendChild(simg);
+          pushHistory(simg);
+          setSelected(simg);
+          queueAutosave();
+        } catch (err) {
+          console.error("[i2i] gallery → insert failed:", err);
+          toast("Insert failed (see console)");
+        }
+      });
+
+      gallery.insertBefore(wrap, gallery.firstChild);
+    }
+
+    function vbSize(){
+      const vb = drawSvg.viewBox.baseVal;
+      return { w: vb && vb.width ? vb.width : 10, h: vb && vb.height ? vb.height : 10 };
+    }
+
+    function ensureLayersRoot(){
+  // always re-query DOM; do not trust the cached var
+      const roots = Array.from(drawSvg.querySelectorAll('#layersRoot'));
+
+      if (roots.length > 1) {
+    // Merge everything into the first root and remove the extras
+        const keep = roots[0];
+        for (let i = 1; i < roots.length; i++) {
+          const r = roots[i];
+          while (r.firstChild) keep.appendChild(r.firstChild);
+          r.remove();
+        }
+        layersRoot = keep;
+      } else if (roots.length === 1) {
+        layersRoot = roots[0];
+      } else {
+    // create a fresh one and adopt all children
+        const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+        g.setAttribute("id","layersRoot");
+        while (drawSvg.firstChild) g.appendChild(drawSvg.firstChild);
+        drawSvg.appendChild(g);
+        layersRoot = g;
+      }
+
+  // Ensure BG group exists and is the FIRST child so it paints under everything else
+      let bg = layersRoot.querySelector('g[data-type="bg"]');
+      if (!bg){
+        const created = createLayer("Background", true);
+        layersRoot.insertBefore(created.g, layersRoot.firstChild);
+        bg = created.g;
+      } else if (layersRoot.firstElementChild !== bg) {
+        layersRoot.insertBefore(bg, layersRoot.firstChild);
+      }
+
+      updateBgRect();
+    }
+
+
+    function createLayer(name, isBG=false, insertAboveId=null){
+      const g = document.createElementNS("http://www.w3.org/2000/svg","g");
+      g.setAttribute("data-name", name);
+      g.setAttribute("data-type", isBG ? "bg" : "draw");
+
+      if (isBG){
+        const { w, h } = vbSize();
+        const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+        rect.setAttribute("x", 0); rect.setAttribute("y", 0);
+        rect.setAttribute("width", w); rect.setAttribute("height", h);
+        rect.setAttribute("fill", bgColor);
+        rect.setAttribute("id", "bgRect");
+        g.appendChild(rect);
+        const img = document.createElementNS("http://www.w3.org/2000/svg","image");
+        img.setAttribute("id", "bgImage");
+        img.setAttribute("x", 0); img.setAttribute("y", 0);
+        img.setAttribute("width", w); img.setAttribute("height", h);
+        img.setAttribute("preserveAspectRatio","xMidYMid meet");
+        g.appendChild(img);
+      }
+
+      if (!layersRoot) ensureLayersRoot();
+
+      let refNode = null;
+      if (insertAboveId != null && layers[insertAboveId]?.g) {
+        refNode = layers[insertAboveId].g.nextSibling;
+      }
+      layersRoot.insertBefore(g, refNode);
+
+      const id = layers.length;
+      layers.push({ id, g, name });
+
+      const beforeEl = (insertAboveId != null)
+      ? layersList.querySelector(`.layer-item[data-id="${insertAboveId}"]`)
+      : null;
+      addLayerListItem(id, name, isBG, beforeEl);
+
+      return { id, g };
+    }
+
+    function addLayerListItem(id, name, isBG, beforeEl=null){
+      const item = document.createElement("div");
+      item.className = "layer-item" + (isBG ? " bg" : "");
+      item.dataset.id = String(id);
+      item.title = name;
+
+      const eye = document.createElement("button");
+      eye.type = "button";
+      eye.className = "layer-eye btn-sm";
+      eye.style.padding = "2px 6px";
+      eye.style.minWidth = "28px";
+      eye.title = "Hide/Show (H)";
+      eye.textContent = layers[id]?.hidden ? "🙈" : "👁️";
+      eye.addEventListener("click", (ev)=>{ ev.stopPropagation(); toggleLayerVisibility(id); });
+
+      const box = document.createElement("div"); box.className = "box";
+
+      const label = document.createElement("div");
+      label.textContent = name; label.style.fontSize = "12px"; label.style.opacity = ".95";
+      label.className = "layer-label";
+
+      item.appendChild(eye);
+      item.appendChild(box);
+      item.appendChild(label);
+
+      if (isBG) item.style.opacity = ".9";
+
+      item.addEventListener("click", ()=> setActiveLayer(id));
+      label.addEventListener("dblclick", (ev)=>{ ev.stopPropagation(); startLayerRename(item, label); });
+
+      if (beforeEl) layersList.insertBefore(item, beforeEl);
+      else layersList.insertBefore(item, layersList.firstChild);
+
+      refreshLayerSelection();
+    }
+
+    function startLayerRename(itemEl, labelEl){
+      const id = Number(itemEl?.dataset?.id);
+      const rec = layers[id]; if (!rec || !rec.g) return;
+      const current = (labelEl.textContent || "").trim();
+
+      const input = document.createElement("input");
+      input.type = "text"; input.value = current; input.className = "layer-rename";
+      input.style.width = "100%"; input.style.fontSize = "12px"; input.style.padding = "2px 4px";
+      input.style.borderRadius = "6px"; input.style.border = "1px solid #3a3a3f";
+      input.style.background = "#0f0f13"; input.style.color = "#fff";
+
+      if (labelEl.parentNode === itemEl) itemEl.replaceChild(input, labelEl); else return;
+      input.focus(); input.select();
+
+      let finished = false;
+      const cleanup = ()=>{ input.removeEventListener("keydown", onKey); input.removeEventListener("blur", onBlur); };
+
+      const commit = ()=>{
+        if (finished) return; finished = true;
+        if (!itemEl.isConnected) { cleanup(); return; }
+        const newName = (input.value || "").trim() || current;
+        applyLayerRename(id, newName);
+        labelEl.textContent = newName;
+        if (input.parentNode === itemEl) itemEl.replaceChild(labelEl, input);
+        cleanup();
+        queueAutosave();
+      };
+      const cancel = ()=>{
+        if (finished) return; finished = true;
+        if (input.parentNode === itemEl) itemEl.replaceChild(labelEl, input);
+        cleanup();
+      };
+
+      function onKey(e){ if (e.key === "Enter") { e.preventDefault(); commit(); } else if (e.key === "Escape") { e.preventDefault(); cancel(); } }
+      function onBlur(){ commit(); }
+
+      input.addEventListener("keydown", onKey);
+      input.addEventListener("blur", onBlur);
+    }
+
+    function applyLayerRename(id, newName){
+      const rec = layers[id]; if (!rec || !rec.g) return;
+      rec.name = newName; rec.g.setAttribute("data-name", newName);
+      const item = layersList.querySelector(`.layer-item[data-id="${id}"]`);
+      if (item) item.title = newName;
+    }
+
+    layerAddBtn.onclick = ()=>{
+      const n = layers.filter(l=>l && l.g && l.g.getAttribute("data-type")!=="bg").length + 1;
+      const insertAboveId = activeLayer;
+      const { id } = createLayer(`Layer ${n}`, false, insertAboveId);
+      setActiveLayer(id);
+      recordLayerAdd(id);
+      queueAutosave();
+    };
+
+    layerDelBtn.onclick = ()=>{
+      if (activeLayer === 0) return;
+      removeLayer(activeLayer, true);
+      queueAutosave();
+    };
+
+    function refreshLayerSelection(){
+      const items = layersList.querySelectorAll(".layer-item");
+      items.forEach(el=>{
+        const id = Number(el.dataset.id);
+        el.classList.toggle("active", id === activeLayer);
+      });
+    }
+    function setActiveLayer(id){
+      if (id < 0 || id >= layers.length) return;
+      activeLayer = id; refreshLayerSelection();
+    }
+    function activeLayerGroup(){
+      ensureLayersRoot();
+      return layers[activeLayer]?.g || layers[0].g;
+    }
+
+    // GRAB/drag layer
+    let grabbing = false, grabStart = null, grabInit  = null, lastNonGrabTool = TOOL.FREE;
+    function toggleGrab(){
+      if (tool === TOOL.GRAB){
+        setTool(lastNonGrabTool || TOOL.FREE);
+        drawSvg.classList.remove('grab','grabbing');
+        statusEl.textContent = "grab off";
+      } else {
+        if (tool !== TOOL.ERASE) lastNonGrabTool = tool;
+        setTool(TOOL.GRAB);
+        drawSvg.classList.add('grab');
+        statusEl.textContent = "grab on (drag to move layer; Shift = axis lock)";
+      }
+    }
+    function recordLayerMove(id, fromTx, fromTy, toTx, toTy){
+      if (fromTx === toTx && fromTy === toTy) return;
+      history.push({ op:"layer-move", id, from:{tx:fromTx, ty:fromTy}, to:{tx:toTx, ty:toTy} });
+      redoStack.length = 0;
+    }
+    function toLocalPoint(g, p){
+      const { s, tx, ty } = getLayerXform(g);
+      return { x: (p.x - tx) / s, y: (p.y - ty) / s };
+    }
+
+    let lastPointer = null;
+    // === DRAW_SVG_POINTERMOVE (REPLACE) ===
+
+
+
+
+
+
+
+// === POINTER DISPATCH — single source of truth for all SVG input ===
+    let pointer = { id: null, buttons: 0 };
+    function onPointerMove(e){
+  // 1) Brush cursor + "lastPointer" (always update in DRAW mode)
+      lastPointer = svgPoint(e);
+      const rect = drawSvg.getBoundingClientRect();
+      brushCursor.style.left = (e.clientX - rect.left) + "px";
+      brushCursor.style.top  = (e.clientY - rect.top)  + "px";
+      refreshBrushCursorStyle();
+      showBrushCursor(true);
+
+  // 2) GRAB (layer drag)
+      if (tool === TOOL.GRAB && grabbing && grabInit){
+        const g = activeLayerGroup(); if (!g) return;
+        const p = svgPoint(e);
+        let dx = p.x - grabStart.x;
+        let dy = p.y - grabStart.y;
+        if (e.shiftKey){ if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }
+        const { s, tx, ty } = grabInit;
+        setLayerXform(g, s, tx + dx, ty + dy);
+        return;
+      }
+
+  // 3) ERASER
+      if (tool === TOOL.ERASE && erasing){
+        eraseAtClientXY(e.clientX, e.clientY);
+        return;
+      }
+
+  // 4) DRAW tools (free/line/rect/circ)
+      if (drawing) moveDraw(e);
+    }
+
+    function onPointerDown(e){
+      drawSvg.setPointerCapture(e.pointerId);
+      pointer.id = e.pointerId;
+      pointer.buttons = e.buttons;
+      showBrushCursor(true);
+
+  // GRAB
+      if (tool === TOOL.GRAB){
+        const g = activeLayerGroup();
+        if (!g || g.getAttribute("data-type")==="bg") return;
+        ensureViewBox();
+        grabStart = svgPoint(e);
+        grabInit  = getLayerXform(g);
+        grabbing  = true;
+        drawSvg.classList.remove("grab");
+        drawSvg.classList.add("grabbing");
+        return;
+      }
+
+  // ERASER
+      if (tool === TOOL.ERASE){
+        erasing = true;
+        eraseAtClientXY(e.clientX, e.clientY);
+        queueAutosave();
+        return;
+      }
+
+  // DRAW tools
+      if (!drawing) startDraw(e);
+    }
+
+    function onPointerUp(e){
+  // GRAB
+      if (tool === TOOL.GRAB && grabbing){
+        const g = activeLayerGroup();
+        if (g && grabInit){
+          const end = getLayerXform(g);
+          recordLayerMove(activeLayer, grabInit.tx, grabInit.ty, end.tx, end.ty);
+        }
+        grabbing = false; grabStart = null; grabInit = null;
+        drawSvg.classList.remove("grabbing"); drawSvg.classList.add("grab");
+        queueAutosave();
+        return;
+      }
+
+  // ERASER
+      if (tool === TOOL.ERASE && erasing){
+        erasing = false;
+        queueAutosave();
+        return;
+      }
+
+  // DRAW tools
+      if (drawing) endDraw();
+    }
+
+    function onPointerCancel(){ onPointerUp(new PointerEvent("pointerup")); }
+    function onPointerLeave(){ showBrushCursor(false); }
+
+// Wire once
+    drawSvg.addEventListener("pointermove",   onPointerMove,   { passive: true });
+    drawSvg.addEventListener("pointerdown",   onPointerDown);
+    drawSvg.addEventListener("pointerup",     onPointerUp);
+    drawSvg.addEventListener("pointercancel", onPointerCancel);
+    drawSvg.addEventListener("pointerleave",  onPointerLeave,  { passive: true });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // drawSvg.addEventListener("pointermove", e => {
+    //   lastPointer = svgPoint(e);
+    //   const rect = drawSvg.getBoundingClientRect();
+    //   brushCursor.style.left = (e.clientX - rect.left) + "px";
+    //   brushCursor.style.top  = (e.clientY - rect.top)  + "px";
+    //   refreshBrushCursorStyle();
+    //   showBrushCursor(true);
+    // }, {passive:true});
+    // drawSvg.addEventListener("pointerleave", ()=> showBrushCursor(false), {passive:true});
+    // drawSvg.addEventListener("pointerdown",  ()=> showBrushCursor(true),  {passive:true});
+    // drawSvg.addEventListener("pointerup",    ()=> showBrushCursor(true),  {passive:true});
+
+
+    // drawSvg.addEventListener("pointerdown", (e)=>{
+    //   if (tool !== TOOL.GRAB) return;
+    //   const g = activeLayerGroup();
+    //   if (!g || g.getAttribute("data-type")==="bg") return;
+    //   drawSvg.setPointerCapture(e.pointerId);
+    //   ensureViewBox();
+    //   grabStart = svgPoint(e);
+    //   grabInit  = getLayerXform(g);
+    //   grabbing  = true;
+    //   drawSvg.classList.remove('grab');
+    //   drawSvg.classList.add('grabbing');
+    // });
+
+    // drawSvg.addEventListener("pointermove", (e)=>{
+    //   if (tool !== TOOL.GRAB || !grabbing || !grabInit) return;
+    //   const g = activeLayerGroup(); if (!g) return;
+    //   const p = svgPoint(e);
+    //   let dx = p.x - grabStart.x;
+    //   let dy = p.y - grabStart.y;
+    //   if (e.shiftKey){ if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }
+    //   const { s, tx, ty } = grabInit;
+    //   setLayerXform(g, s, tx + dx, ty + dy);
+    // });
+
+    function endGrab(){
+      if (tool !== TOOL.GRAB || !grabbing || !grabInit) return;
+      const g = activeLayerGroup(); if (!g) return;
+      const end = getLayerXform(g);
+      recordLayerMove(activeLayer, grabInit.tx, grabInit.ty, end.tx, end.ty);
+      grabbing = false; grabStart = null; grabInit = null;
+      drawSvg.classList.remove('grabbing'); drawSvg.classList.add('grab');
+      queueAutosave();
+    }
+    drawSvg.addEventListener("pointerup", endGrab);
+    drawSvg.addEventListener("pointercancel", endGrab);
+
+    function updateBgRect(){
+      const bg = layers[0]?.g; if (!bg) return;
+      const { w, h } = vbSize();
+      const rect = bg.querySelector("#bgRect");
+      rect.setAttribute("width", w); rect.setAttribute("height", h);
+      rect.setAttribute("fill", bgColor);
+      const img = bg.querySelector("#bgImage");
+      img.setAttribute("width", w); img.setAttribute("height", h);
+    }
+
+    function getLayerListItem(id){ return layersList.querySelector(`.layer-item[data-id="${id}"]`); }
+
+    function updateEyeIcon(itemEl, hidden){
+      const eye = itemEl.querySelector(".layer-eye"); if (!eye) return;
+      eye.textContent = hidden ? "🙈" : "👁️";
+      itemEl.style.opacity = hidden ? 0.55 : itemEl.classList.contains("bg") ? 0.9 : 1.0;
+    }
+    function setLayerVisibility(id, hidden){
+      const rec = layers[id]; if (!rec || !rec.g) return;
+      rec.hidden = !!hidden; rec.g.style.display = hidden ? "none" : "";
+      const item = getLayerListItem(id); if (item) updateEyeIcon(item, hidden);
+      queueAutosave();
+    }
+    function toggleLayerVisibility(id){
+      const rec = layers[id]; if (!rec) return;
+      const fromHidden = !!rec.hidden; const toHidden = !fromHidden;
+      setLayerVisibility(id, toHidden);
+      recordLayerVisibility(id, fromHidden, toHidden);
+    }
+
+    function removeLayer(id, recordHistory=true){
+      if (id === 0) return;
+      const rec = layers[id]; if (!rec || !rec.g) return;
+
+      const parent = layersRoot;
+      const nextSibling = rec.g.nextSibling;
+
+      const item = getLayerListItem(id);
+      const listParent = layersList;
+      const listNext = item ? item.nextSibling : null;
+
+      rec.g.remove();
+      if (item) item.remove();
+
+      if (recordHistory){
+        history.push({ op: "layer-del", id, rec, parent, nextSibling, item, listParent, listNext });
+        redoStack.length = 0;
+      }
+
+      let nid = id - 1;
+      for (let i=id+1; i<layers.length; i++) if (layers[i] && layers[i].g) { nid = i; break; }
+        while (nid > 0 && (!layers[nid] || !layers[nid].g)) nid--;
+      setActiveLayer(nid >= 0 ? nid : 0);
+    }
+
+    function restoreDeletedLayer(h){
+      const { id, rec, parent, nextSibling, item, listParent, listNext } = h;
+      if (nextSibling && nextSibling.parentNode === parent) parent.insertBefore(rec.g, nextSibling);
+      else parent.appendChild(rec.g);
+      if (item){
+        if (listNext && listNext.parentNode === listParent) listParent.insertBefore(item, listNext);
+        else listParent.appendChild(item);
+      } else {
+        addLayerListItem(id, rec.name || rec.g.getAttribute("data-name") || `Layer ${id}`, rec.g.getAttribute("data-type")==="bg");
+      }
+      setLayerVisibility(id, !!rec.hidden);
+    }
+
+    function recordLayerAdd(id){
+      const rec = layers[id]; if (!rec) return;
+      const parent = layersRoot;
+      const nextSibling = rec.g.nextSibling;
+
+      const item = getLayerListItem(id);
+      const listParent = layersList;
+      const listNext = item ? item.nextSibling : null;
+
+      history.push({ op: "layer-add", id, rec, parent, nextSibling, item, listParent, listNext });
+      redoStack.length = 0;
+    }
+
+    function pushHistory(node, op='add'){
+      const parent = node.parentNode;
+      const next   = node.nextSibling;
+      history.push({ op, node, parent, next });
+      redoStack.length = 0;
+    }
+    function recordLayerRename(id, from, to){
+      if (from === to) return;
+      history.push({ op:"layer-rename", id, from, to });
+      redoStack.length = 0;
+    }
+    function recordLayerVisibility(id, fromHidden, toHidden){
+      if (fromHidden === toHidden) return;
+      history.push({ op:"layer-visibility", id, fromHidden: !!fromHidden, toHidden: !!toHidden });
+      redoStack.length = 0;
+    }
+
+    function undo(){
+      const h = history.pop(); if (!h) return;
+      if (h.op === 'add'){
+        if (h.node?.parentNode) h.node.parentNode.removeChild(h.node);
+        redoStack.push(h);
+      } else if (h.op === 'remove'){
+        if (h.parent){
+          if (h.next && h.next.parentNode === h.parent) h.parent.insertBefore(h.node, h.next);
+          else h.parent.appendChild(h.node);
+        }
+        redoStack.push(h);
+      } else if (h.op === 'layer-add'){
+        removeLayer(h.id, false); redoStack.push(h);
+      } else if (h.op === 'layer-del'){
+        restoreDeletedLayer(h); redoStack.push(h);
+      } else if (h.op === 'layer-rename'){
+        applyLayerRename(h.id, h.from);
+        const item = layersList.querySelector(`.layer-item[data-id="${h.id}"] .layer-label`);
+        if (item) item.textContent = h.from;
+        redoStack.push(h);
+      } else if (h.op === 'layer-visibility'){
+        setLayerVisibility(h.id, !!h.fromHidden); redoStack.push(h);
+      } else if (h.op === 'layer-move'){
+        const rec = layers[h.id]; if (!rec || !rec.g) return;
+        const { s } = getLayerXform(rec.g);
+        setLayerXform(rec.g, s, h.from.tx, h.from.ty);
+        redoStack.push(h);
+      }
+      queueAutosave();
+    }
+
+    function redo(){
+      const h = redoStack.pop(); if (!h) return;
+      if (h.op === 'add'){
+        if (h.parent){
+          if (h.next && h.next.parentNode === h.parent) h.parent.insertBefore(h.node, h.next);
+          else h.parent.appendChild(h.node);
+        }
+        history.push(h);
+      } else if (h.op === 'remove'){
+        if (h.node?.parentNode) h.node.parentNode.removeChild(h.node);
+        history.push(h);
+      } else if (h.op === 'layer-add'){
+        if (!layers[h.id]?.g?.parentNode){
+          const { parent, nextSibling, rec, item, listParent, listNext } = h;
+          if (nextSibling && nextSibling.parentNode === parent) parent.insertBefore(rec.g, nextSibling);
+          else parent.appendChild(rec.g);
+          if (item){
+            if (listNext && listNext.parentNode === listParent) listParent.insertBefore(item, listNext);
+            else listParent.appendChild(item);
+          } else {
+            addLayerListItem(h.id, rec.name || `Layer ${h.id}`, rec.g.getAttribute("data-type")==="bg");
+          }
+          setLayerVisibility(h.id, !!rec.hidden);
+        }
+        history.push(h);
+      } else if (h.op === 'layer-del'){
+        removeLayer(h.id, false); history.push(h);
+      } else if (h.op === 'layer-rename'){
+        applyLayerRename(h.id, h.to);
+        const item = layersList.querySelector(`.layer-item[data-id="${h.id}"] .layer-label`);
+        if (item) item.textContent = h.to;
+        history.push(h);
+      } else if (h.op === 'layer-visibility'){
+        setLayerVisibility(h.id, !!h.toHidden); history.push(h);
+      } else if (h.op === 'layer-move'){
+        const rec = layers[h.id]; if (!rec || !rec.g) return;
+        const { s } = getLayerXform(rec.g);
+        setLayerXform(rec.g, s, h.to.tx, h.to.ty);
+        history.push(h);
+      }
+      queueAutosave();
+    }
+
+    drawUndo.onclick = ()=> undo();
+    drawRedo.onclick = ()=> redo();
+
+    drawClear.onclick = ()=> {
+      const g = activeLayerGroup();
+      const isBG = g.getAttribute("data-type") === "bg";
+      const keepIds = isBG ? new Set(["bgRect","bgImage"]) : new Set();
+      Array.from(g.childNodes).forEach(node=>{
+        if (node.nodeType===1 && (!node.id || !keepIds.has(node.id))){
+          for (let i=history.length-1;i>=0;i--) if (history[i]===node) history.splice(i,1);
+            for (let i=redoStack.length-1;i>=0;i--) if (redoStack[i]===node) redoStack.splice(i,1);
+              g.removeChild(node);
+          }
+        });
+      queueAutosave();
+    };
+
+    // Eraser
+    let erasing = false;
+    const isProtected = (el)=> (el?.id === 'bgRect' || el?.id === 'bgImage');
+    function eraseAtClientXY(clientX, clientY){
+      const samples = [];
+      const r = eraserRadius;
+      const steps = Math.max(8, Math.min(32, Math.round(r)));
+      for (let i=0;i<steps;i++){
+        const a = (i/steps) * Math.PI*2;
+        samples.push([clientX + r*Math.cos(a), clientY + r*Math.sin(a)]);
+      }
+      samples.push([clientX, clientY]);
+
+      const g = activeLayerGroup();
+      if (!g || g.getAttribute('data-type')==='bg') return;
+
+      for (const [sx, sy] of samples){
+        const el = document.elementFromPoint(sx, sy);
+        if (!el || el === drawSvg) continue;
+        const inLayer = el.closest('g') === g;
+        if (!inLayer || isProtected(el)) continue;
+        const parent = el.parentNode;
+        const next   = el.nextSibling;
+        if (parent){
+          parent.removeChild(el);
+          history.push({ op:'remove', node: el, parent, next });
+          redoStack.length = 0;
+        }
+      }
+    }
+
+    drawSvg.addEventListener('pointerdown', (e)=>{
+      if (tool !== TOOL.ERASE) return;
+      erasing = true;
+      drawSvg.setPointerCapture(e.pointerId);
+      eraseAtClientXY(e.clientX, e.clientY);
+      queueAutosave();
+    });
+    drawSvg.addEventListener('pointermove', (e)=>{
+      if (tool !== TOOL.ERASE || !erasing) return;
+      eraseAtClientXY(e.clientX, e.clientY);
+      queueAutosave();
+    });
+    drawSvg.addEventListener('pointerup', ()=>{ if (tool === TOOL.ERASE) erasing = false; });
+    drawSvg.addEventListener('pointercancel', ()=>{ if (tool === TOOL.ERASE) erasing = false; });
+
+    // keyboard
+    window.addEventListener("keydown", async (e)=>{
+      const t = e.target;
+      const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+      if (typing) return;
+
+      if (e.key.toLowerCase() === "e"){ toggleEraser(); e.preventDefault(); return; }
+      if (e.key === "[") { setStrokeW(strokeW - 1); e.preventDefault(); return; }
+      if (e.key === "]") { setStrokeW(strokeW + 1); e.preventDefault(); return; }
+
+      if (e.key.toLowerCase() === "s" && !e.ctrlKey && !e.metaKey && !e.altKey){
+        e.preventDefault(); await saveOutputPNG(); return;
+      }
+
+      if (!e.ctrlKey && !e.metaKey && !e.altKey){
+        const step = e.shiftKey ? 1.2 : 1.05;
+        if (e.key === "+" || e.key === "="){ zoomActiveLayer(step); e.preventDefault(); return; }
+        if (e.key === "-" || e.key === "_"){ zoomActiveLayer(1/step); e.preventDefault(); return; }
+      }
+
+      if (e.key.toLowerCase() === "h"){ toggleLayerVisibility(activeLayer); e.preventDefault(); return; }
+      if (e.key.toLowerCase() === "g"){ toggleGrab(); e.preventDefault(); return; }
+      if (e.key === "Escape" && tool === TOOL.GRAB){ toggleGrab(); e.preventDefault(); return; }
+
+      const meta = e.ctrlKey || e.metaKey;
+      if (!meta) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) { undo(); e.preventDefault(); }
+      else if (k === "y" || (k === "z" && e.shiftKey)) { redo(); e.preventDefault(); }
+    });
+
+    function svgPoint(evt){
+      const rect = drawSvg.getBoundingClientRect();
+      const x = (evt.clientX - rect.left) * (drawSvg.viewBox.baseVal.width  || rect.width)  / rect.width;
+      const y = (evt.clientY - rect.top)  * (drawSvg.viewBox.baseVal.height || rect.height) / rect.height;
+      return {x,y};
+    }
+
+    function startDraw(e){
+      if (tool === TOOL.ERASE || tool === TOOL.GRAB) return;
+      ensureViewBox();
+      drawing = true;
+
+      const g = activeLayerGroup();
+      const pGlobal = svgPoint(e);
+      const p = toLocalPoint(g, pGlobal);
+      startPt = p;
+
+      let el;
+      const computedFill = (tool===TOOL.RECT || tool===TOOL.CIRC) && fillOpacity > 0 ? fillColor : "none";
+      const computedFillOpacity = (computedFill === "none") ? null : String(fillOpacity);
+
+      if (tool===TOOL.FREE){
+        el = document.createElementNS("http://www.w3.org/2000/svg","polyline");
+        el.setAttribute("fill","none");
+        el.setAttribute("stroke", strokeColor);
+        el.setAttribute("stroke-linecap","round");
+        el.setAttribute("stroke-linejoin","round");
+        el.setAttribute("stroke-width", String(strokeW));
+        el.setAttribute("vector-effect","non-scaling-stroke");
+        el.setAttribute("points", `${p.x},${p.y}`);
+      } else if (tool===TOOL.LINE){
+        el = document.createElementNS("http://www.w3.org/2000/svg","line");
+        el.setAttribute("x1", p.x); el.setAttribute("y1", p.y);
+        el.setAttribute("x2", p.x); el.setAttribute("y2", p.y);
+        el.setAttribute("stroke", strokeColor);
+        el.setAttribute("stroke-width", String(strokeW));
+        el.setAttribute("stroke-linecap","round");
+        el.setAttribute("vector-effect","non-scaling-stroke");
+        el.setAttribute("fill","none");
+      } else if (tool===TOOL.RECT){
+        el = document.createElementNS("http://www.w3.org/2000/svg","rect");
+        el.setAttribute("x", p.x); el.setAttribute("y", p.y);
+        el.setAttribute("width", 0); el.setAttribute("height", 0);
+        el.setAttribute("fill", computedFill);
+        if (computedFillOpacity) el.setAttribute("fill-opacity", computedFillOpacity);
+        el.setAttribute("stroke", strokeColor);
+        el.setAttribute("stroke-width", String(strokeW));
+        el.setAttribute("vector-effect","non-scaling-stroke");
+      } else if (tool===TOOL.CIRC){
+        el = document.createElementNS("http://www.w3.org/2000/svg","circle");
+        el.setAttribute("cx", p.x); el.setAttribute("cy", p.y);
+        el.setAttribute("r", 0);
+        el.setAttribute("fill", computedFill);
+        if (computedFillOpacity) el.setAttribute("fill-opacity", computedFillOpacity);
+        el.setAttribute("stroke", strokeColor);
+        el.setAttribute("stroke-width", String(strokeW));
+        el.setAttribute("vector-effect","non-scaling-stroke");
+      } else {
+        return;
+      }
+
+      g.appendChild(el);
+      setSelected(el);
+      activeDrawEl = el;
+      pushHistory(el, 'add');
+      queueAutosave();
+    }
+
+    function moveDraw(e){
+      if (!drawing || !activeDrawEl) return;
+      const g = activeLayerGroup();
+      const p = toLocalPoint(g, svgPoint(e));
+      const el = activeDrawEl;
+
+      if (tool===TOOL.FREE){
+        el.setAttribute("points", el.getAttribute("points")+" "+`${p.x},${p.y}`);
+      } else if (tool===TOOL.LINE){
+        el.setAttribute("x2", p.x); el.setAttribute("y2", p.y);
+      } else if (tool===TOOL.RECT){
+        const x = Math.min(startPt.x, p.x); const y = Math.min(startPt.y, p.y);
+        const w = Math.abs(p.x - startPt.x); const h = Math.abs(p.y - startPt.y);
+        el.setAttribute("x", x); el.setAttribute("y", y);
+        el.setAttribute("width", w); el.setAttribute("height", h);
+      } else if (tool===TOOL.CIRC){
+        const dx = p.x - startPt.x; const dy = p.y - startPt.y; const r = Math.sqrt(dx*dx + dy*dy);
+        el.setAttribute("r", r);
+      }
+    }
+
+    function endDraw(){
+      drawing = false;
+      startPt = null;
+      activeDrawEl = null;
+    }
+
+    drawSvg.addEventListener("pointerdown", e=>{
+      if (tool === TOOL.ERASE || tool === TOOL.GRAB) return;
+      drawSvg.setPointerCapture(e.pointerId);
+      startDraw(e);
+    });
+
+    // drawSvg.addEventListener("pointermove", e=>{
+    //   if (tool === TOOL.ERASE || tool === TOOL.GRAB) return;
+    //   moveDraw(e);
+    // });
+    // drawSvg.addEventListener("pointerup", endDraw);
+    // drawSvg.addEventListener("pointercancel", endDraw);
+
+    drawSvg.addEventListener("click", (e)=>{
+      const el = e.target; if (!el || !el.tagName) return;
+      if (el.id === "bgRect" || el.id === "bgImage") return;
+      const parent = el.closest("g");
+      if (!parent || parent.getAttribute("data-type") === "bg") return;
+      setSelected(el);
+      statusEl.textContent = "element selected";
+    });
+
+    function sizeHidden(w,h){ hidden.width=w; hidden.height=h; }
+
+    const XLINK = "http://www.w3.org/1999/xlink";
+
+    async function urlToDataURL(url) {
+      const res = await fetch(url, { cache: "no-store" });
+      const blob = await res.blob();
+      return await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+    }
+
+    // put near top-level
+    const _imgDataURLCache = new Map();
+
+    async function inlineExternalImages(svgEl) {
+      const images = Array.from(svgEl.querySelectorAll("image"));
+      await Promise.all(images.map(async im => {
+        let href = im.getAttribute("href") || im.getAttributeNS("http://www.w3.org/1999/xlink", "href") || "";
+        if (!href || href.startsWith("data:")) return;
+        try {
+          const abs = new URL(href, window.location.origin).toString();
+          let dataURL = _imgDataURLCache.get(abs);
+          if (!dataURL) {
+            const res = await fetch(abs, { cache: "force-cache" });
+            const blob = await res.blob();
+            dataURL = await new Promise((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(r.result);
+              r.onerror = reject;
+              r.readAsDataURL(blob);
+            });
+            _imgDataURLCache.set(abs, dataURL);
+          }
+          im.setAttribute("href", dataURL);
+          im.removeAttributeNS("http://www.w3.org/1999/xlink", "href");
+          im.removeAttribute("crossorigin");
+        } catch (e) {
+          console.warn("[i2i] inline image failed:", href, e);
+        }
+      }));
+    }
+
+
+
+    async function svgToCanvasBlob(quality = 0.92) {
+      const vb = drawSvg.viewBox?.baseVal;
+      const w = vb?.width  || Math.round(drawSvg.getBoundingClientRect().width)  || 1024;
+      const h = vb?.height || Math.round(drawSvg.getBoundingClientRect().height) || 768;
+
+      const clone = drawSvg.cloneNode(true);
+      clone.setAttribute("width",  String(w));
+      clone.setAttribute("height", String(h));
+
+      // Ensure xmlns/xlink on clone
+      if (!clone.getAttribute("xmlns"))      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      if (!clone.getAttribute("xmlns:xlink"))clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+      await inlineExternalImages(clone);
+
+      const svgStr = new XMLSerializer().serializeToString(clone);
+      const blob   = new Blob([svgStr], { type: "image/svg+xml" });
+      const url    = URL.createObjectURL(blob);
+
+      const img = new Image();
+      img.decoding = "async";
+      img.onload = () => URL.revokeObjectURL(url);
+      img.onerror = () => URL.revokeObjectURL(url);
+      img.src = url;
+      try { await img.decode(); } catch {}
+
+      hidden.width = w; hidden.height = h;
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(img, 0, 0, w, h);
+
+      return new Promise(res => hidden.toBlob(res, "image/png", quality));
+    }
+
+
+    async function grabFrameBlob(quality=0.9){
+      if (mode===MODE.WEBCAM){
+        if (!cam.videoWidth || !cam.videoHeight) return null;
+        const w=cam.videoWidth, h=cam.videoHeight; sizeHidden(w,h);
+        ctx.save(); ctx.translate(state.Flip_X ? w : 0, state.Flip_Y ? h : 0);
+        ctx.scale(state.Flip_X ? -1 : 1, state.Flip_Y ? -1 : 1);
+        ctx.drawImage(cam,0,0,w,h); ctx.restore();
+        return new Promise(r=> hidden.toBlob(r,"image/jpeg",quality));
+      } else if (mode===MODE.IMAGE){
+        if (!imgUpload.naturalWidth) return null;
+        const w=imgUpload.naturalWidth, h=imgUpload.naturalHeight; sizeHidden(w,h);
+        ctx.drawImage(imgUpload,0,0,w,h);
+        return new Promise(r=> hidden.toBlob(r,"image/jpeg",quality));
+      } else if (mode===MODE.VIDEO){
+        if (!vidFile.videoWidth || !vidFile.videoHeight) return null;
+        const w=vidFile.videoWidth, h=vidFile.videoHeight; sizeHidden(w,h);
+        ctx.drawImage(vidFile,0,0,w,h);
+        return new Promise(r=> hidden.toBlob(r,"image/jpeg",quality));
+      } else if (mode===MODE.HLS){
+        if (!vidHls.videoWidth || !vidHls.videoHeight) return null;
+        const w = vidHls.videoWidth, h = vidHls.videoHeight; sizeHidden(w,h);
+        ctx.drawImage(vidHls, 0, 0, w, h);
+        return new Promise(r=> hidden.toBlob(r,"image/jpeg",quality));
+      } else {
+        return await svgToCanvasBlob(quality);
+      }
+    }
+
+    // ===== Server persistence (DB) =====
+    async function loadSvgFromDb(){
+      if (!metaShort) return false;
+      let restored = false;
+      try{
+        const url = `/i2i/svg/load?proj=${encodeURIComponent(metaShort)}`;
+        console.time("[i2i] SVG load");
+        const res = await fetch(url, { cache:"no-store" });
+        const ct  = res.headers.get("content-type") || "";
+        const raw = await res.text();  // so we can measure bytes too
+        console.timeEnd("[i2i] SVG load");
+
+        if (!res.ok){
+          console.error("[i2i] /i2i/svg/load failed", res.status, raw.slice(0,500));
+          return false;
+        }
+        let j = {};
+        try{ j = JSON.parse(raw); }catch(e){ console.error("[i2i] bad JSON from /i2i/svg/load", e, raw.slice(0,300)); }
+
+        logGroup("[i2i] svg/load meta", {
+          ok: j.ok, rev: j.rev, updated_at: j.updated_at,
+          svg_len_bytes: (j.svg ? new TextEncoder().encode(j.svg).length : 0)
+        });
+
+        const svg = j?.svg || "";
+        if (svg) {
+          try {
+            const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+            let restoredRoot = doc.documentElement;
+
+            // Ensure xmlns/xlink (some browsers still care when inlining <image>)
+            if (!restoredRoot.getAttribute("xmlns"))       restoredRoot.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+            if (!restoredRoot.getAttribute("xmlns:xlink")) restoredRoot.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+
+            // Copy safe attrs & inner
+            const skipAttrs = new Set(["id","width","height","style"]);
+            for (const {name,value} of Array.from(restoredRoot.attributes)) {
+              if (!skipAttrs.has(name)) drawSvg.setAttribute(name, value);
+            }
+            drawSvg.innerHTML = restoredRoot.innerHTML;
+            restored = true;
+
+            // Quick content census
+            const counts = {
+              groups: drawSvg.querySelectorAll("g").length,
+              images: drawSvg.querySelectorAll("image").length,
+              paths:  drawSvg.querySelectorAll("path,polyline,polygon,line,rect,circle,ellipse").length,
+              hasViewBox: drawSvg.hasAttribute("viewBox")
+            };
+            logGroup("[i2i] restored SVG census", counts);
+          } catch (e) {
+            console.warn("[i2i] svg parse/restore failed:", e);
+          }
+        } else {
+          console.warn("[i2i] svg/load returned empty svg (rev:", j.rev, ")");
+        }
+      } catch (e) {
+        console.warn("[i2i] load svg:", e);
+      } finally {
+        // Always normalize DOM so draw is usable
+        ensureLayersRoot();
+        rebuildLayersFromDOM();
+        ensureViewBox(true);
+        updateBgRect();
+      }
+      return restored;
+    }
+
+
+
+    async function loadGalleryFromDb(limit=48){
+      if (!metaShort) return;
+      try{
+        const res = await fetch(`/i2i/gallery?proj=${encodeURIComponent(metaShort)}&limit=${limit}`, { cache:"no-store" });
+        if (!res.ok) return;
+        const j = await res.json();
+        gallery.innerHTML = "";
+        (j.items || []).forEach(it => addGalleryThumb(it.url));
+      }catch(e){
+        console.warn("[i2i] gallery load:", e);
+      }
+    }
+
+    await setCurrentProjectHeader();
+
+    if (!metaShort) {
+      document.getElementById("btnStart").disabled = true;
+      document.getElementById("btnSnap").disabled  = true;
+      toast("Open a project first (Projects…)", 2000);
+      openProjectsModal();
+    }
+
+    // ===== Inference =====
+    async function processOne(){
+      if (inFlight) return;
+
+      const t0 = performance.now();
+
+      const frameBlob = await grabFrameBlob(0.9);
+      if (!frameBlob) { statusEl.textContent = "no frame yet"; return; }
+
+      inFlight = true;
+      try {
+        if (!metaShort) { statusEl.textContent = "project required"; return; }
+
+        statusEl.textContent = "loading model…";
+        for (;;) {
+          const stRes = await fetch("/i2i/status", { cache:"no-store" });
+          if (!stRes.ok) throw new Error(`HTTP ${stRes.status}`);
+          const st = await stRes.json().catch(()=> ({}));
+          if (st.ready) break;
+          if (st.err) throw new Error(st.err);
+          await new Promise(r => setTimeout(r, 250));
+        }
+
+        const scale = (state.Scale === 1 || state.Scale === 2 || state.Scale === 4) ? state.Scale : 1;
+
+        statusEl.textContent = `processing… (x${scale})`;
+
+        const isDraw = (mode === MODE.DRAW);
+        let effectiveMode = isDraw ? "image" : mode;
+        if (mode === MODE.HLS) effectiveMode = "video";
+
+        const filename = isDraw ? "frame.png" : "frame.jpg";
+
+        const fd = new FormData();
+        fd.append("frame", frameBlob, filename);
+        fd.append("prompt", state.Prompt || "");
+        fd.append("strength", String(state.Strength));
+        fd.append("guidance", String(state.Guidance));
+        fd.append("steps", String(state.Steps));
+        fd.append("scale", String(scale));
+        if (metaShort) fd.append("proj", metaShort);
+        fd.append("mode", effectiveMode);
+        if (isDraw) fd.append("source", "raster");
+
+        const res = await fetch("/i2i/process", { method: "POST", body: fd });
+        if (!res.ok) {
+          let msg = `HTTP ${res.status}`;
+          try {
+            const j = await res.json();
+            if (j?.error) msg = j.detail ? `${j.error}: ${j.detail}` : j.error;
+          } catch {}
+          throw new Error(msg);
+        }
+
+        const outBlob = await res.blob();
+        const dataUrl = await blobToDataURL(outBlob);
+
+        if (out.dataset.url) URL.revokeObjectURL(out.dataset.url);
+        const url = URL.createObjectURL(outBlob);
+        out.dataset.url = url;
+        out.src = url;
+
+        statusEl.textContent = "done";
+        addGalleryThumb(dataUrl);
+
+        const t1 = performance.now();
+        const dt = Math.max(50, t1 - t0);
+        avgLatencyMs = Math.round(avgLatencyMs * 0.75 + dt * 0.25);
+      } catch (e) {
+        statusEl.textContent = e?.message || "error";
+        console.error("[i2i] process error:", e);
+      } finally {
+        inFlight = false;
+      }
+    }
+
+
+    async function blobToDataURL(blob){
+      return new Promise((res, rej)=>{
+        const r = new FileReader();
+        r.onload = ()=> res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+      });
+    }
+
+    async function fileToDataURL(file){
+      return new Promise((res, rej)=>{
+        const r = new FileReader();
+        r.onload = ()=> res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(file);
+      });
+    }
+
+    // BG loaders
+    fileBg.addEventListener("change", async (e)=>{
+      const f = e.target.files?.[0]; if (!f) return;
+      const dataUrl = await fileToDataURL(f);
+      ensureLayersRoot();
+      const bg = layers[0].g;
+      const img = bg.querySelector("#bgImage");
+      img.removeAttribute("crossorigin");
+      img.setAttribute("href", dataUrl);
+      // img.setAttributeNS("http://www.w3.org/1999/xlink", "href", dataUrl);
+      queueAutosave();
+    });
+
+    fileLayer.addEventListener("change", async (e)=>{
+      const f = e.target.files?.[0]; if (!f) return;
+      const dataUrl = await fileToDataURL(f);
+      ensureLayersRoot();
+      const { w, h } = vbSize();
+      const g = activeLayerGroup();
+      const img = document.createElementNS("http://www.w3.org/2000/svg","image");
+      img.setAttribute("x", 0); img.setAttribute("y", 0);
+      img.setAttribute("width", w); img.setAttribute("height", h);
+      img.setAttribute("preserveAspectRatio","xMidYMid meet");
+      img.removeAttribute("crossorigin");
+      img.setAttribute("href", dataUrl);                  // single source of truth
+      img.removeAttributeNS("http://www.w3.org/1999/xlink","href"); // no duplicate
+      g.appendChild(img);
+      pushHistory(img);
+      setSelected(img);
+      queueAutosave();
+    });
+
+
+    // save output png (client)
+    async function saveOutputPNG(){
+      if (!out || !out.src) return;
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = out.src;
+      await img.decode().catch(()=>{});
+      const w = img.naturalWidth || out.width || 512;
+      const h = img.naturalHeight || out.height || 512;
+      sizeHidden(w, h);
+      ctx.clearRect(0,0,w,h);
+      ctx.drawImage(img, 0, 0, w, h);
+      const dataUrl = hidden.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      const sid = document.querySelector('meta[name="i2i-proj-short"]')?.content || "proj";
+      const ts  = new Date().toISOString().replace(/[:.]/g,'-');
+      a.download = `${sid}_${ts}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      console.debug("[i2i] Output PNG saved");
+    }
+
+    function toggleLive(on){
+      state.Live = !!on;
+      if (on){
+        statusEl.textContent = "live…";
+        if (liveTimer) clearInterval(liveTimer);
+        liveTimer = setInterval(processOne, Math.max(200, Math.round(avgLatencyMs)));
+      } else {
+        statusEl.textContent = "idle";
+        if (liveTimer) clearInterval(liveTimer);
+        liveTimer = null;
+      }
+    }
+    document.getElementById("btnStart").onclick = ()=> toggleLive(true);
+    document.getElementById("btnStop").onclick  = ()=> toggleLive(false);
+    document.getElementById("btnSnap").onclick  = ()=> processOne();
+
+    window.addEventListener("resize", ()=> { if (mode===MODE.DRAW) ensureViewBox(true); });
+
+    window.addEventListener("beforeunload", () => { stopHls(); stopWebcam(); });
+
+
+    // Keep SVG sized with its container even if only the pane resizes
+    const _srcDrawEl = document.getElementById("srcDraw");
+    if (_srcDrawEl) {
+      const _paneObserver = new ResizeObserver(() => {
+        if (mode === MODE.DRAW) { ensureViewBox(true); updateBgRect(); }
+      });
+      _paneObserver.observe(_srcDrawEl);
+    }
+
+    // Projects menu open/close
+    document.addEventListener("click",(e)=>{
+      if (!projectsMenu.contains(e.target) && e.target !== btnProjects) projectsMenu.classList.remove("show");
+    });
+    btnProjects.addEventListener("click", ()=> { dd(projectsMenu, !projectsMenu.classList.contains("show")); });
+
+    // Save buttons (DB)
+    btnSave.addEventListener("click", saveSvgAndCfgToDb);
+    projSaveDb.addEventListener("click", ()=>{ projectsMenu.classList.remove("show"); saveSvgAndCfgToDb(); });
+
+    // Reset current project to blank
+    projReset.addEventListener("click", ()=>{
+      projectsMenu.classList.remove("show");
+      ensureLayersRoot();
+      const bg = layers?.[0]?.g;
+      if (layersRoot){
+        Array.from(layersRoot.childNodes).forEach(n=>{ if (n!==bg) n.remove(); });
+        layers.length = 1; // keep bg layer
+        createLayer("Layer 1");
+        setActiveLayer(1);
+      }
+      document.getElementById("gallery").innerHTML = "";
+      state.Prompt = promptEl.value = "";
+      projCfg.prompt.text = "";
+      updateBgRect();
+      queueAutosave();
+      toast("Reset");
+    });
+
+
+
+    function rebuildLayersFromDOM() {
+      console.groupCollapsed("[i2i] rebuildLayersFromDOM");
+
+      // 0) Ensure a viewBox exists so sizing math is stable
+      if (!drawSvg.hasAttribute("viewBox")) {
+        const r = drawSvg.getBoundingClientRect();
+        const w = Math.max(10, Math.round(r.width || 1024));
+        const h = Math.max(10, Math.round(r.height || 768));
+        drawSvg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+        console.debug("[i2i] synth viewBox", { w, h });
+      }
+
+      // 1) Find / de-duplicate #layersRoot
+      (function dedupeRoots(){
+        const roots = Array.from(drawSvg.querySelectorAll("#layersRoot"));
+        if (roots.length > 1) {
+          const keep = roots[0];
+          for (let i = 1; i < roots.length; i++) {
+            const r = roots[i];
+            while (r.firstChild) keep.appendChild(r.firstChild);
+            r.remove();
+          }
+          layersRoot = keep;
+          console.warn("[i2i] deduped multiple #layersRoot groups");
+        } else if (roots.length === 1) {
+          layersRoot = roots[0];
+        } else {
+          // Create a root and adopt all current children
+          const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          g.setAttribute("id", "layersRoot");
+          while (drawSvg.firstChild) g.appendChild(drawSvg.firstChild);
+          drawSvg.appendChild(g);
+          layersRoot = g;
+          console.debug("[i2i] created layersRoot and adopted existing children");
+        }
+      })();
+
+      // 2) Wrap any non-<g> children (orphans) into a proper draw layer so UI sees them
+      (function wrapOrphans(){
+        const orphans = Array.from(layersRoot.childNodes)
+        .filter(n => n.nodeType === 1 && n.tagName.toLowerCase() !== "g");
+        if (!orphans.length) return;
+        const wrap = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        wrap.setAttribute("data-name", "Imported Layer");
+        wrap.setAttribute("data-type", "draw");
+        orphans.forEach(n => wrap.appendChild(n));
+        const first = layersRoot.firstElementChild;
+        if (first?.getAttribute?.("data-type") === "bg") {
+          layersRoot.insertBefore(wrap, first.nextSibling);
+        } else {
+          layersRoot.insertBefore(wrap, first || null);
+        }
+        console.warn("[i2i] wrapped orphan nodes into 'Imported Layer'", { count: orphans.length });
+      })();
+
+      // 3) Ensure a single Background group exists and is FIRST (painted under everything)
+      let bg = layersRoot.querySelector('g[data-type="bg"]');
+      if (!bg) {
+        const created = createLayer("Background", true);
+        layersRoot.insertBefore(created.g, layersRoot.firstChild);
+        bg = created.g;
+        console.debug("[i2i] created Background group");
+      } else {
+        // If multiple bg groups slipped in, merge them
+        const extras = Array.from(layersRoot.querySelectorAll('g[data-type="bg"]')).filter(g => g !== bg);
+        for (const ex of extras) {
+          while (ex.firstChild) bg.appendChild(ex.firstChild);
+          ex.remove();
+        }
+        // Force BG to be first child so it paints below
+        if (layersRoot.firstElementChild !== bg) {
+          layersRoot.insertBefore(bg, layersRoot.firstElementChild);
+        }
+      }
+
+      // 3a) Ensure bgRect/bgImage exist exactly once and are sized
+      let bgRect = bg.querySelector("#bgRect");
+      if (!bgRect) {
+        bgRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        bgRect.setAttribute("id", "bgRect");
+        bgRect.setAttribute("x", 0); bgRect.setAttribute("y", 0);
+        bg.insertBefore(bgRect, bg.firstChild);
+      }
+      // remove duplicate ids if any
+      Array.from(bg.querySelectorAll('#bgRect')).slice(1).forEach(n => n.remove());
+
+      let bgImage = bg.querySelector("#bgImage");
+      if (!bgImage) {
+        bgImage = document.createElementNS("http://www.w3.org/2000/svg", "image");
+        bgImage.setAttribute("id", "bgImage");
+        bgImage.setAttribute("x", 0); bgImage.setAttribute("y", 0);
+        bgImage.setAttribute("preserveAspectRatio", "xMidYMid meet");
+        bg.appendChild(bgImage);
+      }
+      Array.from(bg.querySelectorAll('#bgImage')).slice(1).forEach(n => n.remove());
+
+      {
+        const { w, h } = vbSize();
+        bgRect.setAttribute("width", w); bgRect.setAttribute("height", h);
+        bgRect.setAttribute("fill", bgColor);
+        bgImage.setAttribute("width", w); bgImage.setAttribute("height", h);
+      }
+
+      // 4) Rebuild in-memory layer list & sidebar from DOM
+      layers.length = 0;
+      layersList.innerHTML = "";
+
+      // Helper: normalize transform <=> data-* (support matrix/translate/scale)
+      const parseMatrix = (s) => {
+        const str = String(s || "");
+        // matrix(a b c d e f)
+        const m = str.match(/matrix\(([^)]+)\)/i);
+        if (m) {
+          const parts = m[1].split(/[\s,]+/).map(Number);
+          if (parts.length === 6 && parts.every(n => isFinite(n))) {
+            const [a,, , d, e, f] = parts;
+            const scl = (Math.abs(a - d) < 1e-6) ? a : a; // assume uniform
+            return { s: scl, tx: e, ty: f };
+          }
+        }
+        // translate(x y) scale(s)
+        const tr = str.match(/translate\(\s*([-\d.]+)(?:\s*[,\s]\s*([-\d.]+))?\s*\)/i);
+        const sc = str.match(/scale\(\s*([-\d.]+)\s*\)/i);
+        if (tr || sc) {
+          const tx = tr ? Number(tr[1]) : 0;
+          const ty = tr ? Number(tr[2] ?? 0) : 0;
+          const s  = sc ? Number(sc[1]) : 1;
+          if (isFinite(tx) && isFinite(ty) && isFinite(s)) return { s, tx, ty };
+        }
+        return null;
+      };
+
+      const groups = Array.from(layersRoot.children).filter(n => n.nodeType === 1 && n.tagName.toLowerCase() === "g");
+      groups.forEach((gEl, idx) => {
+        const isBG = gEl.getAttribute("data-type") === "bg";
+        const name = gEl.getAttribute("data-name") || (isBG ? "Background" : `Layer ${idx}`);
+
+        // Normalize transform/data-*
+        if (!gEl.dataset.s || !gEl.dataset.tx || !gEl.dataset.ty) {
+          const mat = parseMatrix(gEl.getAttribute("transform"));
+          if (mat) {
+            gEl.dataset.s  = String(isFinite(mat.s)  ? mat.s  : 1);
+            gEl.dataset.tx = String(isFinite(mat.tx) ? mat.tx : 0);
+            gEl.dataset.ty = String(isFinite(mat.ty) ? mat.ty : 0);
+          } else {
+            gEl.dataset.s  = gEl.dataset.s  || "1";
+            gEl.dataset.tx = gEl.dataset.tx || "0";
+            gEl.dataset.ty = gEl.dataset.ty || "0";
+          }
+        }
+        gEl.setAttribute("transform", `matrix(${gEl.dataset.s} 0 0 ${gEl.dataset.s} ${gEl.dataset.tx} ${gEl.dataset.ty})`);
+        gEl.setAttribute("data-name", name);
+
+        const id = layers.length;
+        const hidden = (gEl.style.display === "none");
+        layers.push({ id, g: gEl, name, hidden });
+        addLayerListItem(id, name, isBG);
+        const item = layersList.querySelector(`.layer-item[data-id="${id}"]`);
+        if (item) updateEyeIcon(item, hidden);
+      });
+
+      // 5) Guarantee at least one draw layer
+      let firstNonBg = layers.find(l => l && l.g && l.g.getAttribute("data-type") !== "bg");
+      if (!firstNonBg) {
+        firstNonBg = createLayer("Layer 1");
+        console.debug("[i2i] created fallback draw layer");
+      }
+      setActiveLayer(firstNonBg.id ?? 1);
+
+      // 6) Final sizing pass for BG
+      updateBgRect();
+
+      // 7) Diagnostics summary
+      const census = {
+        groups_total: groups.length,
+        visible_draw_layers: layers.filter(l => l.g.getAttribute("data-type") !== "bg" && !l.hidden).length,
+        hidden_layers: layers.filter(l => l.hidden).length
+      };
+      console.debug("[i2i] rebuild summary", census);
+      console.groupEnd();
+    }
+
+
+
+
+
+
+
+    // THEME (ok to persist just theme in localStorage)
+    const THEME_KEY = "i2i-theme";
+    function applyTheme(mode){
+      const m = (mode === "light") ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", m);
+      try{ localStorage.setItem(THEME_KEY, m); }catch{}
+      const btn = document.getElementById("themeToggle");
+      if (btn) btn.textContent = m === "light" ? "🌞" : "🌙";
+    }
+
+    (function initTheme(){
+      let saved = null; try{ saved = localStorage.getItem(THEME_KEY); }catch{}
+      if (saved) applyTheme(saved);
+      else {
+        const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
+        applyTheme(prefersLight ? "light" : "dark");
+      }
+    })();
+    
+    document.getElementById("themeToggle")?.addEventListener("click", ()=>{
+      const cur = document.documentElement.getAttribute("data-theme") || "dark";
+      applyTheme(cur === "dark" ? "light" : "dark");
+    });
+
+    // ===== Boot (order matters) =====
+    const hadSvg = await loadSvgFromDb();          // try to restore SVG first
+    console.debug("[i2i] hadSvg?", hadSvg, "proj:", metaShort, "initialMode:", projCfg.ui.sourceMode);
+
+    const initialMode = projCfg.ui.sourceMode || (hadSvg ? MODE.DRAW : MODE.WEBCAM);
+    setMode(initialMode);
+    whenVisible(drawSvg, () => { ensureViewBox(true); updateBgRect(); });
+    await loadGalleryFromDb();
+
+
+
+  </script>
+</body>
+</html>
