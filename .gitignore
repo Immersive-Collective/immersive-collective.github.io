@@ -1,3 +1,8 @@
+# allow audio assets for snow project
+!projects/more-shaders/snow/audio/
+!projects/more-shaders/snow/audio/**
+
+
 archive/
 *.blend
 *.wav
