@@ -87,9 +87,7 @@
 </head>
 <body>
   <div id="app"></div>
-
-
-  <div class="hud" style="visibility: hidden;">
+  <div class="hud">
     <b>Snowdrifts + gusts + sticking snow + presets</b><br />
     Drag: orbit · Wheel: zoom · Right-drag: pan<br />
     Gust parameters, sticking, drifts, and presets are all controlled from the GUI.
@@ -344,19 +342,7 @@
 
       // Sticking decals
       stuckMax: 24000,
-      decalSize: 0.14,
-
-      // Fog
-      fogNear: 18,
-      fogFar: 60,
-      fogColor: "#0a1220",
-
-      // Snowman path animation
-      snowmanMoveEnabled: true,
-      snowmanPathRadius: 4.0,  // approximate radius of his wander area
-      snowmanSpeed: 0.03       // loops per second (small = snail-slow)
-
-
+      decalSize: 0.14
     };
 
     const params = { ...DEFAULTS };
@@ -380,16 +366,6 @@
 
     let snowTex;
 
-    function updateFogFromParams() {
-      if (!scene) return;
-
-      const color = new THREE.Color(params.fogColor || "#0a1220");
-      scene.background = color;
-      scene.fog = new THREE.Fog(color, params.fogNear, params.fogFar);
-    }
-
-
-
     // GLTF / DRACO model system
     // ---------------------------------------------------------------------------
 
@@ -405,7 +381,7 @@
         instances: [
           {
             id: "model1_center",
-            position: [0, 0, -5],
+            position: [0, 0, -3],
             rotation: [0, 0, 0],
             scale: 1.0,
             stick: true
@@ -430,42 +406,14 @@
         url: "models/snowman-c.glb",
         instances: [
           {
-            id: "snowman",
-            position: [-7, -0.2, -1],
+            id: "tree_center",
+            position: [-4, 0, -1],
             rotation: [0, 1, 0],
             scale: 1.0,
             stick: true
           }
         ]
-      },
-      {
-        name: "model3",
-        url: "models/car-c.glb",
-        instances: [
-          {
-            id: "car",
-            position: [4, -0.2, 6],
-            rotation: [0, 1, 0],
-            scale: 1.0,
-            stick: false
-          }
-        ]
-      },
-      {
-        name: "model4",
-        url: "models/car2-c.glb",
-        instances: [
-          {
-            id: "car",
-            position: [-4, -0.0, 6],
-            rotation: [0, 1, 0],
-            scale: 3.0,
-            stick: false
-          }
-        ]
       }            
-
-
     ];
 
     const dracoLoader = new DRACOLoader();
@@ -534,81 +482,6 @@
     }
 
 
-    // -------------------------------------------------------------------------
-    // Snowman path animation – curvy, local “snail” trajectory
-    // -------------------------------------------------------------------------
-
-    const snowmanPathCenter = new THREE.Vector3(-7, 0, -1);
-    const snowmanPathPoints = [];
-    const SNOWMAN_PATH_SEGMENTS = 9;
-
-    (function buildSnowmanPath() {
-      const baseR = DEFAULTS.snowmanPathRadius;
-      for (let i = 0; i < SNOWMAN_PATH_SEGMENTS; i++) {
-        const a = (i / SNOWMAN_PATH_SEGMENTS) * Math.PI * 2.0;
-
-        // radius modulation -> mixture of almost circles and arcs
-        const rMul = 0.72 + 0.20 * Math.sin(i * 1.47) + 0.12 * Math.cos(i * 2.17);
-        const r = baseR * rMul;
-
-        const x = snowmanPathCenter.x + Math.cos(a) * r;
-        const z = snowmanPathCenter.z + Math.sin(a) * r;
-        const y = 0.0;
-
-        snowmanPathPoints.push(new THREE.Vector3(x, y, z));
-      }
-    })();
-
-    const snowmanPathCurve = new THREE.CatmullRomCurve3(
-      snowmanPathPoints,
-      true,
-      "catmullrom",
-      0.5
-      );
-
-    const snowmanState = {
-      t: 0,
-      lastPos: new THREE.Vector3(NaN, NaN, NaN)
-    };
-
-    function updateSnowman(dt) {
-      if (dt <= 0) return;
-      if (!params.snowmanMoveEnabled) return;
-
-      const snowmanObj = getModelInstance("snowman");
-      if (!snowmanObj) return;
-
-      // loops per second along the closed curve
-      const speed = clamp(params.snowmanSpeed, 0.0, 1.0);
-      if (speed <= 0.0) return;
-
-      snowmanState.t = (snowmanState.t + dt * speed) % 1.0;
-
-      // position on curve
-      const curvePos = snowmanPathCurve.getPointAt(snowmanState.t);
-
-      // place him on top of snow surface
-      const groundY = sampleSnowHeight(curvePos.x, curvePos.z);
-      snowmanObj.position.set(curvePos.x, groundY, curvePos.z);
-
-      // face along direction of motion (XZ plane)
-      const tangent = snowmanPathCurve.getTangentAt(snowmanState.t);
-      const dirX = tangent.x;
-      const dirZ = tangent.z;
-
-      if (dirX !== 0 || dirZ !== 0) {
-        // world +Z = forward. atan2(x, z) gives heading around Y.
-        const heading = Math.atan2(dirX, dirZ);
-        snowmanObj.rotation.y = heading;
-      }
-
-      snowmanState.lastPos.copy(snowmanObj.position);
-    }
-
-
-
-
-
 
 
     // Drifts (heightfield)
@@ -658,11 +531,6 @@
     const tmpS = new THREE.Vector3();
     const tmpP = new THREE.Vector3();
     const zAxis = new THREE.Vector3(0, 0, 1);
-
-    // extra helpers for object sticking burst
-    const tmpMatrix = new THREE.Matrix4();
-    const tmpDir = new THREE.Vector3();
-
 
     // Gust system -------------------------------------------------------------
 
@@ -815,10 +683,11 @@
 
 
 
+
+
     // JSON file presets (edit / extend this list)
     const FILE_PRESET_URLS = [
-      "presets/snow-Moist-1.json",
-      "presets/snow-More-Snow.json",
+      "presets/snow-settings-20251224-110244.json",
       "presets/snow-Delicate.json",
       "presets/snow-heavy.json"
     ];
@@ -924,23 +793,14 @@
       params.gustTornadoChance = clamp(params.gustTornadoChance, 0.0, 1.0);
       params.gustStrengthMul = clamp(params.gustStrengthMul, 0.0, 4.0);
       params.gustSwirlMul = clamp(params.gustSwirlMul, 0.0, 4.0);
-
       params.gustUpdraftMul = clamp(params.gustUpdraftMul, 0.0, 4.0);
       params.gustScour = clamp(params.gustScour, 0.0, 0.10);
       params.gustRedeposit = clamp(params.gustRedeposit, 0.0, 0.10);
-
-      params.fogNear = clamp(params.fogNear, 0.1, 200.0);
-      params.fogFar = clamp(params.fogFar, params.fogNear + 1.0, 400.0);
     } finally {
       persistBlocked = false;
     }
 
-    if (scene) updateFogFromParams();
-
     if (rebuild) rebuildWorld();
-
-
-
     if (updateGui) refreshGuiDisplays();
     if (persist) saveLastDebounced(params);
   }
@@ -1482,7 +1342,7 @@ function addStuckSnow(point, normal) {
     // -------------------------------------------------------------------------
 
 function buildSettlers() {
-  SETTLER_COUNT = clamp(params.settlerCount | 0, 1000, 300000);
+  SETTLER_COUNT = clamp(params.settlerCount | 0, 1000, 30000);
   settlerPos = new Float32Array(SETTLER_COUNT * 3);
   settlerPrev = new Float32Array(SETTLER_COUNT * 3);
   settlerVel = new Float32Array(SETTLER_COUNT * 3);
@@ -1696,8 +1556,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (hitSomething) continue;
 
 
-  }
 
+
+
+
+  }
 
       depositTokens += depositsRemaining; // put back unused
     }
@@ -1709,16 +1572,16 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       const container = document.getElementById("app");
 
       scene = new THREE.Scene();
-      updateFogFromParams();
+      scene.background = new THREE.Color(0x0a1220);
+      scene.fog = new THREE.FogExp2(0x0a1220, 0.020);
 
       camera = new THREE.PerspectiveCamera(
         60,
         window.innerWidth / window.innerHeight,
         0.1,
-        params.fogFar
+        200
         );
       camera.position.set(10, 7, 12);
-
 
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.xr.enabled = true; // WebXR ON
@@ -1731,24 +1594,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
-      controls.minDistance = 8;
-      controls.maxDistance = 30;
+      controls.minDistance = 3;
+      controls.maxDistance = 40;
       controls.target.set(0, 0.5, 0);
-
-      // If your ground is at y = 0:
-      const groundY = 0;
-      const margin = 0.2; // “always slightly above”
-
-      // Keep the orbit in the upper hemisphere (above the ground)
-      controls.maxPolarAngle = Math.PI / 2 - 0.001; // never go below horizon
-
-      // Optional: keep the orbit from going perfectly top-down / perfectly flat
-      controls.minPolarAngle = 0.05;
-
-      // Optional: keep target a bit above the surface (helps a lot)
-      // controls.target.y = groundY + margin;
-
-
       controls.update();
 
       // WebXR “Enter VR” button (Quest 3 etc.)
@@ -1767,9 +1615,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       });
 
       // Lights
-      scene.add(new THREE.HemisphereLight(0xdce7ff, 0x0b0f18, 1));
+      scene.add(new THREE.HemisphereLight(0xdce7ff, 0x0b0f18, 0.72));
 
-      const dir = new THREE.DirectionalLight(0xffffff, 1.35);
+      const dir = new THREE.DirectionalLight(0xffffff, 1.05);
       dir.position.set(8, 14, 6);
       dir.castShadow = true;
       dir.shadow.mapSize.set(2048, 2048);
@@ -1813,59 +1661,58 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       //scene.add(cube);
 
 
-      // // Trees (cones)
-      // const coneGeo = new THREE.ConeGeometry(0.9, 3.3, 24, 1);
-      // const coneMat = new THREE.MeshStandardMaterial({
-      //   color: 0x27d66b,
-      //   roughness: 0.75
-      // });
+      // Trees (cones)
+      const coneGeo = new THREE.ConeGeometry(0.9, 3.3, 24, 1);
+      const coneMat = new THREE.MeshStandardMaterial({
+        color: 0x27d66b,
+        roughness: 0.75
+      });
 
-      // const treePositions = [
-      //   [-6, 1.65, -3],
-      //   [-2, 1.65,  4],
-      //   [ 3, 1.65, -1],
-      //   [ 7, 1.65,  5],
-      //   [ 1, 1.65,  8]
-      // ];
+      const treePositions = [
+        [-6, 1.65, -3],
+        [-2, 1.65,  4],
+        [ 3, 1.65, -1],
+        [ 7, 1.65,  5],
+        [ 1, 1.65,  8]
+      ];
 
-      // for (let i = 0; i < treePositions.length; i++) {
-      //   const [x, y, z] = treePositions[i];
-      //   const m = new THREE.Mesh(coneGeo, coneMat);
-      //   m.position.set(x, y, z);
-      //   m.rotation.y = (i * 0.9) % (Math.PI * 2);
-      //   m.castShadow = true;
-      //   m.receiveShadow = true;
-      //   scene.add(m);
-      //   cones.push(m);
-      // }
+      for (let i = 0; i < treePositions.length; i++) {
+        const [x, y, z] = treePositions[i];
+        const m = new THREE.Mesh(coneGeo, coneMat);
+        m.position.set(x, y, z);
+        m.rotation.y = (i * 0.9) % (Math.PI * 2);
+        m.castShadow = true;
+        m.receiveShadow = true;
+        scene.add(m);
+        cones.push(m);
+      }
 
-      // // Rocks
-      // const rockGeo = new THREE.IcosahedronGeometry(1.1, 0);
-      // const rockMat = new THREE.MeshStandardMaterial({
-      //   color: 0x2b3442,
-      //   roughness: 1.0
-      // });
+      // Rocks
+      const rockGeo = new THREE.IcosahedronGeometry(1.1, 0);
+      const rockMat = new THREE.MeshStandardMaterial({
+        color: 0x2b3442,
+        roughness: 1.0
+      });
 
-      // const rockPos = [
-      //   [-9, 1.0,  6],
-      //   [-7, 0.8, -8],
-      //   [ 8, 1.0, -6]
-      // ];
+      const rockPos = [
+        [-9, 1.0,  6],
+        [-7, 0.8, -8],
+        [ 8, 1.0, -6]
+      ];
 
-      // for (let i = 0; i < rockPos.length; i++) {
-      //   const [x, y, z] = rockPos[i];
-      //   const r = new THREE.Mesh(rockGeo, rockMat);
-      //   r.position.set(x, y, z);
-      //   r.scale.setScalar(1.0 + i * 0.25);
-      //   r.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
-      //   r.castShadow = true;
-      //   r.receiveShadow = true;
-      //   scene.add(r);
-      //   rocks.push(r);
-      // }
+      for (let i = 0; i < rockPos.length; i++) {
+        const [x, y, z] = rockPos[i];
+        const r = new THREE.Mesh(rockGeo, rockMat);
+        r.position.set(x, y, z);
+        r.scale.setScalar(1.0 + i * 0.25);
+        r.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
+        r.castShadow = true;
+        r.receiveShadow = true;
+        scene.add(r);
+        rocks.push(r);
+      }
 
-      //colliderObjects = [...cones, ...rocks, cube];
-      colliderObjects = [];
+      colliderObjects = [...cones, ...rocks, cube];
       colliderBounds = buildColliderBounds(colliderObjects);
 
 
@@ -2162,33 +2009,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const wind = gui.addFolder("Wind");
         trackController(wind.add(params, "windStrength", 0.0, 2.0, 0.01).name("Strength"));
         trackController(wind.add(params, "windSpeed", 0.0, 5, 0.01).name("Speed"));
-        //wind.open();
-
-        const fogFolder = gui.addFolder("Fog");
-        const fogUpdate = () => {
-          updateFogFromParams();
-          saveLastDebounced(params);
-        };
-
-        const fogNearCtrl = fogFolder
-        .add(params, "fogNear", 0.1, 200.0, 0.5)
-        .name("Near");
-        const fogFarCtrl = fogFolder
-        .add(params, "fogFar", 1.0, 400.0, 0.5)
-        .name("Far");
-        const fogColorCtrl = fogFolder
-        .addColor(params, "fogColor")
-        .name("Color");
-
-        fogNearCtrl.onChange(fogUpdate);
-        fogFarCtrl.onChange(fogUpdate);
-        fogColorCtrl.onChange(fogUpdate);
-        //fogFolder.open();
+      //wind.open();
 
         const gustFolder = gui.addFolder("Gusts");
-
-
-
         trackController(
           gustFolder.add(params, "gustMinInterval", 0.2, 6.0, 0.1).name("Min interval")
           );
@@ -2271,20 +2094,20 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         const sticking = gui.addFolder("Sticking");
         trackController(
-          sticking.add(params, "settlerCount", 1000, 300000, 500).name("Settlers"),
+          sticking.add(params, "settlerCount", 1000, 30000, 500).name("Settlers"),
           { rebuild: true, instant: false }
           );
         trackController(
-          sticking.add(params, "groundDepositBudget", 20, 10200, 10).name("Deposit budget")
+          sticking.add(params, "groundDepositBudget", 20, 1200, 10).name("Deposit budget")
           );
         trackController(
-          sticking.add(params, "objectTestsPerFrame", 0, 50000, 50).name("Ray tests/frame")
+          sticking.add(params, "objectTestsPerFrame", 0, 5000, 50).name("Ray tests/frame")
           );
         trackController(
-          sticking.add(params, "objectDeposit", 0.0, 1, 0.0005).name("Object deposit")
+          sticking.add(params, "objectDeposit", 0.0, 0.02, 0.0005).name("Object deposit")
           );
         trackController(
-          sticking.add(params, "stuckMax", 1000, 600000, 500).name("Max decals"),
+          sticking.add(params, "stuckMax", 1000, 60000, 500).name("Max decals"),
           { rebuild: true, instant: false }
           );
         trackController(
@@ -2323,28 +2146,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         presets.add({ importJson: importSettings }, "importJson").name("Import JSON");
       //presets.open();
       //presets.open();
-
-
-        const snowmanFolder = gui.addFolder("Snowman");
-
-        trackController(
-          snowmanFolder.add(params, "snowmanMoveEnabled").name("Moving")
-          );
-
-        trackController(
-          snowmanFolder
-          .add(params, "snowmanSpeed", 0.002, 0.15, 0.001)
-          .name("Path speed")
-          );
-
-        trackController(
-          snowmanFolder
-          .add(params, "snowmanPathRadius", 1.0, 8.0, 0.1)
-          .name("Path radius")
-          );
-
-        // start folded to not spam the UI
-        // snowmanFolder.open(); // enable if you prefer it open by default
 
 
 
@@ -2445,10 +2246,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         }
 
         updateSettlers(dt, baseWindX, baseWindZ);
-
-        // Snowman animation along curved path
-        updateSnowman(dt);
-
       }
 
   // Small cube motion (just a tiny movement)
@@ -2548,7 +2345,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     async function loadDefaultPresetFromFile() {
       try {
-        const response = await fetch("presets/snow-Moist-1.json", {
+        const response = await fetch("presets/snow-settings-20251224-110244.json", {
           cache: "no-store"
         });
 
