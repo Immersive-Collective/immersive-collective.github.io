@@ -109,7 +109,17 @@
 
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
+    // Simple seedable RNG (LCG)
+    function makeSeededRandom(seed) {
+      let s = (seed | 0) || 1;
+      return function () {
+        s = (s * 1664525 + 1013904223) | 0;
+        return (s >>> 0) / 4294967296;
+      };
+    }
+
     function nowStamp() {
+
       const d = new Date();
       const pad = (n) => String(n).padStart(2, "0");
       return (
@@ -354,7 +364,17 @@
       // Snowman path animation
       snowmanMoveEnabled: true,
       snowmanPathRadius: 4.0,  // approximate radius of his wander area
-      snowmanSpeed: 0.03       // loops per second (small = snail-slow)
+      snowmanSpeed: 0.03,       // loops per second (small = snail-slow)
+
+      // Forest
+      forestCount: 24,
+      forestRadius: 14,
+      forestInnerRadius: 3,
+      forestMinScale: 0.7,
+      forestMaxScale: 1.6,
+      forestSeed: 1234,
+      forestJitter: 1.0
+
 
 
     };
@@ -378,7 +398,12 @@
     const cones = [];
     const rocks = [];
 
+    // Forest cone shared resources
+    let forestConeGeo = null;
+    let forestConeMat = null;
+
     let snowTex;
+
 
     function updateFogFromParams() {
       if (!scene) return;
@@ -405,7 +430,7 @@
         instances: [
           {
             id: "model1_center",
-            position: [0, 0, -5],
+            position: [3, 0, -5],
             rotation: [0, 0, 0],
             scale: 1.0,
             stick: true
@@ -420,7 +445,7 @@
             id: "tree_center",
             position: [0, 0, 0],
             rotation: [0, 0, 0],
-            scale: 0.03,
+            scale: 0.05,
             stick: true
           }
         ]
@@ -444,7 +469,7 @@
         instances: [
           {
             id: "car",
-            position: [4, -0.2, 6],
+            position: [4, -0.5, 6],
             rotation: [0, 1, 0],
             scale: 1.0,
             stick: false
@@ -664,6 +689,82 @@
     const tmpDir = new THREE.Vector3();
 
 
+    // Forest builder ----------------------------------------------------------
+
+    function rebuildForest() {
+      if (!scene) return;
+
+      // Remove old forest trees from scene and colliders
+      for (const t of cones) {
+        if (t && t.parent === scene) {
+          scene.remove(t);
+        }
+      }
+      cones.length = 0;
+
+      colliderObjects = colliderObjects.filter((obj) => !obj.__isForestTree);
+
+      if (!forestConeGeo) {
+        forestConeGeo = new THREE.ConeGeometry(0.9, 3.3, 24, 1);
+      }
+      if (!forestConeMat) {
+        forestConeMat = new THREE.MeshStandardMaterial({
+          color: 0x27d66b,
+          roughness: 0.75
+        });
+      }
+
+      const rng = makeSeededRandom(params.forestSeed * 1000003);
+
+      const count = clamp(params.forestCount | 0, 0, 400);
+      const maxR = clamp(params.forestRadius, 1.0, HALF_GROUND - 1.0);
+      const minR = clamp(
+        params.forestInnerRadius,
+        0.0,
+        Math.max(maxR - 1.0, 0.0)
+        );
+      const minS = Math.max(0.2, params.forestMinScale);
+      const maxS = Math.max(minS, params.forestMaxScale);
+      const jitter = clamp(params.forestJitter, 0.0, 3.0);
+
+      for (let i = 0; i < count; i++) {
+        const t = rng();
+        const rBase = Math.sqrt(t);
+        const r = minR + (maxR - minR) * rBase;
+
+        let ang = rng() * Math.PI * 2.0;
+        ang += (rng() - 0.5) * jitter * 0.4;
+
+        let x = Math.cos(ang) * r;
+        let z = Math.sin(ang) * r;
+
+        x += (rng() - 0.5) * jitter;
+        z += (rng() - 0.5) * jitter;
+
+        const tree = new THREE.Mesh(forestConeGeo, forestConeMat);
+
+        const scale = minS + (maxS - minS) * rng();
+        tree.scale.set(scale, scale, scale);
+
+        const y = 1.65 * scale;
+        tree.position.set(x, y, z);
+
+        tree.rotation.y = rng() * Math.PI * 2.0;
+        tree.castShadow = true;
+        tree.receiveShadow = true;
+        tree.__isForestTree = true;
+
+        scene.add(tree);
+        cones.push(tree);
+        colliderObjects.push(tree);
+      }
+
+      colliderBounds = buildColliderBounds(colliderObjects);
+    }
+
+
+
+
     // Gust system -------------------------------------------------------------
 
     class Gust {
@@ -817,6 +918,8 @@
 
     // JSON file presets (edit / extend this list)
     const FILE_PRESET_URLS = [
+      "presets/snow-Final.json",
+      "presets/snow-Forrest.json",
       "presets/snow-Moist-1.json",
       "presets/snow-More-Snow.json",
       "presets/snow-Delicate.json",
@@ -931,6 +1034,27 @@
 
       params.fogNear = clamp(params.fogNear, 0.1, 200.0);
       params.fogFar = clamp(params.fogFar, params.fogNear + 1.0, 400.0);
+
+
+      params.forestCount = clamp(params.forestCount | 0, 0, 400);
+      params.forestRadius = clamp(params.forestRadius, 1.0, HALF_GROUND - 1.0);
+      params.forestInnerRadius = clamp(
+        params.forestInnerRadius,
+        0.0,
+        Math.max(params.forestRadius - 1.0, 0.0)
+        );
+      params.forestMinScale = clamp(params.forestMinScale, 0.2, 4.0);
+      params.forestMaxScale = clamp(
+        params.forestMaxScale,
+        params.forestMinScale,
+        6.0
+        );
+      params.forestSeed = params.forestSeed | 0;
+      params.forestJitter = clamp(params.forestJitter, 0.0, 3.0);
+
+
+
+
     } finally {
       persistBlocked = false;
     }
@@ -1812,61 +1936,36 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       cube.castShadow = true;
       //scene.add(cube);
 
+      // Rocks
+      const rockGeo = new THREE.IcosahedronGeometry(1.1, 0);
+      const rockMat = new THREE.MeshStandardMaterial({
+        color: 0x2b3442,
+        roughness: 1.0
+      });
 
-      // // Trees (cones)
-      // const coneGeo = new THREE.ConeGeometry(0.9, 3.3, 24, 1);
-      // const coneMat = new THREE.MeshStandardMaterial({
-      //   color: 0x27d66b,
-      //   roughness: 0.75
-      // });
+      const rockPos = [
+        [-9, 1.0,  6],
+        [-7, 0.8, -8],
+        [ 8, 1.0, -6]
+      ];
 
-      // const treePositions = [
-      //   [-6, 1.65, -3],
-      //   [-2, 1.65,  4],
-      //   [ 3, 1.65, -1],
-      //   [ 7, 1.65,  5],
-      //   [ 1, 1.65,  8]
-      // ];
+      for (let i = 0; i < rockPos.length; i++) {
+        const [x, y, z] = rockPos[i];
+        const r = new THREE.Mesh(rockGeo, rockMat);
+        r.position.set(x, y, z);
+        r.scale.setScalar(1.0 + i * 0.25);
+        r.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
+        r.castShadow = true;
+        r.receiveShadow = true;
+        scene.add(r);
+        rocks.push(r);
+      }
 
-      // for (let i = 0; i < treePositions.length; i++) {
-      //   const [x, y, z] = treePositions[i];
-      //   const m = new THREE.Mesh(coneGeo, coneMat);
-      //   m.position.set(x, y, z);
-      //   m.rotation.y = (i * 0.9) % (Math.PI * 2);
-      //   m.castShadow = true;
-      //   m.receiveShadow = true;
-      //   scene.add(m);
-      //   cones.push(m);
-      // }
+      // Base colliders: rocks + cube, forest trees added in rebuildForest()
+      colliderObjects = [...rocks, cube];
 
-      // // Rocks
-      // const rockGeo = new THREE.IcosahedronGeometry(1.1, 0);
-      // const rockMat = new THREE.MeshStandardMaterial({
-      //   color: 0x2b3442,
-      //   roughness: 1.0
-      // });
-
-      // const rockPos = [
-      //   [-9, 1.0,  6],
-      //   [-7, 0.8, -8],
-      //   [ 8, 1.0, -6]
-      // ];
-
-      // for (let i = 0; i < rockPos.length; i++) {
-      //   const [x, y, z] = rockPos[i];
-      //   const r = new THREE.Mesh(rockGeo, rockMat);
-      //   r.position.set(x, y, z);
-      //   r.scale.setScalar(1.0 + i * 0.25);
-      //   r.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
-      //   r.castShadow = true;
-      //   r.receiveShadow = true;
-      //   scene.add(r);
-      //   rocks.push(r);
-      // }
-
-      //colliderObjects = [...cones, ...rocks, cube];
-      colliderObjects = [];
-      colliderBounds = buildColliderBounds(colliderObjects);
+      // Build forest according to params (fills cones[] and colliderObjects)
+      rebuildForest();
 
 
       //loadModel1();
@@ -2164,6 +2263,66 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         trackController(wind.add(params, "windSpeed", 0.0, 5, 0.01).name("Speed"));
         //wind.open();
 
+        const forest = gui.addFolder("Forest");
+
+        const forestCountCtrl = forest
+        .add(params, "forestCount", 0, 200, 1)
+        .name("Tree count");
+        const forestRadiusCtrl = forest
+        .add(params, "forestRadius", 2.0, 24.0, 0.5)
+        .name("Radius");
+        const forestInnerCtrl = forest
+        .add(params, "forestInnerRadius", 0.0, 16.0, 0.5)
+        .name("Inner radius");
+        const forestMinScaleCtrl = forest
+        .add(params, "forestMinScale", 0.3, 2.5, 0.05)
+        .name("Min scale");
+        const forestMaxScaleCtrl = forest
+        .add(params, "forestMaxScale", 0.3, 3.0, 0.05)
+        .name("Max scale");
+        const forestSeedCtrl = forest
+        .add(params, "forestSeed", 0, 9999, 1)
+        .name("Seed");
+        const forestJitterCtrl = forest
+        .add(params, "forestJitter", 0.0, 2.0, 0.05)
+        .name("Randomness");
+
+        const forestCtrls = [
+          forestCountCtrl,
+          forestRadiusCtrl,
+          forestInnerCtrl,
+          forestMinScaleCtrl,
+          forestMaxScaleCtrl,
+          forestSeedCtrl,
+          forestJitterCtrl
+        ];
+
+        forestCtrls.forEach((ctrl) => {
+          trackController(ctrl, { rebuild: false, instant: true });
+          if (typeof ctrl.onFinishChange === "function") {
+            ctrl.onFinishChange(() => {
+              applySettings(params, { rebuild: false, updateGui: false });
+              rebuildForest();
+              saveLastDebounced(params);
+            });
+          }
+        });
+
+        forest
+        .add(
+        {
+          rebuildForest: () => {
+            applySettings(params, { rebuild: false, updateGui: false });
+            rebuildForest();
+            saveLastDebounced(params);
+          }
+        },
+        "rebuildForest"
+        )
+        .name("Rebuild forest");
+
+        //wind.open();
+
         const fogFolder = gui.addFolder("Fog");
         const fogUpdate = () => {
           updateFogFromParams();
@@ -2226,7 +2385,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         trackController(
           flakes.add(params, "flakeSizeJitter", 0.0, 0.9, 0.01).name("Size jitter")
           );
-        flakes.open();
+        
+        //flakes.open();
 
         const drifts = gui.addFolder("Drifts");
         trackController(drifts.add(params, "driftGrid", 32, 256, 1).name("Grid"), {
@@ -2347,6 +2507,16 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         // snowmanFolder.open(); // enable if you prefer it open by default
 
 
+        sim.close();
+        wind.close();
+        fogFolder.close();
+        gustFolder.close();
+        flakes.close();
+        drifts.close();
+        sticking.close();
+        presets.close();
+        snowmanFolder.close();
+        forest.close();
 
         gui.close()
 
@@ -2548,7 +2718,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     async function loadDefaultPresetFromFile() {
       try {
-        const response = await fetch("presets/snow-Moist-1.json", {
+        const response = await fetch("presets/snow-Final.json", {
           cache: "no-store"
         });
 
