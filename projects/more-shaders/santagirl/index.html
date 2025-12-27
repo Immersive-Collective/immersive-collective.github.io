@@ -426,7 +426,7 @@
       gustRedeposit: 0.0080,
 
       // Drifts / cover
-      driftGrid: 128,
+      driftGrid: 2048,
       driftMaxHeight: 3.6,
       coverBase: 0.06,
       coverMacroAmp: 0.09,
@@ -493,7 +493,7 @@
     // Scene globals
     // -------------------------------------------------------------------------
 
-    const GROUND_SIZE = 150;
+    const GROUND_SIZE = 1050;
     const HALF_GROUND = GROUND_SIZE * 0.5;
 
     /**
@@ -516,6 +516,7 @@
     let forestConeMat = null;
 
     let snowTex;
+    let wetTrailTex;    
 
 
     function updateFogFromParams() {
@@ -697,6 +698,23 @@
           }
         ]
       },
+
+      {
+        name: "trees1",
+        url: "models/trees/trees.glb",
+        instances: [
+          {
+            id: "tree_center",
+            position: [10, 0, -10],
+            rotation: [0, 0, 0],
+            scale: 1.0,
+            stick: false,
+            collide: false
+          }
+        ]
+      }, 
+
+
       {
         name: "model2",
         url: "models/christmas_tree_polycraft-c.glb",
@@ -770,7 +788,7 @@
             vehicle: {
               type: "Ski Patrol",
               description: "Snow vehicle / patrol sled",
-              seatLocal: [0.0, 0.62, -0.05],
+              seatLocal: [0.0, -0.03, -1.0],
               yawOffset: 0.0,
 
               profile: {
@@ -780,7 +798,10 @@
                 brake: 18.0,
                 coastDecel: 4.0,
                 turnRate: 2.8,
-                radius: 0.95
+                radius: 0.95,
+                wetWidth: 0.05,
+                wetLength: 1.04,
+                trackHalfWidth: 0.5,                  
               }
             }
 
@@ -797,7 +818,7 @@
         instances: [
           {
             id: "car2",
-            position: [-4, -0.0, 6],
+            position: [-4, 0.19, 6],
             rotation: [0, 1, 0],
             scale: 1.0,
             stick: false,
@@ -808,7 +829,7 @@
             vehicle: {
               type: "Snowcar",
               description: "Snow-capable car",
-              seatLocal: [0.0, 0.58, 0.1],
+              seatLocal: [0.5, 0.54, 1.15],
               yawOffset: 0.0,
 
 
@@ -832,7 +853,12 @@
                 propSpinIdle: 8.0,
                 propSpinMax: 80.0,
                 propSpinMul: 1.0,
-                propInvert: false                
+                propInvert: false,
+
+                wetWidth: 0.15,
+                wetLength: 1.63,
+                trackHalfWidth: 1.1,              
+
               }
 
 
@@ -1214,6 +1240,7 @@
       yawLerpFirst: 0.2
     };
 
+    // Reusable vectors for avatar motion/camera math (avoid per-frame allocations)
     const avatarVelocity = new THREE.Vector3();
     const avatarMoveDir = new THREE.Vector3();
 
@@ -1226,10 +1253,13 @@
     const avatarTmpVec = new THREE.Vector3();
     const avatarTmpDir = new THREE.Vector3();
     const avatarToTarget = new THREE.Vector3();
+    const avatarTmpMove = new THREE.Vector3();
 
     const camForward = new THREE.Vector3();
     const camRight = new THREE.Vector3();
     const worldUp = new THREE.Vector3(0, 1, 0);
+
+
 
     // Joystick state
     const joystickState = {
@@ -1294,7 +1324,7 @@
       if (!preAvatarCameraState.has) {
         controls.enablePan = true;
         controls.enableZoom = true;
-        controls.minDistance = 0.5;
+        controls.minDistance = 0.25;
         controls.maxDistance = 200.0;
         return;
       }
@@ -1354,7 +1384,7 @@
 
         controls.enablePan = false;
         controls.enableZoom = true;
-        controls.minDistance = 0.5;
+        controls.minDistance = 0.25;
         controls.maxDistance = 80.0;
 
         if (snapCamera) {
@@ -1821,6 +1851,7 @@
 
 
 
+
     function updateAvatarFromInputs(dt) {
       if (!avatar || !avatarState.enabled) return;
 
@@ -1837,7 +1868,7 @@
         forwardAmount = joyForward;
         strafeAmount = joyStrafe;
         inputMag = joyMag;
-        wantsRun = joyMag >= 0.82;
+        wantsRun = false;
       } else {
         forwardAmount = avatarState.moveZ;
         strafeAmount = avatarState.moveX;
@@ -1905,10 +1936,9 @@
       const prevZ = avatar.position.z;
 
       if (avatarVelocity.lengthSq() > 0) {
-        avatarTmpVec.copy(avatarVelocity).multiplyScalar(dt);
-        avatarTmpVec.y = 0;
-
-        avatar.position.add(avatarTmpVec);
+        avatarTmpMove.copy(avatarVelocity).multiplyScalar(dt);
+        avatarTmpMove.y = 0;
+        avatar.position.add(avatarTmpMove);
 
         resolveAvatarXZCollisions(avatar.position);
 
@@ -1938,7 +1968,12 @@
 
       switchAvatarAction(targetAction);
       updateAvatarClipSpeed(actualSpeed);
+
+      stampSnowFromAvatar(actualSpeed);
     }
+
+
+
 
 
 
@@ -2208,16 +2243,42 @@
 
 
 
-    // Drifts (heightfield)
+// Drifts (heightfield)
     let DRIFT_GRID = 0;
     let DRIFT_STRIDE = 0;
     let DRIFT_VERTS = 0;
     let driftHeights = null;
     let driftHeightsTmp = null;
+    let driftDeform = null;
     let driftGeo = null;
     let driftPosAttr = null;
     let driftPosArray = null;
     let snowSurface = null;
+
+    let forceDriftWrite = false;
+    let forceDriftNormals = false;
+
+
+    // Wet trail decals (fading surface marks)
+    let wetTrailGroup = null;
+    let wetTrailGeo = null;
+    let wetTrailPool = [];
+    let wetTrailCursor = 0;
+
+    const wetTrailConfig = {
+      enabled: true,
+      maxMarks: 260,
+      life: 4.5,
+      opacity: 0.08,
+      lift: 0.035,
+
+      avatarSize: 0.38,
+      vehicleWidth: 0.46,
+      vehicleLength: 0.90,
+
+      color: "#ffffff"
+    };
+
 
     // Visual flakes
     let snowGeo = null;
@@ -2259,8 +2320,16 @@
       enabled: false,
       vehicle: null,
       speed: 0.0,
-      yaw: 0.0
+      yaw: 0.0,
+
+      steerAngle: 0.0,
+
+      lastTrackValid: false,
+      lastTrackX: 0.0,
+      lastTrackZ: 0.0,
+      trackAcc: 0.0
     };
+
 
     const vehicleTmpBox = new THREE.Box3();
     const vehicleTmpCenter = new THREE.Vector3();
@@ -2589,6 +2658,10 @@
       vehicleDriveState.vehicle = v;
       vehicleDriveState.speed = 0.0;
       vehicleDriveState.yaw = v.object.rotation.y + (v.meta.yawOffset || 0.0);
+      vehicleDriveState.steerAngle = 0.0;
+
+      vehicleDriveState.lastTrackValid = false;
+      vehicleDriveState.trackAcc = 0.0;
 
       if (avatarMixer && avatarActions.sit) {
         switchAvatarAction("sit");
@@ -2599,8 +2672,11 @@
       setVehiclePrompt(true, v);
     }
 
+
+
     /**
-     * Exits vehicle mode: restores avatar walking controls and places avatar beside the vehicle.
+     * Exits vehicle mode: restores avatar walking controls and places avatar beside the vehicle
+     * on the ground baseline (avatar initial Y), not at the current seated height.
      */
     function exitVehicle() {
       const v = vehicleDriveState.vehicle;
@@ -2613,13 +2689,21 @@
 
       avatar.position.set(
         vehicleTmpPos.x + Math.sin(yaw + Math.PI * 0.5) * side,
-        avatar.position.y,
+        0.0,
         vehicleTmpPos.z + Math.cos(yaw + Math.PI * 0.5) * side
         );
 
       vehicleDriveState.enabled = false;
       vehicleDriveState.vehicle = null;
       vehicleDriveState.speed = 0.0;
+      vehicleDriveState.steerAngle = 0.0;
+
+      vehicleDriveState.lastTrackValid = false;
+      vehicleDriveState.trackAcc = 0.0;
+
+      if (avatarVelocity) {
+        avatarVelocity.set(0, 0, 0);
+      }
 
       if (avatarMixer && avatarActions.idle) {
         switchAvatarAction("idle");
@@ -2629,6 +2713,8 @@
       updateVehicleOutlineFor(null);
       resetJoystick();
     }
+
+
 
     /**
      * Vehicle profile tuning state for lil-gui, bound to the currently selected vehicle:
@@ -2640,6 +2726,11 @@
       id: "",
       type: "",
       description: "",
+
+      // Seat offset for avatar while riding (vehicle-local space)
+      seatX: 0.0,
+      seatY: 0.6,
+      seatZ: 0.0,
 
       maxSpeed: 10.0,
       maxReverse: 4.0,
@@ -2654,8 +2745,14 @@
       minSteerSpeed: 0.35,
       steerResponse: 8.0,
       steerReturn: 6.0,
-      lateralGrip: 8.0
+      lateralGrip: 8.0,
+
+      // Wet trail mark dimensions (vehicle-local override; defaults to wetTrailConfig.*)
+      wetWidth: wetTrailConfig.vehicleWidth,
+      wetLength: wetTrailConfig.vehicleLength
     };
+
+
 
     let vehicleTuningLastId = "";
     let vehicleTuningFolder = null;
@@ -2682,6 +2779,11 @@
       vehicleTuningState.type = v.meta.type || "Vehicle";
       vehicleTuningState.description = v.meta.description || "";
 
+      const seat = Array.isArray(v.meta.seatLocal) ? v.meta.seatLocal : [0, 0.6, 0];
+      vehicleTuningState.seatX = Number.isFinite(seat[0]) ? seat[0] : 0.0;
+      vehicleTuningState.seatY = Number.isFinite(seat[1]) ? seat[1] : 0.6;
+      vehicleTuningState.seatZ = Number.isFinite(seat[2]) ? seat[2] : 0.0;
+
       vehicleTuningState.maxSpeed = Math.max(0.1, prof.maxSpeed ?? 10.0);
       vehicleTuningState.maxReverse = Math.max(0.1, prof.maxReverse ?? 4.0);
       vehicleTuningState.accel = Math.max(0.1, prof.accel ?? 10.0);
@@ -2698,13 +2800,26 @@
       vehicleTuningState.steerResponse = Math.max(0.1, prof.steerResponse ?? 8.0);
       vehicleTuningState.steerReturn = Math.max(0.1, prof.steerReturn ?? 6.0);
       vehicleTuningState.lateralGrip = Math.max(0.0, prof.lateralGrip ?? 8.0);
+
+      const ww = Number.isFinite(prof.wetWidth) ? prof.wetWidth : wetTrailConfig.vehicleWidth;
+      const wl = Number.isFinite(prof.wetLength) ? prof.wetLength : wetTrailConfig.vehicleLength;
+      vehicleTuningState.wetWidth = Math.max(0.05, ww);
+      vehicleTuningState.wetLength = Math.max(0.05, wl);
     }
+
+
 
     /**
      * Writes the tuning state back to the target vehicle profile (live steering changes).
      */
     function writeTuningStateIntoVehicleProfile(v) {
       if (!v || !v.meta) return;
+
+      v.meta.seatLocal = [
+        Number.isFinite(vehicleTuningState.seatX) ? vehicleTuningState.seatX : 0.0,
+        Number.isFinite(vehicleTuningState.seatY) ? vehicleTuningState.seatY : 0.6,
+        Number.isFinite(vehicleTuningState.seatZ) ? vehicleTuningState.seatZ : 0.0
+      ];
 
       if (!v.meta.profile || typeof v.meta.profile !== "object") v.meta.profile = {};
       const prof = v.meta.profile;
@@ -2725,7 +2840,12 @@
       prof.steerResponse = Math.max(0.1, vehicleTuningState.steerResponse);
       prof.steerReturn = Math.max(0.1, vehicleTuningState.steerReturn);
       prof.lateralGrip = Math.max(0.0, vehicleTuningState.lateralGrip);
+
+      prof.wetWidth = Math.max(0.05, vehicleTuningState.wetWidth);
+      prof.wetLength = Math.max(0.05, vehicleTuningState.wetLength);
     }
+
+
 
     /**
      * Keeps the tuning state aligned with the current selection (no polling/traversal hacks).
@@ -2763,6 +2883,42 @@
       info.add(vehicleTuningState, "type").name("Type").listen();
       info.add(vehicleTuningState, "description").name("Description").listen();
       info.close();
+
+
+      const seat = folder.addFolder("Seat");
+
+      seat.add(vehicleTuningState, "seatX", -2.0, 2.0, 0.01).name("Seat X").listen().onChange(() => {
+        const v = getVehicleTuningTarget();
+        writeTuningStateIntoVehicleProfile(v);
+      });
+
+      seat.add(vehicleTuningState, "seatY", -1.0, 3.0, 0.01).name("Seat Y").listen().onChange(() => {
+        const v = getVehicleTuningTarget();
+        writeTuningStateIntoVehicleProfile(v);
+      });
+
+      seat.add(vehicleTuningState, "seatZ", -2.0, 2.0, 0.01).name("Seat Z").listen().onChange(() => {
+        const v = getVehicleTuningTarget();
+        writeTuningStateIntoVehicleProfile(v);
+      });
+
+      seat.close();
+
+
+      const wet = folder.addFolder("Wet Trail");
+
+      wet.add(vehicleTuningState, "wetWidth", 0.05, 3.0, 0.01).name("Mark width").listen().onChange(() => {
+        const v = getVehicleTuningTarget();
+        writeTuningStateIntoVehicleProfile(v);
+      });
+
+      wet.add(vehicleTuningState, "wetLength", 0.05, 4.0, 0.01).name("Mark length").listen().onChange(() => {
+        const v = getVehicleTuningTarget();
+        writeTuningStateIntoVehicleProfile(v);
+      });
+
+      wet.close();
+
 
       const profile = folder.addFolder("Profile");
 
@@ -2840,7 +2996,7 @@
 
           function fmtNum(n, digits = 3) {
             const x = Number(n);
-            if (!Number.isFinite(x)) return "0.0";
+            if (!Number.isFinite(x)) return null;
             const p = Math.pow(10, digits);
             const r = Math.round(x * p) / p;
             let s = r.toFixed(digits).replace(/0+$/, "").replace(/\.$/, "");
@@ -2852,9 +3008,16 @@
             return JSON.stringify(String(s ?? ""));
           }
 
+          function fmtBool(b) {
+            return b ? "true" : "false";
+          }
+
           function fmtArr3(a, d0, d1, d2) {
             const x = Array.isArray(a) ? a : [d0, d1, d2];
-            return `[${fmtNum(x[0])}, ${fmtNum(x[1])}, ${fmtNum(x[2])}]`;
+            const a0 = fmtNum(x[0]) ?? "0.0";
+            const a1 = fmtNum(x[1]) ?? "0.0";
+            const a2 = fmtNum(x[2]) ?? "0.0";
+            return `[${a0}, ${a1}, ${a2}]`;
           }
 
           const type = v.meta.type || "Vehicle";
@@ -2863,27 +3026,83 @@
           const yawOffset = Number.isFinite(v.meta.yawOffset) ? v.meta.yawOffset : 0.0;
 
           const prof = (v.meta.profile && typeof v.meta.profile === "object") ? v.meta.profile : {};
+          const used = new Set();
+
+          const lines = [];
+
+          function pushNum(key, digits = 3) {
+            used.add(key);
+            const s = fmtNum(prof[key], digits);
+            if (s == null) return;
+            lines.push(`    ${key}: ${s}`);
+          }
+
+          function pushStrKey(key) {
+            used.add(key);
+            const val = prof[key];
+            if (typeof val !== "string" || !val.length) return;
+            lines.push(`    ${key}: ${fmtStr(val)}`);
+          }
+
+          function pushBoolKey(key) {
+            used.add(key);
+            const val = prof[key];
+            if (typeof val !== "boolean") return;
+            lines.push(`    ${key}: ${fmtBool(val)}`);
+          }
+
+          [
+            "maxSpeed",
+            "maxReverse",
+            "accel",
+            "brake",
+            "coastDecel",
+            "turnRate",
+            "radius",
+            "wheelBase",
+            "minTurnRadius",
+            "minSteerSpeed",
+            "steerResponse",
+            "steerReturn",
+            "lateralGrip",
+            "wetWidth",
+            "wetLength",
+            "trackHalfWidth",
+            "propSpinIdle",
+            "propSpinMax",
+            "propSpinMul"
+          ].forEach((k) => pushNum(k));
+
+          pushStrKey("propAxis");
+          pushBoolKey("propInvert");
+
+          const extraKeys = Object.keys(prof).filter((k) => !used.has(k)).sort();
+          for (let i = 0; i < extraKeys.length; i++) {
+            const k = extraKeys[i];
+            const val = prof[k];
+            if (typeof val === "number") {
+              const s = fmtNum(val);
+              if (s != null) lines.push(`    ${k}: ${s}`);
+              continue;
+            }
+            if (typeof val === "string" && val.length) {
+              lines.push(`    ${k}: ${fmtStr(val)}`);
+              continue;
+            }
+            if (typeof val === "boolean") {
+              lines.push(`    ${k}: ${fmtBool(val)}`);
+              continue;
+            }
+          }
 
           const out =
           `vehicle: {
   type: ${fmtStr(type)},
   description: ${fmtStr(description)},
   seatLocal: ${fmtArr3(seatLocal, 0, 0.6, 0)},
-  yawOffset: ${fmtNum(yawOffset)},
+  yawOffset: ${fmtNum(yawOffset) ?? "0.0"},
   profile: {
-    maxSpeed: ${fmtNum(prof.maxSpeed)},
-    maxReverse: ${fmtNum(prof.maxReverse)},
-    accel: ${fmtNum(prof.accel)},
-    brake: ${fmtNum(prof.brake)},
-    coastDecel: ${fmtNum(prof.coastDecel)},
-    turnRate: ${fmtNum(prof.turnRate)},
-    radius: ${fmtNum(prof.radius)},
-    wheelBase: ${fmtNum(prof.wheelBase)},
-    minTurnRadius: ${fmtNum(prof.minTurnRadius)},
-    minSteerSpeed: ${fmtNum(prof.minSteerSpeed)},
-    steerResponse: ${fmtNum(prof.steerResponse)},
-    steerReturn: ${fmtNum(prof.steerReturn)},
-    lateralGrip: ${fmtNum(prof.lateralGrip)}
+          ${lines.join(",\n")}
   }
         }`;
 
@@ -2897,7 +3116,6 @@
         }
       }
     };
-
 
     profile.add(actions, "exportProfile").name("Export to MODEL_CONFIG");
 
@@ -3043,27 +3261,38 @@
     const radius = Math.max(0.35, (prof.radius ?? v.radius ?? 0.9));
     const minSteerSpeed = Math.max(0.0, prof.minSteerSpeed ?? 0.35);
     const steerResponse = Math.max(0.1, prof.steerResponse ?? 8.0);
-    const steerReturn = Math.max(0.1, prof.steerReturn ?? 6.0);
-    const lateralGrip = Math.max(0.0, prof.lateralGrip ?? 8.0);
+    const steerReturn = Math.max(0.1, prof.steerReturn ?? 5.0);
+    const wheelBase = Math.max(0.1, prof.wheelBase ?? 2.0);
+    const minTurnRadius = Math.max(0.5, prof.minTurnRadius ?? 6.0);
+    const lateralGrip = Math.max(0.1, prof.lateralGrip ?? 8.0);
 
-    let forwardAmount = 0;
-    let steerAmount = 0;
+    let forwardAmount = 0.0;
+    let steerAmount = 0.0;
 
     const joyForward = -joystickState.valueY;
     const joySteer = joystickState.valueX;
-    const joyMag = Math.min(1, Math.sqrt(joyForward * joyForward + joySteer * joySteer));
 
-    if (joystickState.active && joyMag > 0) {
+    if (joystickState.active) {
       forwardAmount = clamp(joyForward, -1, 1);
       steerAmount = clamp(joySteer, -1, 1);
     } else {
-      forwardAmount = clamp(avatarState.moveZ, -1, 1);
-      steerAmount = clamp(avatarState.moveX, -1, 1);
+      const f = avatarKeys.forward ? 1 : 0;
+      const b = avatarKeys.back ? -1 : 0;
+      forwardAmount = f + b;
+
+      const l = avatarKeys.left ? -1 : 0;
+      const r = avatarKeys.right ? 1 : 0;
+      steerAmount = l + r;
     }
 
-    const targetSpeed = forwardAmount >= 0 ? forwardAmount * maxSpeed : forwardAmount * maxReverse;
-
     const speedNow = vehicleDriveState.speed;
+    const targetSpeed =
+    forwardAmount > 0
+    ? forwardAmount * maxSpeed
+    : forwardAmount < 0
+    ? forwardAmount * maxReverse
+    : 0.0;
+
     const speedDiff = targetSpeed - speedNow;
 
     if (Math.abs(forwardAmount) > 1e-3) {
@@ -3089,43 +3318,24 @@
 
     const speedRatio = clamp(speedAbs / maxSpeed, 0, 1);
 
-  // More steering authority overall (low speed), still reduces at higher speeds.
     const maxSteerLow = clamp(turnRate * 0.30, 0.35, 0.95);
     const minSteerHigh = clamp(maxSteerLow * 0.45, 0.12, 0.40);
     const dynamicMaxSteer = maxSteerLow + (minSteerHigh - maxSteerLow) * Math.pow(speedRatio, 0.65);
 
     const steerTarget = (steerGate > 0 ? steerAmount : 0.0) * dynamicMaxSteer;
 
-    let steerAngle = steerAngleNow;
-    if (Math.abs(steerTarget) > 1e-4) {
-      const diff = steerTarget - steerAngle;
-      const step = clamp(diff, -steerResponse * dt, steerResponse * dt);
-      steerAngle += step;
-    } else {
-      const step = steerReturn * dt;
-      if (Math.abs(steerAngle) <= step) steerAngle = 0.0;
-      else steerAngle -= Math.sign(steerAngle) * step;
-    }
+    const response = (Math.abs(steerAmount) > 1e-4) ? steerResponse : steerReturn;
+    const steerAlpha = 1 - Math.pow(0.001, response * dt);
+    const steerAngle = steerAngleNow + (steerTarget - steerAngleNow) * steerAlpha;
 
-    steerAngle = clamp(steerAngle, -dynamicMaxSteer, dynamicMaxSteer);
     vehicleDriveState.steerAngle = steerAngle;
 
-  // Bicycle yaw model: yawRate = v / R, R = max(minTurnRadius, wheelBase / tan(|delta|))
-    if (steerGate > 0 && Math.abs(steerAngle) > 1e-4) {
-      const wheelBase = Math.max(0.5, prof.wheelBase ?? (radius * 2.8));
-      const minTurnRadius = Math.max(0.5, prof.minTurnRadius ?? 3.0);
+    if (steerGate > 0 && Math.abs(steerAngle) > 1e-5 && speedAbs > 1e-5) {
+      const base = (wheelBase / Math.max(1e-6, Math.tan(Math.abs(steerAngle))));
+      const turnRadius = Math.max(minTurnRadius, base);
 
-      const steerAbsNow = Math.abs(steerAngle);
-      const tanA = Math.tan(steerAbsNow);
-
-      if (tanA > 1e-4 && Number.isFinite(tanA)) {
-        let turnRadius = wheelBase / tanA;
-        if (!Number.isFinite(turnRadius)) turnRadius = 1e6;
-        turnRadius = Math.max(minTurnRadius, turnRadius);
-
+      if (Number.isFinite(turnRadius) && turnRadius > 1e-6) {
         const steerSign = steerAngle > 0 ? 1 : -1;
-
-      // No “high speed yaw kill”; slight scaling keeps response consistent across speeds.
         const responseScale = 0.9 + 0.35 * steerGate;
 
         const yawRate = (vehicleDriveState.speed / turnRadius) * responseScale;
@@ -3145,7 +3355,7 @@
 
     resolveVehicleXZCollisions(v.object.position, vehicleTmpVel, radius, v.object);
 
-  // Lateral damping (simple grip)
+    // Lateral damping (simple grip)
     const long = vehicleTmpVel.x * fx + vehicleTmpVel.z * fz;
     const latX = vehicleTmpVel.x - fx * long;
     const latZ = vehicleTmpVel.z - fz * long;
@@ -3154,31 +3364,13 @@
     vehicleTmpVel.x = fx * long + latX * latDamp;
     vehicleTmpVel.z = fz * long + latZ * latDamp;
 
-  // Clamp longitudinal speed to profile
-    const clampedSpeed = clamp(long, -maxReverse, maxSpeed);
-    const deltaLong = clampedSpeed - long;
-    if (Math.abs(deltaLong) > 1e-6) {
-      vehicleTmpVel.x += fx * deltaLong;
-      vehicleTmpVel.z += fz * deltaLong;
-    }
-    vehicleDriveState.speed = clampedSpeed;
+    stampSnowFromVehicle(v, speedAbs, maxSpeed);
 
-  /**
-   * Propeller spin driven by signed vehicle speed.
-   * Supports per-vehicle tuning via profile:
-   *  - propAxis: "x" | "y" | "z" (default "y")
-   *  - propSpinIdle: rad/s at near-zero speed (default 8)
-   *  - propSpinMax: rad/s at max speed (default 80)
-   *  - propSpinMul: scalar multiplier (default 1)
-   *  - propInvert: boolean to flip direction (default false)
-   */
     if (v.parts && v.parts.propellers && v.parts.propellers.length) {
-      const axisRaw = (prof.propAxis || "y");
-      const axis = axisRaw === "x" || axisRaw === "y" || axisRaw === "z" ? axisRaw : "y";
-
-      const idle = Math.max(0.0, prof.propSpinIdle ?? 8.0);
-      const max = Math.max(idle, prof.propSpinMax ?? 80.0);
-      const mul = Math.max(0.0, prof.propSpinMul ?? 1.0);
+      const axis = (prof.propAxis || "y");
+      const idle = Math.max(0.0, prof.propIdle ?? 6.0);
+      const max = Math.max(idle, prof.propMax ?? 38.0);
+      const mul = Math.max(0.0, prof.propMul ?? 1.0);
       const invert = !!prof.propInvert;
 
       const signed =
@@ -3225,7 +3417,6 @@
     updateVehicleOutlineFor(v);
     setVehiclePrompt(true, v);
   }
-
 
 
 
@@ -3782,7 +3973,7 @@ function makeRadialTexture(size = 96) {
     size / 2, size / 2, 0,
     size / 2, size / 2, size / 2
     );
-  grad.addColorStop(0.00, "rgba(255,255,255,1.00)");
+  grad.addColorStop(0.00, "rgba(254,254,254,1.00)");
   grad.addColorStop(0.42, "rgba(255,255,255,0.92)");
   grad.addColorStop(0.78, "rgba(255,255,255,0.22)");
   grad.addColorStop(1.00, "rgba(255,255,255,0.00)");
@@ -3809,6 +4000,7 @@ function gridIndex(i, j) {
 
 function initSnowCover() {
   if (!driftHeights) return;
+
   const base = Math.max(0, params.coverBase);
   const macroAmp = Math.max(0, params.coverMacroAmp);
   const macroFreq = Math.max(0.1, params.coverMacroFreq);
@@ -3835,18 +4027,30 @@ function initSnowCover() {
       clamp(h, 0, Math.max(0.5, params.driftMaxHeight));
     }
   }
+
+  if (driftDeform) driftDeform.fill(0);
 }
+
 
 function applyHeightsToGeometry() {
   if (!driftHeights || !driftPosArray) return;
+
+  const d = driftDeform && driftDeform.length === DRIFT_VERTS ? driftDeform : null;
+
   for (let v = 0; v < DRIFT_VERTS; v++) {
-    driftPosArray[v * 3 + 1] = driftHeights[v];
+    const y = driftHeights[v] + (d ? d[v] : 0);
+    driftPosArray[v * 3 + 1] = y;
   }
+
   driftPosAttr.needsUpdate = true;
 }
 
+
 function sampleSnowHeight(x, z) {
   if (!driftHeights) return 0;
+
+  const d = driftDeform && driftDeform.length === DRIFT_VERTS ? driftDeform : null;
+
   let u = (x + HALF_GROUND) / GROUND_SIZE;
   let v = (z + HALF_GROUND) / GROUND_SIZE;
   u = clamp(u, 0, 0.999999);
@@ -3863,15 +4067,166 @@ function sampleSnowHeight(x, z) {
   const tx = fx - i0;
   const tz = fz - j0;
 
-  const h00 = driftHeights[gridIndex(i0, j0)];
-  const h10 = driftHeights[gridIndex(i1, j0)];
-  const h01 = driftHeights[gridIndex(i0, j1)];
-  const h11 = driftHeights[gridIndex(i1, j1)];
+  const idx00 = gridIndex(i0, j0);
+  const idx10 = gridIndex(i1, j0);
+  const idx01 = gridIndex(i0, j1);
+  const idx11 = gridIndex(i1, j1);
+
+  const h00 = driftHeights[idx00] + (d ? d[idx00] : 0);
+  const h10 = driftHeights[idx10] + (d ? d[idx10] : 0);
+  const h01 = driftHeights[idx01] + (d ? d[idx01] : 0);
+  const h11 = driftHeights[idx11] + (d ? d[idx11] : 0);
 
   const hx0 = h00 + (h10 - h00) * tx;
   const hx1 = h01 + (h11 - h01) * tx;
   return hx0 + (hx1 - hx0) * tz;
 }
+
+
+function ensureWetTrailTex() {
+  /* Creates the radial alpha texture used by wet decals (soft edge, no harsh squares). */
+  if (wetTrailTex) return wetTrailTex;
+  wetTrailTex = makeRadialTexture(32);
+  wetTrailTex.wrapS = THREE.ClampToEdgeWrapping;
+  wetTrailTex.wrapT = THREE.ClampToEdgeWrapping;
+  wetTrailTex.needsUpdate = true;
+  return wetTrailTex;
+}
+
+function getSnowSurfaceY(x, z) {
+  /* Returns world-space snow surface Y (snowSurface offset + sampled drift height). */
+  const baseY = snowSurface ? snowSurface.position.y : 0.0;
+  return baseY + sampleSnowHeight(x, z);
+}
+
+function setupWetTrailSystem() {
+  /* Builds a pooled decal system for short-lived wet marks behind avatar/vehicles. */
+  if (!scene) return;
+
+  if (!wetTrailGroup) {
+    wetTrailGroup = new THREE.Group();
+    wetTrailGroup.renderOrder = 6;
+    scene.add(wetTrailGroup);
+  }
+
+  if (!wetTrailGeo) {
+    wetTrailGeo = new THREE.PlaneGeometry(1, 1, 1, 1);
+    wetTrailGeo.rotateX(-Math.PI / 2);
+  }
+
+  rebuildWetTrailPool();
+}
+
+function rebuildWetTrailPool() {
+  /* Resizes the decal pool to wetTrailConfig.maxMarks and keeps old ones hidden. */
+  if (!wetTrailGroup || !wetTrailGeo) return;
+
+  const target = clamp(wetTrailConfig.maxMarks | 0, 0, 3000);
+
+  while (wetTrailPool.length > target) {
+    const m = wetTrailPool.pop();
+    if (m) {
+      wetTrailGroup.remove(m);
+      if (m.material) m.material.dispose();
+    }
+  }
+
+  while (wetTrailPool.length < target) {
+    const tex = ensureWetTrailTex();
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(wetTrailConfig.color),
+      transparent: true,
+      opacity: 0.0,
+      alphaMap: tex,
+      depthWrite: false,
+      depthTest: true
+    });
+    mat.polygonOffset = true;
+    mat.polygonOffsetFactor = -2;
+    mat.polygonOffsetUnits = -2;
+
+    const m = new THREE.Mesh(wetTrailGeo, mat);
+    m.visible = false;
+    m.frustumCulled = true;
+    m.userData.age = 0.0;
+    m.userData.life = 0.0;
+    m.userData.baseOpacity = 0.0;
+
+    wetTrailGroup.add(m);
+    wetTrailPool.push(m);
+  }
+
+  wetTrailCursor = 0;
+}
+
+function clearWetTrails() {
+  /* Hides all decals immediately. */
+  for (let i = 0; i < wetTrailPool.length; i++) {
+    const m = wetTrailPool[i];
+    if (!m) continue;
+    m.visible = false;
+    m.userData.age = 0.0;
+    m.userData.life = 0.0;
+    m.userData.baseOpacity = 0.0;
+    if (m.material) m.material.opacity = 0.0;
+  }
+}
+
+function spawnWetTrailMark(x, z, yaw, sx, sz, baseOpacity, life) {
+  /* Spawns a single fading decal at world XZ, aligned to yaw, sitting on the snow surface. */
+  if (!wetTrailConfig.enabled) return;
+  if (!wetTrailPool || wetTrailPool.length === 0) return;
+
+  const m = wetTrailPool[wetTrailCursor];
+  wetTrailCursor = (wetTrailCursor + 1) % wetTrailPool.length;
+
+  const y = getSnowSurfaceY(x, z) + wetTrailConfig.lift;
+
+  m.position.set(x, y, z);
+  m.rotation.set(0, yaw, 0);
+  m.scale.set(Math.max(0.01, sx), 1.0, Math.max(0.01, sz));
+
+  m.userData.age = 0.0;
+  m.userData.life = Math.max(0.05, life);
+  m.userData.baseOpacity = clamp(baseOpacity, 0.0, 1.0);
+
+  if (m.material) {
+    m.material.color.set(wetTrailConfig.color);
+    m.material.opacity = m.userData.baseOpacity;
+  }
+
+  m.visible = true;
+}
+
+function updateWetTrails(dt) {
+  /* Advances decal fade-outs and hides expired marks. */
+  if (!wetTrailConfig.enabled) return;
+  if (!(dt > 0)) return;
+
+  for (let i = 0; i < wetTrailPool.length; i++) {
+    const m = wetTrailPool[i];
+    if (!m || !m.visible) continue;
+
+    const life = m.userData.life || 0.0;
+    if (!(life > 0)) {
+      m.visible = false;
+      continue;
+    }
+
+    m.userData.age += dt;
+    const a = clamp(1.0 - (m.userData.age / life), 0.0, 1.0);
+
+    const fade = a * a;
+    if (m.material) m.material.opacity = (m.userData.baseOpacity || 0.0) * fade;
+
+    if (a <= 0.0) {
+      m.visible = false;
+      if (m.material) m.material.opacity = 0.0;
+    }
+  }
+}
+
+
 
 function depositHeightAtWorld(x, z, amount, windX = 0, windZ = 0) {
   if (!driftHeights || amount === 0) return;
@@ -3903,6 +4258,332 @@ function depositHeightAtWorld(x, z, amount, windX = 0, windZ = 0) {
     driftHeights[idx] = clamp(h + delta, 0, maxH);
   }
 }
+
+/**
+ * Requests an immediate drift height write to geometry (and normals refresh) on the next simulation tick.
+ * Used by local deformation (footprints/tracks) so marks appear immediately without lowering global intervals.
+ */
+function requestDriftWrite() {
+  forceDriftWrite = true;
+  forceDriftNormals = true;
+}
+
+
+
+
+/**
+ * Carves a smooth circular depression into the snow surface.
+ * Size is stable across driftGrid values (no "cell-sized" craters).
+ * Writes into driftDeform so drifting (driftHeights) can continue evolving independently.
+ */
+function carveHeightAtWorld(x, z, depth) {
+  if (!snowDeformConfig.enabled) return false;
+  if (!driftHeights || !driftDeform) return false;
+  if (!(depth > 0)) return false;
+
+  const grid = DRIFT_GRID;
+  const cell = GROUND_SIZE / grid;
+
+  const depthMin = Math.max(0, snowDeformConfig.carveDepthMin);
+  const depthMax = Math.max(depthMin + 1e-6, snowDeformConfig.carveDepthMax);
+  const d = clamp(depth, depthMin, depthMax);
+
+  let radiusWorld = snowDeformConfig.carveRadiusBase + d * snowDeformConfig.carveRadiusFromDepth;
+  radiusWorld = clamp(radiusWorld, snowDeformConfig.carveRadiusMin, snowDeformConfig.carveRadiusMax);
+  radiusWorld = Math.max(radiusWorld, cell * Math.max(0, snowDeformConfig.carveMinCellFrac));
+
+  const maxCells = Math.max(1, (snowDeformConfig.carveMaxCells | 0));
+  const rCells = Math.min(maxCells, Math.max(1, Math.ceil(radiusWorld / cell)));
+  const r2 = radiusWorld * radiusWorld;
+
+  const sigma = Math.max(1e-4, radiusWorld * Math.max(0.05, snowDeformConfig.carveSigmaFrac));
+  const invTwoSigma2 = 1.0 / (2.0 * sigma * sigma);
+
+  const maxCarve = Math.max(0.001, snowDeformConfig.carveMaxCarve);
+  const minDeform = -maxCarve;
+
+  let u = (x + HALF_GROUND) / GROUND_SIZE;
+  let v = (z + HALF_GROUND) / GROUND_SIZE;
+  u = clamp(u, 0, 1);
+  v = clamp(v, 0, 1);
+
+  const ci = clamp((u * grid) | 0, 0, grid);
+  const cj = clamp((v * grid) | 0, 0, grid);
+
+  let changed = false;
+
+  for (let dj = -rCells; dj <= rCells; dj++) {
+    const j = cj + dj;
+    if (j < 0 || j > grid) continue;
+
+    const wz = -HALF_GROUND + j * cell;
+    const dz = wz - z;
+    const dz2 = dz * dz;
+    if (dz2 > r2) continue;
+
+    for (let di = -rCells; di <= rCells; di++) {
+      const i = ci + di;
+      if (i < 0 || i > grid) continue;
+
+      const wx = -HALF_GROUND + i * cell;
+      const dx = wx - x;
+
+      const dist2 = dx * dx + dz2;
+      if (dist2 > r2) continue;
+
+      const w = Math.exp(-dist2 * invTwoSigma2);
+      if (w < 1e-4) continue;
+
+      const idx = gridIndex(i, j);
+
+      const baseAmount = d * w;
+      const next = driftDeform[idx] - baseAmount;
+
+      driftDeform[idx] = next < minDeform ? minDeform : next;
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+
+
+
+
+const snowDeformConfig = {
+  enabled: true,
+
+  avatarFootRadius: 0.22,
+  avatarStepDistance: 0.55,
+  avatarDepthWalk: 0.010,
+  avatarDepthRun: 0.016,
+
+  vehicleTrackDepth: 0.050,
+  vehicleHalfWidthFallback: 0.42,
+  vehicleTrackSpacing: 0.70,
+
+  carveDepthMin: 0.005,
+  carveDepthMax: 0.080,
+
+  carveRadiusBase: 0.18,
+  carveRadiusFromDepth: 9.0,
+  carveRadiusMin: 0.22,
+  carveRadiusMax: 1.35,
+
+  carveMinCellFrac: 0.25,
+  carveMaxCells: 12,
+
+  carveSigmaFrac: 0.55,
+  carveMaxCarve: 0.18
+};
+
+
+
+
+const avatarFootprintState = {
+  has: false,
+  lastX: 0,
+  lastZ: 0,
+  acc: 0,
+  phase: 0
+};
+
+
+
+
+/**
+ * Stamps alternating avatar footprints into the deformation field based on actual movement speed.
+ * Uses avatarFootRadius/StepDistance/DepthWalk/DepthRun from snowDeformConfig.
+ */
+function stampSnowFromAvatar(actualSpeed) {
+  if (!snowDeformConfig.enabled || !avatar || !driftHeights || !driftDeform) return;
+
+  const minSpeed = 0.12;
+  if (!(actualSpeed >= minSpeed)) {
+    avatarFootprintState.has = false;
+    avatarFootprintState.acc = 0;
+    return;
+  }
+
+  const x = avatar.position.x;
+  const z = avatar.position.z;
+
+  if (!avatarFootprintState.has) {
+    avatarFootprintState.has = true;
+    avatarFootprintState.lastX = x;
+    avatarFootprintState.lastZ = z;
+    avatarFootprintState.acc = 0;
+    avatarFootprintState.phase = 0;
+    return;
+  }
+
+  const dx = x - avatarFootprintState.lastX;
+  const dz = z - avatarFootprintState.lastZ;
+  const dist = Math.sqrt(dx * dx + dz * dz);
+
+  avatarFootprintState.lastX = x;
+  avatarFootprintState.lastZ = z;
+
+  if (!(dist > 1e-6)) return;
+
+  avatarFootprintState.acc += dist;
+
+  const runThreshold = (AVATAR_WALK_SPEED + AVATAR_RUN_SPEED) * 0.5;
+  const isRun = actualSpeed >= runThreshold;
+
+  const baseStep = Math.max(0.15, snowDeformConfig.avatarStepDistance);
+  const stepDist = isRun ? baseStep * 0.75 : baseStep;
+
+  const depthBase = isRun ? snowDeformConfig.avatarDepthRun : snowDeformConfig.avatarDepthWalk;
+  const speedScale = clamp(actualSpeed / Math.max(1e-6, AVATAR_RUN_SPEED), 0.35, 1.0);
+  const depth = depthBase * speedScale;
+
+  const footR = Math.max(0.06, snowDeformConfig.avatarFootRadius);
+  const footSep = Math.max(0.06, footR * 0.75);
+  const footBack = Math.max(0.03, footR * 0.35);
+
+  const yaw = avatar.rotation.y;
+  const fx = Math.sin(yaw);
+  const fz = Math.cos(yaw);
+  const rx = Math.sin(yaw + Math.PI * 0.5);
+  const rz = Math.cos(yaw + Math.PI * 0.5);
+
+  let didCarve = false;
+
+  while (avatarFootprintState.acc >= stepDist) {
+    avatarFootprintState.acc -= stepDist;
+    avatarFootprintState.phase = 1 - avatarFootprintState.phase;
+
+    const side = (avatarFootprintState.phase ? 1 : -1) * footSep;
+    const px = x + rx * side - fx * footBack;
+    const pz = z + rz * side - fz * footBack;
+
+    if (carveHeightAtWorld(px, pz, depth)) didCarve = true;
+
+    spawnWetTrailMark(
+      px,
+      pz,
+      yaw,
+      wetTrailConfig.avatarSize,
+      wetTrailConfig.avatarSize,
+      wetTrailConfig.opacity,
+      wetTrailConfig.life
+      );
+  }
+
+  if (didCarve) requestDriftWrite();
+}
+
+
+
+
+/**
+ * Stamps simple dual tracks (left/right) into the deformation field for the active vehicle.
+ * Uses vehicleTrackDepth/vehicleTrackSpacing from snowDeformConfig.
+ */
+function stampSnowFromVehicle(v, speedAbs, maxSpeed) {
+  if (!snowDeformConfig.enabled || !v || !v.object || !v.meta || !driftHeights || !driftDeform) return;
+
+  const ms = Math.max(1e-6, maxSpeed || 1);
+  const minSpeed = Math.max(0.15, ms * 0.05);
+  if (!(speedAbs >= minSpeed)) {
+    vehicleDriveState.lastTrackValid = false;
+    vehicleDriveState.trackAcc = 0;
+    return;
+  }
+
+  const x = v.object.position.x;
+  const z = v.object.position.z;
+
+  if (!vehicleDriveState.lastTrackValid) {
+    vehicleDriveState.lastTrackValid = true;
+    vehicleDriveState.lastTrackX = x;
+    vehicleDriveState.lastTrackZ = z;
+    vehicleDriveState.trackAcc = 0;
+    return;
+  }
+
+  const dx = x - vehicleDriveState.lastTrackX;
+  const dz = z - vehicleDriveState.lastTrackZ;
+  const dist = Math.sqrt(dx * dx + dz * dz);
+
+  vehicleDriveState.lastTrackX = x;
+  vehicleDriveState.lastTrackZ = z;
+
+  if (!(dist > 1e-6)) return;
+
+  vehicleDriveState.trackAcc += dist;
+
+  const prof = (v.meta && v.meta.profile) ? v.meta.profile : {};
+  const radius = Math.max(0.35, (prof.radius ?? v.radius ?? 0.9));
+
+  const halfWidth = Math.max(
+    0.22,
+    (prof.trackHalfWidth != null ? prof.trackHalfWidth : (radius * 0.55)) ||
+    snowDeformConfig.vehicleHalfWidthFallback
+    );
+
+  const wheelBase = Math.max(0.6, prof.wheelBase ?? (radius * 2.2));
+  const fore = wheelBase * 0.35;
+
+  const yaw = vehicleDriveState.yaw;
+  const fx = Math.sin(yaw);
+  const fz = Math.cos(yaw);
+  const rx = Math.sin(yaw + Math.PI * 0.5);
+  const rz = Math.cos(yaw + Math.PI * 0.5);
+
+  const depthScale = clamp(speedAbs / ms, 0.25, 1.0);
+  const depth = snowDeformConfig.vehicleTrackDepth * depthScale;
+
+  const spacing = Math.max(0.15, snowDeformConfig.vehicleTrackSpacing);
+
+  let didCarve = false;
+
+  const sx = Math.max(
+    0.05,
+    Number.isFinite(prof.wetWidth) ? prof.wetWidth : wetTrailConfig.vehicleWidth
+    );
+
+  const sz = Math.max(
+    0.05,
+    Number.isFinite(prof.wetLength) ? prof.wetLength : wetTrailConfig.vehicleLength
+    );
+
+  while (vehicleDriveState.trackAcc >= spacing) {
+    vehicleDriveState.trackAcc -= spacing;
+
+    const p1x = x - rx * halfWidth + fx * fore;
+    const p1z = z - rz * halfWidth + fz * fore;
+    const p2x = x - rx * halfWidth - fx * fore;
+    const p2z = z - rz * halfWidth - fz * fore;
+
+    const p3x = x + rx * halfWidth + fx * fore;
+    const p3z = z + rz * halfWidth + fz * fore;
+    const p4x = x + rx * halfWidth - fx * fore;
+    const p4z = z + rz * halfWidth - fz * fore;
+
+    if (carveHeightAtWorld(p1x, p1z, depth)) didCarve = true;
+    if (carveHeightAtWorld(p2x, p2z, depth)) didCarve = true;
+    if (carveHeightAtWorld(p3x, p3z, depth)) didCarve = true;
+    if (carveHeightAtWorld(p4x, p4z, depth)) didCarve = true;
+
+    spawnWetTrailMark(p1x, p1z, yaw, sx, sz, wetTrailConfig.opacity, wetTrailConfig.life);
+    spawnWetTrailMark(p2x, p2z, yaw, sx, sz, wetTrailConfig.opacity, wetTrailConfig.life);
+    spawnWetTrailMark(p3x, p3z, yaw, sx, sz, wetTrailConfig.opacity, wetTrailConfig.life);
+    spawnWetTrailMark(p4x, p4z, yaw, sx, sz, wetTrailConfig.opacity, wetTrailConfig.life);
+  }
+
+  if (didCarve) requestDriftWrite();
+}
+
+
+
+
+
+
+
+
 
 function evolveDrifts(windX, windZ) {
   if (!driftHeights || !driftHeightsTmp) return;
@@ -3984,6 +4665,7 @@ function buildSnowSurface() {
 
   driftHeights = new Float32Array(DRIFT_VERTS);
   driftHeightsTmp = new Float32Array(DRIFT_VERTS);
+  driftDeform = new Float32Array(DRIFT_VERTS);
 
   driftGeo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE, DRIFT_GRID, DRIFT_GRID);
   driftGeo.rotateX(-Math.PI / 2);
@@ -4010,6 +4692,7 @@ function buildSnowSurface() {
   driftGeo.computeVertexNormals();
   driftGeo.attributes.normal.needsUpdate = true;
 }
+
 
 
     // Clouds Shaders
@@ -4974,9 +5657,12 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       dir.shadow.camera.far = 120;
       scene.add(dir);
 
+      setupWetTrailSystem();
+
+
       // Ground
       const groundMat = new THREE.MeshStandardMaterial({
-        color: 0x0f1726,
+        color: 0xffffff,
         roughness: 1.0,
         metalness: 0.0
       });
@@ -5572,7 +6258,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         //flakes.open();
 
         const drifts = gui.addFolder("Drifts");
-        trackController(drifts.add(params, "driftGrid", 32, 256, 1).name("Grid"), {
+        trackController(drifts.add(params, "driftGrid", 32, 4096, 1).name("Grid"), {
           rebuild: true,
           instant: false
         });
@@ -5635,6 +6321,109 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           { rebuild: true, instant: false }
           );
       //ticking.open();
+
+        const deformation = gui.addFolder("Deformation");
+
+        const deformActions = {
+          clear: () => {
+            if (driftDeform && driftDeform.length) {
+              driftDeform.fill(0);
+              requestDriftWrite();
+            }
+          }
+        };
+
+        const deformControllers = [];
+
+        deformControllers.push(
+          deformation.add(snowDeformConfig, "enabled").name("Enabled").listen()
+          );
+        deformation.add(deformActions, "clear").name("Clear");
+
+        const deformAvatar = deformation.addFolder("Avatar");
+        deformControllers.push(
+          deformAvatar.add(snowDeformConfig, "avatarFootRadius", 0.08, 0.80, 0.01).name("Foot radius").listen()
+          );
+        deformControllers.push(
+          deformAvatar.add(snowDeformConfig, "avatarStepDistance", 0.15, 1.50, 0.01).name("Step distance").listen()
+          );
+        deformControllers.push(
+          deformAvatar.add(snowDeformConfig, "avatarDepthWalk", 0.001, 0.080, 0.001).name("Depth walk").listen()
+          );
+        deformControllers.push(
+          deformAvatar.add(snowDeformConfig, "avatarDepthRun", 0.001, 0.120, 0.001).name("Depth run").listen()
+          );
+
+        const deformVehicle = deformation.addFolder("Vehicle");
+        deformControllers.push(
+          deformVehicle.add(snowDeformConfig, "vehicleTrackDepth", 0.001, 1, 0.001).name("Track depth").listen()
+          );
+        deformControllers.push(
+          deformVehicle.add(snowDeformConfig, "vehicleHalfWidthFallback", 0.10, 2.50, 0.01).name("Half width").listen()
+          );
+        deformControllers.push(
+          deformVehicle.add(snowDeformConfig, "vehicleTrackSpacing", 0.10, 3.00, 0.01).name("Track spacing").listen()
+          );
+
+        const deformCarve = deformation.addFolder("Carve");
+        deformControllers.push(
+          deformCarve.add(snowDeformConfig, "carveDepthMin", 0.000, 0.120, 0.001).name("Depth min").listen()
+          );
+        deformControllers.push(
+          deformCarve.add(snowDeformConfig, "carveDepthMax", 0.001, 0.300, 0.001).name("Depth max").listen()
+          );
+        deformControllers.push(
+          deformCarve.add(snowDeformConfig, "carveRadiusBase", 0.00, 2.50, 0.01).name("Radius base").listen()
+          );
+        deformControllers.push(
+          deformCarve.add(snowDeformConfig, "carveRadiusFromDepth", 0.00, 40.0, 0.1).name("Radius / depth").listen()
+          );
+        deformControllers.push(
+          deformCarve.add(snowDeformConfig, "carveRadiusMin", 0.00, 4.00, 0.01).name("Radius min").listen()
+          );
+        deformControllers.push(
+          deformCarve.add(snowDeformConfig, "carveRadiusMax", 0.05, 8.00, 0.01).name("Radius max").listen()
+          );
+        deformControllers.push(
+          deformCarve.add(snowDeformConfig, "carveMinCellFrac", 0.00, 2.00, 0.01).name("Min cell frac").listen()
+          );
+        deformControllers.push(
+          deformCarve.add(snowDeformConfig, "carveMaxCells", 1, 48, 1).name("Max cells").listen()
+          );
+        deformControllers.push(
+          deformCarve.add(snowDeformConfig, "carveSigmaFrac", 0.10, 1.50, 0.01).name("Sigma frac").listen()
+          );
+        deformControllers.push(
+          deformCarve.add(snowDeformConfig, "carveMaxCarve", 0.005, 0.50, 0.005).name("Max carve").listen()
+          );
+
+
+        const wet = deformation.addFolder("Wet marks");
+
+        wet.add(wetTrailConfig, "enabled").name("Enabled").listen();
+        wet.add(wetTrailConfig, "maxMarks", 0, 1200, 10).name("Max marks").listen().onFinishChange(() => {
+          setupWetTrailSystem();
+          rebuildWetTrailPool();
+        });
+        wet.add(wetTrailConfig, "life", 0.5, 12.0, 0.1).name("Life").listen();
+        wet.add(wetTrailConfig, "opacity", 0.01, 1.0, 0.01).name("Opacity").listen();
+        wet.add(wetTrailConfig, "lift", 0.0, 0.20, 0.001).name("Lift").listen();
+
+        wet.add(wetTrailConfig, "avatarSize", 0.05, 2.0, 0.01).name("Avatar size").listen();
+        wet.add(wetTrailConfig, "vehicleWidth", 0.05, 3.0, 0.01).name("Vehicle width").listen();
+        wet.add(wetTrailConfig, "vehicleLength", 0.05, 4.0, 0.01).name("Vehicle length").listen();
+
+        wet.add({ clear: () => clearWetTrails() }, "clear").name("Clear");
+
+
+
+        for (let i = 0; i < deformControllers.length; i++) {
+          const c = deformControllers[i];
+          if (c && c.onFinishChange) c.onFinishChange(() => requestDriftWrite());
+        }
+
+
+
 
         const misc = {
           resetDefaults() {
@@ -5795,60 +6584,70 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
             }
             evolveDrifts(baseWindX, baseWindZ);
 
-            if (frame % clamp(params.driftWriteInterval | 0, 1, 120) === 0) {
-              applyHeightsToGeometry();
-            }
-            if (
-              frame % clamp(params.normalUpdateInterval | 0, 1, 240) === 0 &&
-              driftGeo
-              ) {
-              driftGeo.computeVertexNormals();
-            driftGeo.attributes.normal.needsUpdate = true;
-          }
-        }
+            const writeEvery = clamp(params.driftWriteInterval | 0, 1, 120);
+            const normalEvery = clamp(params.normalUpdateInterval | 0, 1, 240);
 
-        updateSettlers(dtSim, baseWindX, baseWindZ);
+            const shouldWrite = forceDriftWrite || (frame % writeEvery === 0);
+            if (shouldWrite) {
+              applyHeightsToGeometry();
+              forceDriftWrite = false;
+            }
+
+            if (driftGeo && (forceDriftNormals || (frame % normalEvery === 0))) {
+              driftGeo.computeVertexNormals();
+              driftGeo.attributes.normal.needsUpdate = true;
+              forceDriftNormals = false;
+
+              updateWetTrails(dtAvatar);
+
+            }
+
+
+
+          }
+
+          updateSettlers(dtSim, baseWindX, baseWindZ);
 
     // Snowman animation along curved path
-        updateSnowman(dtSim);
+          updateSnowman(dtSim);
 
-        updateClouds(dtSim);
-      }
+          updateClouds(dtSim);
+        }
 
   // Avatar + camera (no dependency on simulation timeScale)
-      tickAvatar(dtAvatar);
+        tickAvatar(dtAvatar);
 
-      const inXR = renderer.xr.isPresenting;
+        const inXR = renderer.xr.isPresenting;
 
-      if (!inXR && controls) {
-        if (avatarState.enabled) {
-          controls.autoRotate = false;
-          controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
+        if (!inXR && controls) {
+          if (avatarState.enabled) {
+            controls.autoRotate = false;
+            controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
 
-          if (!joystickState.active) {
+            if (!joystickState.active) {
+              controls.update();
+            }
+
+            updateAvatarCamera(dtAvatar);
+          } else {
+            const nowSeconds = performance.now() * 0.001;
+            const idleSeconds = nowSeconds - lastInteractionTime;
+
+            const shouldAutoRotate =
+            autoRotateEnabled &&
+            idleSeconds >= AUTO_ROTATE_IDLE_SECONDS;
+
+            controls.autoRotate = shouldAutoRotate;
+            controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
+
             controls.update();
           }
-
-          updateAvatarCamera(dtAvatar);
-        } else {
-          const nowSeconds = performance.now() * 0.001;
-          const idleSeconds = nowSeconds - lastInteractionTime;
-
-          const shouldAutoRotate =
-          autoRotateEnabled &&
-          idleSeconds >= AUTO_ROTATE_IDLE_SECONDS;
-
-          controls.autoRotate = shouldAutoRotate;
-          controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
-
-          controls.update();
         }
+
+        renderer.render(scene, camera);
+
+        frame++;
       }
-
-      renderer.render(scene, camera);
-
-      frame++;
-    }
 
 
 
@@ -5857,234 +6656,234 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 // Keyboard: fullscreen (F) and UI toggle (ESC)
 // -------------------------------------------------------------------------
 
-    let uiHidden = false;
+      let uiHidden = false;
 
 /**
  * Toggle visibility of GUI and HUD without destroying state.
  */
-    function setUIHidden(hidden) {
-      uiHidden = hidden;
+      function setUIHidden(hidden) {
+        uiHidden = hidden;
 
-      if (gui && gui.domElement) {
-        gui.domElement.style.display = hidden ? "none" : "";
-      }
+        if (gui && gui.domElement) {
+          gui.domElement.style.display = hidden ? "none" : "";
+        }
 
-      const hud = document.querySelector(".hud");
-      if (hud) {
-        hud.style.display = hidden ? "none" : "";
-      }
+        const hud = document.querySelector(".hud");
+        if (hud) {
+          hud.style.display = hidden ? "none" : "";
+        }
 
-      const avatarUi = document.querySelector(".avatar-ui");
-      if (avatarUi) {
-        avatarUi.style.display = hidden ? "none" : "";
-      }
+        const avatarUi = document.querySelector(".avatar-ui");
+        if (avatarUi) {
+          avatarUi.style.display = hidden ? "none" : "";
+        }
 
-      const joystickEl = document.getElementById("joystick");
-      if (joystickEl) {
-        joystickEl.style.display = hidden ? "none" : "";
-      }
+        const joystickEl = document.getElementById("joystick");
+        if (joystickEl) {
+          joystickEl.style.display = hidden ? "none" : "";
+        }
 
-      const vehiclePanel = document.getElementById("vehiclePrompt");
-      if (vehiclePanel) {
+        const vehiclePanel = document.getElementById("vehiclePrompt");
+        if (vehiclePanel) {
+          if (hidden) {
+            vehiclePanel.style.display = "none";
+            vehiclePanel.setAttribute("aria-hidden", "true");
+          } else {
+            const show = !!(vehiclePromptState.open && vehiclePromptState.nearby);
+            vehiclePanel.style.display = show ? "block" : "none";
+            vehiclePanel.setAttribute("aria-hidden", show ? "false" : "true");
+          }
+        }
+
         if (hidden) {
-          vehiclePanel.style.display = "none";
-          vehiclePanel.setAttribute("aria-hidden", "true");
+          updateVehicleOutlineFor(null);
         } else {
-          const show = !!(vehiclePromptState.open && vehiclePromptState.nearby);
-          vehiclePanel.style.display = show ? "block" : "none";
-          vehiclePanel.setAttribute("aria-hidden", show ? "false" : "true");
+          if (vehiclePromptState.open && vehiclePromptState.nearby) {
+            updateVehicleOutlineFor(vehiclePromptState.nearby);
+          }
         }
       }
-
-      if (hidden) {
-        updateVehicleOutlineFor(null);
-      } else {
-        if (vehiclePromptState.open && vehiclePromptState.nearby) {
-          updateVehicleOutlineFor(vehiclePromptState.nearby);
-        }
-      }
-    }
 
 
 
 /**
  * Cross-browser fullscreen state check.
  */
-    function isFullscreen() {
-      return (
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement
-        );
-    }
+      function isFullscreen() {
+        return (
+          document.fullscreenElement ||
+          document.webkitFullscreenElement ||
+          document.mozFullScreenElement ||
+          document.msFullscreenElement
+          );
+      }
 
 /**
  * Toggle fullscreen on the document root.
  */
-    function toggleFullscreen() {
-      const el = document.documentElement;
+      function toggleFullscreen() {
+        const el = document.documentElement;
 
-      if (!isFullscreen()) {
-        if (el.requestFullscreen) el.requestFullscreen();
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
-        else if (el.msRequestFullscreen) el.msRequestFullscreen();
-      } else {
-        if (document.exitFullscreen) document.exitFullscreen();
-        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-        else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
-        else if (document.msExitFullscreen) document.msExitFullscreen();
+        if (!isFullscreen()) {
+          if (el.requestFullscreen) el.requestFullscreen();
+          else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+          else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+          else if (el.msRequestFullscreen) el.msRequestFullscreen();
+        } else {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+          else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+          else if (document.msExitFullscreen) document.msExitFullscreen();
+        }
       }
-    }
 
 
 
 /**
  * Unified key handler.
  */
-    function onKeyDown(event) {
-      const tag = event.target && event.target.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      function onKeyDown(event) {
+        const tag = event.target && event.target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
 
-      if (event.code === "KeyF") {
-        event.preventDefault();
-        toggleFullscreen();
-        return;
-      }
-
-      if (event.code === "Escape") {
-        if (isFullscreen()) {
-          if (document.exitFullscreen) document.exitFullscreen();
-          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-          else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
-          else if (document.msExitFullscreen) document.msExitFullscreen();
+        if (event.code === "KeyF") {
+          event.preventDefault();
+          toggleFullscreen();
           return;
         }
 
-        if (vehiclePromptState.open) {
-          setVehiclePrompt(false, null);
-          updateVehicleOutlineFor(null);
+        if (event.code === "Escape") {
+          if (isFullscreen()) {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+            else if (document.msExitFullscreen) document.msExitFullscreen();
+            return;
+          }
+
+          if (vehiclePromptState.open) {
+            setVehiclePrompt(false, null);
+            updateVehicleOutlineFor(null);
+            return;
+          }
+
+          setUIHidden(!uiHidden);
           return;
         }
 
-        setUIHidden(!uiHidden);
-        return;
-      }
+        if (event.code === "KeyE") {
+          event.preventDefault();
 
-      if (event.code === "KeyE") {
-        event.preventDefault();
+          if (vehicleDriveState.enabled) {
+            exitVehicle();
+            return;
+          }
 
-        if (vehicleDriveState.enabled) {
-          exitVehicle();
+          if (vehiclePromptState.nearby && avatarState.enabled) {
+            enterVehicle(vehiclePromptState.nearby);
+            return;
+          }
+
           return;
         }
 
-        if (vehiclePromptState.nearby && avatarState.enabled) {
-          enterVehicle(vehiclePromptState.nearby);
-          return;
-        }
+        switch (event.code) {
+        case "ShiftLeft":
+        case "ShiftRight":
+          avatarKeys.run = true;
+          break;
 
-        return;
+        case "KeyW":
+        case "ArrowUp":
+          avatarKeys.forward = true;
+          recomputeAvatarMoveFromKeys();
+          break;
+
+        case "KeyS":
+        case "ArrowDown":
+          avatarKeys.back = true;
+          recomputeAvatarMoveFromKeys();
+          break;
+
+        case "KeyA":
+        case "ArrowLeft":
+          avatarKeys.left = true;
+          recomputeAvatarMoveFromKeys();
+          break;
+
+        case "KeyD":
+        case "ArrowRight":
+          avatarKeys.right = true;
+          recomputeAvatarMoveFromKeys();
+          break;
+
+        case "KeyV":
+          event.preventDefault();
+          if (avatarState.enabled) {
+            disableAvatarControl();
+          } else if (avatar) {
+            enableAvatarControl(avatarState.viewMode);
+          }
+          break;
+
+        case "KeyC":
+          event.preventDefault();
+          if (avatarState.enabled) {
+            const next = avatarState.viewMode === "third" ? "first" : "third";
+            setAvatarViewMode(next, true);
+            updateAvatarButtons();
+          } else {
+            avatarState.viewMode = avatarState.viewMode === "third" ? "first" : "third";
+            updateAvatarButtons();
+          }
+          break;
+
+        default:
+          break;
+        }
       }
 
-      switch (event.code) {
-      case "ShiftLeft":
-      case "ShiftRight":
-        avatarKeys.run = true;
-        break;
 
-      case "KeyW":
-      case "ArrowUp":
-        avatarKeys.forward = true;
-        recomputeAvatarMoveFromKeys();
-        break;
 
-      case "KeyS":
-      case "ArrowDown":
-        avatarKeys.back = true;
-        recomputeAvatarMoveFromKeys();
-        break;
 
-      case "KeyA":
-      case "ArrowLeft":
-        avatarKeys.left = true;
-        recomputeAvatarMoveFromKeys();
-        break;
+      function onKeyUp(event) {
+        const tag = event.target && event.target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
 
-      case "KeyD":
-      case "ArrowRight":
-        avatarKeys.right = true;
-        recomputeAvatarMoveFromKeys();
-        break;
+        switch (event.code) {
+        case "ShiftLeft":
+        case "ShiftRight":
+          avatarKeys.run = false;
+          break;
 
-      case "KeyV":
-        event.preventDefault();
-        if (avatarState.enabled) {
-          disableAvatarControl();
-        } else if (avatar) {
-          enableAvatarControl(avatarState.viewMode);
+        case "KeyW":
+        case "ArrowUp":
+          avatarKeys.forward = false;
+          recomputeAvatarMoveFromKeys();
+          break;
+
+        case "KeyS":
+        case "ArrowDown":
+          avatarKeys.back = false;
+          recomputeAvatarMoveFromKeys();
+          break;
+
+        case "KeyA":
+        case "ArrowLeft":
+          avatarKeys.left = false;
+          recomputeAvatarMoveFromKeys();
+          break;
+
+        case "KeyD":
+        case "ArrowRight":
+          avatarKeys.right = false;
+          recomputeAvatarMoveFromKeys();
+          break;
+
+        default:
+          break;
         }
-        break;
-
-      case "KeyC":
-        event.preventDefault();
-        if (avatarState.enabled) {
-          const next = avatarState.viewMode === "third" ? "first" : "third";
-          setAvatarViewMode(next, true);
-          updateAvatarButtons();
-        } else {
-          avatarState.viewMode = avatarState.viewMode === "third" ? "first" : "third";
-          updateAvatarButtons();
-        }
-        break;
-
-      default:
-        break;
       }
-    }
-
-
-
-
-    function onKeyUp(event) {
-      const tag = event.target && event.target.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-
-      switch (event.code) {
-      case "ShiftLeft":
-      case "ShiftRight":
-        avatarKeys.run = false;
-        break;
-
-      case "KeyW":
-      case "ArrowUp":
-        avatarKeys.forward = false;
-        recomputeAvatarMoveFromKeys();
-        break;
-
-      case "KeyS":
-      case "ArrowDown":
-        avatarKeys.back = false;
-        recomputeAvatarMoveFromKeys();
-        break;
-
-      case "KeyA":
-      case "ArrowLeft":
-        avatarKeys.left = false;
-        recomputeAvatarMoveFromKeys();
-        break;
-
-      case "KeyD":
-      case "ArrowRight":
-        avatarKeys.right = false;
-        recomputeAvatarMoveFromKeys();
-        break;
-
-      default:
-        break;
-      }
-    }
 
 
 
@@ -6094,108 +6893,108 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     // -------------------------------------------------------------------------
 
 
-    async function loadDefaultPresetFromFile() {
-      try {
-        const response = await fetch("presets/snow-Hello.json", {
-          cache: "no-store"
-        });
+      async function loadDefaultPresetFromFile() {
+        try {
+          const response = await fetch("presets/snow-Hello.json", {
+            cache: "no-store"
+          });
 
-        if (!response.ok) {
-          console.warn(
-            "[snow] default preset fetch failed:",
-            response.status,
-            response.statusText
-            );
-          return;
-        }
+          if (!response.ok) {
+            console.warn(
+              "[snow] default preset fetch failed:",
+              response.status,
+              response.statusText
+              );
+            return;
+          }
 
-        const json = await response.json();
+          const json = await response.json();
 
     // Accept both formats:
     // 1) { "v": 1, "settings": { ... } }
     // 2) { ...paramsDirectly }
-        const srcSettings =
-        json &&
-        typeof json === "object" &&
-        json.settings &&
-        typeof json.settings === "object"
-        ? json.settings
-        : json;
+          const srcSettings =
+          json &&
+          typeof json === "object" &&
+          json.settings &&
+          typeof json.settings === "object"
+          ? json.settings
+          : json;
 
-        if (!srcSettings || typeof srcSettings !== "object") {
-          console.warn("[snow] default preset JSON has no settings object");
-          return;
-        }
+          if (!srcSettings || typeof srcSettings !== "object") {
+            console.warn("[snow] default preset JSON has no settings object");
+            return;
+          }
 
     // Merge onto DEFAULTS so missing keys get sane values
-        const merged = Object.assign({}, DEFAULTS, srcSettings);
+          const merged = Object.assign({}, DEFAULTS, srcSettings);
 
     // Apply without rebuild/GUI/persist – world not built yet
-        applySettings(merged, {
-          rebuild: false,
-          updateGui: false,
-          persist: false
-        });
-      } catch (e) {
-        console.warn("[snow] default preset load failed", e);
+          applySettings(merged, {
+            rebuild: false,
+            updateGui: false,
+            persist: false
+          });
+        } catch (e) {
+          console.warn("[snow] default preset load failed", e);
+        }
       }
-    }
 
 
 
 
 
-    async function init() {
+      async function init() {
 
-      loadLastSettings(params);
+        loadLastSettings(params);
 
-      setupScene();
+        setupScene();
 
-      snowTex = makeRadialTexture(96);
-      rebuildWorld();
+        snowTex = makeRadialTexture(96);
+        rebuildWorld();
 
-      setupGui();
-      refreshGuiDisplays();
-      refreshPresetList();
+        setupGui();
+        refreshGuiDisplays();
+        refreshPresetList();
 
-      handleResize();
-      window.addEventListener("resize", handleResize, { passive: true });
+        handleResize();
+        window.addEventListener("resize", handleResize, { passive: true });
 
-      window.addEventListener("keydown", onKeyDown);
-      window.addEventListener("keyup", onKeyUp);
+        window.addEventListener("keydown", onKeyDown);
+        window.addEventListener("keyup", onKeyUp);
 
-      addEventListener("pagehide", () => saveLastNow(params), { capture: true });
-      addEventListener("beforeunload", () => saveLastNow(params), { capture: true });
-      addEventListener(
-        "visibilitychange",
-        () => {
-          if (document.visibilityState === "hidden") saveLastNow(params);
-        },
-        { capture: true }
-        );
+        addEventListener("pagehide", () => saveLastNow(params), { capture: true });
+        addEventListener("beforeunload", () => saveLastNow(params), { capture: true });
+        addEventListener(
+          "visibilitychange",
+          () => {
+            if (document.visibilityState === "hidden") saveLastNow(params);
+          },
+          { capture: true }
+          );
 
-      loadAllModels(() => {
+        loadAllModels(() => {
         // models ready
-      });
+        });
 
-      loadAvatar();
-      setupAvatarUI();
+        loadAvatar();
+        setupAvatarUI();
 
-      try {
-        await loadDefaultPresetFromFile("presets/snow-default.json");
-      } catch (e) {
-        console.warn("[snow] default preset load failed", e);
+        try {
+          await loadDefaultPresetFromFile("presets/snow-default.json");
+        } catch (e) {
+          console.warn("[snow] default preset load failed", e);
+        }
+
+        renderer.setAnimationLoop(animate);
       }
 
-      renderer.setAnimationLoop(animate);
-    }
-
-    init();
+      init();
 
 
 
 
 
-  </script>
-</body>
-</html>
+    </script>
+  </body>
+  </html>
