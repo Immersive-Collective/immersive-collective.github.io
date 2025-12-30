@@ -594,6 +594,15 @@
       forestSeed: 1234,
       forestJitter: 1.0,
 
+      // Rocks
+      rockCount: 18,
+      rockRadius: 16,
+      rockInnerRadius: 2,
+      rockMinScale: 0.65,
+      rockMaxScale: 1.85,
+      rockSeed: 2468,
+      rockJitter: 1.0,      
+
       // Clouds
       cloudEnabled: true,
       cloudHeightBase: 18.0,
@@ -639,6 +648,11 @@
     // Forest cone shared resources
     let forestConeGeo = null;
     let forestConeMat = null;
+
+    // Rock shared resources
+    let rockGeo = null;
+    let rockMat = null;
+    let rockGeoMidY = 0.0;
 
     let snowTex;
     let wetTrailTex;
@@ -5825,6 +5839,90 @@
     const tmpDir = new THREE.Vector3();
 
 
+    // Rock builder ------------------------------------------------------------
+    // Builds a deterministic scattered rock field (annulus distribution) and updates collision bounds.
+
+    // Rock builder ------------------------------------------------------------
+    // Builds a deterministic scattered rock field (annulus distribution) and updates collision bounds.
+
+    function rebuildRocks() {
+      if (!scene) return;
+
+      for (const r of rocks) {
+        if (r && r.parent === scene) scene.remove(r);
+      }
+      rocks.length = 0;
+
+      colliderObjects = colliderObjects.filter((obj) => !obj.__isRock);
+
+      if (!rockGeo) {
+        rockGeo = new THREE.IcosahedronGeometry(1.1, 0);
+        rockGeo.computeBoundingBox();
+        if (rockGeo.boundingBox) {
+          rockGeoMidY = (rockGeo.boundingBox.min.y + rockGeo.boundingBox.max.y) * 0.5;
+        } else {
+          rockGeoMidY = 0.0;
+        }
+      }
+      if (!rockMat) {
+        rockMat = new THREE.MeshStandardMaterial({
+          color: 0x2b3442,
+          roughness: 1.0
+        });
+      }
+
+      const rng = makeSeededRandom((params.rockSeed * 1000003) | 0);
+
+      const count = clamp(params.rockCount | 0, 0, 800);
+      const maxR = clamp(params.rockRadius, 1.0, HALF_GROUND - 1.0);
+      const minR = clamp(params.rockInnerRadius, 0.0, Math.max(maxR - 1.0, 0.0));
+      const minS = Math.max(0.2, params.rockMinScale);
+      const maxS = Math.max(minS, params.rockMaxScale);
+      const jitter = clamp(params.rockJitter, 0.0, 3.0);
+
+      for (let i = 0; i < count; i++) {
+        const t = rng();
+        const rBase = Math.sqrt(t);
+        const r = minR + (maxR - minR) * rBase;
+
+        let ang = rng() * Math.PI * 2.0;
+        ang += (rng() - 0.5) * jitter * 0.4;
+
+        let x = Math.cos(ang) * r;
+        let z = Math.sin(ang) * r;
+
+        x += (rng() - 0.5) * jitter;
+        z += (rng() - 0.5) * jitter;
+
+        const rock = new THREE.Mesh(rockGeo, rockMat);
+
+        const s = minS + (maxS - minS) * rng();
+        rock.scale.setScalar(s);
+
+        const groundY = sampleSnowHeight(x, z);
+        rock.position.set(x, groundY - rockGeoMidY * s, z);
+
+        rock.rotation.set(
+          rng() * Math.PI * 2.0,
+          rng() * Math.PI * 2.0,
+          rng() * Math.PI * 2.0
+          );
+
+        rock.castShadow = true;
+        rock.receiveShadow = true;
+        rock.__isRock = true;
+
+        scene.add(rock);
+        rocks.push(rock);
+        colliderObjects.push(rock);
+      }
+
+      colliderBounds = buildColliderBounds(colliderObjects);
+      rebuildAvatarCollisionGrid();
+    }
+
+
+
     // Forest builder ----------------------------------------------------------
 
     function rebuildForest() {
@@ -6109,34 +6207,31 @@
     // Apply settings (clamps)
     // -------------------------------------------------------------------------
 
+// -------------------------------------------------------------------------
+// Apply settings (clamps)
+// -------------------------------------------------------------------------
+
   function applySettings(
     obj,
     { rebuild = false, updateGui = true, persist = true } = {}
     ) {
-    if (!obj || typeof obj !== "object") return;
+    const prevPersistBlocked = persistBlocked;
+    persistBlocked = persistBlocked || !persist;
 
-    persistBlocked = true;
     try {
-    // Accept all primitive keys, even if they didn't exist in DEFAULTS yet
-      for (const [k, v] of Object.entries(obj)) {
-        const cur = params[k];
-        const tCur = typeof cur;
+      if (!obj || typeof obj !== "object") return;
 
-        if (tCur === "number" && typeof v === "number" && Number.isFinite(v)) {
+      for (const k in obj) {
+        if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+        if (!Object.prototype.hasOwnProperty.call(params, k)) continue;
+
+        const v = obj[k];
+        if (typeof v === "number" && Number.isFinite(v)) {
           params[k] = v;
-        } else if (tCur === "boolean" && typeof v === "boolean") {
+        } else if (typeof v === "boolean") {
           params[k] = v;
-        } else if (tCur === "string" && typeof v === "string") {
+        } else if (typeof v === "string") {
           params[k] = v;
-        } else if (cur === undefined) {
-        // New param that wasn’t in DEFAULTS yet – accept sane primitives
-          if (typeof v === "number" && Number.isFinite(v)) {
-            params[k] = v;
-          } else if (typeof v === "boolean") {
-            params[k] = v;
-          } else if (typeof v === "string") {
-            params[k] = v;
-          }
         }
       }
 
@@ -6144,156 +6239,102 @@
 
     // core sim
       params.timeScale = clamp(params.timeScale, 0.05, 5.0);
-      params.dtMax = clamp(params.dtMax, 0.005, 0.05);
-      params.pixelRatio = clamp(params.pixelRatio, 0.5, 3.0);
 
-    // wind
-      params.windStrength = clamp(params.windStrength, 0.0, 3.0);
-      params.windSpeed = clamp(params.windSpeed, 0.01, 1.0);
+      params.dtMax = clamp(params.dtMax, 0.005, 0.25);
+      params.pixelRatio = clamp(params.pixelRatio, 0.5, 2.5);
 
-    // flakes
-      params.fallSpeed = clamp(params.fallSpeed, 0.001, 10.5);
-      params.fallJitter = clamp(params.fallJitter, 0.0, 0.9);
-      params.flakeSize = clamp(params.flakeSize, 0.01, 10.0);
-      params.flakeSizeJitter = clamp(params.flakeSizeJitter, 0.0, 0.9);
+      params.visualCount = clamp(params.visualCount | 0, 1000, 150000);
 
-    // counts
-      params.visualCount = clamp(params.visualCount | 0, 20000, 600000);
-      params.settlerCount = clamp(params.settlerCount | 0, 1000, 30000);
+      params.windStrength = clamp(params.windStrength, 0.0, 0.6);
+      params.windSpeed = clamp(params.windSpeed, 0.01, 2.0);
+      params.fallSpeed = clamp(params.fallSpeed, 0.2, 10.0);
+      params.fallJitter = clamp(params.fallJitter, 0.0, 1.0);
 
-    // drifts
-      params.driftGrid = clamp(params.driftGrid | 0, 32, 256);
-      params.driftMaxHeight = clamp(params.driftMaxHeight, 0.5, 8.0);
+      params.flakeSize = clamp(params.flakeSize, 0.1, 4.0);
+      params.flakeSizeJitter = clamp(params.flakeSizeJitter, 0.0, 1.0);
 
-      params.coverBase = clamp(params.coverBase, 0.0, 0.30);
-      params.coverMacroAmp = clamp(params.coverMacroAmp, 0.0, 0.30);
-      params.coverMacroFreq = clamp(params.coverMacroFreq, 0.5, 6.0);
-      params.coverMicroAmp = clamp(params.coverMicroAmp, 0.0, 0.20);
-      params.coverMicroFreq = clamp(params.coverMicroFreq, 2.0, 16.0);
-
-      params.driftDiffusion = clamp(params.driftDiffusion, 0.0, 0.25);
-      params.driftAdvection = clamp(params.driftAdvection, 0.0, 0.30);
-
-      params.groundDepositBudget = clamp(
-        params.groundDepositBudget | 0,
-        1,
-        5000
-        );
-      params.depositUnit = clamp(params.depositUnit, 0.0, 0.01);
-
-    // sticking / decals
-      params.objectTestsPerFrame = clamp(
-        params.objectTestsPerFrame | 0,
-        0,
-        5000
-        );
-      params.objectDeposit = clamp(params.objectDeposit, 0.0, 0.05);
-
-      params.stuckMax = clamp(params.stuckMax | 0, 1000, 120000);
-      params.decalSize = clamp(params.decalSize, 0.04, 0.80);
-
-      params.obstacleShapeInterval = clamp(
-        params.obstacleShapeInterval | 0,
-        1,
-        600
-        );
-      params.driftWriteInterval = clamp(
-        params.driftWriteInterval | 0,
-        1,
-        120
-        );
-      params.normalUpdateInterval = clamp(
-        params.normalUpdateInterval | 0,
-        4,
-        600
-        );
-
-    // gusts
-      params.gustMinInterval = clamp(params.gustMinInterval, 0.1, 20.0);
-      params.gustMaxInterval = clamp(
-        params.gustMaxInterval,
-        Math.max(params.gustMinInterval + 0.1, 0.2),
-        40.0
-        );
+      params.gustMinInterval = clamp(params.gustMinInterval, 0.2, 20.0);
+      params.gustMaxInterval = clamp(params.gustMaxInterval, params.gustMinInterval, 40.0);
       params.gustTornadoChance = clamp(params.gustTornadoChance, 0.0, 1.0);
+
       params.gustStrengthMul = clamp(params.gustStrengthMul, 0.0, 4.0);
       params.gustSwirlMul = clamp(params.gustSwirlMul, 0.0, 4.0);
       params.gustUpdraftMul = clamp(params.gustUpdraftMul, 0.0, 4.0);
-      params.gustScour = clamp(params.gustScour, 0.0, 0.10);
-      params.gustRedeposit = clamp(params.gustRedeposit, 0.0, 0.10);
+      params.gustScour = clamp(params.gustScour, 0.0, 0.08);
+      params.gustRedeposit = clamp(params.gustRedeposit, 0.0, 0.08);
+
+      params.driftGrid = clamp(params.driftGrid | 0, 64, 512);
+      params.driftMaxHeight = clamp(params.driftMaxHeight, 0.0, 8.0);
+
+      params.coverBase = clamp(params.coverBase, 0.0, 2.0);
+      params.coverMacroAmp = clamp(params.coverMacroAmp, 0.0, 2.0);
+      params.coverMacroFreq = clamp(params.coverMacroFreq, 0.0, 30.0);
+      params.coverMicroAmp = clamp(params.coverMicroAmp, 0.0, 2.0);
+      params.coverMicroFreq = clamp(params.coverMicroFreq, 0.0, 80.0);
+
+      params.driftDiffusion = clamp(params.driftDiffusion, 0.0, 0.2);
+      params.driftAdvection = clamp(params.driftAdvection, 0.0, 0.05);
+
+      params.obstacleShapeInterval = clamp(params.obstacleShapeInterval | 0, 1, 600);
+      params.driftWriteInterval = clamp(params.driftWriteInterval | 0, 1, 600);
+      params.normalUpdateInterval = clamp(params.normalUpdateInterval | 0, 1, 1200);
+
+      params.settlerCount = clamp(params.settlerCount | 0, 0, 60000);
+
+      params.groundDepositBudget = clamp(params.groundDepositBudget, 0.0, 2000.0);
+      params.depositUnit = clamp(params.depositUnit, 0.00001, 0.01);
+
+      params.objectTestsPerFrame = clamp(params.objectTestsPerFrame | 0, 0, 5000);
+      params.objectDeposit = clamp(params.objectDeposit, 0.0, 0.02);
+
+      params.stuckMax = clamp(params.stuckMax | 0, 0, 80000);
+
+      params.decalSize = clamp(params.decalSize, 0.02, 1.5);
 
     // fog
-      params.fogNear = clamp(params.fogNear, 0.1, 200.0);
-      params.fogFar = clamp(params.fogFar, params.fogNear + 1.0, 400.0);
+      params.fogNear = clamp(params.fogNear, 0.1, 400.0);
+      params.fogFar = clamp(params.fogFar, 1.0, 2000.0);
+
+    // snowman
+      params.snowmanMoveEnabled = !!params.snowmanMoveEnabled;
+      params.snowmanPathRadius = clamp(params.snowmanPathRadius, 0.0, 50.0);
+      params.snowmanSpeed = clamp(params.snowmanSpeed, 0.0, 2.0);
 
     // forest
-      if (typeof params.forestCount === "number") {
-        params.forestCount = clamp(params.forestCount | 0, 0, 400);
-      }
-      if (typeof params.forestRadius === "number") {
-        params.forestRadius = clamp(
-          params.forestRadius,
-          1.0,
-          HALF_GROUND - 1.0
-          );
-      }
-      if (typeof params.forestInnerRadius === "number") {
-        params.forestInnerRadius = clamp(
-          params.forestInnerRadius,
-          0.0,
-          Math.max((params.forestRadius || 0) - 1.0, 0.0)
-          );
-      }
-      if (typeof params.forestMinScale === "number") {
-        params.forestMinScale = Math.max(0.2, params.forestMinScale);
-      }
-      if (typeof params.forestMaxScale === "number") {
-        params.forestMaxScale = Math.max(
-          params.forestMinScale || 0.2,
-          params.forestMaxScale
-          );
-      }
-      if (typeof params.forestJitter === "number") {
-        params.forestJitter = clamp(params.forestJitter, 0.0, 3.0);
-      }
+      params.forestCount = clamp(params.forestCount | 0, 0, 4000);
+      params.forestRadius = clamp(params.forestRadius, 2.0, 2000.0);
+      params.forestInnerRadius = clamp(params.forestInnerRadius, 0.0, 2000.0);
+      params.forestMinScale = clamp(params.forestMinScale, 0.1, 20.0);
+      params.forestMaxScale = clamp(params.forestMaxScale, params.forestMinScale, 30.0);
+      params.forestSeed = clamp(params.forestSeed | 0, 0, 999999);
+      params.forestJitter = clamp(params.forestJitter, 0.0, 3.0);
+
+    // rocks
+      params.rockCount = clamp(params.rockCount | 0, 0, 800);
+      params.rockRadius = clamp(params.rockRadius, 2.0, 2000.0);
+      params.rockInnerRadius = clamp(params.rockInnerRadius, 0.0, 2000.0);
+      params.rockMinScale = clamp(params.rockMinScale, 0.1, 50.0);
+      params.rockMaxScale = clamp(params.rockMaxScale, params.rockMinScale, 80.0);
+      params.rockSeed = clamp(params.rockSeed | 0, 0, 999999);
+      params.rockJitter = clamp(params.rockJitter, 0.0, 3.0);
 
     // clouds
-      if (typeof params.cloudHeightBase === "number") {
-        params.cloudHeightBase = clamp(params.cloudHeightBase, 0.0, 200.0);
-      }
-      if (typeof params.cloudHeightRange === "number") {
-        params.cloudHeightRange = clamp(params.cloudHeightRange, 0.0, 80.0);
-      }
-      if (typeof params.cloudRadius === "number") {
-        params.cloudRadius = clamp(params.cloudRadius, 5.0, 400.0);
-      }
-      if (typeof params.cloudSliceCount === "number") {
-        params.cloudSliceCount = clamp(
-          params.cloudSliceCount | 0,
-          4,
-          512
-          );
-      }
-      if (typeof params.cloudSpeed === "number") {
-        params.cloudSpeed = clamp(params.cloudSpeed, 0.0, 0.05);
-      }
-      if (typeof params.cloudDensity === "number") {
-        params.cloudDensity = clamp(params.cloudDensity, 0.0, 2.0);
-      }
-      if (typeof params.cloudSoftness === "number") {
-        params.cloudSoftness = clamp(params.cloudSoftness, 0.0, 1.0);
-      }
-
-    // apply fog + background color from params (fogNear, fogFar, fogColor)
-      if (scene) {
-        updateFogFromParams();
-      }
+      params.cloudEnabled = !!params.cloudEnabled;
+      params.cloudHeightBase = clamp(params.cloudHeightBase, 0.0, 200.0);
+      params.cloudHeightRange = clamp(params.cloudHeightRange, 0.0, 200.0);
+      params.cloudRadius = clamp(params.cloudRadius, 5.0, 400.0);
+      params.cloudSliceCount = clamp(params.cloudSliceCount | 0, 32, 1024);
+      params.cloudSpeed = clamp(params.cloudSpeed, 0.0, 2.0);
+      params.cloudDensity = clamp(params.cloudDensity, 0.0, 2.0);
+      params.cloudSoftness = clamp(params.cloudSoftness, 0.0, 4.0);
+      params.cloudOpacity = clamp(params.cloudOpacity, 0.0, 1.0);
 
     // On preset / import loads we pass rebuild: true
       if (rebuild) {
         rebuildWorld();
-      // forest + clouds depend on params but are built separately
+      // forest + rocks + clouds depend on params but are built separately
         rebuildForest();
+        rebuildRocks();
         rebuildClouds();
       } else {
       // No full rebuild: at least push new cloud uniforms
@@ -6308,9 +6349,10 @@
         saveLastDebounced(params);
       }
     } finally {
-      persistBlocked = false;
+      persistBlocked = prevPersistBlocked;
     }
   }
+
 
     // -------------------------------------------------------------------------
     // Snow texture (point sprite)
@@ -8207,16 +8249,22 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       ];
 
       for (let i = 0; i < rockPos.length; i++) {
-        const [x, y, z] = rockPos[i];
+        const [x, _y, z] = rockPos[i];
+
         const r = new THREE.Mesh(rockGeo, rockMat);
-        r.position.set(x, y, z);
         r.scale.setScalar(1.0 + i * 0.25);
+
+        r.position.set(x, 0.0, z);
+
         r.rotation.set(Math.random() * 2, Math.random() * 2, Math.random() * 2);
         r.castShadow = true;
         r.receiveShadow = true;
+
         scene.add(r);
         rocks.push(r);
       }
+
+
 
       // Base colliders: rocks + cube, forest trees added in rebuildForest()
       colliderObjects = [...rocks, cube];
@@ -8234,15 +8282,34 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     }
 
+    /**
+     * Repositions all rock meshes so the snow surface cuts through the middle of each rock,
+     * keeping them half-buried even when snow height changes.
+     */
+    function updateRocksGrounding() {
+      for (const r of rocks) {
+        if (!r) continue;
+        const s = r.scale.y || 1.0;
+        const groundY = sampleSnowHeight(r.position.x, r.position.z);
+        r.position.y = groundY - rockGeoMidY * s;
+      }
+    }
+
+
 
     function rebuildWorld() {
       buildSnowSurface();
       buildSnowField();
+
+      updateRocksGrounding();
+
       buildStuckSystem();
       buildSettlers();
+
       colliderBounds = buildColliderBounds(colliderObjects);
       rebuildAvatarCollisionGrid();
     }
+
 
 
     // -------------------------------------------------------------------------
@@ -8525,6 +8592,52 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         trackController(wind.add(params, "windStrength", 0.0, 2.0, 0.01).name("Strength"));
         trackController(wind.add(params, "windSpeed", 0.0, 5, 0.01).name("Speed"));
         //wind.open();
+
+
+        const rocksFolder = gui.addFolder("Rocks");
+
+        const rockCountCtrl = rocksFolder.add(params, "rockCount", 0, 800, 1).name("Rock count");
+        const rockRadiusCtrl = rocksFolder.add(params, "rockRadius", 2.0, 1500.0, 0.5).name("Radius");
+        const rockInnerCtrl = rocksFolder.add(params, "rockInnerRadius", 0.0, 200.0, 0.5).name("Inner radius");
+        const rockMinScaleCtrl = rocksFolder.add(params, "rockMinScale", 0.01, 5.0, 0.01).name("Min scale");
+        const rockMaxScaleCtrl = rocksFolder.add(params, "rockMaxScale", 0.2, 100.0, 0.05).name("Max scale");
+        const rockSeedCtrl = rocksFolder.add(params, "rockSeed", 0, 9999, 1).name("Seed");
+        const rockJitterCtrl = rocksFolder.add(params, "rockJitter", 0.0, 2.0, 0.05).name("Randomness");
+
+        const rockCtrls = [
+          rockCountCtrl,
+          rockRadiusCtrl,
+          rockInnerCtrl,
+          rockMinScaleCtrl,
+          rockMaxScaleCtrl,
+          rockSeedCtrl,
+          rockJitterCtrl
+        ];
+
+        rockCtrls.forEach((ctrl) => {
+          trackController(ctrl, { rebuild: false, instant: true });
+          if (typeof ctrl.onFinishChange === "function") {
+            ctrl.onFinishChange(() => {
+              applySettings(params, { rebuild: false, updateGui: false });
+              rebuildRocks();
+              saveLastDebounced(params);
+            });
+          }
+        });
+
+        rocksFolder
+        .add(
+        {
+          rebuildRocks: () => {
+            applySettings(params, { rebuild: false, updateGui: false });
+            rebuildRocks();
+            saveLastDebounced(params);
+          }
+        },
+        "rebuildRocks"
+        )
+        .name("Rebuild rocks");
+
 
         const forest = gui.addFolder("Forest");
 
@@ -9579,16 +9692,18 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     // Boot
     // -------------------------------------------------------------------------
 
+// Loads a default preset JSON file and applies it on top of DEFAULTS.
+// This is used for bootstrapping a consistent “Default” scene state without persisting it.
+      async function loadDefaultPresetFromFile(url) {
+        const presetUrl = typeof url === "string" && url.trim() ? url.trim() : "presets/snow-Hello.json";
 
-      async function loadDefaultPresetFromFile() {
         try {
-          const response = await fetch("presets/snow-Hello.json", {
-            cache: "no-store"
-          });
+          const response = await fetch(presetUrl, { cache: "no-store" });
 
           if (!response.ok) {
             console.warn(
               "[snow] default preset fetch failed:",
+              presetUrl,
               response.status,
               response.statusText
               );
@@ -9616,16 +9731,18 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     // Merge onto DEFAULTS so missing keys get sane values
           const merged = Object.assign({}, DEFAULTS, srcSettings);
 
-    // Apply without rebuild/GUI/persist – world not built yet
+    // Apply with rebuild so procedural systems (including rocks) regenerate from preset values.
+    // Do not persist boot defaults over user storage.
           applySettings(merged, {
-            rebuild: false,
-            updateGui: false,
+            rebuild: true,
+            updateGui: true,
             persist: false
           });
         } catch (e) {
           console.warn("[snow] default preset load failed", e);
         }
       }
+
 
 
 
@@ -9671,7 +9788,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         setupAvatarUI();
 
         try {
-          await loadDefaultPresetFromFile("presets/snow-default.json");
+          await loadDefaultPresetFromFile("presets/snow-Hello.json");
         } catch (e) {
           console.warn("[snow] default preset load failed", e);
         }

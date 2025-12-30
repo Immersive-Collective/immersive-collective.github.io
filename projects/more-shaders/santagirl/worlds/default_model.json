@@ -50,7 +50,71 @@
       {
         "id": "tree_center",
         "position": [
-          -4.98838441363621,
+          -30.371319906950824,
+          -0.22522994242410832,
+          -39.11819452113677
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1,
+        "stick": false,
+        "collide": false
+      },
+      {
+        "id": "tree_center_copy",
+        "position": [
+          -22.83256201144021,
+          -1.1758448152578704,
+          -39.63118939658874
+        ],
+        "rotation": [
+          0,
+          1.4911917834801072,
+          0
+        ],
+        "scale": 1,
+        "stick": false,
+        "collide": false
+      },
+      {
+        "id": "tree_center_copy2",
+        "position": [
+          -21.38776581837038,
+          0,
+          -27.059141977341262
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1,
+        "stick": false,
+        "collide": false
+      },
+      {
+        "id": "tree_center_copy2_copy",
+        "position": [
+          -17.220929305001242,
+          -1.4583334340256657,
+          -39.112149629934784
+        ],
+        "rotation": [
+          -3.141592653589793,
+          0.4165881197885296,
+          -3.141592653589793
+        ],
+        "scale": 1,
+        "stick": false,
+        "collide": false
+      },
+      {
+        "id": "tree_center_copy2_copy2",
+        "position": [
+          -12.702551679212974,
           0,
           -39.112149629934784
         ],
@@ -58,6 +122,94 @@
           0,
           0,
           0
+        ],
+        "scale": 1,
+        "stick": false,
+        "collide": false
+      },
+      {
+        "id": "tree_center_copy2_copy2_copy",
+        "position": [
+          -12.702551679212974,
+          0,
+          -14.901824106238788
+        ],
+        "rotation": [
+          3.0763869275200175,
+          -0.7722215996548948,
+          3.096063660247156
+        ],
+        "scale": 1,
+        "stick": false,
+        "collide": false
+      },
+      {
+        "id": "tree_center_copy2_copy2_copy2",
+        "position": [
+          -15.693325060551945,
+          0,
+          -12.691889874531832
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": 1,
+        "stick": false,
+        "collide": false
+      },
+      {
+        "id": "tree_center_copy2_copy2_copy2_copy",
+        "position": [
+          -29.05849594394072,
+          0,
+          -15.612454388480554
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          0.5295710603915608,
+          0.6553001852892151
+        ],
+        "stick": false,
+        "collide": false
+      },
+      {
+        "id": "tree_center_copy2_copy2_copy2_copy3",
+        "position": [
+          -24.70252590488895,
+          -0.001158625075859357,
+          -19.14510855506697
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          0.5295710603915608,
+          0.6553001852892151
+        ],
+        "stick": false,
+        "collide": false
+      },
+      {
+        "id": "tree_center_copy2_copy2_copy2_copy2",
+        "position": [
+          -24.287278846058413,
+          0,
+          -8.426084083089357
+        ],
+        "rotation": [
+          -3.141592653589793,
+          0.037258353999222275,
+          -3.141592653589793
         ],
         "scale": 1,
         "stick": false,
@@ -87,7 +239,6 @@
       }
     ]
   },
-
   {
     "name": "house",
     "url": "models/buildings/house.glb",
@@ -105,44 +256,15 @@
           0
         ],
         "scale": [
-          0.8198208483198582,
-          1.6224584864457274,
-          1
+          0.9453297131153751,
+          1.1128452475328774,
+          1.523120003673239
         ],
         "stick": false,
         "collide": true
       }
     ]
   },
-
-  {
-    "name": "hangar",
-    "url": "models/buildings/hangar.glb",
-    "instances": [
-      {
-        "id": "hangar_center",
-        "position": [
-          6.149031318528149,
-          -0.4709160592455617,
-          -42.37638681300216
-        ],
-        "rotation": [
-          0,
-          0,
-          0
-        ],
-        "scale": [
-          1,
-          1,
-          1
-        ],
-        "stick": false,
-        "collide": true
-      }
-    ]
-  },
-
-
   {
     "name": "cinema",
     "url": "models/buildings/cinema/ashford-cinema-1.glb",
@@ -151,7 +273,7 @@
         "id": "cinema_center",
         "position": [
           54.83381827705911,
-          -1,
+          0.10913719910725028,
           -47.703932118598054
         ],
         "rotation": [
@@ -194,13 +316,13 @@
       {
         "id": "snowman",
         "position": [
-          -4.119026690807902,
-          0.050733079068672506,
-          0.842778296628189
+          -10.184734025834372,
+          0.015624522782375349,
+          -2.6974772663082454
         ],
         "rotation": [
           0,
-          -0.5673886042575842,
+          2.792433844361201,
           0
         ],
         "scale": 1,
@@ -257,9 +379,9 @@
       {
         "id": "plane",
         "position": [
-          9.853453067091918,
+          12.334809530771022,
           0,
-          15
+          21.259418390077798
         ],
         "rotation": [
           0,
@@ -320,14 +442,14 @@
       {
         "id": "plane2",
         "position": [
-          4,
+          -7.121982023037486,
           0,
-          35
+          21.500762808757898
         ],
         "rotation": [
-          0,
-          1.5,
-          0
+          -3.141592653589793,
+          -0.6848363826137649,
+          -3.141592653589793
         ],
         "scale": 1,
         "stick": false,
@@ -445,13 +567,13 @@
       {
         "id": "car2",
         "position": [
-          -14.582353887903981,
+          86.69797708731532,
           0.19,
-          -62.98964731443331
+          31.367264451350245
         ],
         "rotation": [
           0,
-          1,
+          0.23082649268928565,
           0
         ],
         "scale": 1,
@@ -467,10 +589,10 @@
           ],
           "yawOffset": 0,
           "profile": {
-            "maxSpeed": 13.2,
+            "maxSpeed": 111,
             "maxReverse": 6.9,
             "accel": 3.2,
-            "brake": 15.9,
+            "brake": 28.7,
             "coastDecel": 1.8,
             "turnRate": 0.64,
             "radius": 0.7,
@@ -487,7 +609,19 @@
             "propSpinMax": 80,
             "propSpinMul": 1,
             "propAxis": "z",
-            "propInvert": false
+            "propInvert": false,
+            "minFlySpeed": 14,
+            "maxLift": 10,
+            "liftResponse": 5,
+            "airTurnScale": 0.35,
+            "airRollMax": 0.35,
+            "airRollResponse": 8,
+            "airRollReturn": 5,
+            "climbPitchMax": 0.22,
+            "climbPitchSpeed": 4,
+            "pitchResponse": 4,
+            "pitchReturn": 3,
+            "turnPitchMax": 0.1
           }
         }
       }
