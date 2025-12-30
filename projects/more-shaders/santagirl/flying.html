@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Demo</title>
+
+  <!-- Import map for Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    :root {
+      --ui-fg: #e8eef7;
+      --ui-bg: rgba(0, 0, 0, 0.35);
+      --ui-border: rgba(255, 255, 255, 0.14);
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: #0b0f14;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .avatar-ui {
+      position: fixed;
+      right: 12px;
+      top: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 20;
+    }
+
+    .avatar-btn {
+      appearance: none;
+      border: 1px solid var(--ui-border);
+      background: var(--ui-bg);
+      color: var(--ui-fg);
+      padding: 8px 10px;
+      border-radius: 10px;
+      font: 13px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      cursor: pointer;
+    }
+
+    .joystick {
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      width: 120px;
+      height: 120px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--ui-border);
+      z-index: 20;
+      touch-action: none;
+      user-select: none;
+    }
+
+    .joystick-inner {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    .vehicle-ui {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      color: var(--ui-fg);
+      background: var(--ui-bg);
+      border: 1px solid var(--ui-border);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      z-index: 20;
+      max-width: 420px;
+    }
+
+    .vehicle-ui[aria-hidden="true"] {
+      display: none;
+    }
+
+    .vehicle-ui__title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .vehicle-ui__desc {
+      opacity: 0.95;
+      margin-bottom: 10px;
+    }
+
+    .vehicle-ui__row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .hud {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      color: var(--ui-fg);
+      background: var(--ui-bg);
+      border: 1px solid var(--ui-border);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      z-index: 20;
+      max-width: 520px;
+      user-select: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <div class="avatar-ui">
+    <button id="avatarToggle" class="avatar-btn">Avatar: OFF</button>
+    <button id="avatarViewToggle" class="avatar-btn">View: Behind</button>
+  </div>
+
+  <div id="joystick" class="joystick">
+    <div id="joystickInner" class="joystick-inner"></div>
+  </div>
+
+  <div id="vehiclePrompt" class="vehicle-ui" aria-hidden="true">
+    <div id="vehiclePromptTitle" class="vehicle-ui__title"></div>
+    <div id="vehiclePromptDesc" class="vehicle-ui__desc"></div>
+    <div class="vehicle-ui__row">
+      <button id="vehicleEnterBtn" class="avatar-btn">Get in/on</button>
+      <button id="vehicleExitBtn" class="avatar-btn" style="display: none">Exit</button>
+      <button id="vehicleCloseBtn" class="avatar-btn">Close</button>
+    </div>
+  </div>
+
+  <div class="hud" style="visibility: hidden">
+    <b>Snowdrifts + gusts + sticking snow + presets</b><br />
+    Drag: orbit · Wheel: zoom · Right-drag: pan<br />
+    Gust parameters, sticking, drifts, and presets are all controlled from the GUI.
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { VRButton } from "three/addons/webxr/VRButton.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+    import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm";
+
+      // -------------------------------------------------------------------------
+      // Helpers / persistence utilities
+      // -------------------------------------------------------------------------
+
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+      // Simple seedable RNG (LCG)
+    function makeSeededRandom(seed) {
+      let s = (seed | 0) || 1;
+      return function () {
+        s = (s * 1664525 + 1013904223) | 0;
+        return (s >>> 0) / 4294967296;
+      };
+    }
+
+      // -------------------------------------------------------------------------
+      // Three.js scene setup
+      // -------------------------------------------------------------------------
+
+    const appEl = document.getElementById("app");
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x0b0f14, 6, 30);
+
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 500);
+    camera.position.set(6.5, 4.0, 9.0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.xr.enabled = true;
+    appEl.appendChild(renderer.domElement);
+    document.body.appendChild(VRButton.createButton(renderer));
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.1);
+    keyLight.position.set(10, 12, 8);
+    scene.add(keyLight);
+
+    const grid = new THREE.GridHelper(50, 50, 0x2a3645, 0x1c2530);
+    grid.position.y = -1.2;
+    scene.add(grid);
+
+    scene.add(new THREE.AxesHelper(4));
+
+      // Creates readable axis-name labels anchored in world space.
+    function makeAxisLabel(text) {
+      const c = document.createElement("canvas");
+      const ctx = c.getContext("2d");
+      c.width = 256;
+      c.height = 128;
+
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fillRect(0, 0, c.width, c.height);
+
+      ctx.font = "56px system-ui, sans-serif";
+      ctx.fillStyle = "#e8eef7";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, c.width / 2, c.height / 2);
+
+      const tex = new THREE.CanvasTexture(c);
+      const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+      const spr = new THREE.Sprite(mat);
+      spr.scale.set(1.0, 0.5, 1);
+      return spr;
+    }
+
+    const xLabel = makeAxisLabel("+X (Right)");
+    xLabel.position.set(4.2, 0.0, 0.0);
+    scene.add(xLabel);
+
+    const yLabel = makeAxisLabel("+Y (Up)");
+    yLabel.position.set(0.0, 4.2, 0.0);
+    scene.add(yLabel);
+
+    const zLabel = makeAxisLabel("+Z (Forward)");
+    zLabel.position.set(0.0, 0.0, 4.2);
+    scene.add(zLabel);
+
+      // -------------------------------------------------------------------------
+      // Craft root and model loading
+      // -------------------------------------------------------------------------
+
+    const craft = new THREE.Group();
+    craft.position.set(0, 0, 0);
+    scene.add(craft);
+
+    craft.add(new THREE.AxesHelper(2.5));
+
+      // Creates a small emissive marker sphere for orientation reference (front/back/right/up).
+    function makeMarker(color, r = 0.08) {
+      return new THREE.Mesh(
+        new THREE.SphereGeometry(r, 18, 12),
+        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.35 })
+        );
+    }
+
+    const mFront = makeMarker(0x00ff88);
+    const mBack = makeMarker(0xff4455);
+    const mRight = makeMarker(0xffd400);
+    const mUp = makeMarker(0xffffff);
+    craft.add(mFront, mBack, mRight, mUp);
+
+    const draco = new DRACOLoader();
+    draco.setDecoderPath("https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/libs/draco/");
+
+    const loader = new GLTFLoader();
+    loader.setDRACOLoader(draco);
+
+    const MODEL_URL = "models/vehicles/flying/plane.glb";
+
+    loader.load(
+      MODEL_URL,
+      (gltf) => {
+        const model = gltf.scene;
+
+          // Scales the model to a target size, then recenters it so craft local (0,0,0) is the model's bounding-box center.
+        const box0 = new THREE.Box3().setFromObject(model);
+        const size0 = new THREE.Vector3();
+        box0.getSize(size0);
+
+        const maxDim0 = Math.max(size0.x, size0.y, size0.z) || 1;
+        const target = 2.0;
+        const s = target / maxDim0;
+
+        model.scale.setScalar(s);
+
+        const box1 = new THREE.Box3().setFromObject(model);
+        const size1 = new THREE.Vector3();
+        const center1 = new THREE.Vector3();
+        box1.getSize(size1);
+        box1.getCenter(center1);
+
+        model.position.sub(center1);
+
+        craft.add(model);
+
+        const markerR = Math.max(0.05, Math.min(0.18, Math.max(size1.x, size1.y, size1.z) * 0.03));
+        [mFront, mBack, mRight, mUp].forEach((m) => {
+          m.geometry.dispose();
+          m.geometry = new THREE.SphereGeometry(markerR, 18, 12);
+        });
+
+        mFront.position.set(0, 0, size1.z * 0.55);
+        mBack.position.set(0, 0, -size1.z * 0.55);
+        mRight.position.set(size1.x * 0.55, 0, 0);
+        mUp.position.set(0, size1.y * 0.55, 0);
+
+        controls.target.set(0, size1.y * 0.15, 0);
+      },
+      undefined,
+      (err) => {
+        console.error(err);
+      }
+      );
+
+// -------------------------------------------------------------------------
+// Smooth body-fixed rotation (inertia + auto-return)
+// -------------------------------------------------------------------------
+
+    const settings = {
+      accel: 2.8,
+      damp: 4.0,
+      maxW: 2.5,
+      returnRate: 1.8,
+      returnDamp: 6.0,
+      returnDeadZoneDeg: 0.35
+    };
+
+    const gui = new GUI({ width: 320 });
+    const fRot = gui.addFolder("Rotation Inertia");
+    fRot.add(settings, "accel", 0.2, 10, 0.01).name("accel (rad/s²)").listen();
+    fRot.add(settings, "damp", 0.2, 12, 0.01).name("damp (1/s)").listen();
+    fRot.add(settings, "maxW", 0.2, 8, 0.01).name("max ω (rad/s)").listen();
+    fRot.add(settings, "returnRate", 0.0, 8.0, 0.01).name("return rate (1/s)").listen();
+    fRot.add(settings, "returnDamp", 0.0, 16.0, 0.01).name("return damp (1/s)").listen();
+    fRot.add(settings, "returnDeadZoneDeg", 0.0, 3.0, 0.01).name("return deadzone (deg)").listen();
+    fRot.open();
+
+    const keys = {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      q: false,
+      e: false
+    };
+
+    const angVel = new THREE.Vector3(0, 0, 0);
+
+    const AXIS_X = new THREE.Vector3(1, 0, 0);
+    const AXIS_Y = new THREE.Vector3(0, 1, 0);
+    const AXIS_Z = new THREE.Vector3(0, 0, 1);
+
+const targetQuat = new THREE.Quaternion(); // identity target
+
+// Applies an intrinsic rotation around a craft-local axis by a delta angle in radians.
+function rotateBody(axis, angleRad) {
+  const dq = new THREE.Quaternion().setFromAxisAngle(axis, angleRad);
+  craft.quaternion.multiply(dq);
+}
+
+// Updates key state for rotation inputs.
+function setKey(code, isDown) {
+  switch (code) {
+  case "ArrowUp":
+    keys.up = isDown;
+    break;
+  case "ArrowDown":
+    keys.down = isDown;
+    break;
+  case "ArrowLeft":
+    keys.left = isDown;
+    break;
+  case "ArrowRight":
+    keys.right = isDown;
+    break;
+  case "KeyQ":
+    keys.q = isDown;
+    break;
+  case "KeyE":
+    keys.e = isDown;
+    break;
+  }
+}
+
+addEventListener(
+  "keydown",
+  (e) => {
+    switch (e.code) {
+    case "ArrowUp":
+    case "ArrowDown":
+    case "ArrowLeft":
+    case "ArrowRight":
+    case "KeyQ":
+    case "KeyE":
+      setKey(e.code, true);
+      e.preventDefault();
+      break;
+
+    case "KeyR":
+      craft.quaternion.identity();
+      angVel.set(0, 0, 0);
+      e.preventDefault();
+      break;
+    }
+  },
+  { passive: false }
+  );
+
+addEventListener(
+  "keyup",
+  (e) => {
+    switch (e.code) {
+    case "ArrowUp":
+    case "ArrowDown":
+    case "ArrowLeft":
+    case "ArrowRight":
+    case "KeyQ":
+    case "KeyE":
+      setKey(e.code, false);
+      e.preventDefault();
+      break;
+    }
+  },
+  { passive: false }
+  );
+
+// Returns the angular distance (radians) between craft orientation and identity.
+function getAngleToIdentity(q) {
+  const w = THREE.MathUtils.clamp(q.w, -1, 1);
+  return 2 * Math.acos(Math.abs(w));
+}
+
+const clock = new THREE.Clock();
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+});
+
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 1 / 30);
+
+  const ax = (keys.down ? 1 : 0) + (keys.up ? -1 : 0);
+  const az = (keys.right ? 1 : 0) + (keys.left ? -1 : 0);
+  const ay = (keys.e ? 1 : 0) + (keys.q ? -1 : 0);
+
+  const anyInput = (ax !== 0) || (ay !== 0) || (az !== 0);
+
+  // Input acceleration into angular velocity (body axes).
+  angVel.x += ax * settings.accel * dt;
+  angVel.y += ay * settings.accel * dt;
+  angVel.z += az * settings.accel * dt;
+
+  // Clamp angular velocity.
+  angVel.x = clamp(angVel.x, -settings.maxW, settings.maxW);
+  angVel.y = clamp(angVel.y, -settings.maxW, settings.maxW);
+  angVel.z = clamp(angVel.z, -settings.maxW, settings.maxW);
+
+  // Base damping (always).
+  const baseDamp = Math.exp(-settings.damp * dt);
+  angVel.multiplyScalar(baseDamp);
+
+  // Auto-return when idle: slerp orientation toward identity and damp angular velocity more.
+  if (!anyInput && settings.returnRate > 0) {
+    const deadZone = THREE.MathUtils.degToRad(settings.returnDeadZoneDeg);
+    const ang = getAngleToIdentity(craft.quaternion);
+
+    const returnDamp = Math.exp(-settings.returnDamp * dt);
+    angVel.multiplyScalar(returnDamp);
+
+    if (ang > deadZone) {
+      const alpha = 1 - Math.exp(-settings.returnRate * dt);
+      craft.quaternion.slerp(targetQuat, alpha);
+    } else {
+      craft.quaternion.identity();
+      angVel.set(0, 0, 0);
+    }
+  }
+
+  // Integrate orientation from angular velocity (intrinsic/local).
+  const dx = angVel.x * dt;
+  const dy = angVel.y * dt;
+  const dz = angVel.z * dt;
+
+  if (dx) rotateBody(AXIS_X, dx);
+  if (dy) rotateBody(AXIS_Y, dy);
+  if (dz) rotateBody(AXIS_Z, dz);
+
+  controls.update();
+  renderer.render(scene, camera);
+});
+
+</script>
+</body>
+</html>
