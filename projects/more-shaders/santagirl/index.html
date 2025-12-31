@@ -3861,7 +3861,7 @@
 // Avatar character setup and control
 // -------------------------------------------------------------------------
 
-        const AVATAR_GLTF_URL = "models/ready/santagirl.glb";
+        const AVATAR_GLTF_URL = "models/ready/santagirl3.glb";
 
         let avatar = null;
         let avatarMixer = null;
@@ -12322,7 +12322,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
         grassFolder
-        .add(params, "grassNoiseScale", 0.01, 4.0, 0.01)
+        .add(params, "grassNoiseScale", 0.01, 20.0, 0.01)
         .name("Noise scale")
         .onChange(() => {
           applyGrassParamsToUniforms();
@@ -12346,7 +12346,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         });
 
         grassFolder
-        .add(params, "grassStaticHeightNoise", 0.0, 2.0, 0.01)
+        .add(params, "grassStaticHeightNoise", 0.0, 20.0, 0.01)
         .name("Height noise")
         .onChange(() => {
           applyGrassParamsToUniforms();
@@ -12354,7 +12354,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         });
 
         grassFolder
-        .add(params, "grassStaticWidthNoise", 0.0, 2.0, 0.01)
+        .add(params, "grassStaticWidthNoise", 0.0, 10.0, 0.01)
         .name("Width noise")
         .onChange(() => {
           applyGrassParamsToUniforms();
@@ -12362,7 +12362,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         });
 
         grassFolder
-        .add(params, "grassBorderNoise", 0.0, 1.0, 0.01)
+        .add(params, "grassBorderNoise", 0.0, 10.0, 0.01)
         .name("Border noise")
         .onChange(() => {
           applyGrassParamsToUniforms();
