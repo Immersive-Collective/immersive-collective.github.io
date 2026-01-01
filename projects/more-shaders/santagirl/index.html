@@ -437,144 +437,23 @@
       z-index: 70;
       background: rgba(0, 0, 0, 0.62);
       pointer-events: auto;
+      padding: 12px;
     }
 
     .world-picker.is-open {
       display: flex;
     }
 
-    .world-picker__panel {
-      width: min(760px, calc(100vw - 24px));
-      max-height: min(720px, calc(100vh - 24px));
-      overflow: auto;
-      background: rgba(18, 18, 18, 0.92);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 14px;
-      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
-      padding: 14px 14px 12px 14px;
-      color: rgba(255, 255, 255, 0.95);
-    }
-
-    .world-picker__save {
-      display: grid;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .world-picker__save-row {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 2px;
-    }
-
-    .world-picker__list {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-
-    @media (min-width: 720px) {
-      .world-picker__list {
-        grid-template-columns: 1fr 1fr;
+    @media (max-width: 540px) {
+      .world-picker {
+        align-items: flex-end;
+        padding: 0;
       }
     }
 
-    .world-card {
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 12px;
-      overflow: hidden;
-      background: rgba(0, 0, 0, 0.35);
-      display: flex;
-      flex-direction: column;
-    }
-
-    .world-card.is-active {
-      border-color: rgba(34, 197, 94, 0.60);
-    }
-
-    .world-card__thumb {
-      width: 100%;
-      object-fit: cover;
-      background: rgba(255, 255, 255, 0.06);
-      display: block;
-    }
-
-    .world-card__body {
-      position: sticky;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      bottom: 0;
-    }
-
-    .world-card__titleRow {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .world-card__title {
-      font-weight: 700;
-      font-size: 14px;;
-      letter-spacing: 0.2px;
-      line-height: 1.2;
-    }
-
-    .world-card__meta {
-      font-size: 14px;;
-      opacity: 0.78;
-      white-space: nowrap;
-    }
-
-    .world-card__desc {
-      font-size: 14px;;
-      opacity: 0.86;
-      line-height: 1.25;
-      min-height: 2.5em;
-    }
-
-    .world-card__actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .world-name {
-      position: fixed;
-      left: 50%;
-      top: calc(30px + env(safe-area-inset-top));
-      transform: translateX(-50%);
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: rgb(192 192 192 / 42%);
-      color: rgb(50 50 50 / 92%);
-      font-size: 22px;;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      z-index: 23;
-      pointer-events: none;
-      backdrop-filter: blur(10px);
-      max-width: min(84vw, 520px);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .world-name[aria-hidden="true"] {
-      display: none;
-    }
-
-
     .world-picker__panel {
-      width: min(760px, calc(100vw - 24px));
-      max-height: min(720px, calc(100vh - 24px));
+      width: min(920px, calc(100vw - 24px));
+      max-height: min(760px, calc(100vh - 24px));
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -584,6 +463,15 @@
       box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
       padding: 14px 14px 12px 14px;
       color: rgba(255, 255, 255, 0.95);
+    }
+
+    @media (max-width: 540px) {
+      .world-picker__panel {
+        width: 100vw;
+        max-height: calc(100vh - env(safe-area-inset-top));
+        border-radius: 16px 16px 0 0;
+        padding: 12px 12px calc(12px + env(safe-area-inset-bottom)) 12px;
+      }
     }
 
     .world-picker__save {
@@ -612,6 +500,7 @@
       -webkit-overflow-scrolling: touch;
       flex: 1 1 auto;
       min-height: 0;
+      padding: 2px;
     }
 
     @media (min-width: 720px) {
@@ -620,6 +509,158 @@
       }
     }
 
+    .world-card {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.35);
+      position: relative;
+      height: clamp(220px, 32vw, 290px);
+      display: block;
+      isolation: isolate;
+    }
+
+    .world-card.is-active {
+      border-color: rgba(34, 197, 94, 0.60);
+    }
+
+    .world-card__thumb {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: rgba(255, 255, 255, 0.06);
+      display: block;
+      transform: scale(1.01);
+      filter: saturate(1.02) contrast(1.02);
+    }
+
+    .world-card__body {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: linear-gradient(
+        to top,
+        rgba(0, 0, 0, 0.78),
+        rgba(0, 0, 0, 0.46) 52%,
+        rgba(0, 0, 0, 0.00)
+      );
+      color: rgba(255, 255, 255, 0.95);
+      z-index: 2;
+    }
+
+    .world-card__titleRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .world-card__title {
+      font-weight: 700;
+      font-size: 14px;;
+      letter-spacing: 0.2px;
+      line-height: 1.2;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .world-card__meta {
+      font-size: 12px;
+      opacity: 0.85;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+      flex: 0 0 auto;
+    }
+
+    .world-card__desc {
+      font-size: 12px;
+      opacity: 0.92;
+      line-height: 1.25;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+      max-height: 3.75em;
+    }
+
+    .world-card__actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .world-card .avatar-btn {
+      padding: 6px 10px;
+      font-size: 12px;;
+      touch-action: manipulation;
+    }
+
+    @media (max-width: 420px) {
+      .world-card {
+        height: 230px;
+      }
+
+      .world-card__body {
+        padding: 10px 10px 12px 10px;
+        gap: 8px;
+      }
+
+      .world-card__title {
+        font-size: 14px;;
+      }
+
+      .world-card__desc {
+        font-size: 12px;
+        -webkit-line-clamp: 2;
+        max-height: 2.5em;
+      }
+
+      .world-card__actions {
+        gap: 6px;
+      }
+    }
+
+    .world-name {
+      position: fixed;
+      left: 50%;
+      top: calc(30px + env(safe-area-inset-top));
+      transform: translateX(-50%);
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgb(192 192 192 / 42%);
+      color: rgb(50 50 50 / 92%);
+      font-size: 22px;;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      z-index: 23;
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+      max-width: min(84vw, 520px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .world-name[aria-hidden="true"] {
+      display: none;
+    }
 
 
   </style>
@@ -1172,6 +1213,13 @@
     // -------------------------------------------------------------------------
 
     const DEFAULTS = {
+
+  // Performance
+      shadowsEnabled: true,
+      shadowsAutoUpdate: true,
+      shadowType: "PCFSoft",   // "PCFSoft" | "PCF" | "Basic"
+      shadowMapSize: 1024,     // 256 | 512 | 1024 | 2048 | 4096
+
   // Core
       paused: false,
       debug: false,
@@ -1180,6 +1228,7 @@
       pixelRatio: 1.75,
 
   // Flakes & base wind
+      snowEnabled: true,
       visualCount: 180000,
       windStrength: 0,
       windSpeed: 0,
@@ -1187,6 +1236,7 @@
       fallJitter: 0.45,
       flakeSize: 3.0,
       flakeSizeJitter: 0.35,
+
 
   // Gusts / turbulence
       gustMinInterval: 1.4,
@@ -1360,10 +1410,19 @@
     const settleBounds = { x: WORLD_BOUNDS_XZ, z: WORLD_BOUNDS_XZ, yMin: -2.0, yMax: 18.0 };
 
 
-    let scene, camera, renderer, controls;
+    let scene, camera, renderer, controls, hemiLight, dirLight;
     let ground, cube;
     const cones = [];
     const rocks = [];
+
+    /* Tracks last-applied renderer/light shadow settings to avoid per-frame churn. */
+    const shadowApplied = {
+      enabled: null,
+      autoUpdate: null,
+      typeKey: null,
+      mapSize: null
+    };
+
 
     // Forest cone shared resources
     let forestConeGeo = null;
@@ -3662,38 +3721,56 @@
     }
 
     function applyAlphaCutoutShadows(mesh, cutoff = 0.5) {
+      /* Forces alpha-mapped foliage to behave as depth-writing cutout (not blended transparency),
+         and makes shadow/depth passes respect the same alphaTest threshold. */
+      if (!mesh || !mesh.material) return;
+
       // Ensure per-instance materials (avoid mutating shared template materials)
       if (Array.isArray(mesh.material)) {
-        mesh.material = mesh.material.map(m => m && m.isMaterial ? m.clone() : m);
+        mesh.material = mesh.material.map(m => (m && m.isMaterial ? m.clone() : m));
       } else if (mesh.material && mesh.material.isMaterial) {
         mesh.material = mesh.material.clone();
       }
 
-      const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
-      if (!mat || !mat.isMaterial) return;
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
 
-      // For visuals (and to make the shadow pass match), use alphaTest cutout
-      const alphaTex = mat.alphaMap || mat.map;
-      mat.transparent = true;                // keep visible alpha
-      mat.alphaTest = Math.max(mat.alphaTest || 0, cutoff);
-      mat.needsUpdate = true;
+      let alphaTex = null;
+      let alphaTest = cutoff;
 
-      // If the plane should cast from both sides:
-      // mat.side = THREE.DoubleSide;
+      for (let i = 0; i < mats.length; i++) {
+        const mat = mats[i];
+        if (!mat || !mat.isMaterial) continue;
+
+        const tex = mat.alphaMap || mat.map;
+        if (tex && !alphaTex) alphaTex = tex;
+
+        mat.alphaTest = Math.max(mat.alphaTest || 0, cutoff);
+        alphaTest = Math.max(alphaTest, mat.alphaTest);
+
+        // Critical: keep it OUT of the transparent pass, so depth sorting works with grass.
+        mat.transparent = false;
+        mat.opacity = 1.0;
+        mat.depthTest = true;
+        mat.depthWrite = true;
+
+        mat.needsUpdate = true;
+      }
+
+      if (!alphaTex) return;
 
       // Make the SHADOW MAP respect alphaTest too
       const depthMat = new THREE.MeshDepthMaterial({
         depthPacking: THREE.RGBADepthPacking,
         map: alphaTex,
-        alphaTest: mat.alphaTest
+        alphaTest: alphaTest
       });
-      depthMat.side = mat.side;
+      depthMat.side = mats[0] && mats[0].side != null ? mats[0].side : THREE.FrontSide;
 
       const distMat = new THREE.MeshDistanceMaterial({
         map: alphaTex,
-        alphaTest: mat.alphaTest
+        alphaTest: alphaTest
       });
-      distMat.side = mat.side;
+      distMat.side = depthMat.side;
 
       mesh.customDepthMaterial = depthMat;
       mesh.customDistanceMaterial = distMat;
@@ -3861,7 +3938,7 @@
 // Avatar character setup and control
 // -------------------------------------------------------------------------
 
-        const AVATAR_GLTF_URL = "models/ready/santagirl3.glb";
+        const AVATAR_GLTF_URL = "models/ready/santa5.glb";
 
         let avatar = null;
         let avatarMixer = null;
@@ -9148,6 +9225,10 @@ const driftKernel = [];
 })();
 
 
+
+
+
+
 // -------------------------------------------------------------------------
 // Apply settings (clamps)
 // -------------------------------------------------------------------------
@@ -9157,6 +9238,8 @@ function applySettings(
   { rebuild = false, updateGui = true, persist = true } = {}
   ) {
   const prevPersistBlocked = persistBlocked;
+
+  const prevSnowEnabled = !!params.snowEnabled;
 
   const prevDustEnabled = !!params.dustEnabled;
   const prevDustCount = params.dustCount | 0;
@@ -9182,7 +9265,19 @@ function applySettings(
     // core sim
     params.timeScale = clamp(params.timeScale, 0.05, 5.0);
     params.dtMax = clamp(params.dtMax, 0.005, 0.25);
+
     params.pixelRatio = clamp(params.pixelRatio, 0.5, 2.5);
+
+    // performance (shadows)
+    params.shadowsEnabled = !!params.shadowsEnabled;
+    params.shadowsAutoUpdate = !!params.shadowsAutoUpdate;
+    params.shadowType = sanitizeShadowType(params.shadowType);
+    params.shadowMapSize = sanitizeShadowMapSize(params.shadowMapSize | 0);
+
+    applyShadowSettingsFromParams(false);
+
+    // snow master enable
+    params.snowEnabled = !!params.snowEnabled;
 
     params.visualCount = clamp(params.visualCount | 0, 1000, 150000);
 
@@ -9304,8 +9399,6 @@ function applySettings(
     params.rainCenterZ = clamp(params.rainCenterZ, -HALF_GROUND, HALF_GROUND);
     params.rainOpacity = clamp(params.rainOpacity, 0.0, 1.0);
 
-
-    // grass
     // grass
     params.grassEnabled = !!params.grassEnabled;
     params.grassCount = clamp(params.grassCount | 0, 0, 120000);
@@ -9335,6 +9428,7 @@ function applySettings(
     params.grassAlphaCutoff = clamp(params.grassAlphaCutoff, 0.0, 0.95);
     params.grassSeed = clamp(params.grassSeed | 0, 0, 999999);
 
+    const snowEnabledChanged = (!!params.snowEnabled !== prevSnowEnabled);
 
     const dustNeedsRebuild =
     rebuild ||
@@ -9362,6 +9456,9 @@ function applySettings(
       rebuildClouds();
     } else {
       applyCloudParamsToUniforms();
+      if (snowEnabledChanged) {
+        rebuildWorld();
+      }
     }
 
     if (dustNeedsRebuild) {
@@ -9413,6 +9510,7 @@ function applySettings(
     persistBlocked = prevPersistBlocked;
   }
 }
+
 
 
 
@@ -10223,12 +10321,32 @@ function shapeDriftsAroundObstacles(windX, windZ) {
   }
 }
 
-function buildSnowSurface() {
+
+
+
+/* Removes the snow surface mesh and clears drift buffers so snow can be fully disabled. */
+function disposeSnowSurface() {
   if (snowSurface) {
     scene.remove(snowSurface);
     snowSurface.geometry.dispose();
     snowSurface.material.dispose();
+    snowSurface = null;
+  } else if (driftGeo) {
+    driftGeo.dispose();
   }
+
+  driftGeo = null;
+  driftPosAttr = null;
+  driftPosArray = null;
+
+  driftHeights = null;
+  driftHeightsTmp = null;
+  driftDeform = null;
+}
+
+function buildSnowSurface() {
+  disposeSnowSurface();
+  if (!params.snowEnabled) return;
 
   DRIFT_GRID = clamp(params.driftGrid | 0, 32, 256);
   DRIFT_STRIDE = DRIFT_GRID + 1;
@@ -10509,18 +10627,29 @@ function rebuildClouds() {
 
 
 
-
-
     // -------------------------------------------------------------------------
     // Visual flakes (GPU point sprites + gust uniforms)
     // -------------------------------------------------------------------------
 
-function buildSnowField() {
+/* Disposes the visual snow point-sprite system and releases GPU resources. */
+function disposeSnowField() {
   if (snowPoints) {
     scene.remove(snowPoints);
-    snowGeo.dispose();
-    snowMat.dispose();
+    snowPoints = null;
   }
+  if (snowGeo) {
+    snowGeo.dispose();
+    snowGeo = null;
+  }
+  if (snowMat) {
+    snowMat.dispose();
+    snowMat = null;
+  }
+}
+
+function buildSnowField() {
+  disposeSnowField();
+  if (!params.snowEnabled) return;
 
   const count = clamp(params.visualCount | 0, 20000, 600000);
   const pos = new Float32Array(count * 3);
@@ -10608,39 +10737,6 @@ function buildSnowField() {
               vec2(flutter * 0.18,
                    cos(uTime * 0.9 + aSeed * 41.0) * 0.03);
 
-            // vec2 gustVec = vec2(0.0);
-            // float lift = 0.0;
-
-            // for (int gi = 0; gi < ${GUST_MAX}; gi++) {
-            //   float gx = uGustPosRad[gi * 3 + 0];
-            //   float gz = uGustPosRad[gi * 3 + 1];
-            //   float gr = uGustPosRad[gi * 3 + 2];
-
-            //   float gs  = uGustParams[gi * 3 + 0];
-            //   float gsw = uGustParams[gi * 3 + 1];
-            //   float gup = uGustParams[gi * 3 + 2];
-
-            //   vec2 d = vec2(p.x - gx, p.z - gz);
-            //   float r2 = dot(d, d);
-            //   float rr = sqrt(max(r2, 1e-6));
-            //   if (rr > gr) continue;
-
-            //   float radial = 1.0 - rr / gr;
-            //   float k = radial * radial * nearGround * gs;
-
-            //   vec2 n = d / rr;
-            //   vec2 t = vec2(-n.y, n.x);
-
-            //   gustVec += t * (gsw * k) + (-n) * (0.12 * k);
-            //   lift += gup * k * (radial * radial);
-            // }
-
-            // y += lift * 0.12;
-
-            // float x = p.x + drift.x * uTime + gustVec.x;
-            // float z = p.z + drift.y * uTime + gustVec.y;
-
-
             vec2 gustVec = vec2(0.0);
             float lift = 0.0;
 
@@ -10668,21 +10764,17 @@ function buildSnowField() {
               lift += gup * k * (radial * radial);
             }
 
-            // --- clamp gust influence so craziness can't explode ---
             float gustLen = length(gustVec);
-            float gustMax = 3.0;  // lower = calmer, higher = wilder
+            float gustMax = 3.0;
             if (gustLen > gustMax) {
               gustVec *= gustMax / max(gustLen, 1e-5);
             }
             lift = clamp(lift, -3.0, 3.0);
-            // -------------------------------------------------------
 
             y += lift * 0.12;
 
             float x = p.x + drift.x * uTime + gustVec.x;
             float z = p.z + drift.y * uTime + gustVec.y;
-
-
 
             x = wrapCoord(x, uBounds.x);
             z = wrapCoord(z, uBounds.y);
@@ -10709,7 +10801,6 @@ function buildSnowField() {
 
           void main() {
             vec4 tex = texture2D(uTex, gl_PointCoord);
-            // make each flake a bit less opaque, so background (clouds) can bleed through
             float a = tex.a * vAlpha * 0.65;
             if (a < 0.01) discard;
             gl_FragColor = vec4(1.0, 1.0, 1.0, a);
@@ -10717,12 +10808,8 @@ function buildSnowField() {
         `
       });
 
-
-
-
 snowPoints = new THREE.Points(snowGeo, snowMat);
 snowPoints.frustumCulled = false;
-// render before stuck decals & clouds (which will have higher renderOrder)
 snowPoints.renderOrder = 2;
 scene.add(snowPoints);
 }
@@ -10732,12 +10819,23 @@ scene.add(snowPoints);
     // Decals (sticking snow)
     // -------------------------------------------------------------------------
 
-function buildStuckSystem() {
+/* Disposes the sticking snow decal instancing system. */
+function disposeStuckSystem() {
   if (stuck) {
     scene.remove(stuck);
     stuck.geometry.dispose();
     stuck.material.dispose();
+    stuck = null;
   }
+  stuckGeo = null;
+  stuckMat = null;
+  stuckCount = 0;
+  stuckWrite = 0;
+}
+
+function buildStuckSystem() {
+  disposeStuckSystem();
+  if (!params.snowEnabled) return;
 
   const max = Math.max(1000, params.stuckMax | 0);
   stuckGeo = new THREE.CircleGeometry(Math.max(0.05, params.decalSize), 20);
@@ -10813,7 +10911,19 @@ function addStuckSnow(point, normal) {
     // Settlers (CPU flakes building drifts + decals)
     // -------------------------------------------------------------------------
 
+/* Clears the CPU snow-settler buffers so drift/deposit simulation can be fully disabled. */
+function disposeSettlers() {
+  SETTLER_COUNT = 0;
+  settlerPos = null;
+  settlerPrev = null;
+  settlerVel = null;
+  depositTokens = 0;
+}
+
 function buildSettlers() {
+  disposeSettlers();
+  if (!params.snowEnabled) return;
+
   SETTLER_COUNT = clamp(params.settlerCount | 0, 1000, 300000);
   settlerPos = new Float32Array(SETTLER_COUNT * 3);
   settlerPrev = new Float32Array(SETTLER_COUNT * 3);
@@ -10840,6 +10950,8 @@ function respawnSettler(i) {
   settlerVel[p + 1] = -(0.35 + Math.random() * 0.35);
   settlerVel[p + 2] = (Math.random() * 2 - 1) * 0.02;
 }
+
+
 
 
 
@@ -11121,26 +11233,116 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     }
 
 
+
+
+
+
+
     // -------------------------------------------------------------------------
     // Scene / world setup
     // -------------------------------------------------------------------------
-    function setupScene() {
-
-      const container = document.getElementById("app");
-
-      scene = new THREE.Scene();
-      updateFogFromParams();
-
-      camera = new THREE.PerspectiveCamera(
-        60,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        params.fogFar
-        );
-      camera.position.set(-2, 7, -10);
 
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+    /* Normalizes shadow type strings to a supported set. */
+    function sanitizeShadowType(v) {
+      const s = String(v || "").trim();
+      if (s === "PCFSoft" || s === "PCF" || s === "Basic") return s;
+      return "PCFSoft";
+    }
+
+    /* Snaps shadow map size to a supported power-of-two set. */
+    function sanitizeShadowMapSize(v) {
+      const n = (v | 0) || 0;
+      const allowed = [256, 512, 1024, 2048, 4096];
+      let best = allowed[0];
+      let bestD = Math.abs(n - best);
+      for (let i = 1; i < allowed.length; i++) {
+        const d = Math.abs(n - allowed[i]);
+        if (d < bestD) {
+          bestD = d;
+          best = allowed[i];
+        }
+      }
+      return best;
+    }
+
+    /* Applies shadow performance settings to renderer and main directional light. */
+    function applyShadowSettingsFromParams(force = false) {
+      if (!renderer || !dirLight) return;
+
+      const enabled = !!params.shadowsEnabled;
+      const autoUpdate = !!params.shadowsAutoUpdate;
+      const typeKey = sanitizeShadowType(params.shadowType);
+      const mapSize = sanitizeShadowMapSize(params.shadowMapSize | 0);
+
+      if (
+        !force &&
+        shadowApplied.enabled === enabled &&
+        shadowApplied.autoUpdate === autoUpdate &&
+        shadowApplied.typeKey === typeKey &&
+        shadowApplied.mapSize === mapSize
+        ) {
+        return;
+    }
+
+    shadowApplied.enabled = enabled;
+    shadowApplied.autoUpdate = autoUpdate;
+    shadowApplied.typeKey = typeKey;
+    shadowApplied.mapSize = mapSize;
+
+    renderer.shadowMap.enabled = enabled;
+    renderer.shadowMap.autoUpdate = enabled && autoUpdate;
+    renderer.shadowMap.needsUpdate = true;
+
+    if (typeKey === "Basic") renderer.shadowMap.type = THREE.BasicShadowMap;
+    else if (typeKey === "PCF") renderer.shadowMap.type = THREE.PCFShadowMap;
+    else renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    dirLight.castShadow = enabled;
+
+    if (!enabled) {
+      if (dirLight.shadow && dirLight.shadow.map) {
+        dirLight.shadow.map.dispose();
+        dirLight.shadow.map = null;
+      }
+      return;
+    }
+
+    const ms = dirLight.shadow.mapSize;
+    if (ms.x !== mapSize || ms.y !== mapSize) {
+      ms.set(mapSize, mapSize);
+
+      if (dirLight.shadow.map) {
+        dirLight.shadow.map.dispose();
+        dirLight.shadow.map = null;
+      }
+
+      dirLight.shadow.needsUpdate = true;
+      renderer.shadowMap.needsUpdate = true;
+    }
+  }
+
+
+
+
+
+  function setupScene() {
+
+    const container = document.getElementById("app");
+
+    scene = new THREE.Scene();
+    updateFogFromParams();
+
+    camera = new THREE.PerspectiveCamera(
+      60,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      params.fogFar
+      );
+    camera.position.set(-2, 7, -10);
+
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.xr.enabled = true; // WebXR ON
 
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, params.pixelRatio));
@@ -11266,20 +11468,70 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         if (controls) controls.enabled = true;
       });
 
-      // Lights
-      scene.add(new THREE.HemisphereLight(0xdce7ff, 0x0b0f18, 1));
 
-      const dir = new THREE.DirectionalLight(0xffffff, 1.35);
-      dir.position.set(8, 14, 6);
-      dir.castShadow = true;
-      dir.shadow.mapSize.set(2048, 2048);
-      dir.shadow.camera.left = -26;
-      dir.shadow.camera.right = 26;
-      dir.shadow.camera.top = 26;
-      dir.shadow.camera.bottom = -26;
-      dir.shadow.camera.near = 0.1;
-      dir.shadow.camera.far = 120;
-      scene.add(dir);
+      // Enhanced Lights
+      // Lights (with better control + shadow quality)
+      hemiLight = new THREE.HemisphereLight(0xdce7ff, 0x0b0f18, 1.0);
+      scene.add(hemiLight);
+
+      dirLight = new THREE.DirectionalLight(0xffffff, 1.35);
+      dirLight.position.set(8, 14, 6);
+
+      // Shadow quality defaults (final enable/type/size controlled by params)
+      dirLight.castShadow = true;
+
+      // Shadow map size is applied by applyShadowSettingsFromParams (params.shadowMapSize)
+      const shadowSize = 1024;
+      dirLight.shadow.mapSize.set(shadowSize, shadowSize);
+
+      // Tighten shadow camera frustum (reduces banding/striping)
+      dirLight.shadow.camera.left = -18;
+      dirLight.shadow.camera.right = 18;
+      dirLight.shadow.camera.top = 18;
+      dirLight.shadow.camera.bottom = -18;
+      dirLight.shadow.camera.near = 2;
+      dirLight.shadow.camera.far = 60;
+
+      // Bias tuning (reduce acne / stripe artifacts)
+      dirLight.shadow.normalBias = 0.03; // try 0.01–0.08
+      dirLight.shadow.bias = -0.00015;   // try -0.00005 to -0.0003
+
+      scene.add(dirLight);
+
+      // Renderer shadow settings (performance tuning via params)
+      applyShadowSettingsFromParams(true);
+
+
+
+      // Renderer (ensure these are set once in your setup)
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      // Debug helpers (toggle on when tuning)
+      const LIGHT_DEBUG = false;
+      if (LIGHT_DEBUG) {
+        scene.add(new THREE.HemisphereLightHelper(hemiLight, 2));
+        scene.add(new THREE.DirectionalLightHelper(dirLight, 2));
+        scene.add(new THREE.CameraHelper(dirLight.shadow.camera));
+      }
+
+      // // Lights
+      // scene.add(new THREE.HemisphereLight(0xdce7ff, 0x0b0f18, 1));
+
+      // const dir = new THREE.DirectionalLight(0xffffff, 1.35);
+      // dir.position.set(8, 14, 6);
+      // dir.castShadow = true;
+      // dir.shadow.mapSize.set(2048, 2048);
+      // dir.shadow.camera.left = -26;
+      // dir.shadow.camera.right = 26;
+      // dir.shadow.camera.top = 26;
+      // dir.shadow.camera.bottom = -26;
+      // dir.shadow.camera.near = 0.1;
+      // dir.shadow.camera.far = 120;
+      // scene.add(dir);
+
+
+
 
       setupWetTrailSystem();
 
@@ -11384,17 +11636,28 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
     function rebuildWorld() {
-      buildSnowSurface();
-      buildSnowField();
+      if (params.snowEnabled) {
+        buildSnowSurface();
+        buildSnowField();
+      } else {
+        disposeSnowField();
+        disposeSnowSurface();
+      }
 
       updateRocksGrounding();
 
-      buildStuckSystem();
-      buildSettlers();
+      if (params.snowEnabled) {
+        buildStuckSystem();
+        buildSettlers();
+      } else {
+        disposeStuckSystem();
+        disposeSettlers();
+      }
 
       colliderBounds = buildColliderBounds(colliderObjects);
       rebuildAvatarCollisionGrid();
     }
+
 
 
 
@@ -11672,6 +11935,28 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           rebuild: false
         });
 
+        const perf = gui.addFolder("Performance");
+
+        trackController(perf.add(params, "shadowsEnabled").name("Shadows").listen(), { instant: true });
+
+        trackController(
+          perf.add(params, "shadowsAutoUpdate").name("Shadow auto update").listen(),
+          { instant: true }
+          );
+
+        trackController(
+          perf.add(params, "shadowType", ["PCFSoft", "PCF", "Basic"]).name("Shadow type").listen(),
+          { instant: true }
+          );
+
+        trackController(
+          perf.add(params, "shadowMapSize", [256, 512, 1024, 2048, 4096]).name("Shadow map size").listen(),
+          { instant: true }
+          );
+
+        perf.close();
+
+
       //sim.open();
 
         const wind = gui.addFolder("Wind");
@@ -11723,6 +12008,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         "rebuildRocks"
         )
         .name("Rebuild rocks");
+
+        rocksFolder.close();
 
 
         const forest = gui.addFolder("Forest");
@@ -11810,7 +12097,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         forestColorCtrl.onChange(surfaceUpdate);
         cubeColorCtrl.onChange(surfaceUpdate);
 
-
+        surfaces.close();
 
         const fogFolder = gui.addFolder("Fog");
         const fogUpdate = () => {
@@ -12423,6 +12710,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         // Snowing
 
         const flakes = gui.addFolder("Flakes");
+        trackController(flakes.add(params, "snowEnabled").name("Enabled"), { rebuild: true, instant: true });
+
         trackController(
           flakes.add(params, "visualCount", 20000, 600000, 5000).name("Visual flakes"),
           { rebuild: true, instant: false }
@@ -12730,6 +13019,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       let simTime = 0;
 
 
+
+
+
+
       function animate() {
         const rawDt = clamp(
           clock.getDelta(),
@@ -12774,7 +13067,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           gustParams[i * 3 + 2] = g.updraft * fade;
         }
 
-        if (snowMat) {
+        if (params.snowEnabled && snowMat) {
           snowMat.uniforms.uTime.value = t;
           snowMat.uniforms.uWind.value.set(baseWindX, baseWindZ);
           snowMat.uniforms.uFallSpeed.value = params.fallSpeed;
@@ -12854,10 +13147,15 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           }
         }
 
+        applyShadowSettingsFromParams(false);
         renderer.render(scene, camera);
 
         frame++;
+
       }
+
+
+
 
 
 
