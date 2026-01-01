@@ -8741,33 +8741,11 @@ function tickVehicle(dt) {
       vehicleDriveState.planeBaseGroundY = groundYNow;
     }
 
-
-
     if (airborne) {
-      const refPrev = Number.isFinite(vehicleDriveState.planeBaseGroundY) ? vehicleDriveState.planeBaseGroundY : groundYNow;
+      const refY = Number.isFinite(vehicleDriveState.planeBaseGroundY) ? vehicleDriveState.planeBaseGroundY : groundYNow;
+      pos.y = refY + liftY;
 
-      /* Keeps plane altitude decoupled from terrain while airborne; relaxes the reference floor near landing so touchdown uses local ground height. */
-      const landBlend = clamp(1.0 - (liftY / Math.max(1e-3, maxLift * 0.35)), 0.0, 1.0);
-      const baseAlpha = 1 - Math.pow(0.001, 2.5 * dt);
-
-      let refY = refPrev + (groundYNow - refPrev) * (baseAlpha * landBlend);
-
-      const clearBase = clamp(Number.isFinite(prof.minAirClearance) ? prof.minAirClearance : 0.25, 0.0, 5.0);
-      const clearT = clamp(liftY / Math.max(1e-3, maxLift * 0.25), 0.0, 1.0);
-      const minAirClear = clearBase * clearT;
-
-      let y = refY + liftY;
-
-      const minY = groundYNow + minAirClear;
-      if (y < minY) {
-        y = minY;
-        refY = y - liftY;
-      }
-
-      vehicleDriveState.planeBaseGroundY = refY;
-      pos.y = y;
-
-      if (liftY <= 0.12 && pos.y <= groundYNow + 0.03) {
+      if (pos.y <= groundYNow + 0.05) {
         airborne = false;
         vehicleDriveState.planeAirborne = false;
         vehicleDriveState.planeBaseGroundY = groundYNow;
@@ -8779,11 +8757,9 @@ function tickVehicle(dt) {
       vehicleDriveState.planeBaseGroundY = groundYNow;
       pos.y = groundYNow + liftY;
     }
-    
 
     const rollNow = Number.isFinite(vehicleDriveState.roll) ? vehicleDriveState.roll : 0.0;
     const rollVelNow = Number.isFinite(vehicleDriveState.rollVel) ? vehicleDriveState.rollVel : 0.0;
-
     const rollTarget = airborne ? clamp(steerAmount * airRollMax, -airRollMax, airRollMax) : 0.0;
 
     const rollK = (Math.abs(steerAmount) > 1e-3) ? airRollResponse : airRollReturn;
@@ -8799,8 +8775,6 @@ function tickVehicle(dt) {
 
     vehicleDriveState.rollVel = rollVel;
     vehicleDriveState.roll = roll;
-
-
 
     const pitchNow = Number.isFinite(vehicleDriveState.pitch) ? vehicleDriveState.pitch : 0.0;
     const pitchVelNow = Number.isFinite(vehicleDriveState.pitchVel) ? vehicleDriveState.pitchVel : 0.0;
