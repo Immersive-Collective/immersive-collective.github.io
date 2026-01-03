@@ -501,6 +501,9 @@
       flex: 1 1 auto;
       min-height: 0;
       padding: 2px;
+
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     }
 
     @media (min-width: 720px) {
@@ -510,7 +513,7 @@
     }
 
     .world-card {
-      border: 1px solid rgba(255, 255, 255, 0.16);
+      border: 2px solid rgba(255, 255, 255, 0.16);
       border-radius: 12px;
       overflow: hidden;
       background: rgba(0, 0, 0, 0.35);
@@ -538,22 +541,21 @@
 
     .world-card__body {
       position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      inset: 0;
       padding: 10px;
       display: flex;
       flex-direction: column;
       gap: 8px;
       background: linear-gradient(
-        to top,
-        rgba(0, 0, 0, 0.78),
-        rgba(0, 0, 0, 0.46) 52%,
-        rgba(0, 0, 0, 0.00)
+        to bottom,
+        rgba(0, 0, 0, 0.74),
+        rgba(0, 0, 0, 0.22) 48%,
+        rgba(0, 0, 0, 0.84)
       );
       color: rgba(255, 255, 255, 0.95);
       z-index: 2;
     }
+
 
     .world-card__titleRow {
       display: flex;
@@ -565,7 +567,7 @@
 
     .world-card__title {
       font-weight: 700;
-      font-size: 14px;;
+      font-size: 22px;;
       letter-spacing: 0.2px;
       line-height: 1.2;
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
@@ -602,6 +604,7 @@
       flex-wrap: wrap;
       justify-content: flex-end;
       align-items: center;
+      margin-top: auto;
     }
 
     .world-card .avatar-btn {
@@ -1334,6 +1337,24 @@
       rockSeed: 2468,
       rockJitter: 1.0,
 
+      rockDetail: 1,                 // 0..2 (Icosahedron subdivisions)
+      rockVariantCount: 10,          // number of prebuilt rock shapes to reuse
+      rockNoiseAmp: 0.28,            // shape displacement amount
+      rockNoiseFreq: 1.75,           // noise frequency
+      rockNoiseOctaves: 4,
+      rockNoiseLacunarity: 2.0,
+      rockNoiseGain: 0.50,
+      rockNoiseRidge: 0.35,          // 0..1 blend towards ridged noise
+
+      rockFlatten: 0.18,             // 0..1 random Y squash per rock
+      rockAnisotropy: 0.25,          // 0..1 random X/Z scaling per rock
+      rockEmbed: 0.12,               // pushes rocks down into snow/ground
+
+      rockColorVar: 0.18,            // per-rock brightness variation
+      rockRoughness: 1.0,
+      rockMetalness: 0.0,
+
+
       // Clouds
       cloudEnabled: true,
       cloudHeightBase: 18.0,
@@ -1459,6 +1480,11 @@
     let rockGeo = null;
     let rockMat = null;
     let rockGeoMidY = 0.0;
+
+    let rockVariantGeos = [];
+    let rockVariantMidY = [];
+    let rockVariantKey = "";
+
 
     let snowTex;
     let wetTrailTex;
@@ -3980,7 +4006,7 @@
 // Avatar character setup and control
 // -------------------------------------------------------------------------
 
-        const AVATAR_GLTF_URL = "models/ready/tata/tata4_1-anims.glb";
+        const AVATAR_GLTF_URL = "models/ready/tata/tata5_anim-anims.glb";
 
         let avatar = null;
         let avatarMixer = null;
@@ -7853,6 +7879,17 @@ function exitVehicle() {
   avatar.quaternion.identity();
   avatar.rotation.set(0, yaw, 0);
 
+  /* Seed avatar camera follow so switching from vehicle -> avatar does not snap camera behind the avatar. */
+  avatarLastWorldPos.set(outX, outY, outZ);
+  avatarHasLastPos = true;
+
+  if (controls) {
+    avatar.getWorldPosition(avatarWorldPos);
+    avatarHeadPos.copy(avatarWorldPos);
+    avatarHeadPos.y += avatarViewConfig.thirdPersonHeight;
+    controls.target.copy(avatarHeadPos);
+  }
+
   vehicleDriveState.enabled = false;
   vehicleDriveState.vehicle = null;
 
@@ -9017,86 +9054,229 @@ const tmpMatrix = new THREE.Matrix4();
 const tmpDir = new THREE.Vector3();
 
 
-    // Rock builder ------------------------------------------------------------
-    // Builds a deterministic scattered rock field (annulus distribution) and updates collision bounds.
+// Rock builder ------------------------------------------------------------
+// Builds a deterministic scattered rock field (annulus distribution) and updates collision bounds.
 
 function rebuildRocks() {
   if (!scene) return;
 
+  /* Removes old rocks from scene/colliders and disposes per-rock cloned materials. */
   for (const r of rocks) {
-    if (r && r.parent === scene) scene.remove(r);
+    if (!r) continue;
+    if (r.material && r.material !== rockMat && typeof r.material.dispose === "function") {
+      r.material.dispose();
+    }
+    if (r.parent === scene) scene.remove(r);
   }
   rocks.length = 0;
 
   colliderObjects = colliderObjects.filter((obj) => !obj.__isRock);
 
-  if (!rockGeo) {
-    rockGeo = new THREE.IcosahedronGeometry(1.1, 0);
-    rockGeo.computeBoundingBox();
-    if (rockGeo.boundingBox) {
-      rockGeoMidY = (rockGeo.boundingBox.min.y + rockGeo.boundingBox.max.y) * 0.5;
-    } else {
-      rockGeoMidY = 0.0;
+  const lerp1 = (a, b, t) => a + (b - a) * t;
+  const smooth01 = (t) => t * t * (3 - 2 * t);
+
+  const hash2i = (ix, iy, seed) => {
+    let h = (ix | 0) * 374761393 + (iy | 0) * 668265263 + (seed | 0) * 1442695041;
+    h = (h ^ (h >>> 13)) | 0;
+    h = Math.imul(h, 1274126177);
+    h = (h ^ (h >>> 16)) | 0;
+    return ((h >>> 0) / 4294967295);
+  };
+
+  const valueNoise2 = (x, y, seed) => {
+    const xi = Math.floor(x);
+    const yi = Math.floor(y);
+    const xf = x - xi;
+    const yf = y - yi;
+
+    const u = smooth01(xf);
+    const v = smooth01(yf);
+
+    const a = hash2i(xi, yi, seed);
+    const b = hash2i(xi + 1, yi, seed);
+    const c = hash2i(xi, yi + 1, seed);
+    const d = hash2i(xi + 1, yi + 1, seed);
+
+    const ab = lerp1(a, b, u);
+    const cd = lerp1(c, d, u);
+    return lerp1(ab, cd, v);
+  };
+
+  const fbm2 = (x, y, seed, octaves, lacunarity, gain) => {
+    let amp = 0.5;
+    let freq = 1.0;
+    let sum = 0.0;
+    let norm = 0.0;
+
+    for (let o = 0; o < octaves; o++) {
+      const n = valueNoise2(x * freq, y * freq, seed + o * 1013);
+      sum += amp * (n * 2.0 - 1.0);
+      norm += amp;
+      amp *= gain;
+      freq *= lacunarity;
     }
-  }
+    return norm > 0.0 ? (sum / norm) : 0.0;
+  };
+
+  const fbm3Approx = (x, y, z, seed, octaves, lacunarity, gain, freq) => {
+    const a = fbm2(x * freq + 11.1, z * freq + 7.7, seed + 17, octaves, lacunarity, gain);
+    const b = fbm2(y * freq + 3.3,  x * freq + 9.9, seed + 131, octaves, lacunarity, gain);
+    const c = fbm2(z * freq + 5.5,  y * freq + 13.3, seed + 911, octaves, lacunarity, gain);
+    return (a + b + c) / 3.0;
+  };
+
+  const baseColor = normalizeHexColor(params.rockColor, DEFAULTS.rockColor || "#2b3442");
+  const baseRough = clamp(params.rockRoughness, 0.0, 1.0);
+  const baseMetal = clamp(params.rockMetalness, 0.0, 1.0);
+
   if (!rockMat) {
     rockMat = new THREE.MeshStandardMaterial({
-      color: normalizeHexColor(params.rockColor, DEFAULTS.rockColor || "#2b3442"),
-      roughness: 1.0
+      color: baseColor,
+      roughness: baseRough,
+      metalness: baseMetal
     });
-  } else if (rockMat.color) {
-    rockMat.color.set(normalizeHexColor(params.rockColor, DEFAULTS.rockColor || "#2b3442"));
+  } else {
+    if (rockMat.color) rockMat.color.set(baseColor);
+    rockMat.roughness = baseRough;
+    rockMat.metalness = baseMetal;
   }
 
-  const rng = makeSeededRandom((params.rockSeed * 1000003) | 0);
+  const detail = clamp((params.rockDetail | 0), 0, 16);
+  const variantCount = clamp((params.rockVariantCount | 0), 1, 24);
 
-  const count = clamp(params.rockCount | 0, 0, 800);
-  const maxR = clamp(params.rockRadius, 1.0, HALF_GROUND - 1.0);
-  const minR = clamp(params.rockInnerRadius, 0.0, Math.max(maxR - 1.0, 0.0));
-  const minS = Math.max(0.2, params.rockMinScale);
-  const maxS = Math.max(minS, params.rockMaxScale);
-  const jitter = clamp(params.rockJitter, 0.0, 3.0);
+  const noiseAmp = clamp(params.rockNoiseAmp, 0.0, 1.5);
+  const noiseFreq = clamp(params.rockNoiseFreq, 0.01, 20.0);
+  const noiseOct = clamp((params.rockNoiseOctaves | 0), 1, 8);
+  const noiseLac = clamp(params.rockNoiseLacunarity, 1.1, 4.0);
+  const noiseGain = clamp(params.rockNoiseGain, 0.15, 0.95);
+  const ridgeBlend = clamp(params.rockNoiseRidge, 0.0, 1.0);
 
-  for (let i = 0; i < count; i++) {
-    const t = rng();
-    const rBase = Math.sqrt(t);
-    const r = minR + (maxR - minR) * rBase;
+  const variantKey =
+`${detail}|${variantCount}|` +
+`${noiseAmp.toFixed(4)}|${noiseFreq.toFixed(4)}|${noiseOct}|${noiseLac.toFixed(3)}|${noiseGain.toFixed(3)}|${ridgeBlend.toFixed(3)}`;
 
-    let ang = rng() * Math.PI * 2.0;
-    ang += (rng() - 0.5) * jitter * 0.4;
+if (rockVariantKey !== variantKey) {
+  for (const g of rockVariantGeos) {
+    if (g && typeof g.dispose === "function") g.dispose();
+  }
+  rockVariantGeos.length = 0;
+  rockVariantMidY.length = 0;
 
-    let x = Math.cos(ang) * r;
-    let z = Math.sin(ang) * r;
+  const tmpV = new THREE.Vector3();
+  const tmpN = new THREE.Vector3();
 
-    x += (rng() - 0.5) * jitter;
-    z += (rng() - 0.5) * jitter;
+  for (let v = 0; v < variantCount; v++) {
+    const seed = ((params.rockSeed * 1000003) | 0) + v * 7919;
 
-    const rock = new THREE.Mesh(rockGeo, rockMat);
+    const geo = new THREE.IcosahedronGeometry(1.1, detail);
+    const pos = geo.attributes.position;
 
-    const s = minS + (maxS - minS) * rng();
-    rock.scale.setScalar(s);
+    for (let i = 0; i < pos.count; i++) {
+      tmpV.fromBufferAttribute(pos, i);
+      tmpN.copy(tmpV).normalize();
 
-    const groundY = sampleSnowHeight(x, z);
-    rock.position.set(x, groundY - rockGeoMidY * s, z);
+      const n0 = fbm3Approx(tmpV.x, tmpV.y, tmpV.z, seed, noiseOct, noiseLac, noiseGain, noiseFreq);
 
-    rock.rotation.set(
-      rng() * Math.PI * 2.0,
-      rng() * Math.PI * 2.0,
-      rng() * Math.PI * 2.0
-      );
+      const rid = 1.0 - Math.abs(n0);
+      const rid2 = (rid * rid - 0.5) * 2.0;
 
-    rock.castShadow = true;
-    rock.receiveShadow = true;
-    rock.__isRock = true;
+      const n = lerp1(n0, rid2, ridgeBlend);
+      tmpV.addScaledVector(tmpN, n * noiseAmp);
 
-    scene.add(rock);
-    rocks.push(rock);
-    colliderObjects.push(rock);
+      pos.setXYZ(i, tmpV.x, tmpV.y, tmpV.z);
+    }
+
+    geo.computeVertexNormals();
+    geo.computeBoundingBox();
+
+    let midY = 0.0;
+    if (geo.boundingBox) {
+      midY = (geo.boundingBox.min.y + geo.boundingBox.max.y) * 0.5;
+    }
+
+    rockVariantGeos.push(geo);
+    rockVariantMidY.push(midY);
   }
 
-  colliderBounds = buildColliderBounds(colliderObjects);
-  rebuildAvatarCollisionGrid();
+  rockVariantKey = variantKey;
+
+  rockGeo = rockVariantGeos[0] || rockGeo;
+  rockGeoMidY = rockVariantMidY[0] || 0.0;
 }
+
+const rng = makeSeededRandom((params.rockSeed * 1000003) | 0);
+
+const count = clamp(params.rockCount | 0, 0, 800);
+const maxR = clamp(params.rockRadius, 1.0, HALF_GROUND - 1.0);
+const minR = clamp(params.rockInnerRadius, 0.0, Math.max(maxR - 1.0, 0.0));
+const minS = Math.max(0.01, params.rockMinScale);
+const maxS = Math.max(minS, params.rockMaxScale);
+const jitter = clamp(params.rockJitter, 0.0, 3.0);
+
+const flatten = clamp(params.rockFlatten, 0.0, 1.0);
+const aniso = clamp(params.rockAnisotropy, 0.0, 1.0);
+const embed = clamp(params.rockEmbed, 0.0, 2.0);
+const colorVar = clamp(params.rockColorVar, 0.0, 1.0);
+
+for (let i = 0; i < count; i++) {
+  const t = rng();
+  const rBase = Math.sqrt(t);
+  const r = minR + (maxR - minR) * rBase;
+
+  let ang = rng() * Math.PI * 2.0;
+  ang += (rng() - 0.5) * jitter * 0.4;
+
+  let x = Math.cos(ang) * r;
+  let z = Math.sin(ang) * r;
+
+  x += (rng() - 0.5) * jitter;
+  z += (rng() - 0.5) * jitter;
+
+  const vIdx = (variantCount <= 1) ? 0 : ((rng() * variantCount) | 0);
+  const geo = rockVariantGeos[vIdx] || rockGeo;
+  const midY = (rockVariantMidY[vIdx] != null) ? rockVariantMidY[vIdx] : rockGeoMidY;
+
+  let mat = rockMat;
+  if (colorVar > 0.0001) {
+    mat = rockMat.clone();
+    const k = 1.0 + (rng() - 0.5) * 2.0 * colorVar;
+    if (mat.color) mat.color.multiplyScalar(clamp(k, 0.2, 2.0));
+
+    mat.roughness = clamp(baseRough + (rng() - 0.5) * 2.0 * colorVar * 0.25, 0.0, 1.0);
+    mat.metalness = clamp(baseMetal + (rng() - 0.5) * 2.0 * colorVar * 0.20, 0.0, 1.0);
+  }
+
+  const rock = new THREE.Mesh(geo, mat);
+
+  const s = minS + (maxS - minS) * rng();
+  const sx = 1.0 + (rng() - 0.5) * 2.0 * aniso * 0.45;
+  const sz = 1.0 + (rng() - 0.5) * 2.0 * aniso * 0.45;
+  const sy = 1.0 - rng() * flatten;
+
+  rock.scale.set(s * sx, s * sy, s * sz);
+
+  const groundY = sampleSnowHeight(x, z);
+  rock.position.set(x, groundY - midY * (s * sy) - embed * s, z);
+
+  rock.rotation.set(
+    rng() * Math.PI * 2.0,
+    rng() * Math.PI * 2.0,
+    rng() * Math.PI * 2.0
+    );
+
+  rock.castShadow = true;
+  rock.receiveShadow = true;
+  rock.__isRock = true;
+
+  scene.add(rock);
+  rocks.push(rock);
+  colliderObjects.push(rock);
+}
+
+colliderBounds = buildColliderBounds(colliderObjects);
+rebuildAvatarCollisionGrid();
+}
+
 
 
 
@@ -12347,6 +12527,24 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const rockSeedCtrl = rocksFolder.add(params, "rockSeed", 0, 9999, 1).name("Seed");
         const rockJitterCtrl = rocksFolder.add(params, "rockJitter", 0.0, 2.0, 0.05).name("Randomness");
 
+        const rockDetailCtrl = rocksFolder.add(params, "rockDetail", 0, 16, 1).name("Detail");
+        const rockVarCountCtrl = rocksFolder.add(params, "rockVariantCount", 1, 24, 1).name("Variants");
+
+        const rockNoiseAmpCtrl = rocksFolder.add(params, "rockNoiseAmp", 0.0, 1.2, 0.01).name("Shape noise");
+        const rockNoiseFreqCtrl = rocksFolder.add(params, "rockNoiseFreq", 0.1, 8.0, 0.01).name("Noise scale");
+        const rockNoiseOctCtrl = rocksFolder.add(params, "rockNoiseOctaves", 1, 8, 1).name("Octaves");
+        const rockNoiseLacCtrl = rocksFolder.add(params, "rockNoiseLacunarity", 1.1, 3.5, 0.01).name("Lacunarity");
+        const rockNoiseGainCtrl = rocksFolder.add(params, "rockNoiseGain", 0.15, 0.95, 0.01).name("Gain");
+        const rockNoiseRidgeCtrl = rocksFolder.add(params, "rockNoiseRidge", 0.0, 1.0, 0.01).name("Ridged");
+
+        const rockFlattenCtrl = rocksFolder.add(params, "rockFlatten", 0.0, 1.0, 0.01).name("Flatten");
+        const rockAnisoCtrl = rocksFolder.add(params, "rockAnisotropy", 0.0, 1.0, 0.01).name("Anisotropy");
+        const rockEmbedCtrl = rocksFolder.add(params, "rockEmbed", 0.0, 1.2, 0.01).name("Embed");
+
+        const rockColorVarCtrl = rocksFolder.add(params, "rockColorVar", 0.0, 0.6, 0.01).name("Color var");
+        const rockRoughCtrl = rocksFolder.add(params, "rockRoughness", 0.0, 1.0, 0.01).name("Roughness");
+        const rockMetalCtrl = rocksFolder.add(params, "rockMetalness", 0.0, 1.0, 0.01).name("Metalness");
+
         const rockCtrls = [
           rockCountCtrl,
           rockRadiusCtrl,
@@ -12354,7 +12552,25 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           rockMinScaleCtrl,
           rockMaxScaleCtrl,
           rockSeedCtrl,
-          rockJitterCtrl
+          rockJitterCtrl,
+
+          rockDetailCtrl,
+          rockVarCountCtrl,
+
+          rockNoiseAmpCtrl,
+          rockNoiseFreqCtrl,
+          rockNoiseOctCtrl,
+          rockNoiseLacCtrl,
+          rockNoiseGainCtrl,
+          rockNoiseRidgeCtrl,
+
+          rockFlattenCtrl,
+          rockAnisoCtrl,
+          rockEmbedCtrl,
+
+          rockColorVarCtrl,
+          rockRoughCtrl,
+          rockMetalCtrl
         ];
 
         rockCtrls.forEach((ctrl) => {
@@ -12382,6 +12598,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         .name("Rebuild rocks");
 
         rocksFolder.close();
+
 
 
         const forest = gui.addFolder("Forest");
