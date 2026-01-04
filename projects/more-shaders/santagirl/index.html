@@ -242,25 +242,42 @@
     }
 
 
-    .edit-transform-mode-btn {
+
+
+
+    .edit-stack {
       position: fixed;
       right: 12px;
       top: 50%;
       transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 22;
+      pointer-events: auto;
+    }
+
+    @media (max-width: 540px) {
+      .edit-stack {
+        right: 10px;
+        top: calc(50% - 16px);
+      }
+    }
+
+    .edit-transform-mode-btn {
       width: 44px;
       height: 44px;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,0.24);
       background: rgba(0,0,0,0.55);
       color: #f5f5f5;
-      font-size: 14px;;
+      font-size: 14px;
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       display: none;
       align-items: center;
       justify-content: center;
-      z-index: 22;
       pointer-events: auto;
       cursor: pointer;
       backdrop-filter: blur(10px);
@@ -274,32 +291,14 @@
       background: rgba(0,0,0,0.95);
     }
 
-    #worldEditUndoBtn {
-      top: auto;
-      bottom: calc(128px + env(safe-area-inset-bottom));
-      transform: none;
+    .edit-transform-mode-btn[disabled] {
+      opacity: 0.35;
+      cursor: default;
     }
 
-    #worldEditRedoBtn {
-      top: auto;
-      bottom: calc(76px + env(safe-area-inset-bottom));
-      transform: none;
-    }
 
-    #worldEditTransformMode {
-      top: 50%;
-      transform: translateY(-50%);
-    }
 
-    #worldEditDuplicateBtn {
-      top: calc(50% + 52px);
-      transform: none;
-    }
 
-    #worldEditDeleteBtn {
-      top: calc(50% + 104px);
-      transform: none;
-    }
 
     .action-toast {
       position: fixed;
@@ -665,6 +664,286 @@
       display: none;
     }
 
+    .inventory-picker {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 70;
+      background: rgba(0, 0, 0, 0.62);
+      pointer-events: auto;
+      padding: 12px;
+    }
+
+    .inventory-picker.is-open {
+      display: flex;
+    }
+
+    @media (max-width: 540px) {
+      .inventory-picker {
+        align-items: flex-end;
+        padding: 0;
+      }
+    }
+
+    .inventory-picker__panel {
+      width: min(760px, calc(100vw - 24px));
+      max-height: min(720px, calc(100vh - 24px));
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: rgba(18, 18, 18, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 14px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+      padding: 14px 14px 12px 14px;
+      color: rgba(255, 255, 255, 0.95);
+    }
+
+    @media (max-width: 540px) {
+      .inventory-picker__panel {
+        width: 100vw;
+        max-height: calc(100vh - env(safe-area-inset-top));
+        border-radius: 16px 16px 0 0;
+        padding: 12px 12px calc(12px + env(safe-area-inset-bottom)) 12px;
+      }
+    }
+
+    .inventory-picker__list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      flex: 1 1 auto;
+      min-height: 0;
+      padding: 2px;
+      scrollbar-width: none;
+    }
+
+    .inventory-picker__list::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+
+    @media (min-width: 720px) {
+      .inventory-picker__list {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+
+    .inv-slot {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      min-height: 168px;
+    }
+
+    .inv-slot--empty {
+      background: rgba(255, 255, 255, 0.04);
+      border-style: dashed;
+    }
+
+    .inv-slot__empty {
+      margin: auto;
+      font-size: 12px;
+      opacity: 0.75;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .inv-item__thumb {
+      width: 100%;
+      height: 92px;
+      object-fit: cover;
+      background: rgba(255, 255, 255, 0.06);
+      display: block;
+    }
+
+    .inv-item__body {
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      color: white;
+    }
+
+    .inv-item__name {
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: 0.2px;
+      line-height: 1.2;
+    }
+
+    .inv-item__desc {
+      font-size: 12px;
+      opacity: 0.86;
+      line-height: 1.25;
+      min-height: 2.5em;
+    }
+
+
+
+
+
+
+
+
+
+    .avatar-picker {
+      display: grid;
+      grid-template-columns: 52px 1fr 52px;
+      gap: 12px;
+      align-items: center;
+      width: 100%;
+      margin-top: 6px;
+    }
+
+    .avatar-picker__nav {
+      height: 52px;
+      width: 52px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0.28);
+      color: #fff;
+      font-weight: 900;
+      font-size: 22px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .avatar-picker__nav:active {
+      transform: translateY(1px);
+    }
+
+    .avatar-picker__card {
+      position: relative;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0.18);
+      overflow: hidden;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: clamp(280px, 38vh, 420px);
+    }
+
+    .avatar-picker__thumb {
+      width: 100%;
+      height: clamp(190px, 26vh, 320px);
+      border-radius: 14px;
+      object-fit: contain;
+      object-position: center center;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.10);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .avatar-picker__meta {
+      display: grid;
+      gap: 4px;
+      align-content: start;
+      min-width: 0;
+      padding: 0 2px;
+    }
+
+    .avatar-picker__title {
+      font-weight: 900;
+      font-size: 18px;
+      line-height: 1.2;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .avatar-picker__desc {
+      font-size: 13px;
+      line-height: 1.25;
+      opacity: 0.88;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .avatar-picker__badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0.32);
+    }
+
+    .avatar-picker__actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .avatar-picker__select {
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0.28);
+      color: #fff;
+      padding: 12px 14px;
+      font-weight: 900;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .avatar-picker__select[disabled] {
+      opacity: 0.45;
+      cursor: default;
+    }
+
+    @media (max-width: 520px) {
+      .avatar-picker {
+        grid-template-columns: 44px 1fr 44px;
+        gap: 10px;
+      }
+
+      .avatar-picker__nav {
+        height: 44px;
+        width: 44px;
+        border-radius: 14px;
+        font-size: 20px;
+      }
+
+      .avatar-picker__card {
+        padding: 10px;
+        min-height: clamp(260px, 36vh, 380px);
+      }
+
+      .avatar-picker__thumb {
+        height: clamp(180px, 24vh, 280px);
+      }
+
+      .avatar-picker__title {
+        font-size: 16px;
+      }
+
+      .avatar-picker__desc {
+        font-size: 12px;
+      }
+    }
+
+
+
+
+
 
   </style>
 
@@ -689,23 +968,31 @@
 
   <div id="worldName" class="world-name" aria-hidden="true" aria-live="polite"></div>
 
+
   <div class="avatar-ui">
     <button id="avatarToggle" class="avatar-btn">Avatar: OFF</button>
     <button id="avatarViewToggle" class="avatar-btn">View: Behind</button>
     <button id="worldEditToggle" class="avatar-btn">Edit World: OFF</button>
     <button id="worldsBtn" class="avatar-btn">Worlds</button>
     <button id="saveWorldBtn" class="avatar-btn">Save World</button>
+    <button id="inventoryBtn" class="avatar-btn">Inventory</button>
     <button id="playerProfileBtn" class="avatar-btn">Profile</button>
   </div>
 
 
 
 
-  <button id="worldEditUndoBtn" class="edit-transform-mode-btn" type="button" aria-label="Undo edit action" aria-hidden="true">↶</button>
-  <button id="worldEditRedoBtn" class="edit-transform-mode-btn" type="button" aria-label="Redo edit action" aria-hidden="true">↷</button>
-  <button id="worldEditTransformMode" class="edit-transform-mode-btn" type="button" aria-label="Edit transform mode" aria-hidden="true">P</button>
-  <button id="worldEditDuplicateBtn" class="edit-transform-mode-btn" type="button" aria-label="Duplicate selected model" aria-hidden="true">D</button>
-  <button id="worldEditDeleteBtn" class="edit-transform-mode-btn" type="button" aria-label="Delete selected model" aria-hidden="true">X</button>
+
+  <div id="worldEditStack" class="edit-stack" aria-hidden="true">
+    <button id="worldEditUndoBtn" class="edit-transform-mode-btn" type="button" aria-label="Undo edit action" aria-hidden="true">↶</button>
+    <button id="worldEditRedoBtn" class="edit-transform-mode-btn" type="button" aria-label="Redo edit action" aria-hidden="true">↷</button>
+    <button id="worldEditTransformMode" class="edit-transform-mode-btn" type="button" aria-label="Edit transform mode" aria-hidden="true">P</button>
+    <button id="worldEditAddBtn" class="edit-transform-mode-btn" type="button" aria-label="Add object to world" aria-hidden="true">+</button>
+    <button id="worldEditDuplicateBtn" class="edit-transform-mode-btn" type="button" aria-label="Duplicate selected model" aria-hidden="true">D</button>
+    <button id="worldEditDeleteBtn" class="edit-transform-mode-btn" type="button" aria-label="Delete selected model" aria-hidden="true">X</button>
+  </div>
+
+
 
   <div id="actionToast" class="action-toast" aria-hidden="true"></div>
 
@@ -768,32 +1055,62 @@
         <button id="playerProfileClose" class="avatar-btn">Close</button>
       </div>
 
+
+
       <div class="profile-form">
         <div class="profile-field">
-          <label class="profile-label" for="playerProfileId">Player ID</label>
-          <div id="playerProfileId" class="profile-readonly" aria-live="polite"></div>
+          <label class="profile-label">Avatar</label>
+
+          <div class="avatar-picker">
+            <button class="avatar-picker__nav" id="avatarPrevBtn" type="button" aria-label="Previous avatar">‹</button>
+
+            <div class="avatar-picker__card">
+              <img class="avatar-picker__thumb" id="avatarPreviewImg" alt="" />
+              <div class="avatar-picker__meta">
+                <div class="avatar-picker__title" id="avatarPreviewName"></div>
+                <div class="avatar-picker__desc" id="avatarPreviewDesc"></div>
+              </div>
+              <div class="avatar-picker__badge" id="avatarPreviewCounter"></div>
+            </div>
+
+            <button class="avatar-picker__nav" id="avatarNextBtn" type="button" aria-label="Next avatar">›</button>
+          </div>
+
+          <div class="avatar-picker__actions">
+            <button class="avatar-picker__select" id="avatarSelectBtn" type="button">Select</button>
+          </div>
         </div>
 
         <div class="profile-field">
-          <label class="profile-label" for="playerNameInput">Name</label>
-          <input id="playerNameInput" class="profile-input" type="text" maxlength="32" autocomplete="nickname" />
+          <label class="profile-label">Player ID</label>
+          <div class="profile-readonly" id="playerProfileId"></div>
         </div>
 
         <div class="profile-field">
-          <label class="profile-label" for="playerColorInput">Color</label>
-          <input id="playerColorInput" class="profile-input profile-color" type="color" />
+          <label class="profile-label" for="playerNameInput">Display name</label>
+          <input class="profile-input" id="playerNameInput" type="text" maxlength="32" autocomplete="nickname" />
+        </div>
+
+        <div class="profile-field">
+          <label class="profile-label" for="playerColorInput">Accent color</label>
+          <input class="profile-input profile-input--color" id="playerColorInput" type="color" />
         </div>
 
         <div class="profile-field">
           <label class="profile-label" for="playerBioInput">About</label>
-          <textarea id="playerBioInput" class="profile-textarea" rows="3" maxlength="256"></textarea>
+          <textarea class="profile-textarea" id="playerBioInput" maxlength="256" rows="3" placeholder="Optional short bio"></textarea>
+          <div class="profile-help">Visible to other clients once networking is enabled.</div>
         </div>
 
         <div class="profile-actions">
-          <button id="playerProfileReset" class="avatar-btn" type="button">Reset</button>
-          <button id="playerProfileSave" class="avatar-btn" type="button">Save</button>
+          <button class="profile-btn profile-btn--secondary" id="playerProfileReset" type="button">Reset</button>
+          <button class="profile-btn profile-btn--primary" id="playerProfileSave" type="button">Save</button>
         </div>
       </div>
+
+
+
+
     </div>
   </div>
 
@@ -827,6 +1144,35 @@
     </div>
   </div>
 
+  <div id="inventoryPicker" class="inventory-picker" aria-hidden="true">
+    <div class="inventory-picker__panel" role="dialog" aria-modal="true" aria-label="Inventory">
+      <div class="kbd-help__header">
+        <div class="kbd-help__title">Inventory</div>
+        <button id="inventoryPickerClose" class="avatar-btn">Close</button>
+      </div>
+
+      <div id="inventoryPickerList" class="inventory-picker__list"></div>
+
+      <div class="kbd-help__note">Mock inventory (items + empty slots). Thumbnails are placeholders for now.</div>
+    </div>
+  </div>
+
+  <div id="worldObjectPicker" class="inventory-picker" aria-hidden="true">
+    <div class="inventory-picker__panel" role="dialog" aria-modal="true" aria-label="World objects">
+      <div class="kbd-help__header">
+        <div class="kbd-help__title">Objects</div>
+        <button id="worldObjectPickerClose" class="avatar-btn">Close</button>
+      </div>
+
+      <div id="worldObjectPickerList" class="inventory-picker__list"></div>
+
+      <div class="kbd-help__note">Available world objects (Edit World only). Click an item to add it in front of the avatar.</div>
+    </div>
+  </div>
+
+
+
+
 
   <div class="hud" style="visibility: hidden;">
     <b>Snowdrifts + gusts + sticking snow + presets</b><br />
@@ -849,6 +1195,59 @@
     // -------------------------------------------------------------------------
 
     const PLAYER_PROFILE_STORAGE_KEY = "snow:playerProfile:v1";
+
+
+    const DEFAULT_AVATAR_ID = "female/crocs_anims";
+
+    /* Static avatar catalog for the Profile carousel (thumb + GLB share the same basename). */
+    const AVATAR_CATALOG = [
+      { id: "female/blondie-anims", name: "Blondie", desc: "Female avatar.", url: "models/ready/female/blondie-anims.glb", thumb: "models/ready/female/blondie-anims.png" },
+      { id: "female/camouflage1", name: "Camouflage", desc: "Female avatar.", url: "models/ready/female/camouflage1.glb", thumb: "models/ready/female/camouflage1.png" },
+      { id: "female/computer", name: "Computer", desc: "Female avatar.", url: "models/ready/female/computer.glb", thumb: "models/ready/female/computer.png" },
+      { id: "female/crocs_anims", name: "Crocs", desc: "Female avatar.", url: "models/ready/female/crocs_anims.glb", thumb: "models/ready/female/crocs_anims.png" },
+      { id: "female/elizabeth", name: "Elizabeth", desc: "Female avatar.", url: "models/ready/female/elizabeth.glb", thumb: "models/ready/female/elizabeth.png" },
+      { id: "female/pinky1-anims", name: "Pinky", desc: "Female avatar.", url: "models/ready/female/pinky1-anims.glb", thumb: "models/ready/female/pinky1-anims.png" },
+      { id: "female/redsa1", name: "Redsa", desc: "Female avatar.", url: "models/ready/female/redsa1.glb", thumb: "models/ready/female/redsa1.png" },
+      { id: "female/santa5", name: "Santa 5", desc: "Holiday avatar.", url: "models/ready/female/santa5.glb", thumb: "models/ready/female/santa5.png" },
+      { id: "female/santa6", name: "Santa 6", desc: "Holiday avatar.", url: "models/ready/female/santa6.glb", thumb: "models/ready/female/santa6.png" },
+      { id: "female/santagirl", name: "Santa Girl", desc: "Holiday avatar.", url: "models/ready/female/santagirl.glb", thumb: "models/ready/female/santagirl.png" },
+      { id: "female/santagirl2", name: "Santa Girl 2", desc: "Holiday avatar.", url: "models/ready/female/santagirl2.glb", thumb: "models/ready/female/santagirl2.png" },
+      { id: "female/santagirl21-eu", name: "Santa Girl EU", desc: "Holiday avatar.", url: "models/ready/female/santagirl21-eu.glb", thumb: "models/ready/female/santagirl21-eu.png" },
+      { id: "female/santagirl3", name: "Santa Girl 3", desc: "Holiday avatar.", url: "models/ready/female/santagirl3.glb", thumb: "models/ready/female/santagirl3.png" },
+      { id: "female/santax1", name: "Santa X1", desc: "Holiday avatar.", url: "models/ready/female/santax1.glb", thumb: "models/ready/female/santax1.png" },
+      { id: "female/santax2-a2", name: "Santa X2", desc: "Holiday avatar.", url: "models/ready/female/santax2-a2.glb", thumb: "models/ready/female/santax2-a2.png" },
+      { id: "female/sanya-a", name: "Sanya", desc: "Female avatar.", url: "models/ready/female/sanya-a.glb", thumb: "models/ready/female/sanya-a.png" },
+      { id: "female/she/she1_anims-anims", name: "She 1", desc: "Female avatar.", url: "models/ready/female/she/she1_anims-anims.glb", thumb: "models/ready/female/she/she1_anims-anims.png" },
+      { id: "female/sophie", name: "Sophie", desc: "Female avatar.", url: "models/ready/female/sophie.glb", thumb: "models/ready/female/sophie.png" },
+
+      { id: "male/josh", name: "Josh", desc: "Male avatar.", url: "models/ready/male/josh.glb", thumb: "models/ready/male/josh.png" },
+      { id: "male/lewis", name: "Lewis", desc: "Male avatar.", url: "models/ready/male/lewis.glb", thumb: "models/ready/male/lewis.png" },
+      { id: "male/tata/tata1-anims", name: "Tata 1", desc: "Male avatar.", url: "models/ready/male/tata/tata1-anims.glb", thumb: "models/ready/male/tata/tata1-anims.png" },
+      { id: "male/tata/tata2-anims", name: "Tata 2", desc: "Male avatar.", url: "models/ready/male/tata/tata2-anims.glb", thumb: "models/ready/male/tata/tata2-anims.png" },
+      { id: "male/tata/tata4_1-anims", name: "Tata 4.1", desc: "Male avatar.", url: "models/ready/male/tata/tata4_1-anims.glb", thumb: "models/ready/male/tata/tata4_1-anims.png" },
+      { id: "male/tata/tata4_1-rework", name: "Tata 4.1 Rework", desc: "Male avatar.", url: "models/ready/male/tata/tata4_1-rework.glb", thumb: "models/ready/male/tata/tata4_1-rework.png" },
+      { id: "male/tata/tata5_anim-anims", name: "Tata 5", desc: "Male avatar.", url: "models/ready/male/tata/tata5_anim-anims.glb", thumb: "models/ready/male/tata/tata5_anim-anims.png" }
+    ];
+
+    /* Returns catalog entry by id. */
+    function getAvatarById(id) {
+      const key = String(id ?? "").trim();
+      for (let i = 0; i < AVATAR_CATALOG.length; i++) {
+        if (AVATAR_CATALOG[i].id === key) return AVATAR_CATALOG[i];
+      }
+      return null;
+    }
+
+    /* Ensures avatarId always resolves to a catalog item. */
+    function sanitizeAvatarId(id, fallback = DEFAULT_AVATAR_ID) {
+      const key = String(id ?? "").trim();
+      if (key && getAvatarById(key)) return key;
+      const fb = String(fallback ?? "").trim();
+      if (fb && getAvatarById(fb)) return fb;
+      return AVATAR_CATALOG.length ? AVATAR_CATALOG[0].id : DEFAULT_AVATAR_ID;
+    }
+
+
 
     /**
      * Creates a stable per-player id for future multiuser transport.
@@ -884,6 +1283,7 @@
         id,
         name: "Anonymous",
         color: "#22c55e",
+        avatarId: sanitizeAvatarId(DEFAULT_AVATAR_ID, DEFAULT_AVATAR_ID),
         meta: { about: "" }
       };
     }
@@ -903,6 +1303,7 @@
         p.id = typeof json.id === "string" && json.id.trim() ? json.id.trim() : p.id;
         p.name = sanitizePlayerName(json.name);
         p.color = typeof json.color === "string" && /^#([0-9a-fA-F]{6})$/.test(json.color) ? json.color : p.color;
+        p.avatarId = sanitizeAvatarId(json.avatarId, p.avatarId);
 
         if (json.meta && typeof json.meta === "object") {
           p.meta.about = typeof json.meta.about === "string" ? json.meta.about.slice(0, 256) : "";
@@ -922,16 +1323,22 @@
       } catch {}
     }
 
+
+
+
+
+
+
     let playerProfile = loadPlayerProfile();
 
-    /**
-     * Updates the local player profile and optionally persists it.
-     */
+    /* Updates local player profile (validated), optionally persists, and applies it onto the avatar userData. */
     function setPlayerProfile(next, { persist = true } = {}) {
       const base = createDefaultPlayerProfile();
+
       base.id = typeof next?.id === "string" && next.id.trim() ? next.id.trim() : playerProfile.id;
       base.name = sanitizePlayerName(next?.name);
       base.color = typeof next?.color === "string" && /^#([0-9a-fA-F]{6})$/.test(next.color) ? next.color : playerProfile.color;
+      base.avatarId = sanitizeAvatarId(next?.avatarId, playerProfile.avatarId);
 
       if (next?.meta && typeof next.meta === "object") {
         base.meta.about = typeof next.meta.about === "string" ? next.meta.about.slice(0, 256) : "";
@@ -955,14 +1362,20 @@
         id: playerProfile.id,
         name: playerProfile.name,
         color: playerProfile.color,
+        avatarId: playerProfile.avatarId,
         meta: { about: playerProfile.meta.about }
       };
     }
 
-    /**
-     * Builds a compact state packet suitable for sending over a websocket.
-     * Not transmitted by default; this is a stable schema for future multiuser work.
-     */
+
+
+
+
+
+/**
+ * Builds a compact state packet suitable for sending over a websocket.
+ * Not transmitted by default; this is a stable schema for future multiuser work.
+ */
     function buildLocalPlayerNetPacket() {
       const pose = avatar
       ? {
@@ -987,13 +1400,13 @@
         profile: {
           name: playerProfile.name,
           color: playerProfile.color,
+          avatarId: playerProfile.avatarId,
           meta: { about: playerProfile.meta.about }
         },
         pose,
         driving
       };
     }
-
 
 
 
@@ -1216,6 +1629,9 @@
     // -------------------------------------------------------------------------
 
     const DEFAULTS = {
+
+      avatarId: DEFAULT_AVATAR_ID,
+
 
   // Performance
       shadowsEnabled: true,
@@ -1859,7 +2275,7 @@
     }
 
     /**
-     * Enables/disables world editor mode. When disabled, selection is cleared.
+     * Enables/disables world editor mode. When disabled, selection is cleared and edit-only overlays close.
      */
     function setWorldEditEnabled(enabled) {
       const next = !!enabled;
@@ -1869,6 +2285,7 @@
 
       if (!next) {
         clearWorldEditSelection();
+        if (typeof setWorldObjectPickerOpen === "function") setWorldObjectPickerOpen(false);
       } else {
         if (transformControlsHelper) {
           transformControlsHelper.visible = !!worldEditState.selected;
@@ -1877,6 +2294,7 @@
 
       updateAvatarButtons();
     }
+
 
     // World editor history + duplicate/delete + undo/redo
     // -------------------------------------------------------------------------
@@ -2402,7 +2820,7 @@
     const MODEL_CONFIG = [
 
       {
-        name: "model1",
+        name: "ginger bread",
         url: "models/gingerbread_man-c.glb",
         instances: [
           {
@@ -2430,6 +2848,21 @@
           }
         ]
       },
+
+      {
+        name: "vending1",
+        url: "models/vending/vending.glb",
+        instances: [
+          {
+            id: "vending1_center",
+            position: [3, 0, -5],
+            rotation: [0, 0, 0],
+            scale: 1.0,
+            stick: false,
+            collide: false
+          }
+        ]
+      },  
 
       {
         name: "box1",
@@ -2662,7 +3095,7 @@
 
                 wetWidth: 0.05,
                 wetLength: 1.04,
-                
+
                 trackHalfWidth: 1.57,
 
                 airRollResponse: 1.7,
@@ -4006,7 +4439,25 @@
 // Avatar character setup and control
 // -------------------------------------------------------------------------
 
-        const AVATAR_GLTF_URL = "models/ready/tata/tata5_anim-anims.glb";
+    /* Resolves selected avatar from params (saved with worlds + last settings). */
+        function getSelectedAvatarId() {
+          return sanitizeAvatarId(params.avatarId, DEFAULTS.avatarId);
+        }
+
+        function getSelectedAvatarUrl() {
+          const id = getSelectedAvatarId();
+          const entry = getAvatarById(id);
+          return entry ? entry.url : "";
+        }
+
+        const avatarSwapPos = new THREE.Vector3();
+        const avatarSwapUpAxis = new THREE.Vector3(0, 1, 0);
+        let avatarSwapYaw = 0;
+        const avatarSwapQuat = new THREE.Quaternion();
+        const avatarSwapScale = new THREE.Vector3();
+        let avatarSwapToken = 0;
+
+
 
         let avatar = null;
         let avatarMixer = null;
@@ -4676,63 +5127,121 @@
 
 
 
-    function loadAvatar() {
-      gltfLoader.load(
-        AVATAR_GLTF_URL,
-        (gltf) => {
-          avatar = gltf.scene;
+/**
+ * Loads (or swaps) the current avatar GLB, preserving transform/visibility.
+ * Avatar selection is driven by params.avatarId so it is saveable/loadable with worlds.
+ */
+    function loadAvatar(url = getSelectedAvatarUrl()) {
+      const nextUrl = String(url ?? "").trim();
+      if (!nextUrl || !gltfLoader || !scene) return;
 
-          avatar.traverse((obj) => {
+      if (avatar && avatar.userData && avatar.userData.avatarUrl === nextUrl) return;
+
+      const prevAvatar = avatar || null;
+      const keepVisible = prevAvatar ? !!prevAvatar.visible : true;
+
+      
+
+      if (prevAvatar) {
+        avatarSwapPos.copy(prevAvatar.position);
+
+        // Preserve only yaw so different avatar rigs/orientations don't inherit pitch/roll artifacts.
+        avatarSwapYaw = prevAvatar.rotation.y;
+        avatarSwapQuat.setFromAxisAngle(avatarSwapUpAxis, avatarSwapYaw);
+
+        avatarSwapScale.copy(prevAvatar.scale);
+      } else {
+        avatarSwapPos.set(0, 0, 0);
+
+        avatarSwapYaw = 0;
+        avatarSwapQuat.setFromAxisAngle(avatarSwapUpAxis, 0);
+
+        avatarSwapScale.set(1, 1, 1);
+      }
+
+
+      const prevActionName = avatarCurrentActionName || "idle";
+      const token = ++avatarSwapToken;
+
+      gltfLoader.load(
+        nextUrl,
+        (gltf) => {
+          if (token !== avatarSwapToken) return;
+
+          const nextAvatar = gltf.scene;
+
+          nextAvatar.userData.avatarUrl = nextUrl;
+
+          nextAvatar.traverse((obj) => {
             if (!obj.isMesh) return;
             obj.castShadow = true;
             obj.receiveShadow = true;
           });
 
-          avatar.position.set(0, 0, 0);
-          scene.add(avatar);
+          nextAvatar.position.copy(avatarSwapPos);
+          nextAvatar.quaternion.copy(avatarSwapQuat);
+          nextAvatar.scale.copy(avatarSwapScale);
+          nextAvatar.visible = keepVisible;
 
-          if (!gltf.animations || gltf.animations.length === 0) return;
+          scene.add(nextAvatar);
 
-          avatarMixer = new THREE.AnimationMixer(avatar);
+          avatar = nextAvatar;
 
+          if (avatarMixer) {
+            try { avatarMixer.stopAllAction(); } catch {}
+          }
+
+          avatarMixer = null;
           for (const k in avatarActions) delete avatarActions[k];
             avatarCurrentAction = null;
           avatarCurrentActionName = "";
 
-          for (let i = 0; i < gltf.animations.length; i++) {
-            const clip = gltf.animations[i];
-            const key = String(clip.name || `clip_${i}`).toLowerCase();
-            avatarActions[key] = avatarMixer.clipAction(clip);
-          }
+          if (gltf.animations && gltf.animations.length) {
+            avatarMixer = new THREE.AnimationMixer(avatar);
 
-          function getAction(nameFallbacks, defaultKey) {
-            for (let i = 0; i < nameFallbacks.length; i++) {
-              const needle = String(nameFallbacks[i]).toLowerCase();
-              const found = Object.entries(avatarActions).find(([n]) => n.includes(needle));
-              if (found) return found[1];
+            for (let i = 0; i < gltf.animations.length; i++) {
+              const clip = gltf.animations[i];
+              const key = String(clip.name || `clip_${i}`).toLowerCase();
+              avatarActions[key] = avatarMixer.clipAction(clip);
             }
-            return defaultKey != null ? (avatarActions[defaultKey] || null) : null;
+
+            function getAction(nameFallbacks, defaultKey) {
+              for (let i = 0; i < nameFallbacks.length; i++) {
+                const needle = String(nameFallbacks[i]).toLowerCase();
+                const found = Object.entries(avatarActions).find(([n]) => n.includes(needle));
+                if (found) return found[1];
+              }
+              return defaultKey != null ? (avatarActions[defaultKey] || null) : null;
+            }
+
+            const keys = Object.keys(avatarActions);
+            const defaultKey = keys.length ? keys[0] : null;
+
+            const idleAction = getAction(["idle", "stand"], defaultKey);
+            const walkAction = getAction(["walk"], defaultKey);
+            const runAction = getAction(["run", "jog"], defaultKey);
+            const sitAction = getAction(["sit", "seat", "drive"], defaultKey);
+            const jumpAction = getAction(["jump"], null);
+
+            if (idleAction) avatarActions["idle"] = idleAction;
+            if (walkAction) avatarActions["walk"] = walkAction;
+            if (runAction) avatarActions["run"] = runAction;
+            if (sitAction) avatarActions["sit"] = sitAction;
+            if (jumpAction) avatarActions["jump"] = jumpAction;
+
+            avatarMixer.stopAllAction();
+
+            if (avatarActions[prevActionName]) {
+              playAvatarAction(prevActionName);
+            } else if (avatarActions["idle"]) {
+              playAvatarAction("idle");
+            }
           }
 
-          const keys = Object.keys(avatarActions);
-          const defaultKey = keys.length ? keys[0] : null;
+          applyLocalPlayerProfileToAvatar();
 
-          const idleAction = getAction(["idle", "stand"], defaultKey);
-          const walkAction = getAction(["walk"], defaultKey);
-          const runAction = getAction(["run", "jog"], defaultKey);
-          const sitAction = getAction(["sit", "seat", "drive"], defaultKey);
-
-          const jumpAction = getAction(["jump"], null);
-
-          if (idleAction) avatarActions["idle"] = idleAction;
-          if (walkAction) avatarActions["walk"] = walkAction;
-          if (runAction) avatarActions["run"] = runAction;
-          if (sitAction) avatarActions["sit"] = sitAction;
-          if (jumpAction) avatarActions["jump"] = jumpAction;
-
-          if (avatarActions["idle"]) {
-            avatarMixer.stopAllAction();
-            playAvatarAction("idle");
+          if (prevAvatar && prevAvatar.parent) {
+            prevAvatar.parent.remove(prevAvatar);
           }
         },
         undefined,
@@ -5463,18 +5972,17 @@
     }
 
 
-
-
-    /**
-     * Wires UI controls (avatar, edit world, transform buttons, vehicle prompt, keyboard help, joystick).
-     * Keeps all handlers in one place and ensures mobile joystick state is correctly initialized.
-     */
+/**
+ * Wires UI controls (avatar, edit world, transform buttons, vehicle prompt, keyboard help, joystick).
+ * Keeps all handlers in one place and ensures mobile joystick state is correctly initialized.
+ */
     function setupAvatarUI() {
       const avatarToggleBtn = document.getElementById("avatarToggle");
       const avatarViewToggleBtn = document.getElementById("avatarViewToggle");
       const worldEditToggleBtn = document.getElementById("worldEditToggle");
       const worldsBtn = document.getElementById("worldsBtn");
       const saveWorldBtn = document.getElementById("saveWorldBtn");
+      const inventoryBtn = document.getElementById("inventoryBtn");
       const playerProfileBtn = document.getElementById("playerProfileBtn");
 
       const worldEditUndoBtn = document.getElementById("worldEditUndoBtn");
@@ -5482,6 +5990,7 @@
       const worldEditTransformModeBtn = document.getElementById("worldEditTransformMode");
       const worldEditDuplicateBtn = document.getElementById("worldEditDuplicateBtn");
       const worldEditDeleteBtn = document.getElementById("worldEditDeleteBtn");
+      const worldEditAddBtn = document.getElementById("worldEditAddBtn");
 
       const joystickEl = document.getElementById("joystick");
 
@@ -5496,6 +6005,8 @@
       keyboardHelpCloseBtn = document.getElementById("keyboardHelpClose");
 
       ensurePlayerProfileOverlayWired();
+      if (typeof ensureInventoryPickerOverlayWired === "function") ensureInventoryPickerOverlayWired();
+      if (typeof ensureWorldObjectPickerOverlayWired === "function") ensureWorldObjectPickerOverlayWired();
 
       if (keyboardHelpCloseBtn) {
         keyboardHelpCloseBtn.addEventListener("click", (event) => {
@@ -5527,10 +6038,27 @@
         });
       }
 
+      if (inventoryBtn) {
+        inventoryBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          if (inventoryPickerState && inventoryPickerState.open) setInventoryPickerOpen(false);
+          else openInventoryPickerOverlay();
+        });
+      }
+
       if (playerProfileBtn) {
         playerProfileBtn.addEventListener("click", (event) => {
           event.preventDefault();
           setPlayerProfileOpen(!playerProfileState.open);
+        });
+      }
+
+      if (worldEditAddBtn) {
+        worldEditAddBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          if (!worldEditState.enabled) return;
+          if (worldObjectPickerState && worldObjectPickerState.open) setWorldObjectPickerOpen(false);
+          else openWorldObjectPickerOverlay();
         });
       }
 
@@ -5679,13 +6207,9 @@
 
 
 
-
-
-
-
-    /**
-     * Refreshes UI button labels/visibility/disabled state based on avatar + world editor state.
-     */
+/**
+ * Refreshes UI button labels/visibility/disabled state based on avatar + world editor state.
+ */
     function updateAvatarButtons() {
       const toggle = document.getElementById("avatarToggle");
       const view = document.getElementById("avatarViewToggle");
@@ -5694,6 +6218,7 @@
       const undoBtn = document.getElementById("worldEditUndoBtn");
       const redoBtn = document.getElementById("worldEditRedoBtn");
       const modeBtn = document.getElementById("worldEditTransformMode");
+      const addBtn = document.getElementById("worldEditAddBtn");
       const dupBtn = document.getElementById("worldEditDuplicateBtn");
       const delBtn = document.getElementById("worldEditDeleteBtn");
 
@@ -5720,6 +6245,7 @@
       setVisible(undoBtn);
       setVisible(redoBtn);
       setVisible(modeBtn);
+      setVisible(addBtn);
       setVisible(dupBtn);
       setVisible(delBtn);
 
@@ -5742,7 +6268,6 @@
         modeBtn.textContent = mode === "translate" ? "P" : mode === "rotate" ? "R" : "S";
       }
     }
-
 
 
 
@@ -9591,6 +10116,11 @@ function applySettings(
   const prevGrassCount = params.grassCount | 0;
   const prevGrassSeed = params.grassSeed | 0;
 
+
+  const prevAvatarId = params.avatarId;
+
+
+
   persistBlocked = persistBlocked || !persist;
 
   try {
@@ -9607,6 +10137,9 @@ function applySettings(
     params.dtMax = clamp(params.dtMax, 0.005, 0.25);
 
     params.pixelRatio = clamp(params.pixelRatio, 0.5, 2.5);
+
+    params.avatarId = sanitizeAvatarId(params.avatarId, DEFAULTS.avatarId);
+
 
     // performance (shadows)
     params.shadowsEnabled = !!params.shadowsEnabled;
@@ -9836,6 +10369,13 @@ function applySettings(
         applyGrassParamsToUniforms();
       }
     }
+
+    if (params.avatarId !== prevAvatarId) {
+      loadAvatar();
+      if (playerProfileState && playerProfileState.open) {
+        syncProfileAvatarPickerFromCurrent();
+      }
+    }    
 
     applySurfaceColorsFromParams();
 
@@ -12943,7 +13483,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         dustFolder.close();
 
 
-        
+
         // Rain GUI
 
         const rainFolder = gui.addFolder("Rain");
@@ -13311,7 +13851,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         trackController(
           flakes.add(params, "flakeSizeJitter", 0.0, 0.9, 0.01).name("Size jitter")
           );
-        
+
         //flakes.open();
 
         const drifts = gui.addFolder("Drifts");
@@ -13927,9 +14467,523 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       let playerColorInputEl = null;
       let playerBioInputEl = null;
 
-      /**
-       * Shows or hides the player profile overlay and keeps ARIA state in sync.
-       */
+      let avatarPrevBtnEl = null;
+      let avatarNextBtnEl = null;
+      let avatarSelectBtnEl = null;
+      let avatarPreviewImgEl = null;
+      let avatarPreviewNameEl = null;
+      let avatarPreviewDescEl = null;
+      let avatarPreviewCounterEl = null;
+
+      const profileAvatarPicker = { index: 0, selectedId: DEFAULT_AVATAR_ID };
+
+
+
+      const INVENTORY_STORAGE_KEY = "snow:playerInventory:v1";
+      const inventoryPickerState = { open: false, wired: false, slots: 16 };
+
+      let inventoryPickerEl = null;
+      let inventoryPickerCloseBtn = null;
+      let inventoryPickerListEl = null;
+
+      const worldObjectPickerState = { open: false, wired: false };
+
+      let worldObjectPickerEl = null;
+      let worldObjectPickerCloseBtn = null;
+      let worldObjectPickerListEl = null;
+
+
+      const DEFAULT_ITEM_THUMB = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">' +
+        '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">' +
+        '<stop offset="0" stop-color="rgba(255,255,255,0.10)"/>' +
+        '<stop offset="1" stop-color="rgba(255,255,255,0.02)"/>' +
+        '</linearGradient></defs>' +
+        '<rect x="16" y="16" width="224" height="224" rx="28" fill="url(#g)" stroke="rgba(255,255,255,0.18)" stroke-width="6"/>' +
+        '<path d="M78 164l34-44 28 34 18-22 42 54H78z" fill="rgba(255,255,255,0.20)"/>' +
+        '<circle cx="104" cy="92" r="16" fill="rgba(255,255,255,0.20)"/>' +
+        '</svg>'
+        );
+
+      /* Escapes text for safe HTML rendering inside the inventory cards. */
+      function escapeInventoryText(value) {
+        return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+      }
+
+      /* Provides a starter inventory payload for a new client (mock items). */
+      function getDefaultPlayerInventory() {
+        return {
+          slots: inventoryPickerState.slots,
+          items: [
+            {
+              id: "matches",
+              name: "Matches",
+              desc: "Light campfires and torches.",
+              thumb: DEFAULT_ITEM_THUMB
+            },
+            {
+              id: "compass",
+              name: "Compass",
+              desc: "Simple navigation aid.",
+              thumb: DEFAULT_ITEM_THUMB
+            },
+            {
+              id: "medkit",
+              name: "Medkit",
+              desc: "Restores health (mock).",
+              thumb: DEFAULT_ITEM_THUMB
+            }
+          ]
+        };
+      }
+
+      /* Loads inventory from localStorage and normalizes it to a safe schema. */
+      function loadPlayerInventory() {
+        try {
+          const raw = localStorage.getItem(INVENTORY_STORAGE_KEY);
+          if (!raw) return getDefaultPlayerInventory();
+          const parsed = JSON.parse(raw);
+          return normalizePlayerInventory(parsed);
+        } catch (_) {
+          return getDefaultPlayerInventory();
+        }
+      }
+
+      /* Persists inventory to localStorage (single-writer; used by future pickup/use flows). */
+      function savePlayerInventory(inv) {
+        const normalized = normalizePlayerInventory(inv);
+        localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(normalized));
+      }
+
+      /* Ensures inventory payload stays valid and forward-compatible. */
+      function normalizePlayerInventory(inv) {
+        const out = { slots: inventoryPickerState.slots, items: [] };
+
+        if (inv && Number.isFinite(inv.slots)) {
+          out.slots = Math.max(1, Math.min(64, Math.floor(inv.slots)));
+        }
+
+        if (inv && Array.isArray(inv.items)) {
+          for (const it of inv.items) {
+            if (!it || typeof it !== "object") continue;
+            const id = typeof it.id === "string" ? it.id.trim() : "";
+            const name = typeof it.name === "string" ? it.name.trim() : "";
+            if (!id || !name) continue;
+
+            out.items.push({
+              id,
+              name,
+              desc: typeof it.desc === "string" ? it.desc : "",
+              thumb: typeof it.thumb === "string" && it.thumb ? it.thumb : DEFAULT_ITEM_THUMB,
+              slot: Number.isFinite(it.slot) ? Math.floor(it.slot) : undefined
+            });
+          }
+        }
+
+        return out;
+      }
+
+      /* Wires the inventory overlay UI once and keeps open/close state consistent. */
+      function ensureInventoryPickerOverlayWired() {
+        if (inventoryPickerState.wired) return;
+
+        inventoryPickerEl = document.getElementById("inventoryPicker");
+        inventoryPickerCloseBtn = document.getElementById("inventoryPickerClose");
+        inventoryPickerListEl = document.getElementById("inventoryPickerList");
+
+        if (!inventoryPickerEl || !inventoryPickerListEl) {
+          inventoryPickerState.wired = true;
+          return;
+        }
+
+        if (inventoryPickerCloseBtn) {
+          inventoryPickerCloseBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            setInventoryPickerOpen(false);
+          });
+        }
+
+        inventoryPickerEl.addEventListener("click", (event) => {
+          if (event.target === inventoryPickerEl) setInventoryPickerOpen(false);
+        });
+
+        setInventoryPickerOpen(inventoryPickerState.open);
+        inventoryPickerState.wired = true;
+      }
+
+      /* Opens/closes inventory overlay and triggers a render when shown. */
+      function setInventoryPickerOpen(open) {
+        inventoryPickerState.open = !!open;
+
+        if (!inventoryPickerEl) return;
+
+        inventoryPickerEl.classList.toggle("is-open", inventoryPickerState.open);
+        inventoryPickerEl.setAttribute("aria-hidden", inventoryPickerState.open ? "false" : "true");
+
+        if (inventoryPickerState.open) renderInventoryPickerList();
+      }
+
+      /* Opens inventory overlay and closes other overlays that compete for input focus. */
+      function openInventoryPickerOverlay() {
+        ensureInventoryPickerOverlayWired();
+        if (typeof setWorldPickerOpen === "function") setWorldPickerOpen(false);
+        if (typeof setPlayerProfileOpen === "function") setPlayerProfileOpen(false);
+        if (typeof setKeyboardHelpOpen === "function") setKeyboardHelpOpen(false);
+        setInventoryPickerOpen(true);
+      }
+
+      /* Renders inventory slots (filled + empty placeholders). */
+      function renderInventoryPickerList() {
+        if (!inventoryPickerListEl) return;
+
+        const inv = loadPlayerInventory();
+        const slots = new Array(inv.slots).fill(null);
+
+        for (const it of inv.items) {
+          const desired = Number.isFinite(it.slot) ? it.slot : -1;
+          if (desired >= 0 && desired < slots.length && !slots[desired]) {
+            slots[desired] = it;
+            continue;
+          }
+
+          const firstEmpty = slots.findIndex((v) => !v);
+          if (firstEmpty >= 0) slots[firstEmpty] = it;
+        }
+
+        inventoryPickerListEl.innerHTML = slots
+        .map((it) => {
+          if (!it) {
+            return (
+              '<div class="inv-slot inv-slot--empty">' +
+              '<div class="inv-slot__empty">Empty</div>' +
+              "</div>"
+              );
+          }
+
+          const name = escapeInventoryText(it.name);
+          const desc = escapeInventoryText(it.desc);
+          const thumb = escapeInventoryText(it.thumb || DEFAULT_ITEM_THUMB);
+
+          return (
+            '<div class="inv-slot inv-slot--filled" data-item-id="' + escapeInventoryText(it.id) + '">' +
+            '<img class="inv-item__thumb" alt="" loading="lazy" decoding="async" src="' + thumb + '"/>' +
+            '<div class="inv-item__body">' +
+            '<div class="inv-item__name">' + name + "</div>" +
+            '<div class="inv-item__desc">' + (desc || "&nbsp;") + "</div>" +
+            "</div>" +
+            "</div>"
+            );
+        })
+        .join("");
+      }
+
+
+
+
+      /* Builds the catalog shown in the edit-only object picker (uses currently available templates). */
+      function getWorldObjectCatalog() {
+        const base = worldModelsConfig || MODEL_CONFIG;
+        const out = [];
+
+        for (const entry of base) {
+          if (!entry || !entry.name) continue;
+
+          const name = String(entry.name);
+          const template = modelTemplates[name] || null;
+          if (!template) continue;
+
+          out.push({
+            name,
+            desc: "Add to scene",
+            thumb: DEFAULT_ITEM_THUMB
+          });
+        }
+
+        return out;
+      }
+
+      /* Wires the world-object picker overlay once and keeps open/close state consistent. */
+      function ensureWorldObjectPickerOverlayWired() {
+        if (worldObjectPickerState.wired) return;
+
+        worldObjectPickerEl = document.getElementById("worldObjectPicker");
+        worldObjectPickerCloseBtn = document.getElementById("worldObjectPickerClose");
+        worldObjectPickerListEl = document.getElementById("worldObjectPickerList");
+
+        if (!worldObjectPickerEl || !worldObjectPickerListEl) {
+          worldObjectPickerState.wired = true;
+          return;
+        }
+
+        if (worldObjectPickerCloseBtn) {
+          worldObjectPickerCloseBtn.addEventListener("click", (event) => {
+            event.preventDefault();
+            setWorldObjectPickerOpen(false);
+          });
+        }
+
+        worldObjectPickerEl.addEventListener("click", (event) => {
+          if (event.target === worldObjectPickerEl) setWorldObjectPickerOpen(false);
+        });
+
+        worldObjectPickerListEl.addEventListener("click", (event) => {
+          const btn = event.target && event.target.closest ? event.target.closest("[data-world-object]") : null;
+          if (!btn) return;
+
+          event.preventDefault();
+
+          const modelName = btn.getAttribute("data-world-object") || "";
+          if (!modelName) return;
+
+          addWorldObjectToScene(modelName);
+          setWorldObjectPickerOpen(false);
+        });
+
+        setWorldObjectPickerOpen(worldObjectPickerState.open);
+        worldObjectPickerState.wired = true;
+      }
+
+      /* Opens/closes object picker overlay and triggers a render when shown. */
+      function setWorldObjectPickerOpen(open) {
+        worldObjectPickerState.open = !!open;
+
+        if (!worldObjectPickerEl) return;
+
+        worldObjectPickerEl.classList.toggle("is-open", worldObjectPickerState.open);
+        worldObjectPickerEl.setAttribute("aria-hidden", worldObjectPickerState.open ? "false" : "true");
+
+        if (worldObjectPickerState.open) renderWorldObjectPickerList();
+      }
+
+      /* Opens object picker overlay (Edit World only) and closes other overlays that compete for input focus. */
+      function openWorldObjectPickerOverlay() {
+        if (!worldEditState.enabled) return;
+
+        ensureWorldObjectPickerOverlayWired();
+
+        if (typeof setWorldPickerOpen === "function") setWorldPickerOpen(false);
+        if (typeof setPlayerProfileOpen === "function") setPlayerProfileOpen(false);
+        if (typeof setKeyboardHelpOpen === "function") setKeyboardHelpOpen(false);
+        if (typeof setInventoryPickerOpen === "function") setInventoryPickerOpen(false);
+
+        setWorldObjectPickerOpen(true);
+      }
+
+      /* Renders the catalog cards for adding objects back into the scene. */
+      function renderWorldObjectPickerList() {
+        if (!worldObjectPickerListEl) return;
+
+        const items = getWorldObjectCatalog();
+
+        worldObjectPickerListEl.innerHTML = items
+        .map((it) => {
+          const name = escapeInventoryText(it.name);
+          const desc = escapeInventoryText(it.desc || "");
+          const thumb = escapeInventoryText(it.thumb || DEFAULT_ITEM_THUMB);
+
+          return (
+            '<button class="inv-slot inv-slot--filled inv-slot--pick" type="button" data-world-object="' + name + '">' +
+            '<img class="inv-item__thumb" alt="" loading="lazy" decoding="async" src="' + thumb + '"/>' +
+            '<div class="inv-item__body">' +
+            '<div class="inv-item__name">' + name + '</div>' +
+            '<div class="inv-item__desc">' + (desc || "&nbsp;") + '</div>' +
+            '</div>' +
+            '</button>'
+            );
+        })
+        .join("");
+      }
+
+      /* Computes a drop position in front of the avatar (or camera fallback) and snaps it to the traversable surface. */
+      function computeDropPoseInFront(outPos, outYaw) {
+        const forward = avatarTmpDir;
+        const origin = avatarTmpVec;
+
+        if (avatar) {
+          avatar.getWorldPosition(origin);
+          forward.set(0, 0, 1).applyQuaternion(avatar.quaternion);
+        } else {
+          origin.copy(camera.position);
+          camera.getWorldDirection(forward);
+        }
+
+        forward.y = 0;
+        if (forward.lengthSq() < 1e-10) forward.set(0, 0, 1);
+        forward.normalize();
+
+        outYaw.value = Math.atan2(forward.x, forward.z);
+
+        outPos.copy(origin).addScaledVector(forward, 2.2);
+        outPos.y = getWorldSurfaceY(outPos.x, outPos.z);
+      }
+
+      /* Adds a new instance of a catalog object to the editable world config and spawns it into the scene. */
+      function addWorldObjectToScene(modelName) {
+        if (!worldEditState.enabled) return;
+
+        const name = String(modelName || "").trim();
+        if (!name) return;
+
+        const template = modelTemplates[name] || null;
+        if (!template) return;
+
+        ensureEditableWorldModelsConfig();
+        pushWorldEditUndoSnapshot();
+
+        let entry = null;
+        for (const e of worldModelsConfig) {
+          if (e && String(e.name) === name) {
+            entry = e;
+            break;
+          }
+        }
+
+        if (!entry) {
+          const src = (Array.isArray(MODEL_CONFIG) ? MODEL_CONFIG : []).find((e) => e && String(e.name) === name) || null;
+          entry = {
+            name,
+            url: src && src.url ? src.url : "",
+            instances: []
+          };
+          worldModelsConfig.push(entry);
+        }
+
+        if (!Array.isArray(entry.instances)) entry.instances = [];
+
+        const srcEntry = (Array.isArray(MODEL_CONFIG) ? MODEL_CONFIG : []).find((e) => e && String(e.name) === name) || null;
+        const baseInst = srcEntry && Array.isArray(srcEntry.instances) && srcEntry.instances.length ? srcEntry.instances[0] : null;
+
+        const instCfg = baseInst ? JSON.parse(JSON.stringify(baseInst)) : {
+          id: "",
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          scale: 1.0,
+          stick: false,
+          collide: false
+        };
+
+        instCfg.id = makeUniqueWorldModelId(name);
+
+        if (!Array.isArray(instCfg.position)) instCfg.position = [0, 0, 0];
+        if (instCfg.position.length < 3) instCfg.position = [instCfg.position[0] || 0, instCfg.position[1] || 0, instCfg.position[2] || 0];
+
+        if (!Array.isArray(instCfg.rotation)) instCfg.rotation = [0, 0, 0];
+        if (instCfg.rotation.length < 3) instCfg.rotation = [instCfg.rotation[0] || 0, instCfg.rotation[1] || 0, instCfg.rotation[2] || 0];
+
+        const dropPos = avatarTmpVec;
+        const yawRef = { value: 0 };
+        computeDropPoseInFront(dropPos, yawRef);
+
+        instCfg.position[0] = dropPos.x;
+        instCfg.position[1] = dropPos.y;
+        instCfg.position[2] = dropPos.z;
+        instCfg.rotation[1] = yawRef.value;
+
+        entry.instances.push(instCfg);
+
+        const inst = template.clone(true);
+        applyInstCfgTransformToInstance(inst, instCfg);
+
+        Object.defineProperty(instCfg, "runtimeObject", {
+          value: inst,
+          enumerable: false,
+          configurable: true
+        });
+
+        scene.add(inst);
+        modelInstances[instCfg.id] = inst;
+
+        rebuildWorldModelsRuntimeCaches();
+        selectWorldEditRoot(inst);
+        updateAvatarButtons();
+        showActionToast("Added");
+      }
+
+
+
+      /* Keeps the Profile avatar carousel synced with current params/player profile selection. */
+      function syncProfileAvatarPickerFromCurrent() {
+        const current = sanitizeAvatarId(
+          (params && typeof params.avatarId === "string") ? params.avatarId : playerProfile.avatarId,
+          DEFAULTS.avatarId
+          );
+
+        profileAvatarPicker.selectedId = current;
+
+        let idx = 0;
+        for (let i = 0; i < AVATAR_CATALOG.length; i++) {
+          if (AVATAR_CATALOG[i].id === current) {
+            idx = i;
+            break;
+          }
+        }
+        profileAvatarPicker.index = idx;
+
+        renderProfileAvatarPicker();
+      }
+
+      /* Renders the visible card for the current carousel index. */
+      function renderProfileAvatarPicker() {
+        if (!avatarPreviewImgEl || !avatarPreviewNameEl || !avatarPreviewDescEl || !avatarPreviewCounterEl) return;
+        if (!AVATAR_CATALOG.length) return;
+
+        const idx = ((profileAvatarPicker.index % AVATAR_CATALOG.length) + AVATAR_CATALOG.length) % AVATAR_CATALOG.length;
+        profileAvatarPicker.index = idx;
+
+        const entry = AVATAR_CATALOG[idx];
+
+        avatarPreviewImgEl.src = entry.thumb;
+        avatarPreviewImgEl.onerror = () => {
+          avatarPreviewImgEl.onerror = null;
+          avatarPreviewImgEl.src = DEFAULT_ITEM_THUMB;
+        };
+
+        avatarPreviewNameEl.textContent = entry.name || entry.id;
+        avatarPreviewDescEl.textContent = entry.desc || "";
+        avatarPreviewCounterEl.textContent = `${idx + 1}/${AVATAR_CATALOG.length}`;
+
+        const isSelected = profileAvatarPicker.selectedId === entry.id;
+        if (avatarSelectBtnEl) {
+          avatarSelectBtnEl.disabled = isSelected;
+          avatarSelectBtnEl.textContent = isSelected ? "Selected" : "Select";
+        }
+      }
+
+      /* Advances the carousel index by delta and refreshes preview only. */
+      function stepProfileAvatarPicker(delta) {
+        if (!AVATAR_CATALOG.length) return;
+        profileAvatarPicker.index = (profileAvatarPicker.index + (delta | 0)) % AVATAR_CATALOG.length;
+        if (profileAvatarPicker.index < 0) profileAvatarPicker.index += AVATAR_CATALOG.length;
+        renderProfileAvatarPicker();
+      }
+
+      /* Commits the currently previewed avatar as selected and applies it to world/settings. */
+      function commitProfileAvatarSelection() {
+        if (!AVATAR_CATALOG.length) return;
+        const entry = AVATAR_CATALOG[profileAvatarPicker.index];
+        if (!entry) return;
+
+        const id = sanitizeAvatarId(entry.id, DEFAULTS.avatarId);
+        if (profileAvatarPicker.selectedId === id) return;
+
+        profileAvatarPicker.selectedId = id;
+
+        applySettings({ avatarId: id }, { rebuild: false, updateGui: false, persist: true });
+
+        renderProfileAvatarPicker();
+        showActionToast("Avatar selected");
+      }
+
+
+
+    /**
+     * Shows or hides the player profile overlay and keeps ARIA state in sync.
+     */
       function setPlayerProfileOpen(open) {
         playerProfileState.open = !!open;
 
@@ -13943,13 +14997,17 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           if (playerNameInputEl) playerNameInputEl.value = playerProfile.name;
           if (playerColorInputEl) playerColorInputEl.value = playerProfile.color;
           if (playerBioInputEl) playerBioInputEl.value = String(playerProfile?.meta?.about ?? "");
+
+          syncProfileAvatarPickerFromCurrent();
+
           if (playerNameInputEl) playerNameInputEl.focus({ preventScroll: true });
         }
       }
 
-      /**
-       * Wires the profile overlay UI once and binds it to the persisted profile state.
-       */
+
+/**
+ * Wires the profile overlay UI once and binds it to the persisted profile state.
+ */
       function ensurePlayerProfileOverlayWired() {
         if (playerProfileState.wired) return;
 
@@ -13961,6 +15019,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         playerNameInputEl = document.getElementById("playerNameInput");
         playerColorInputEl = document.getElementById("playerColorInput");
         playerBioInputEl = document.getElementById("playerBioInput");
+
+        avatarPrevBtnEl = document.getElementById("avatarPrevBtn");
+        avatarNextBtnEl = document.getElementById("avatarNextBtn");
+        avatarSelectBtnEl = document.getElementById("avatarSelectBtn");
+        avatarPreviewImgEl = document.getElementById("avatarPreviewImg");
+        avatarPreviewNameEl = document.getElementById("avatarPreviewName");
+        avatarPreviewDescEl = document.getElementById("avatarPreviewDesc");
+        avatarPreviewCounterEl = document.getElementById("avatarPreviewCounter");
 
         if (playerProfileCloseBtn) {
           playerProfileCloseBtn.addEventListener("click", (event) => {
@@ -13975,6 +15041,34 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           });
         }
 
+        if (avatarPrevBtnEl) {
+          avatarPrevBtnEl.addEventListener("click", (event) => {
+            event.preventDefault();
+            stepProfileAvatarPicker(-1);
+          });
+        }
+
+        if (avatarNextBtnEl) {
+          avatarNextBtnEl.addEventListener("click", (event) => {
+            event.preventDefault();
+            stepProfileAvatarPicker(1);
+          });
+        }
+
+        if (avatarSelectBtnEl) {
+          avatarSelectBtnEl.addEventListener("click", (event) => {
+            event.preventDefault();
+            commitProfileAvatarSelection();
+          });
+        }
+
+        if (avatarPreviewImgEl) {
+          avatarPreviewImgEl.addEventListener("click", (event) => {
+            event.preventDefault();
+            commitProfileAvatarSelection();
+          });
+        }
+
         if (playerProfileSaveBtn) {
           playerProfileSaveBtn.addEventListener("click", (event) => {
             event.preventDefault();
@@ -13983,10 +15077,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
               id: playerProfile.id,
               name: sanitizePlayerName(playerNameInputEl ? playerNameInputEl.value : playerProfile.name),
               color: playerColorInputEl ? String(playerColorInputEl.value) : playerProfile.color,
+              avatarId: sanitizeAvatarId(profileAvatarPicker.selectedId, DEFAULTS.avatarId),
               meta: { about: playerBioInputEl ? String(playerBioInputEl.value ?? "").slice(0, 256) : "" }
             };
 
             setPlayerProfile(next, { persist: true });
+
+            applySettings({ avatarId: next.avatarId }, { rebuild: false, updateGui: false, persist: true });
+
             setPlayerProfileOpen(false);
           });
         }
@@ -13995,15 +15093,20 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           playerProfileResetBtn.addEventListener("click", (event) => {
             event.preventDefault();
 
+            const resetAvatarId = sanitizeAvatarId(DEFAULTS.avatarId, DEFAULTS.avatarId);
+
             setPlayerProfile(
             {
               id: playerProfile.id,
               name: "Anonymous",
               color: "#22c55e",
+              avatarId: resetAvatarId,
               meta: { about: "" }
             },
             { persist: true }
             );
+
+            applySettings({ avatarId: resetAvatarId }, { rebuild: false, updateGui: false, persist: true });
 
             setPlayerProfileOpen(true);
           });
@@ -14011,6 +15114,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         playerProfileState.wired = true;
       }
+
 
 
 
