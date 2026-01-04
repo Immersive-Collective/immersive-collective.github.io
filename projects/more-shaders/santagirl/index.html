@@ -1201,7 +1201,19 @@
 
     /* Static avatar catalog for the Profile carousel (thumb + GLB share the same basename). */
     const AVATAR_CATALOG = [
+
+
       { id: "female/blondie-anims", name: "Blondie", desc: "Female avatar.", url: "models/ready/female/blondie-anims.glb", thumb: "models/ready/female/blondie-anims.png" },
+      
+
+      { id: "female/avad", name: "Ava D", desc: "Female avatar.", url: "models/ready/female/avad/avad1-anims.glb", thumb: "models/ready/female/avad/avad1-anims.png" },
+
+      { id: "female/skate1", name: "Skate Girl 1", desc: "Female avatar.", url: "models/ready/female/skate/vans5-anims.glb", thumb: "models/ready/female/skate/vans5-anims.png" },
+
+      { id: "female/skate2", name: "Skate Girl 2", desc: "Female avatar.", url: "models/ready/female/skate/vans6-anims.glb", thumb: "models/ready/female/skate/vans6-anims.png" },
+
+
+
       { id: "female/camouflage1", name: "Camouflage", desc: "Female avatar.", url: "models/ready/female/camouflage1.glb", thumb: "models/ready/female/camouflage1.png" },
       { id: "female/computer", name: "Computer", desc: "Female avatar.", url: "models/ready/female/computer.glb", thumb: "models/ready/female/computer.png" },
       { id: "female/crocs_anims", name: "Crocs", desc: "Female avatar.", url: "models/ready/female/crocs_anims.glb", thumb: "models/ready/female/crocs_anims.png" },
@@ -1220,9 +1232,19 @@
       { id: "female/she/she1_anims-anims", name: "She 1", desc: "Female avatar.", url: "models/ready/female/she/she1_anims-anims.glb", thumb: "models/ready/female/she/she1_anims-anims.png" },
       { id: "female/sophie", name: "Sophie", desc: "Female avatar.", url: "models/ready/female/sophie.glb", thumb: "models/ready/female/sophie.png" },
 
+      { id: "male/tripo/tripo_anims", name: "Tripo 1", desc: "Male avatar.", url: "models/ready/male/tripo/tripo_anims.glb", thumb: "models/ready/male/tripo/tripo_anims.png" },
+
+      { id: "male/tripo/prisoner_anims", name: "Tripo 1", desc: "Male avatar.", url: "models/ready/male/tripo/prisoner_anims.glb", thumb: "models/ready/male/tripo/prisoner_anims.png" },
+
+      { id: "aliens/alien_face2-anims", name: "Alien 1", desc: "Alien avatar.", url: "models/ready/aliens/alien_face2-anims.glb", thumb: "models/ready/aliens/alien_face2-anims.png" },
+
+
       { id: "male/josh", name: "Josh", desc: "Male avatar.", url: "models/ready/male/josh.glb", thumb: "models/ready/male/josh.png" },
       { id: "male/lewis", name: "Lewis", desc: "Male avatar.", url: "models/ready/male/lewis.glb", thumb: "models/ready/male/lewis.png" },
+
       { id: "male/tata/tata1-anims", name: "Tata 1", desc: "Male avatar.", url: "models/ready/male/tata/tata1-anims.glb", thumb: "models/ready/male/tata/tata1-anims.png" },
+
+
       { id: "male/tata/tata2-anims", name: "Tata 2", desc: "Male avatar.", url: "models/ready/male/tata/tata2-anims.glb", thumb: "models/ready/male/tata/tata2-anims.png" },
       { id: "male/tata/tata4_1-anims", name: "Tata 4.1", desc: "Male avatar.", url: "models/ready/male/tata/tata4_1-anims.glb", thumb: "models/ready/male/tata/tata4_1-anims.png" },
       { id: "male/tata/tata4_1-rework", name: "Tata 4.1 Rework", desc: "Male avatar.", url: "models/ready/male/tata/tata4_1-rework.glb", thumb: "models/ready/male/tata/tata4_1-rework.png" },
@@ -5140,7 +5162,7 @@
       const prevAvatar = avatar || null;
       const keepVisible = prevAvatar ? !!prevAvatar.visible : true;
 
-      
+
 
       if (prevAvatar) {
         avatarSwapPos.copy(prevAvatar.position);
@@ -5220,13 +5242,13 @@
             const idleAction = getAction(["idle", "stand"], defaultKey);
             const walkAction = getAction(["walk"], defaultKey);
             const runAction = getAction(["run", "jog"], defaultKey);
-            const sitAction = getAction(["sit", "seat", "drive"], defaultKey);
+            const sitAction = getAction(["drive", "sit", "seat"], defaultKey);
             const jumpAction = getAction(["jump"], null);
 
             if (idleAction) avatarActions["idle"] = idleAction;
             if (walkAction) avatarActions["walk"] = walkAction;
             if (runAction) avatarActions["run"] = runAction;
-            if (sitAction) avatarActions["sit"] = sitAction;
+            if (sitAction) avatarActions["drive"] = sitAction;
             if (jumpAction) avatarActions["jump"] = jumpAction;
 
             avatarMixer.stopAllAction();
@@ -8350,7 +8372,7 @@ function enterVehicle(v) {
   vehicleDriveState.trackAcc = 0.0;
 
   if (avatarMixer && avatarActions.sit) {
-    switchAvatarAction("sit");
+    switchAvatarAction("drive");
   } else if (avatarMixer && avatarActions.idle) {
     switchAvatarAction("idle");
   }
