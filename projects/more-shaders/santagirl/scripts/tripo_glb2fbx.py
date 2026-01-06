@@ -1,10 +1,16 @@
-# tripo_glb2fbx_fixed.py
+# glb2fbx_batch.py
 # Import GLB -> clear parents -> delete empties -> rotate -90Z -> scale 1.8
 # -> move bottom to Z=0 and center XY at origin -> apply transforms
 # -> save .blend + export .fbx next to the GLB (same base name)
 #
-# Run:
-# /Applications/Blender.app/Contents/MacOS/Blender -b -P tripo_glb2fbx_fixed.py -- "path/to/file.glb"
+# Single file:
+#   /Applications/Blender.app/Contents/MacOS/Blender -b -P glb2fbx_batch.py -- "/path/to/model.glb"
+#
+# Folder:
+#   /Applications/Blender.app/Contents/MacOS/Blender -b -P glb2fbx_batch.py -- "/path/to/catalog"
+#
+# Recursive folder:
+#   /Applications/Blender.app/Contents/MacOS/Blender -b -P glb2fbx_batch.py -- "/path/to/catalog" --rec
 
 import bpy
 import sys
@@ -17,10 +23,13 @@ from mathutils import Matrix, Vector
 def parse_args():
     argv = sys.argv
     if "--" not in argv:
-        raise SystemExit('Usage: blender -b -P tripo_glb2fbx_fixed.py -- "/path/to/model.glb"\n')
+        raise SystemExit('Usage: blender -b -P glb2fbx_batch.py -- "<file.glb | folder>" [--rec]\n')
     user_argv = argv[argv.index("--") + 1 :]
     p = argparse.ArgumentParser()
-    p.add_argument("glb", type=Path, help="Input .glb file")
+    p.add_argument("path", type=Path, help="A .glb file or a folder containing .glb files")
+    p.add_argument("--rec", action="store_true", help="If path is a folder: process recursively")
+    p.add_argument("--rotz", type=float, default=-90.0, help="Rotate Z degrees (default -90)")
+    p.add_argument("--scale", type=float, default=1.8, help="Uniform scale (default 1.8)")
     return p.parse_args(user_argv)
 
 
@@ -36,7 +45,7 @@ def import_glb(path: Path) -> list[str]:
     before = set(bpy.data.objects.keys())
     bpy.ops.import_scene.gltf(filepath=str(path))
     after = set(bpy.data.objects.keys())
-    return sorted(list(after - before))  # return NAMES, not object refs
+    return sorted(list(after - before))  # NAMES only
 
 
 def get_objects_by_names(names: list[str]):
@@ -75,7 +84,7 @@ def compute_world_bounds(mesh_objects):
     return (min_v, max_v) if any_mesh else None
 
 
-def apply_transform_to_objects(objs, rot_z_deg=-90.0, scale=1.8):
+def apply_transform_to_objects(objs, rot_z_deg: float, scale: float):
     R = Matrix.Rotation(radians(rot_z_deg), 4, "Z")
     S = Matrix.Scale(scale, 4)
     X = R @ S
@@ -125,50 +134,59 @@ def export_fbx(path: Path):
     )
 
 
-def main():
-    args = parse_args()
-    glb_path = args.glb.expanduser().resolve()
-    if not glb_path.exists() or glb_path.suffix.lower() != ".glb":
-        raise SystemExit(f"Input must be an existing .glb file: {glb_path}")
-
+def process_one(glb_path: Path, rotz: float, scale: float):
     reset_scene()
 
     imported_names = import_glb(glb_path)
-
-    # Work with fresh object refs
     imported_objs = get_objects_by_names(imported_names)
 
-    # Clear parents first (keep world transforms)
     for obj in imported_objs:
         clear_parent_keep_world(obj)
 
-    # Delete empties (by NAME), then re-fetch remaining objects
     empty_names = [o.name for o in imported_objs if o.type == "EMPTY"]
     delete_objects_by_names(empty_names)
 
     imported_objs = [o for o in get_objects_by_names(imported_names) if o.type != "EMPTY"]
 
-    # Rotate/scale
-    apply_transform_to_objects(imported_objs, rot_z_deg=-90.0, scale=1.8)
+    apply_transform_to_objects(imported_objs, rot_z_deg=rotz, scale=scale)
     bpy.context.view_layer.update()
 
-    # Reposition
     move_bounds_bottom_to_origin_center_xy(imported_objs)
     bpy.context.view_layer.update()
 
-    # Apply transforms
     apply_transforms(imported_objs)
     bpy.context.view_layer.update()
 
-    # Save and export next to GLB
     out_blend = glb_path.with_suffix(".blend")
     out_fbx = glb_path.with_suffix(".fbx")
 
     save_blend(out_blend)
     export_fbx(out_fbx)
 
-    print(f"[OK] Saved: {out_blend}")
-    print(f"[OK] Exported: {out_fbx}")
+    print(f"[OK] {glb_path} -> {out_fbx.name} + {out_blend.name}")
+
+
+def main():
+    args = parse_args()
+    p = args.path.expanduser().resolve()
+
+    if p.is_file():
+        if p.suffix.lower() != ".glb":
+            raise SystemExit(f"File is not a .glb: {p}")
+        process_one(p, args.rotz, args.scale)
+        return
+
+    if not p.is_dir():
+        raise SystemExit(f"Path is neither file nor folder: {p}")
+
+    glbs = sorted(p.rglob("*.glb") if args.rec else p.glob("*.glb"))
+    if not glbs:
+        raise SystemExit(f"No .glb files found in: {p} (rec={args.rec})")
+
+    for glb in glbs:
+        process_one(glb.resolve(), args.rotz, args.scale)
+
+    print(f"[DONE] Processed {len(glbs)} GLB files.")
 
 
 main()

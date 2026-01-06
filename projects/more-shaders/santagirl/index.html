@@ -825,8 +825,8 @@
     .avatar-picker__card {
       position: relative;
       border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: rgba(0,0,0,0.18);
+      border: 0px solid rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0);
       overflow: hidden;
       padding: 12px;
       display: flex;
@@ -842,7 +842,7 @@
       object-fit: contain;
       object-position: center center;
       background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.10);
+      border: 0px solid rgba(255,255,255,0.10);
       cursor: pointer;
       touch-action: manipulation;
     }
@@ -941,6 +941,92 @@
     }
 
 
+    .minimap {
+      position: fixed;
+      left: calc(12px + env(safe-area-inset-left));
+      top: calc(12px + env(safe-area-inset-top));
+      width: var(--minimap-size, 160px);
+      height: var(--minimap-size, 160px);
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(0,0,0,0.35);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      padding: 0;
+      overflow: hidden;
+      z-index: 22;
+      pointer-events: auto;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .minimap:active {
+      transform: translateY(1px);
+    }
+
+    .minimap__canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .map-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+      background: rgba(0,0,0,0.45);
+      z-index: 60;
+      pointer-events: auto;
+      backdrop-filter: blur(10px);
+    }
+
+    .map-overlay.is-open {
+      display: flex;
+    }
+
+    .map-overlay__panel {
+      width: min(92vw, 760px);
+      height: min(78vh, 760px);
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(12,12,12,0.65);
+      box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .map-overlay__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
+
+    .map-overlay__title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.92);
+    }
+
+    .map-overlay__canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      flex: 1 1 auto;
+    }
+
+    @media (max-width: 520px) {
+      .minimap { --minimap-size: 132px; border-radius: 14px; }
+      .map-overlay__panel { width: 94vw; height: 72vh; border-radius: 18px; }
+    }
 
 
 
@@ -967,6 +1053,21 @@
   <div id="app"></div>
 
   <div id="worldName" class="world-name" aria-hidden="true" aria-live="polite"></div>
+
+  <button id="miniMap" class="minimap" type="button" aria-label="Open map">
+    <canvas id="miniMapCanvas" class="minimap__canvas"></canvas>
+  </button>
+
+  <div id="mapOverlay" class="map-overlay" aria-hidden="true">
+    <div class="map-overlay__panel" role="dialog" aria-modal="true" aria-label="Map">
+      <div class="map-overlay__header">
+        <div class="map-overlay__title">Map</div>
+        <button id="mapOverlayClose" class="avatar-btn" type="button">Close</button>
+      </div>
+      <canvas id="mapOverlayCanvas" class="map-overlay__canvas"></canvas>
+    </div>
+  </div>
+
 
 
   <div class="avatar-ui">
@@ -1203,6 +1304,22 @@
     const AVATAR_CATALOG = [
 
 
+      { id: "astro/coco1", name: "Coco 1", desc: "Coco in Space 1", url: "models/ready/astro/coco-anims.glb", thumb: "models/ready/astro/coco-anims.png" },
+
+
+      { id: "astro/cat1", name: "Astrocat 1", desc: "Cats in Space 1", url: "models/ready/astro/catastro-anims.glb", thumb: "models/ready/astro/catastro-anims.png" },
+
+
+      { id: "female/afro1", name: "Lola 1", desc: "Lola in space 1", url: "models/ready/female/afro/6-anims.glb", thumb: "models/ready/female/afro/6-anims.png" },
+
+      { id: "female/afro2", name: "Lola 2", desc: "Lola in space 2", url: "models/ready/female/afro/afro4-anims.glb", thumb: "models/ready/female/afro/afro4-anims.png" },
+
+
+
+      { id: "male/musil1", name: "Ahmob", desc: "Ahmob bobo.", url: "models/ready/male/musils/musils1-anims.glb", thumb: "models/ready/male/musils/musils1-anims.png" },
+
+      { id: "male/musil2", name: "Ahmob", desc: "Ahmob bobo 2.", url: "models/ready/male/musils/musils2-anims.glb", thumb: "models/ready/male/musils/musils2-anims.png" },
+
       { id: "female/blondie-anims", name: "Blondie", desc: "Female avatar.", url: "models/ready/female/blondie-anims.glb", thumb: "models/ready/female/blondie-anims.png" },
       
 
@@ -1212,25 +1329,52 @@
 
       { id: "female/skate2", name: "Skate Girl 2", desc: "Female avatar.", url: "models/ready/female/skate/vans6-anims.glb", thumb: "models/ready/female/skate/vans6-anims.png" },
 
+      { id: "female/skate3", name: "Skate Girl 3", desc: "Female avatar.", url: "models/ready/female/skate/latin2-anims.glb", thumb: "models/ready/female/skate/latin2-anims.png" },
+
+      { id: "female/skate4", name: "Skate Girl 5", desc: "Female avatar.", url: "models/ready/female/skate/nord-anims.glb", thumb: "models/ready/female/skate/nord-anims.png" },
+
+      { id: "female/skate5", name: "Skate Girl 6", desc: "Female avatar.", url: "models/ready/female/skate/japa-anims.glb", thumb: "models/ready/female/skate/japa-anims.png" },
+
+      { id: "female/skate6", name: "Skate Girl 7", desc: "Female avatar.", url: "models/ready/female/skate/flo-anims.glb", thumb: "models/ready/female/skate/flo-anims.png" },
+
+      { id: "female/skate7", name: "Skate Girl 8", desc: "Female avatar.", url: "models/ready/female/skate/max-anims.glb", thumb: "models/ready/female/skate/max-anims.png" },
 
 
       { id: "female/camouflage1", name: "Camouflage", desc: "Female avatar.", url: "models/ready/female/camouflage1.glb", thumb: "models/ready/female/camouflage1.png" },
+
       { id: "female/computer", name: "Computer", desc: "Female avatar.", url: "models/ready/female/computer.glb", thumb: "models/ready/female/computer.png" },
+      
       { id: "female/crocs_anims", name: "Crocs", desc: "Female avatar.", url: "models/ready/female/crocs_anims.glb", thumb: "models/ready/female/crocs_anims.png" },
-      { id: "female/elizabeth", name: "Elizabeth", desc: "Female avatar.", url: "models/ready/female/elizabeth.glb", thumb: "models/ready/female/elizabeth.png" },
+
+      // { id: "female/elizabeth", name: "Elizabeth", desc: "Female avatar.", url: "models/ready/female/elizabeth.glb", thumb: "models/ready/female/elizabeth.png" },
+      
       { id: "female/pinky1-anims", name: "Pinky", desc: "Female avatar.", url: "models/ready/female/pinky1-anims.glb", thumb: "models/ready/female/pinky1-anims.png" },
+      
       { id: "female/redsa1", name: "Redsa", desc: "Female avatar.", url: "models/ready/female/redsa1.glb", thumb: "models/ready/female/redsa1.png" },
+      
       { id: "female/santa5", name: "Santa 5", desc: "Holiday avatar.", url: "models/ready/female/santa5.glb", thumb: "models/ready/female/santa5.png" },
+      
       { id: "female/santa6", name: "Santa 6", desc: "Holiday avatar.", url: "models/ready/female/santa6.glb", thumb: "models/ready/female/santa6.png" },
-      { id: "female/santagirl", name: "Santa Girl", desc: "Holiday avatar.", url: "models/ready/female/santagirl.glb", thumb: "models/ready/female/santagirl.png" },
+      
+      // { id: "female/santagirl", name: "Santa Girl", desc: "Holiday avatar.", url: "models/ready/female/santagirl.glb", thumb: "models/ready/female/santagirl.png" },
+      
       { id: "female/santagirl2", name: "Santa Girl 2", desc: "Holiday avatar.", url: "models/ready/female/santagirl2.glb", thumb: "models/ready/female/santagirl2.png" },
+      
       { id: "female/santagirl21-eu", name: "Santa Girl EU", desc: "Holiday avatar.", url: "models/ready/female/santagirl21-eu.glb", thumb: "models/ready/female/santagirl21-eu.png" },
+      
       { id: "female/santagirl3", name: "Santa Girl 3", desc: "Holiday avatar.", url: "models/ready/female/santagirl3.glb", thumb: "models/ready/female/santagirl3.png" },
+      
       { id: "female/santax1", name: "Santa X1", desc: "Holiday avatar.", url: "models/ready/female/santax1.glb", thumb: "models/ready/female/santax1.png" },
+      
       { id: "female/santax2-a2", name: "Santa X2", desc: "Holiday avatar.", url: "models/ready/female/santax2-a2.glb", thumb: "models/ready/female/santax2-a2.png" },
+      
       { id: "female/sanya-a", name: "Sanya", desc: "Female avatar.", url: "models/ready/female/sanya-a.glb", thumb: "models/ready/female/sanya-a.png" },
+      
+
       { id: "female/she/she1_anims-anims", name: "She 1", desc: "Female avatar.", url: "models/ready/female/she/she1_anims-anims.glb", thumb: "models/ready/female/she/she1_anims-anims.png" },
-      { id: "female/sophie", name: "Sophie", desc: "Female avatar.", url: "models/ready/female/sophie.glb", thumb: "models/ready/female/sophie.png" },
+
+
+      // { id: "female/sophie", name: "Sophie", desc: "Female avatar.", url: "models/ready/female/sophie.glb", thumb: "models/ready/female/sophie.png" },
 
       { id: "male/tripo/tripo_anims", name: "Tripo 1", desc: "Male avatar.", url: "models/ready/male/tripo/tripo_anims.glb", thumb: "models/ready/male/tripo/tripo_anims.png" },
 
@@ -1239,8 +1383,9 @@
       { id: "aliens/alien_face2-anims", name: "Alien 1", desc: "Alien avatar.", url: "models/ready/aliens/alien_face2-anims.glb", thumb: "models/ready/aliens/alien_face2-anims.png" },
 
 
-      { id: "male/josh", name: "Josh", desc: "Male avatar.", url: "models/ready/male/josh.glb", thumb: "models/ready/male/josh.png" },
-      { id: "male/lewis", name: "Lewis", desc: "Male avatar.", url: "models/ready/male/lewis.glb", thumb: "models/ready/male/lewis.png" },
+      // { id: "male/josh", name: "Josh", desc: "Male avatar.", url: "models/ready/male/josh.glb", thumb: "models/ready/male/josh.png" },
+
+      // { id: "male/lewis", name: "Lewis", desc: "Male avatar.", url: "models/ready/male/lewis.glb", thumb: "models/ready/male/lewis.png" },
 
       { id: "male/tata/tata1-anims", name: "Tata 1", desc: "Male avatar.", url: "models/ready/male/tata/tata1-anims.glb", thumb: "models/ready/male/tata/tata1-anims.png" },
 
@@ -1745,6 +1890,8 @@
       fogNear: 18,
       fogFar: 60,
       fogColor: "#0a1220",
+      fadeEndOfWorldEnabled: false,
+      fadeEndOfWorldDistance: 95,      
 
   // Surface colors
       groundColor: "#ffffff",
@@ -1935,8 +2082,63 @@
 
       const color = new THREE.Color(params.fogColor || "#0a1220");
       scene.background = color;
-      scene.fog = new THREE.Fog(color, params.fogNear, params.fogFar);
+
+      if (!scene.fog) {
+        scene.fog = new THREE.Fog(color, params.fogNear, params.fogFar);
+      } else {
+        scene.fog.color.copy(color);
+        scene.fog.near = params.fogNear;
+        scene.fog.far = params.fogFar;
+      }
     }
+
+    /* Linear interpolation for scalar values. */
+    function lerpNumber(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+
+    /* Tightens fog near the world edge to hide the seam when enabled. */
+    function updateEdgeFadeFog(focusX, focusZ) {
+      if (!scene || !scene.fog) return;
+
+      const baseNear = params.fogNear;
+      const baseFar = params.fogFar;
+
+      if (!params.fadeEndOfWorldEnabled) {
+        scene.fog.near = baseNear;
+        scene.fog.far = baseFar;
+        return;
+      }
+
+      const half = Math.max(1, WORLD_BOUNDS_XZ);
+      const dx = half - Math.abs(focusX);
+      const dz = half - Math.abs(focusZ);
+      const distToEdge = Math.max(0.0, Math.min(dx, dz));
+
+      const defaultDist = Math.max(12.0, Math.min(120.0, half * 0.18));
+      const maxDist = Math.min(400.0, half);
+
+      const edgeFadeDist = clamp(
+        Number(params.fadeEndOfWorldDistance ?? defaultDist),
+        12.0,
+        maxDist
+        );
+
+      const t = clamp(1.0 - (distToEdge / edgeFadeDist), 0.0, 1.0);
+
+      const edgeNear = 0.1;
+      const edgeFar = Math.min(baseFar, 5.0);
+
+      const nearNow = lerpNumber(baseNear, edgeNear, t);
+      let farNow = lerpNumber(baseFar, edgeFar, t);
+      farNow = Math.max(farNow, nearNow + 0.5);
+
+      scene.fog.near = nearNow;
+      scene.fog.far = farNow;
+    }
+
+
 
     /* Normalizes color values to "#rrggbb" for persistence and GUI compatibility. */
     function normalizeHexColor(value, fallback = "#ffffff") {
@@ -2258,6 +2460,7 @@
       if (colliderObjects && colliderObjects.length) {
         colliderBounds = buildColliderBounds(colliderObjects);
         rebuildAvatarCollisionGrid();
+        refreshMinimapStaticPoints();
       }
 
       if (avatarModelColliderObjects && avatarModelColliderObjects.length && Array.isArray(avatarModelColliderOBBs)) {
@@ -6229,6 +6432,290 @@
 
 
 
+    /* Minimap UI: renders a centered crop in the top-left and a full-world overlay map. */
+    const minimapState = {
+      miniBtn: null,
+      miniCanvas: null,
+      miniCtx: null,
+      overlay: null,
+      overlayCanvas: null,
+      overlayCtx: null,
+      open: false,
+      viewHalfWorld: 140,
+      staticPoints: [],
+      lastDrawMs: 0
+    };
+
+    function setupMinimapUI() {
+      minimapState.miniBtn = document.getElementById("miniMap");
+      minimapState.miniCanvas = document.getElementById("miniMapCanvas");
+      minimapState.overlay = document.getElementById("mapOverlay");
+      minimapState.overlayCanvas = document.getElementById("mapOverlayCanvas");
+      const closeBtn = document.getElementById("mapOverlayClose");
+
+      if (!minimapState.miniBtn || !minimapState.miniCanvas || !minimapState.overlay || !minimapState.overlayCanvas) return;
+
+      minimapState.miniCtx = minimapState.miniCanvas.getContext("2d", { alpha: true, desynchronized: true });
+      minimapState.overlayCtx = minimapState.overlayCanvas.getContext("2d", { alpha: true, desynchronized: true });
+
+      minimapState.miniBtn.addEventListener("click", () => setMinimapOverlayOpen(true), { passive: true });
+      if (closeBtn) closeBtn.addEventListener("click", () => setMinimapOverlayOpen(false), { passive: true });
+
+      minimapState.overlay.addEventListener("click", (e) => {
+        if (e.target === minimapState.overlay) setMinimapOverlayOpen(false);
+      }, { passive: true });
+
+      layoutMinimapCanvases();
+      refreshMinimapStaticPoints();
+      drawMinimapFrame(true);
+    }
+
+    function setMinimapOverlayOpen(open) {
+      minimapState.open = !!open;
+      if (!minimapState.overlay) return;
+      minimapState.overlay.classList.toggle("is-open", minimapState.open);
+      minimapState.overlay.setAttribute("aria-hidden", minimapState.open ? "false" : "true");
+      layoutMinimapCanvases();
+      drawMinimapFrame(true);
+    }
+
+    function layoutMinimapCanvases() {
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+      const sizeCanvasToEl = (canvas, el) => {
+        if (!canvas || !el) return;
+        const r = el.getBoundingClientRect();
+        const w = Math.max(1, Math.floor(r.width * dpr));
+        const h = Math.max(1, Math.floor(r.height * dpr));
+        if (canvas.width !== w) canvas.width = w;
+        if (canvas.height !== h) canvas.height = h;
+      };
+
+      if (minimapState.miniBtn && minimapState.miniCanvas) {
+        sizeCanvasToEl(minimapState.miniCanvas, minimapState.miniBtn);
+      }
+
+      if (minimapState.open && minimapState.overlayCanvas) {
+        const panel = minimapState.overlayCanvas.closest(".map-overlay__panel");
+        if (panel) {
+          const header = panel.querySelector(".map-overlay__header");
+          const pr = panel.getBoundingClientRect();
+          const hh = header ? header.getBoundingClientRect().height : 0;
+          const w = Math.max(1, Math.floor(pr.width * dpr));
+          const h = Math.max(1, Math.floor(Math.max(1, pr.height - hh) * dpr));
+          if (minimapState.overlayCanvas.width !== w) minimapState.overlayCanvas.width = w;
+          if (minimapState.overlayCanvas.height !== h) minimapState.overlayCanvas.height = h;
+        }
+      }
+    }
+
+    /* Caches static collider positions (rocks/trees/etc.) for minimap rendering. */
+    function refreshMinimapStaticPoints() {
+      const pts = [];
+      for (const obj of colliderObjects) {
+        if (!obj || !obj.position) continue;
+        const x = obj.position.x;
+        const z = obj.position.z;
+        if (!Number.isFinite(x) || !Number.isFinite(z)) continue;
+
+        const kind =
+        (obj.__isRock && "rock") ||
+        (obj.__isForestTree && "tree") ||
+        "collider";
+
+        pts.push({ x, z, kind });
+      }
+      minimapState.staticPoints = pts;
+    }
+
+    function drawMinimapFrame(force) {
+      if (!minimapState.miniCtx || !minimapState.miniCanvas) return;
+
+      const now = performance.now();
+      if (!force && (now - minimapState.lastDrawMs) < 33) return;
+      minimapState.lastDrawMs = now;
+
+      const focus = getMinimapFocus();
+      const yaw = getMinimapYaw();
+
+      drawMinimapCentered(
+        minimapState.miniCtx,
+        minimapState.miniCanvas.width,
+        minimapState.miniCanvas.height,
+        focus.x,
+        focus.z,
+        yaw
+        );
+
+      if (minimapState.open && minimapState.overlayCtx && minimapState.overlayCanvas) {
+        drawMinimapFull(
+          minimapState.overlayCtx,
+          minimapState.overlayCanvas.width,
+          minimapState.overlayCanvas.height,
+          focus.x,
+          focus.z,
+          yaw
+          );
+      }
+    }
+
+    function getMinimapFocus() {
+      if (vehicleDriveState && vehicleDriveState.enabled && vehicleDriveState.vehicle && vehicleDriveState.vehicle.object) {
+        const p = vehicleDriveState.vehicle.object.position;
+        return { x: p.x, z: p.z };
+      }
+      if (avatar && avatar.position) return { x: avatar.position.x, z: avatar.position.z };
+      return { x: 0, z: 0 };
+    }
+
+    function getMinimapYaw() {
+      if (vehicleDriveState && vehicleDriveState.enabled) return (vehicleDriveState.yaw || 0);
+      if (avatar && avatar.rotation) return (avatar.rotation.y || 0);
+      return 0;
+    }
+
+    function drawMinimapCentered(ctx, w, h, focusX, focusZ, yaw) {
+      ctx.clearRect(0, 0, w, h);
+
+      const viewHalf = Math.max(20, minimapState.viewHalfWorld);
+      const scale = Math.min(w, h) / (viewHalf * 2.0);
+
+      ctx.save();
+      ctx.translate(w * 0.5, h * 0.5);
+
+      drawWorldBoundsDashed(ctx, scale, -focusX, -focusZ);
+
+      for (const p of minimapState.staticPoints) {
+        const x = (p.x - focusX) * scale;
+        const z = (p.z - focusZ) * scale;
+        if (Math.abs(x) > (w * 0.6) || Math.abs(z) > (h * 0.6)) continue;
+
+        if (p.kind === "rock") ctx.fillStyle = "rgba(220,220,220,0.75)";
+        else if (p.kind === "tree") ctx.fillStyle = "rgba(160,220,160,0.65)";
+        else ctx.fillStyle = "rgba(200,200,200,0.35)";
+
+        ctx.fillRect(x - 1.0, z - 1.0, 2.0, 2.0);
+      }
+
+      const cx = (-focusX) * scale;
+      const cz = (-focusZ) * scale;
+      drawWorldCenterCross(ctx, cx, cz);
+
+      drawPlayerMarker(ctx, 0, 0, yaw);
+
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+      ctx.restore();
+    }
+
+
+    function drawWorldCenterCross(ctx, x, z) {
+      if (!Number.isFinite(x) || !Number.isFinite(z)) return;
+
+      ctx.save();
+      ctx.translate(x, z);
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-6, 0); ctx.lineTo(6, 0);
+      ctx.moveTo(0, -6); ctx.lineTo(0, 6);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(-6, 0); ctx.lineTo(6, 0);
+      ctx.moveTo(0, -6); ctx.lineTo(0, 6);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPlayerMarker(ctx, x, z, yaw) {
+      ctx.save();
+      ctx.translate(x, z);
+      ctx.rotate(Math.PI - (yaw || 0));
+
+      ctx.fillStyle = "rgba(80,200,255,0.95)";
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 2;
+
+      ctx.beginPath();
+      ctx.moveTo(0, -7);
+      ctx.lineTo(5.5, 6.5);
+      ctx.lineTo(-5.5, 6.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+
+    function drawMinimapFull(ctx, w, h, focusX, focusZ, yaw) {
+      ctx.clearRect(0, 0, w, h);
+
+      const half = Math.max(1, WORLD_BOUNDS_XZ);
+      const pad = 1.06;
+      const scale = Math.min(w, h) / ((half * 2.0) * pad);
+
+      ctx.save();
+      ctx.translate(w * 0.5, h * 0.5);
+
+      drawWorldBoundsDashed(ctx, scale, 0, 0);
+
+      for (const p of minimapState.staticPoints) {
+        const x = p.x * scale;
+        const z = p.z * scale;
+
+        if (p.kind === "rock") ctx.fillStyle = "rgba(220,220,220,0.70)";
+        else if (p.kind === "tree") ctx.fillStyle = "rgba(160,220,160,0.60)";
+        else ctx.fillStyle = "rgba(200,200,200,0.30)";
+
+        ctx.fillRect(x - 1.0, z - 1.0, 2.0, 2.0);
+      }
+
+      drawWorldCenterCross(ctx, 0, 0);
+
+      const px = focusX * scale;
+      const pz = focusZ * scale;
+      drawPlayerMarker(ctx, px, pz, yaw);
+
+      ctx.restore();
+    }
+
+
+    function drawWorldBoundsDashed(ctx, scale, offsetX, offsetZ) {
+      const half = Math.max(1, WORLD_BOUNDS_XZ);
+
+      const x0 = (-half + offsetX) * scale;
+      const z0 = (-half + offsetZ) * scale;
+      const x1 = ( half + offsetX) * scale;
+      const z1 = ( half + offsetZ) * scale;
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,0.40)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.moveTo(x0, z0); ctx.lineTo(x1, z0);
+      ctx.lineTo(x1, z1); ctx.lineTo(x0, z1);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+
+
+
+
+
+
+
+
 /**
  * Refreshes UI button labels/visibility/disabled state based on avatar + world editor state.
  */
@@ -9856,7 +10343,7 @@ function rebuildForest() {
 
   const rng = makeSeededRandom((params.forestSeed * 1000003) | 0);
 
-  const count = clamp(params.forestCount | 0, 0, 400);
+  const count = clamp(params.forestCount | 0, 0, 4000);
   const maxR = clamp(params.forestRadius, 1.0, HALF_GROUND - 1.0);
   const minR = clamp(
     params.forestInnerRadius,
@@ -10224,6 +10711,14 @@ function applySettings(
     // fog
     params.fogNear = clamp(params.fogNear, 0.1, 400.0);
     params.fogFar = clamp(params.fogFar, 1.0, 2000.0);
+    params.fadeEndOfWorldEnabled = !!params.fadeEndOfWorldEnabled;
+
+    params.fadeEndOfWorldDistance = clamp(
+      Number(params.fadeEndOfWorldDistance ?? (WORLD_BOUNDS_XZ * 0.18)),
+      12.0,
+      Math.min(400.0, WORLD_BOUNDS_XZ)
+      );
+
 
     // surface colors
     params.groundColor = normalizeHexColor(params.groundColor, DEFAULTS.groundColor || "#ffffff");
@@ -13256,6 +13751,16 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           saveLastDebounced(params);
         };
 
+        const fogEdgeCtrl = fogFolder
+        .add(params, "fadeEndOfWorldEnabled")
+        .name("Fade End of the World")
+        .listen();
+
+        const fogEdgeDistCtrl = fogFolder
+        .add(params, "fadeEndOfWorldDistance", 12.0, Math.min(400.0, WORLD_BOUNDS_XZ), 1.0)
+        .name("Fade distance")
+        .listen();
+
         const fogNearCtrl = fogFolder
         .add(params, "fogNear", 0.1, 200.0, 0.5)
         .name("Near");
@@ -13266,9 +13771,21 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         .addColor(params, "fogColor")
         .name("Color");
 
+        guiControllers.push(fogEdgeCtrl, fogEdgeDistCtrl, fogNearCtrl, fogFarCtrl, fogColorCtrl);
+
+        fogEdgeCtrl.onChange((v) => {
+          params.fadeEndOfWorldEnabled = !!v;
+          fogUpdate();
+        });
+
+        fogEdgeDistCtrl.onChange(fogUpdate);
         fogNearCtrl.onChange(fogUpdate);
         fogFarCtrl.onChange(fogUpdate);
         fogColorCtrl.onChange(fogUpdate);
+
+        //fogFolder.open();
+
+
         //fogFolder.open();
 
         const gustFolder = gui.addFolder("Gusts");
@@ -14241,7 +14758,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         camera.updateProjectionMatrix();
 
         renderer.setSize(window.innerWidth, window.innerHeight);
+
+        layoutMinimapCanvases();
+        drawMinimapFrame(true);
       }
+
 
       const clock = new THREE.Clock();
       let frame = 0;
@@ -14343,6 +14864,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         tickAvatar(dtAvatar);
 
+        const fogFocus = getMinimapFocus();
+        updateEdgeFadeFog(fogFocus.x, fogFocus.z);        
+
         const inXR = renderer.xr.isPresenting;
 
         if (!inXR && controls) {
@@ -14378,6 +14902,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         applyShadowSettingsFromParams(false);
         renderer.render(scene, camera);
+
+        drawMinimapFrame(false);
 
         frame++;
 
@@ -15581,6 +16107,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         loadAvatar();
         setupAvatarUI();
+        setupMinimapUI();        
 
         bootWorldPickerOverlay();
 
