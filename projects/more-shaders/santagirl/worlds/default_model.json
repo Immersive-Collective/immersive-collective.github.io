@@ -376,6 +376,62 @@
       }
     ]
   },
+
+
+      {
+        name: "jetpack",
+        url: "models/vehicles/jetpacks/jetpack.glb",
+        instances: [
+          {
+            id: "jetpack_1",
+            position: [3, 0, -5],
+            rotation: [0, 0, 0],
+            scale: 1,
+            stick: false,
+            collide: false,
+            equipment: {
+              type: "Jetpack",
+              description: "Personal jetpack",
+              action: "jetpack",
+              attach: {
+                bone: "Spine2",
+                position: [0, 0.08, -0.22],
+                rotation: [0, 3.14159, 0],
+                scale: 1
+              }
+            }
+          }
+        ]
+      },
+
+      {
+        name: "backpack",
+        url: "models/backpacks/backpack1.glb",
+        instances: [
+          {
+            id: "backpack1",
+            position: [3, 0, -5],
+            rotation: [0, 0, 0],
+            scale: 1,
+            stick: false,
+            collide: false,
+            equipment: {
+              type: "Backpack",
+              description: "Wearable backpack",
+              action: "",
+              attach: {
+                bone: "Spine2",
+                position: [0, 0.06, -0.18],
+                rotation: [0, 3.14159, 0],
+                scale: 1
+              }
+            }
+          }
+        ]
+      },
+
+
+
   {
     "name": "plane",
     "url": "models/vehicles/flying/plane1.glb",

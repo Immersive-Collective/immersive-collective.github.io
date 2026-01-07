@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Three.js – Snowdrifts, Gusts, Sticking & Presets (importmap)</title>
+  <title>Yolo - Nano</title>
   <link rel="icon" href="data:,">
 
   <meta
@@ -35,6 +35,12 @@
 
     button {
       font-family: "Minimalo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      border-radius: 14px;
+      border: 0px solid rgba(255, 255, 255, 0.18);
+      background: rgba(0, 0, 0, 0.28);
+      color: #fff;
+      padding: 12px 14px;
+
     }
 
     #app {
@@ -352,7 +358,7 @@
       border: 1px solid rgba(255, 255, 255, 0.18);
       border-radius: 14px;
       box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
-      padding: 14px 14px 12px 14px;
+      padding: 1.5rem;
       color: rgba(255, 255, 255, 0.95);
     }
 
@@ -491,10 +497,13 @@
       margin-top: 2px;
     }
 
+
+
+
     .world-picker__list {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
       overflow: auto;
       -webkit-overflow-scrolling: touch;
       flex: 1 1 auto;
@@ -505,11 +514,71 @@
       -ms-overflow-style: none;
     }
 
+    .world-picker__section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 2px 2px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+    }
+
+    .world-picker__section:last-child {
+      border-bottom: none;
+      padding-bottom: 2px;
+    }
+
+    .world-picker__sectionHead {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .world-picker__sectionTitle {
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.90);
+    }
+
+    .world-picker__sectionMeta {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.62);
+      white-space: nowrap;
+    }
+
+    .world-picker__sectionGrid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
     @media (min-width: 720px) {
-      .world-picker__list {
+      .world-picker__sectionGrid {
         grid-template-columns: 1fr 1fr;
       }
     }
+
+    @media (min-width: 1040px) {
+      .world-picker__sectionGrid {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+    }
+
+    .world-picker__empty {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.62);
+      padding: 6px 2px 0;
+    }
+
+    .world-picker__footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
 
     .world-card {
       border: 2px solid rgba(255, 255, 255, 0.16);
@@ -791,13 +860,10 @@
 
 
 
-
-
-
     .avatar-picker {
       display: grid;
       grid-template-columns: 52px 1fr 52px;
-      gap: 12px;
+      gap: 0px;
       align-items: center;
       width: 100%;
       margin-top: 6px;
@@ -807,9 +873,9 @@
       height: 52px;
       width: 52px;
       border-radius: 14px;
-      border: 1px solid rgba(255,255,255,0.18);
+      border: 0px solid rgba(255,255,255,0.18);
       background: rgba(0,0,0,0.28);
-      color: #fff;
+      color: #ffeb3b;
       font-weight: 900;
       font-size: 22px;
       display: grid;
@@ -837,11 +903,11 @@
 
     .avatar-picker__thumb {
       width: 100%;
-      height: clamp(190px, 26vh, 320px);
+      height: clamp(190px, 26vh, 360px);
       border-radius: 14px;
       object-fit: contain;
       object-position: center center;
-      background: rgba(255,255,255,0.05);
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 66%);
       border: 0px solid rgba(255,255,255,0.10);
       cursor: pointer;
       touch-action: manipulation;
@@ -877,12 +943,12 @@
 
     .avatar-picker__badge {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: 20px;
+      right: 20px;
       font-size: 12px;
       padding: 6px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.18);
+      border: 0px solid rgba(255,255,255,0.18);
       background: rgba(0,0,0,0.32);
     }
 
@@ -941,6 +1007,7 @@
     }
 
 
+
     .minimap {
       position: fixed;
       left: calc(12px + env(safe-area-inset-left));
@@ -964,6 +1031,11 @@
       transform: translateY(1px);
     }
 
+    .minimap.is-medium {
+      --minimap-size: 320px;
+      border-radius: 18px;
+    }
+
     .minimap__canvas {
       display: block;
       width: 100%;
@@ -976,7 +1048,10 @@
       display: none;
       align-items: center;
       justify-content: center;
-      padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+      padding: calc(16px + env(safe-area-inset-top))
+      calc(16px + env(safe-area-inset-right))
+      calc(16px + env(safe-area-inset-bottom))
+      calc(16px + env(safe-area-inset-left));
       background: rgba(0,0,0,0.45);
       z-index: 60;
       pointer-events: auto;
@@ -988,8 +1063,8 @@
     }
 
     .map-overlay__panel {
-      width: min(92vw, 760px);
-      height: min(78vh, 760px);
+      width: min(96vw, 980px);
+      height: min(90vh, 980px);
       border-radius: 22px;
       border: 1px solid rgba(255,255,255,0.16);
       background: rgba(12,12,12,0.65);
@@ -1025,7 +1100,8 @@
 
     @media (max-width: 520px) {
       .minimap { --minimap-size: 132px; border-radius: 14px; }
-      .map-overlay__panel { width: 94vw; height: 72vh; border-radius: 18px; }
+      .minimap.is-medium { --minimap-size: 240px; border-radius: 16px; }
+      .map-overlay__panel { width: 96vw; height: 86vh; border-radius: 18px; }
     }
 
 
@@ -1219,31 +1295,59 @@
     <div class="world-picker__panel" role="dialog" aria-modal="true" aria-label="Worlds">
       <div class="kbd-help__header">
         <div class="kbd-help__title">Worlds</div>
-        <button id="worldPickerClose" class="avatar-btn">Close</button>
+        <button id="worldPickerClose" class="kbd-help__close" type="button" aria-label="Close">✕</button>
       </div>
 
       <div class="world-picker__save">
         <div class="profile-field">
           <label class="profile-label" for="worldTitleInput">Title</label>
-          <input id="worldTitleInput" class="profile-input" type="text" maxlength="64" autocomplete="off" />
+          <input id="worldTitleInput" class="profile-input" type="text" placeholder="Untitled" autocomplete="off" />
         </div>
 
         <div class="profile-field">
           <label class="profile-label" for="worldDescInput">Description</label>
-          <textarea id="worldDescInput" class="profile-textarea" rows="2" maxlength="256"></textarea>
+          <textarea id="worldDescInput" class="profile-input" rows="2" placeholder="Short description"></textarea>
         </div>
 
-        <div class="world-picker__save-row">
+        <div class="profile-actions">
           <button id="worldSaveBtn" class="avatar-btn" type="button">Save Current</button>
-          <button id="worldImportBtn" class="avatar-btn" type="button">Import JSON</button>
         </div>
       </div>
 
-      <div id="worldPickerList" class="world-picker__list"></div>
+      <div id="worldPickerList" class="world-picker__list">
+        <div class="world-picker__section">
+          <div class="world-picker__sectionHead">
+            <div class="world-picker__sectionTitle">Local Worlds</div>
+            <div id="worldPickerLocalMeta" class="world-picker__sectionMeta"></div>
+          </div>
+          <div id="worldPickerListLocal" class="world-picker__sectionGrid"></div>
+        </div>
+
+        <div class="world-picker__section">
+          <div class="world-picker__sectionHead">
+            <div class="world-picker__sectionTitle">Private Cloud Worlds</div>
+            <div id="worldPickerPrivateMeta" class="world-picker__sectionMeta"></div>
+          </div>
+          <div id="worldPickerListPrivate" class="world-picker__sectionGrid"></div>
+        </div>
+
+        <div class="world-picker__section">
+          <div class="world-picker__sectionHead">
+            <div class="world-picker__sectionTitle">Global Worlds</div>
+            <div id="worldPickerGlobalMeta" class="world-picker__sectionMeta"></div>
+          </div>
+          <div id="worldPickerListGlobal" class="world-picker__sectionGrid"></div>
+        </div>
+      </div>
+
+      <div class="world-picker__footer">
+        <button id="worldImportBtn" class="avatar-btn" type="button">Import World</button>
+      </div>
 
       <div class="kbd-help__note">Selecting a world reloads the page to fully swap loaded models.</div>
     </div>
   </div>
+
 
   <div id="inventoryPicker" class="inventory-picker" aria-hidden="true">
     <div class="inventory-picker__panel" role="dialog" aria-modal="true" aria-label="Inventory">
@@ -2724,6 +2828,7 @@
      */
     function rebuildWorldModelsRuntimeCaches() {
       vehicleInteractables.length = 0;
+      equipmentInteractables.length = 0;
       setVehiclePrompt(false, null);
       updateVehicleOutlineFor(null);
 
@@ -2771,6 +2876,10 @@
             registerVehicleInstance(inst, instCfg);
           }
 
+          if (instCfg.equipment) {
+            registerEquipmentInstance(inst, instCfg);
+          }
+
           if (instCfg.collide) {
             avatarModelColliderObjects.push(inst);
             const obb = buildWorldEditOBBForRoot(inst, id);
@@ -2788,6 +2897,7 @@
         tickVehicleProximity();
       }
     }
+
 
     /**
      * Applies a full world-models snapshot to the scene (adds/removes instances by id and updates transforms).
@@ -3227,6 +3337,58 @@
       },
 
 
+      {
+        name: "jetpack",
+        url: "models/vehicles/jetpacks/jetpack.glb",
+        instances: [
+          {
+            id: "jetpack_1",
+            position: [3, 0, -5],
+            rotation: [0, 0, 0],
+            scale: 1,
+            stick: false,
+            collide: false,
+            equipment: {
+              type: "Jetpack",
+              description: "Personal jetpack",
+              action: "jetpack",
+              attach: {
+                bone: "Spine2",
+                position: [0, 0.08, -0.22],
+                rotation: [0, 3.14159, 0],
+                scale: 1
+              }
+            }
+          }
+        ]
+      },
+
+      {
+        name: "backpack",
+        url: "models/backpacks/backpack1.glb",
+        instances: [
+          {
+            id: "backpack1",
+            position: [3, 0, -5],
+            rotation: [0, 0, 0],
+            scale: 1,
+            stick: false,
+            collide: false,
+            equipment: {
+              type: "Backpack",
+              description: "Wearable backpack",
+              action: "",
+              attach: {
+                bone: "Spine2",
+                position: [0, 0.06, -0.18],
+                rotation: [0, 3.14159, 0],
+                scale: 1
+              }
+            }
+          }
+        ]
+      },
+
 
 
       {
@@ -3452,6 +3614,7 @@
 
 
     const WORLD_MODELS_URL = "worlds/default_model.json";
+
     const WORLD_MODELS_OVERRIDE_KEY = "snow:worldModelsOverride:v1";
 
     const WORLDS_DB_NAME = "snow-worlds";
@@ -3507,21 +3670,55 @@
 
     let worldPickerEl = null;
     let worldPickerCloseBtn = null;
+
     let worldPickerListEl = null;
+    let worldPickerListLocalEl = null;
+    let worldPickerListPrivateEl = null;
+    let worldPickerListGlobalEl = null;
+
+    let worldPickerLocalMetaEl = null;
+    let worldPickerPrivateMetaEl = null;
+    let worldPickerGlobalMetaEl = null;
+
     let worldTitleInputEl = null;
     let worldDescInputEl = null;
     let worldSaveBtnEl = null;
     let worldImportBtnEl = null;
+
+    const worldPickerCloudState = {
+      privateWorlds: [],
+      globalWorlds: [],
+      lastError: ""
+    };
+
 
     /**
      * Validates and normalizes a model config payload into the expected MODEL_CONFIG array shape.
      * Preserves all unknown/extra fields on entries and instances; only normalizes position/rotation/scale.
      * Returns null when the payload is unusable.
      */
+    /**
+     * Validates and normalizes a model config payload into the expected MODEL_CONFIG array shape.
+     * Preserves all unknown/extra fields on entries and instances; only normalizes position/rotation/scale.
+     * Also restores missing instance-level equipment metadata from MODEL_CONFIG templates (backwards compatibility).
+     * Returns null when the payload is unusable.
+     */
     function normalizeWorldModelsConfig(raw) {
       if (!Array.isArray(raw)) return null;
 
       const out = [];
+
+      const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+      const deepClonePlain = (v) => JSON.parse(JSON.stringify(v));
+
+      const templateByName = new Map();
+      if (Array.isArray(MODEL_CONFIG)) {
+        for (const t of MODEL_CONFIG) {
+          if (!t || typeof t !== "object") continue;
+          if (typeof t.name !== "string" || !t.name) continue;
+          templateByName.set(t.name, t);
+        }
+      }
 
       for (let i = 0; i < raw.length; i++) {
         const e = raw[i];
@@ -3534,6 +3731,12 @@
         if (!name || !url) continue;
 
         const cleanInstances = [];
+
+        const tmplEntry = templateByName.get(name) || null;
+        const tmplInst =
+        tmplEntry && Array.isArray(tmplEntry.instances) && tmplEntry.instances.length
+        ? tmplEntry.instances[0]
+        : null;
 
         for (let k = 0; k < instances.length; k++) {
           const inst = instances[k];
@@ -3550,17 +3753,24 @@
           }
 
           const copy = { ...inst };
+
           copy.position = [
             Number.isFinite(p[0]) ? p[0] : 0,
             Number.isFinite(p[1]) ? p[1] : 0,
             Number.isFinite(p[2]) ? p[2] : 0
           ];
+
           copy.rotation = [
             Number.isFinite(r[0]) ? r[0] : 0,
             Number.isFinite(r[1]) ? r[1] : 0,
             Number.isFinite(r[2]) ? r[2] : 0
           ];
+
           copy.scale = s;
+
+          if (tmplInst && tmplInst.equipment && !hasOwn(copy, "equipment")) {
+            copy.equipment = deepClonePlain(tmplInst.equipment);
+          }
 
           cleanInstances.push(copy);
         }
@@ -3575,6 +3785,10 @@
 
       return out.length ? out : null;
     }
+
+
+
+
 
     /**
      * Opens IndexedDB (worlds) and returns a live IDBDatabase instance.
@@ -4019,6 +4233,72 @@
       })();
     }
 
+
+    /**
+     * Cloud Worlds API (mock-ready):
+     * - Disabled by default.
+     * - When enabled, endpoints are expected to return JSON.
+     * - List endpoints return { worlds:[...] } or a raw [...] array.
+     */
+    const CLOUD_WORLDS_API = {
+      enabled: false,
+      baseUrl: "/api/worlds"
+    };
+
+    function normalizeCloudWorldListPayload(json) {
+      if (Array.isArray(json)) return json;
+      if (json && typeof json === "object" && Array.isArray(json.worlds)) return json.worlds;
+      return [];
+    }
+
+    async function cloudListWorlds(scope) {
+      if (!CLOUD_WORLDS_API.enabled) return [];
+      const s = scope === "private" ? "private" : "global";
+
+      const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`Cloud list failed: ${res.status}`);
+      const json = await res.json();
+      return normalizeCloudWorldListPayload(json);
+    }
+
+    async function cloudGetWorld(scope, id) {
+      if (!CLOUD_WORLDS_API.enabled) throw new Error("Cloud API disabled");
+      const s = scope === "private" ? "private" : "global";
+      const safeId = encodeURIComponent(String(id || "").trim());
+
+      const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}/${safeId}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`Cloud get failed: ${res.status}`);
+      return await res.json();
+    }
+
+    async function cloudSaveWorld(scope, worldRecord) {
+      if (!CLOUD_WORLDS_API.enabled) throw new Error("Cloud API disabled");
+      const s = scope === "private" ? "private" : "global";
+
+      const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(worldRecord || {})
+      });
+
+      if (!res.ok) throw new Error(`Cloud save failed: ${res.status}`);
+      return await res.json();
+    }
+
+    async function cloudDeleteWorld(scope, id) {
+      if (!CLOUD_WORLDS_API.enabled) throw new Error("Cloud API disabled");
+      const s = scope === "private" ? "private" : "global";
+      const safeId = encodeURIComponent(String(id || "").trim());
+
+      const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}/${safeId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`Cloud delete failed: ${res.status}`);
+      return true;
+    }
+
+
+
+
+
     /**
      * Builds an exportable MODEL_CONFIG snapshot using current scene transforms (when instances exist).
      */
@@ -4091,10 +4371,43 @@
  * Renders the worlds list cards into the overlay.
  */
     function renderWorldPickerList(worlds) {
-      if (!worldPickerListEl) return;
+      if (!worldPickerListLocalEl || !worldPickerListPrivateEl || !worldPickerListGlobalEl) return;
+
+      const local = Array.isArray(worlds) ? worlds : [];
+      const priv = Array.isArray(worldPickerCloudState.privateWorlds) ? worldPickerCloudState.privateWorlds : [];
+      const glob = Array.isArray(worldPickerCloudState.globalWorlds) ? worldPickerCloudState.globalWorlds : [];
+
+      renderLocalWorldCards(local);
+      renderCloudWorldCards(worldPickerListPrivateEl, priv, "private");
+      renderCloudWorldCards(worldPickerListGlobalEl, glob, "global");
+
+      if (worldPickerLocalMetaEl) worldPickerLocalMetaEl.textContent = `${local.length} saved`;
+      if (worldPickerPrivateMetaEl) {
+        worldPickerPrivateMetaEl.textContent = CLOUD_WORLDS_API.enabled ? `${priv.length} available` : "API disabled";
+      }
+      if (worldPickerGlobalMetaEl) {
+        worldPickerGlobalMetaEl.textContent = CLOUD_WORLDS_API.enabled ? `${glob.length} available` : "API disabled";
+      }
+    }
+
+    function renderEmptyMessage(listEl, text) {
+      listEl.innerHTML = "";
+      const msg = document.createElement("div");
+      msg.className = "world-picker__empty";
+      msg.textContent = text;
+      listEl.appendChild(msg);
+    }
+
+    function renderLocalWorldCards(worlds) {
+      if (!worldPickerListLocalEl) return;
 
       const activeId = getActiveWorldId();
-      worldPickerListEl.innerHTML = "";
+      worldPickerListLocalEl.innerHTML = "";
+
+      if (!worlds.length) {
+        renderEmptyMessage(worldPickerListLocalEl, "No local worlds saved.");
+        return;
+      }
 
       for (let i = 0; i < worlds.length; i++) {
         const w = worlds[i];
@@ -4143,11 +4456,9 @@
         loadBtn.textContent = "Load";
         loadBtn.addEventListener("click", () => {
           setActiveWorldId(id);
-
           try {
             sessionStorage.setItem(WORLD_PICKER_SUPPRESS_ONCE_KEY, "1");
           } catch (e) {}
-
           location.reload();
         });
 
@@ -4167,7 +4478,7 @@
               models: JSON.parse(JSON.stringify(w.models || [])),
               settings: w.settings ? JSON.parse(JSON.stringify(w.settings)) : safeCloneSettings(params),
               thumbnail: typeof w.thumbnail === "string" ? w.thumbnail : "",
-              meta: w.meta ? JSON.parse(JSON.stringify(w.meta)) : {},
+              meta: {},
               createdAt: now,
               updatedAt: now
             });
@@ -4194,7 +4505,9 @@
           if (worldTitleInputEl) worldTitleInputEl.value = String(w.title || "");
           if (worldDescInputEl) worldDescInputEl.value = String(w.description || "");
 
-          if (worldTitleInputEl) worldTitleInputEl.focus({ preventScroll: true });
+          try {
+            worldTitleInputEl && worldTitleInputEl.focus({ preventScroll: true });
+          } catch (e) {}
         });
 
         const exportBtn = document.createElement("button");
@@ -4217,30 +4530,29 @@
 
           try {
             await idbDeleteWorld(id);
-            showActionToast("World deleted");
 
-            const current = getActiveWorldId();
-            if (current && id === current) {
+            const active = getActiveWorldId();
+            if (active && active === id) {
               setActiveWorldId("");
-              location.reload();
-              return;
             }
 
             const updated = await idbGetAllWorlds();
             renderWorldPickerList(updated);
+
+            showActionToast("World deleted");
           } catch (e) {
             console.warn("[worlds] delete failed", e);
           }
         });
-
-        titleRow.appendChild(title);
-        titleRow.appendChild(meta);
 
         actions.appendChild(loadBtn);
         actions.appendChild(cloneBtn);
         actions.appendChild(editBtn);
         actions.appendChild(exportBtn);
         actions.appendChild(delBtn);
+
+        titleRow.appendChild(title);
+        titleRow.appendChild(meta);
 
         body.appendChild(titleRow);
         body.appendChild(desc);
@@ -4249,9 +4561,108 @@
         card.appendChild(thumb);
         card.appendChild(body);
 
-        worldPickerListEl.appendChild(card);
+        worldPickerListLocalEl.appendChild(card);
       }
     }
+
+    function renderCloudWorldCards(listEl, worlds, scope) {
+      if (!listEl) return;
+
+      listEl.innerHTML = "";
+
+      if (!CLOUD_WORLDS_API.enabled) {
+        renderEmptyMessage(listEl, "Cloud API not enabled.");
+        return;
+      }
+
+      if (!worlds.length) {
+        renderEmptyMessage(listEl, "No worlds available.");
+        return;
+      }
+
+      for (let i = 0; i < worlds.length; i++) {
+        const w = worlds[i];
+        if (!w || typeof w !== "object") continue;
+
+        const id = String(w.id || "");
+        if (!id) continue;
+
+        const card = document.createElement("div");
+        card.className = "world-card";
+
+        const thumb = document.createElement("img");
+        thumb.className = "world-card__thumb";
+        thumb.alt = "";
+        thumb.loading = "lazy";
+        thumb.decoding = "async";
+        thumb.src = typeof w.thumbnail === "string" && w.thumbnail
+        ? w.thumbnail
+        : "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
+
+        const body = document.createElement("div");
+        body.className = "world-card__body";
+
+        const titleRow = document.createElement("div");
+        titleRow.className = "world-card__titleRow";
+
+        const title = document.createElement("div");
+        title.className = "world-card__title";
+        title.textContent = String(w.title || "Untitled");
+
+        const meta = document.createElement("div");
+        meta.className = "world-card__meta";
+        meta.textContent = scope === "private" ? "private" : "global";
+
+        const desc = document.createElement("div");
+        desc.className = "world-card__desc";
+        desc.textContent = String(w.description || "");
+
+        const actions = document.createElement("div");
+        actions.className = "world-card__actions";
+
+        const loadBtn = document.createElement("button");
+        loadBtn.className = "avatar-btn";
+        loadBtn.type = "button";
+        loadBtn.textContent = "Load";
+        loadBtn.addEventListener("click", async () => {
+          try {
+            const rec = await cloudGetWorld(scope, id);
+            if (!rec || typeof rec !== "object") return;
+
+            const now = Date.now();
+            if (!rec.createdAt) rec.createdAt = now;
+            rec.updatedAt = now;
+
+            await idbPutWorld(rec);
+            setActiveWorldId(String(rec.id || id));
+
+            try {
+              sessionStorage.setItem(WORLD_PICKER_SUPPRESS_ONCE_KEY, "1");
+            } catch (e) {}
+
+            location.reload();
+          } catch (e) {
+            console.warn("[worlds] cloud load failed", e);
+            showActionToast("Cloud load failed");
+          }
+        });
+
+        actions.appendChild(loadBtn);
+
+        titleRow.appendChild(title);
+        titleRow.appendChild(meta);
+
+        body.appendChild(titleRow);
+        body.appendChild(desc);
+        body.appendChild(actions);
+
+        card.appendChild(thumb);
+        card.appendChild(body);
+
+        listEl.appendChild(card);
+      }
+    }
+
 
 
 
@@ -4263,11 +4674,21 @@
 
       worldPickerEl = document.getElementById("worldPicker");
       worldPickerCloseBtn = document.getElementById("worldPickerClose");
+
       worldPickerListEl = document.getElementById("worldPickerList");
+      worldPickerListLocalEl = document.getElementById("worldPickerListLocal");
+      worldPickerListPrivateEl = document.getElementById("worldPickerListPrivate");
+      worldPickerListGlobalEl = document.getElementById("worldPickerListGlobal");
+
+      worldPickerLocalMetaEl = document.getElementById("worldPickerLocalMeta");
+      worldPickerPrivateMetaEl = document.getElementById("worldPickerPrivateMeta");
+      worldPickerGlobalMetaEl = document.getElementById("worldPickerGlobalMeta");
+
       worldTitleInputEl = document.getElementById("worldTitleInput");
       worldDescInputEl = document.getElementById("worldDescInput");
       worldSaveBtnEl = document.getElementById("worldSaveBtn");
       worldImportBtnEl = document.getElementById("worldImportBtn");
+
 
       if (!worldPickerEl) return;
 
@@ -4361,6 +4782,28 @@
       (async () => {
         try {
           const worlds = await idbGetAllWorlds();
+
+          if (CLOUD_WORLDS_API.enabled) {
+            try {
+              const [priv, glob] = await Promise.all([
+                cloudListWorlds("private"),
+                cloudListWorlds("global")
+              ]);
+
+              worldPickerCloudState.privateWorlds = Array.isArray(priv) ? priv : [];
+              worldPickerCloudState.globalWorlds = Array.isArray(glob) ? glob : [];
+              worldPickerCloudState.lastError = "";
+            } catch (e) {
+              worldPickerCloudState.privateWorlds = [];
+              worldPickerCloudState.globalWorlds = [];
+              worldPickerCloudState.lastError = String(e && e.message ? e.message : e);
+            }
+          } else {
+            worldPickerCloudState.privateWorlds = [];
+            worldPickerCloudState.globalWorlds = [];
+            worldPickerCloudState.lastError = "";
+          }
+
           renderWorldPickerList(worlds);
           setWorldPickerOpen(true);
         } catch (e) {
@@ -4368,6 +4811,7 @@
         }
       })();
     }
+
 
 
     /**
@@ -4529,6 +4973,8 @@
       avatarModelColliderOBBs.length = 0;
 
       vehicleInteractables.length = 0;
+      equipmentInteractables.length = 0;
+
       setVehiclePrompt(false, null);
       updateVehicleOutlineFor(null);
 
@@ -4598,10 +5044,9 @@
                       obj.castShadow = true;
                       obj.receiveShadow = true;
 
-                      // Only apply to alpha-textured meshes (like your planes)
                       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
                       if (mats.some(hasAlphaTexture)) {
-                        applyAlphaCutoutShadows(obj, 0.5);   // tweak cutoff: 0.3–0.7 typical
+                        applyAlphaCutoutShadows(obj, 0.5);
                       }
 
                       if (instCfg.stick) colliderObjects.push(obj);
@@ -4617,6 +5062,10 @@
 
                     if (instCfg.vehicle) {
                       registerVehicleInstance(inst, instCfg);
+                    }
+
+                    if (instCfg.equipment) {
+                      registerEquipmentInstance(inst, instCfg);
                     }
 
                     if (instCfg.collide) {
@@ -4642,13 +5091,6 @@
             }
           })();
         }
-
-
-
-
-
-
-
 
 
 
@@ -5478,15 +5920,79 @@
 
 
 
+    /**
+     * Builds a stable slash-path for an object relative to a root.
+     */
+    function getObjectPath(obj, root) {
+      const parts = [];
+      let cur = obj;
+      while (cur && cur !== root) {
+        parts.push(String(cur.name || cur.type || "Object3D"));
+        cur = cur.parent;
+      }
+      parts.push(String(root && (root.name || "avatar") || "avatar"));
+      parts.reverse();
+      return parts.join("/");
+    }
+
+    /**
+     * Collects and prints avatar bone names (and paths) to the console.
+     * Returns an array of bone info rows for downstream tooling.
+     */
+    function listAvatarBonesToConsole() {
+      if (!avatar) {
+        console.warn("[avatar] list bones: avatar is not loaded");
+        return [];
+      }
+
+      const bones = [];
+      avatar.traverse((o) => {
+        if (o && o.isBone) bones.push(o);
+      });
+
+      const rows = bones.map((b, i) => {
+        return {
+          i,
+          name: String(b.name || ""),
+          path: getObjectPath(b, avatar),
+          position: b.position ? `${b.position.x.toFixed(3)}, ${b.position.y.toFixed(3)}, ${b.position.z.toFixed(3)}` : "",
+          rotation: b.rotation ? `${b.rotation.x.toFixed(3)}, ${b.rotation.y.toFixed(3)}, ${b.rotation.z.toFixed(3)}` : ""
+        };
+      });
+
+      console.groupCollapsed(`[avatar] bones (${bones.length})`);
+      try {
+        console.table(rows);
+      } catch (e) {
+        console.log(rows);
+      }
+      console.groupEnd();
+
+      return rows;
+    }
+
+
 
 
 
 
     /**
+     * Resolves avatar action names, allowing equipped items to override idle with a dedicated action.
+     */
+    function resolveAvatarActionName(name) {
+      const n = String(name || "");
+      if (n === "idle" && equipmentState.enabled) {
+        const idle = String(equipmentState.idleAction || "");
+        if (idle && avatarActions && avatarActions[idle]) return idle;
+      }
+      return n;
+    }
+
+    /**
      * Cross-fades avatar animation states.
      */
     function switchAvatarAction(name) {
-      playAvatarAction(name);
+      playAvatarAction(resolveAvatarActionName(name));
     }
 
 
@@ -6197,11 +6703,15 @@
     }
 
 
+
+
 /**
  * Wires UI controls (avatar, edit world, transform buttons, vehicle prompt, keyboard help, joystick).
  * Keeps all handlers in one place and ensures mobile joystick state is correctly initialized.
  */
+
     function setupAvatarUI() {
+
       const avatarToggleBtn = document.getElementById("avatarToggle");
       const avatarViewToggleBtn = document.getElementById("avatarViewToggle");
       const worldEditToggleBtn = document.getElementById("worldEditToggle");
@@ -6378,8 +6888,33 @@
         });
       }
 
+
+
+      if (vehicleEnterBtn) {
+        vehicleEnterBtn.addEventListener("click", () => {
+          const near = vehiclePromptState.nearby;
+          if (!near) return;
+
+          if (near.kind === "equipment") {
+            if (!equipmentState.enabled) equipItem(near);
+            return;
+          }
+
+          if (!vehicleDriveState.enabled) {
+            enterVehicle(near);
+          }
+        });
+      }
+
       if (vehicleExitBtn) {
         vehicleExitBtn.addEventListener("click", () => {
+          const near = vehiclePromptState.nearby;
+
+          if (near && near.kind === "equipment") {
+            if (equipmentState.enabled) unequipItem();
+            return;
+          }
+
           if (vehicleDriveState.enabled) exitVehicle();
         });
       }
@@ -6390,6 +6925,8 @@
           updateVehicleOutlineFor(null);
         });
       }
+
+
 
       if (joystickEl) {
         joystickEl.addEventListener("pointerdown", (event) => {
@@ -6432,7 +6969,7 @@
 
 
 
-    /* Minimap UI: renders a centered crop in the top-left and a full-world overlay map. */
+/* Minimap UI: renders a centered crop in the top-left and a full-world overlay map. */
     const minimapState = {
       miniBtn: null,
       miniCanvas: null,
@@ -6441,10 +6978,41 @@
       overlayCanvas: null,
       overlayCtx: null,
       open: false,
+  mode: 0, /* 0=small, 1=medium, 2=overlay */
       viewHalfWorld: 140,
       staticPoints: [],
       lastDrawMs: 0
     };
+
+/* Applies the current minimap mode to DOM state and accessibility labels. */
+    function applyMinimapModeToUI() {
+      if (!minimapState.miniBtn) return;
+
+      minimapState.miniBtn.classList.toggle("is-medium", minimapState.mode === 1);
+
+      const label =
+      (minimapState.mode === 0 && "Map (Small)") ||
+      (minimapState.mode === 1 && "Map (Medium)") ||
+      "Map (Full)";
+
+      minimapState.miniBtn.setAttribute("aria-label", label);
+    }
+
+/* Sets minimap mode: small -> medium -> overlay; updates layout and redraws. */
+    function setMinimapMode(mode) {
+      const nextMode = (mode === 0 || mode === 1 || mode === 2) ? mode : 0;
+      minimapState.mode = nextMode;
+
+      if (nextMode === 2) {
+        setMinimapOverlayOpen(true);
+      } else {
+        setMinimapOverlayOpen(false);
+      }
+
+      applyMinimapModeToUI();
+      layoutMinimapCanvases();
+      drawMinimapFrame(true);
+    }
 
     function setupMinimapUI() {
       minimapState.miniBtn = document.getElementById("miniMap");
@@ -6458,26 +7026,35 @@
       minimapState.miniCtx = minimapState.miniCanvas.getContext("2d", { alpha: true, desynchronized: true });
       minimapState.overlayCtx = minimapState.overlayCanvas.getContext("2d", { alpha: true, desynchronized: true });
 
-      minimapState.miniBtn.addEventListener("click", () => setMinimapOverlayOpen(true), { passive: true });
-      if (closeBtn) closeBtn.addEventListener("click", () => setMinimapOverlayOpen(false), { passive: true });
-
-      minimapState.overlay.addEventListener("click", (e) => {
-        if (e.target === minimapState.overlay) setMinimapOverlayOpen(false);
+      minimapState.miniBtn.addEventListener("click", () => {
+        if (minimapState.mode === 0) setMinimapMode(1);
+        else if (minimapState.mode === 1) setMinimapMode(2);
+        else setMinimapMode(0);
       }, { passive: true });
 
-      layoutMinimapCanvases();
+      if (closeBtn) {
+        closeBtn.addEventListener("click", () => setMinimapMode(0), { passive: true });
+      }
+
+      minimapState.overlay.addEventListener("click", (e) => {
+        if (e.target === minimapState.overlay) setMinimapMode(0);
+      }, { passive: true });
+
+      setMinimapMode(0);
       refreshMinimapStaticPoints();
-      drawMinimapFrame(true);
     }
 
+/* Opens/closes the overlay panel only (mode switching is handled by setMinimapMode). */
     function setMinimapOverlayOpen(open) {
       minimapState.open = !!open;
       if (!minimapState.overlay) return;
       minimapState.overlay.classList.toggle("is-open", minimapState.open);
       minimapState.overlay.setAttribute("aria-hidden", minimapState.open ? "false" : "true");
-      layoutMinimapCanvases();
-      drawMinimapFrame(true);
     }
+
+
+
+
 
     function layoutMinimapCanvases() {
       const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
@@ -6606,7 +7183,7 @@
       ctx.restore();
 
       ctx.save();
-      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.strokeStyle = "rgba(0,255,0,0.10)";
       ctx.lineWidth = 1;
       ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
       ctx.restore();
@@ -6618,7 +7195,7 @@
 
       ctx.save();
       ctx.translate(x, z);
-      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.strokeStyle = "rgba(0,255,0,0.35)";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(-6, 0); ctx.lineTo(6, 0);
@@ -7942,12 +8519,37 @@ let avatarModelColliderObjects = [];
 let avatarModelColliderBounds = [];
 let avatarModelColliderOBBs = [];
 
-    // Vehicle interaction + driving state (POC)
+
+// Vehicle interaction + driving state (POC)
 const vehicleInteractables = [];
 const vehiclePromptState = {
   open: false,
   nearby: null
 };
+
+// Equipment interaction + wearable/tool state (POC)
+const equipmentInteractables = [];
+
+const equipmentState = {
+  enabled: false,
+  item: null,
+  idleAction: "",
+  originalParent: null,
+  originalPosition: new THREE.Vector3(),
+  originalQuaternion: new THREE.Quaternion(),
+  originalScale: new THREE.Vector3(1, 1, 1)
+};
+
+const equipmentTmpBox = new THREE.Box3();
+const equipmentTmpCenter = new THREE.Vector3();
+const equipmentTmpSize = new THREE.Vector3();
+const equipmentTmpPos = new THREE.Vector3();
+const equipmentTmpForward = new THREE.Vector3();
+const equipmentWorldUp = new THREE.Vector3(0, 1, 0);
+const equipmentTmpWorldScale = new THREE.Vector3();
+
+
+
 
 const vehicleDriveState = {
   enabled: false,
@@ -8317,8 +8919,6 @@ function setVehiclePrompt(open, v) {
   vehiclePromptState.open = !!open;
   vehiclePromptState.nearby = open ? (v || null) : null;
 
-  syncVehicleTuningSelection();
-
   const panel = document.getElementById("vehiclePrompt");
   const title = document.getElementById("vehiclePromptTitle");
   const desc = document.getElementById("vehiclePromptDesc");
@@ -8327,37 +8927,55 @@ function setVehiclePrompt(open, v) {
 
   if (!panel || !title || !desc || !enterBtn || !exitBtn) return;
 
-  if (uiHidden) {
-    panel.style.display = "none";
-    panel.setAttribute("aria-hidden", "true");
-    return;
-  }
-
-  if (!vehiclePromptState.open || !vehiclePromptState.nearby) {
+  if (uiHidden || !vehiclePromptState.open || !vehiclePromptState.nearby) {
     panel.style.display = "none";
     panel.setAttribute("aria-hidden", "true");
     title.textContent = "";
     desc.textContent = "";
-    enterBtn.style.display = "";
+    enterBtn.style.display = "none";
     exitBtn.style.display = "none";
     return;
   }
 
-  const meta = vehiclePromptState.nearby.meta;
-  title.textContent = meta.type || "Vehicle";
+  const near = vehiclePromptState.nearby;
+  const isEquipment = near && near.kind === "equipment";
+  const meta = (near && near.meta) || {};
+
+  if (!isEquipment) {
+    syncVehicleTuningSelection();
+  }
+
+  title.textContent = meta.type || (isEquipment ? "Item" : "Vehicle");
   desc.textContent = meta.description || "";
 
-  if (vehicleDriveState.enabled) {
-    enterBtn.style.display = "none";
-    exitBtn.style.display = "";
+  if (isEquipment) {
+    enterBtn.textContent = "Equip";
+    exitBtn.textContent = "Unequip";
+
+    if (equipmentState.enabled) {
+      enterBtn.style.display = "none";
+      exitBtn.style.display = "";
+    } else {
+      enterBtn.style.display = "";
+      exitBtn.style.display = "none";
+    }
   } else {
-    enterBtn.style.display = "";
-    exitBtn.style.display = "none";
+    enterBtn.textContent = "Get in/on";
+    exitBtn.textContent = "Exit";
+
+    if (vehicleDriveState.enabled) {
+      enterBtn.style.display = "none";
+      exitBtn.style.display = "";
+    } else {
+      enterBtn.style.display = "";
+      exitBtn.style.display = "none";
+    }
   }
 
   panel.style.display = "block";
   panel.setAttribute("aria-hidden", "false");
 }
+
 
 
     /**
@@ -8798,6 +9416,81 @@ function registerVehicleInstance(inst, instCfg) {
 }
 
 
+/**
+ * Registers an equipment instance for proximity interaction and avatar attachment.
+ */
+function registerEquipmentInstance(inst, instCfg) {
+  /* Registers equipment instance for proximity interaction and avatar attachment using bounds center for stable pickup distance. */
+  if (!instCfg || !instCfg.equipment || !inst) return;
+
+  inst.updateWorldMatrix(true, true);
+  equipmentTmpBox.setFromObject(inst);
+
+  if (!Number.isFinite(equipmentTmpBox.min.x) || !Number.isFinite(equipmentTmpBox.max.x)) return;
+
+  equipmentTmpBox.getCenter(equipmentTmpCenter);
+  equipmentTmpBox.getSize(equipmentTmpSize);
+
+  const radius = Math.max(0.25, 0.5 * Math.max(equipmentTmpSize.x, equipmentTmpSize.z));
+  const meta = instCfg.equipment && typeof instCfg.equipment === "object" ? instCfg.equipment : {};
+
+  const localCenter = inst.worldToLocal(equipmentTmpCenter.clone());
+
+  const e = {
+    id: instCfg.id || "",
+    kind: "equipment",
+    object: inst,
+    meta,
+    radius,
+    localCenter
+  };
+
+  equipmentInteractables.push(e);
+  inst.userData.equipmentMeta = meta;
+  inst.userData.equipmentLocalCenter = localCenter;
+}
+
+
+/**
+ * Finds the nearest equipment item within reach of the avatar.
+ */
+function findNearbyEquipment() {
+  if (!avatar) return null;
+
+  const pos = avatar.position;
+  let best = null;
+  let bestD2 = Infinity;
+
+  for (let i = 0; i < equipmentInteractables.length; i++) {
+    const e = equipmentInteractables[i];
+    if (!e || !e.object) continue;
+
+    if (e.localCenter) {
+      equipmentTmpPos.copy(e.localCenter).applyMatrix4(e.object.matrixWorld);
+    } else {
+      e.object.getWorldPosition(equipmentTmpPos);
+    }
+
+    const dx = pos.x - equipmentTmpPos.x;
+    const dz = pos.z - equipmentTmpPos.z;
+
+    const reach = (avatarCollision.radius + e.radius + 0.65);
+    const d2 = dx * dx + dz * dz;
+
+    if (d2 <= reach * reach && d2 < bestD2) {
+      bestD2 = d2;
+      best = e;
+    }
+  }
+
+  return best;
+}
+
+
+
+
+
+
     /**
      * Finds the nearest vehicle within interaction range.
      */
@@ -8954,6 +9647,181 @@ function exitVehicle() {
   resetJoystick();
 }
 
+
+/**
+ * Finds an attachment node on the avatar by bone name; falls back to the avatar root when missing.
+ */
+function getAvatarEquipAttachmentNode(boneName) {
+  if (!avatar) return null;
+
+  const nm = String(boneName || "").trim();
+  if (!nm) return avatar;
+
+  const cache =
+  (avatar.userData && avatar.userData.equipmentBoneCache) ||
+  (avatar.userData.equipmentBoneCache = Object.create(null));
+
+  if (cache[nm] !== undefined) return cache[nm] || avatar;
+
+  let best = null;
+
+  avatar.traverse((o) => {
+    if (best) return;
+    if (o && o.isBone && typeof o.name === "string" && o.name === nm) best = o;
+  });
+
+  if (!best) {
+    const lower = nm.toLowerCase();
+    avatar.traverse((o) => {
+      if (best) return;
+      if (o && o.isBone && typeof o.name === "string" && o.name.toLowerCase() === lower) best = o;
+    });
+  }
+
+  cache[nm] = best || null;
+  return best || avatar;
+}
+
+/**
+ * Attaches a nearby equipment object to the avatar and activates its idle override action if present.
+ */
+function equipItem(e) {
+  if (!avatar || !scene || !e || !e.object) return;
+  if (vehicleDriveState.enabled) return;
+  if (equipmentState.enabled) return;
+
+  const obj = e.object;
+  const meta = (e.meta && typeof e.meta === "object") ? e.meta : {};
+  const attach = (meta.attach && typeof meta.attach === "object") ? meta.attach : {};
+
+  equipmentState.item = e;
+  equipmentState.enabled = true;
+
+  equipmentState.originalParent = obj.parent || null;
+  equipmentState.originalPosition.copy(obj.position);
+  equipmentState.originalQuaternion.copy(obj.quaternion);
+  equipmentState.originalScale.copy(obj.scale);
+
+  const action = typeof meta.action === "string" ? meta.action.trim() : "";
+  equipmentState.idleAction = action;
+
+  obj.removeFromParent();
+
+  const bone = typeof attach.bone === "string" ? attach.bone.trim() : "";
+  const node = getAvatarEquipAttachmentNode(bone) || avatar;
+
+  node.updateWorldMatrix(true, false);
+  node.getWorldScale(equipmentTmpWorldScale);
+
+  const wsx = Math.abs(equipmentTmpWorldScale.x) > 1e-6 ? equipmentTmpWorldScale.x : 1.0;
+  const wsy = Math.abs(equipmentTmpWorldScale.y) > 1e-6 ? equipmentTmpWorldScale.y : 1.0;
+  const wsz = Math.abs(equipmentTmpWorldScale.z) > 1e-6 ? equipmentTmpWorldScale.z : 1.0;
+
+  node.add(obj);
+
+  const p = Array.isArray(attach.position) && attach.position.length === 3 ? attach.position : [0, 0.06, -0.22];
+  const r = Array.isArray(attach.rotation) && attach.rotation.length === 3 ? attach.rotation : [0, 0, 0];
+
+  obj.position.set(
+    Number.isFinite(p[0]) ? p[0] : 0,
+    Number.isFinite(p[1]) ? p[1] : 0,
+    Number.isFinite(p[2]) ? p[2] : 0
+    );
+
+  obj.rotation.set(
+    Number.isFinite(r[0]) ? r[0] : 0,
+    Number.isFinite(r[1]) ? r[1] : 0,
+    Number.isFinite(r[2]) ? r[2] : 0
+    );
+
+  const s = attach.scale;
+
+  if (Array.isArray(s) && s.length === 3) {
+    const sx = Number.isFinite(s[0]) ? s[0] : 1;
+    const sy = Number.isFinite(s[1]) ? s[1] : 1;
+    const sz = Number.isFinite(s[2]) ? s[2] : 1;
+
+    obj.scale.set(
+      sx / wsx,
+      sy / wsy,
+      sz / wsz
+      );
+  } else if (Number.isFinite(s)) {
+    const ss = s;
+    obj.scale.set(
+      ss / wsx,
+      ss / wsy,
+      ss / wsz
+      );
+  } else {
+    obj.scale.set(
+      1.0 / wsx,
+      1.0 / wsy,
+      1.0 / wsz
+      );
+  }
+
+  switchAvatarAction("idle");
+  setVehiclePrompt(true, e);
+  updateVehicleOutlineFor(null);
+}
+
+
+/**
+ * Detaches the currently equipped item, restores its pre-equip transform/visibility,
+ * and drops it in front of the avatar so it remains re-interactable in the world.
+ */
+function unequipItem() {
+  if (!equipmentState.enabled || !equipmentState.item || !avatar || !scene) return;
+
+  const e = equipmentState.item;
+  const obj = e && e.object ? e.object : null;
+
+  if (!obj) {
+    equipmentState.enabled = false;
+    equipmentState.item = null;
+    equipmentState.idleAction = "";
+    equipmentState.originalParent = null;
+    equipmentState.originalPosition.set(0, 0, 0);
+    equipmentState.originalQuaternion.set(0, 0, 0, 1);
+    equipmentState.originalScale.set(1, 1, 1);
+    setVehiclePrompt(false, null);
+    updateVehicleOutlineFor(null);
+    return;
+  }
+
+  obj.removeFromParent();
+  scene.add(obj);
+
+  obj.traverse((o) => {
+    if (o && typeof o.visible === "boolean") o.visible = true;
+  });
+
+  obj.position.copy(equipmentState.originalPosition);
+  obj.quaternion.copy(equipmentState.originalQuaternion);
+  obj.scale.copy(equipmentState.originalScale);
+
+  const dist = 1.25;
+  equipmentTmpForward.set(0, 0, -1).applyAxisAngle(equipmentWorldUp, avatar.rotation.y);
+
+  obj.position.copy(avatar.position).addScaledVector(equipmentTmpForward, dist);
+  obj.position.y = avatar.position.y;
+
+  obj.rotation.set(0, avatar.rotation.y + Math.PI, 0);
+  obj.updateMatrixWorld(true);
+
+  equipmentState.enabled = false;
+  equipmentState.item = null;
+  equipmentState.idleAction = "";
+  equipmentState.originalParent = null;
+  equipmentState.originalPosition.set(0, 0, 0);
+  equipmentState.originalQuaternion.set(0, 0, 0, 1);
+  equipmentState.originalScale.set(1, 1, 1);
+
+  switchAvatarAction("idle");
+  setVehiclePrompt(false, null);
+  updateVehicleOutlineFor(null);
+}
 
 
 
@@ -10037,10 +10905,9 @@ function tickVehicle(dt) {
 
 
 
-
-    /**
-     * Updates prompt state based on avatar proximity (transaction state before entering).
-     */
+/**
+ * Shows the interaction prompt for nearby vehicles/equipment (and updates vehicle outline when applicable).
+ */
 function tickVehicleProximity() {
   if (!avatarState.enabled || vehicleDriveState.enabled) {
     if (vehiclePromptState.open) setVehiclePrompt(false, null);
@@ -10048,16 +10915,30 @@ function tickVehicleProximity() {
     return;
   }
 
-  const near = findNearbyVehicle();
-  if (!near) {
-    if (vehiclePromptState.open) setVehiclePrompt(false, null);
+  if (equipmentState.enabled && equipmentState.item) {
+    setVehiclePrompt(true, equipmentState.item);
     updateVehicleOutlineFor(null);
     return;
   }
 
-  setVehiclePrompt(true, near);
-  updateVehicleOutlineFor(near);
+  const nearVehicle = findNearbyVehicle();
+  if (nearVehicle) {
+    setVehiclePrompt(true, nearVehicle);
+    updateVehicleOutlineFor(nearVehicle);
+    return;
+  }
+
+  const nearEquip = findNearbyEquipment();
+  if (nearEquip) {
+    setVehiclePrompt(true, nearEquip);
+    updateVehicleOutlineFor(null);
+    return;
+  }
+
+  if (vehiclePromptState.open) setVehiclePrompt(false, null);
+  updateVehicleOutlineFor(null);
 }
+
 
 
 const boundCenter = new THREE.Vector3();
@@ -12875,6 +13756,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       return best;
     }
 
+
     /* Applies shadow performance settings to renderer and main directional light. */
     function applyShadowSettingsFromParams(force = false) {
       if (!renderer || !dirLight) return;
@@ -12884,74 +13766,86 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       const typeKey = sanitizeShadowType(params.shadowType);
       const mapSize = sanitizeShadowMapSize(params.shadowMapSize | 0);
 
-      if (
-        !force &&
-        shadowApplied.enabled === enabled &&
-        shadowApplied.autoUpdate === autoUpdate &&
-        shadowApplied.typeKey === typeKey &&
-        shadowApplied.mapSize === mapSize
-        ) {
+      const enabledChanged = shadowApplied.enabled !== enabled;
+      const autoUpdateChanged = shadowApplied.autoUpdate !== autoUpdate;
+      const typeChanged = shadowApplied.typeKey !== typeKey;
+      const mapSizeChanged = shadowApplied.mapSize !== mapSize;
+
+      if (!force && !enabledChanged && !autoUpdateChanged && !typeChanged && !mapSizeChanged) return;
+
+      shadowApplied.enabled = enabled;
+      shadowApplied.autoUpdate = autoUpdate;
+      shadowApplied.typeKey = typeKey;
+      shadowApplied.mapSize = mapSize;
+
+      renderer.shadowMap.enabled = enabled;
+      renderer.shadowMap.autoUpdate = enabled && autoUpdate;
+
+      if (typeKey === "Basic") renderer.shadowMap.type = THREE.BasicShadowMap;
+      else if (typeKey === "PCF") renderer.shadowMap.type = THREE.PCFShadowMap;
+      else renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+      dirLight.castShadow = enabled;
+
+      /* Forces a correct rebuild of the internal shadow render target when type/size toggles or shadows are re-enabled. */
+      if (!enabled) {
+        if (dirLight.shadow && dirLight.shadow.map) {
+          dirLight.shadow.map.dispose();
+          dirLight.shadow.map = null;
+        }
+        renderer.shadowMap.needsUpdate = true;
         return;
-    }
-
-    shadowApplied.enabled = enabled;
-    shadowApplied.autoUpdate = autoUpdate;
-    shadowApplied.typeKey = typeKey;
-    shadowApplied.mapSize = mapSize;
-
-    renderer.shadowMap.enabled = enabled;
-    renderer.shadowMap.autoUpdate = enabled && autoUpdate;
-    renderer.shadowMap.needsUpdate = true;
-
-    if (typeKey === "Basic") renderer.shadowMap.type = THREE.BasicShadowMap;
-    else if (typeKey === "PCF") renderer.shadowMap.type = THREE.PCFShadowMap;
-    else renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-    dirLight.castShadow = enabled;
-
-    if (!enabled) {
-      if (dirLight.shadow && dirLight.shadow.map) {
-        dirLight.shadow.map.dispose();
-        dirLight.shadow.map = null;
-      }
-      return;
-    }
-
-    const ms = dirLight.shadow.mapSize;
-    if (ms.x !== mapSize || ms.y !== mapSize) {
-      ms.set(mapSize, mapSize);
-
-      if (dirLight.shadow.map) {
-        dirLight.shadow.map.dispose();
-        dirLight.shadow.map = null;
       }
 
-      dirLight.shadow.needsUpdate = true;
-      renderer.shadowMap.needsUpdate = true;
+      if (typeChanged || enabledChanged) {
+        if (dirLight.shadow && dirLight.shadow.map) {
+          dirLight.shadow.map.dispose();
+          dirLight.shadow.map = null;
+        }
+        dirLight.shadow.needsUpdate = true;
+        renderer.shadowMap.needsUpdate = true;
+      }
+
+      const ms = dirLight.shadow.mapSize;
+      if (mapSizeChanged || ms.x !== mapSize || ms.y !== mapSize) {
+        ms.set(mapSize, mapSize);
+
+        if (dirLight.shadow.map) {
+          dirLight.shadow.map.dispose();
+          dirLight.shadow.map = null;
+        }
+
+        dirLight.shadow.needsUpdate = true;
+        renderer.shadowMap.needsUpdate = true;
+      }
+
+      if (autoUpdateChanged) {
+        renderer.shadowMap.needsUpdate = true;
+      }
     }
-  }
 
 
 
 
 
-  function setupScene() {
 
-    const container = document.getElementById("app");
+    function setupScene() {
 
-    scene = new THREE.Scene();
-    updateFogFromParams();
+      const container = document.getElementById("app");
 
-    camera = new THREE.PerspectiveCamera(
-      60,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      params.fogFar
-      );
-    camera.position.set(-2, 7, -10);
+      scene = new THREE.Scene();
+      updateFogFromParams();
+
+      camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        params.fogFar
+        );
+      camera.position.set(-2, 7, -10);
 
 
-    renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.xr.enabled = true; // WebXR ON
 
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, params.pixelRatio));
@@ -13113,8 +14007,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
       // Renderer (ensure these are set once in your setup)
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      // renderer.shadowMap.enabled = true;
+      // renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      applyShadowSettingsFromParams(true);
 
       // Debug helpers (toggle on when tuning)
       const LIGHT_DEBUG = false;
@@ -13536,6 +14431,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         trackController(gui.add(params, "paused").name("Paused"), { instant: true });
         trackController(gui.add(params, "debug").name("Debug logs"), { instant: true });
+        const avatarDebugActions = {
+          listBones: () => {
+            listAvatarBonesToConsole();
+          }
+        };
+
+        gui.add(avatarDebugActions, "listBones").name("Avatar: list bones");
+
 
         const sim = gui.addFolder("Simulation");
         trackController(sim.add(params, "timeScale", 0.05, 2.0, 0.01).name("Time scale"));
@@ -15851,6 +16754,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+
+
         if (event.code === "KeyE") {
           event.preventDefault();
 
@@ -15859,13 +16764,26 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
             return;
           }
 
-          if (vehiclePromptState.nearby && avatarState.enabled) {
-            enterVehicle(vehiclePromptState.nearby);
+          if (equipmentState.enabled) {
+            unequipItem();
+            return;
+          }
+
+          const near = vehiclePromptState.nearby;
+
+          if (near && avatarState.enabled) {
+            if (near.kind === "equipment") {
+              equipItem(near);
+              return;
+            }
+
+            enterVehicle(near);
             return;
           }
 
           return;
         }
+
 
         if (event.code === "KeyO") {
           event.preventDefault();
@@ -16001,6 +16919,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 // Loads a default preset JSON file and applies it on top of DEFAULTS.
 // This is used for bootstrapping a consistent “Default” scene state without persisting it.
+
       async function loadDefaultPresetFromFile(url) {
         const presetUrl = typeof url === "string" && url.trim() ? url.trim() : "presets/snow-Hello.json";
 
