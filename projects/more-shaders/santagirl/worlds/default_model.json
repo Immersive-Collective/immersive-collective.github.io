@@ -376,62 +376,298 @@
       }
     ]
   },
-
-
-      {
-        name: "jetpack",
-        url: "models/vehicles/jetpacks/jetpack.glb",
-        instances: [
-          {
-            id: "jetpack_1",
-            position: [3, 0, -5],
-            rotation: [0, 0, 0],
-            scale: 1,
-            stick: false,
-            collide: false,
-            equipment: {
-              type: "Jetpack",
-              description: "Personal jetpack",
-              action: "jetpack",
-              attach: {
-                bone: "Spine2",
-                position: [0, 0.08, -0.22],
-                rotation: [0, 3.14159, 0],
-                scale: 1
-              }
+    {
+      "name": "jetpack",
+      "url": "models/vehicles/jetpacks/jetpack.glb",
+      "instances": [
+        {
+          "id": "jetpack_copy",
+          "position": [
+            -1.0631603190983818,
+            0.10819900178449376,
+            -24.867648525288974
+          ],
+          "rotation": [
+            3.141592653589793,
+            -0.8467858878783122,
+            3.141592653589793
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Jetpack",
+            "description": "Personal jetpack One",
+            "action": "jetpack",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -135.913,
+                3.77000000000001
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": 1
             }
           }
-        ]
-      },
-
-      {
-        name: "backpack",
-        url: "models/backpacks/backpack1.glb",
-        instances: [
-          {
-            id: "backpack1",
-            position: [3, 0, -5],
-            rotation: [0, 0, 0],
-            scale: 1,
-            stick: false,
-            collide: false,
-            equipment: {
-              type: "Backpack",
-              description: "Wearable backpack",
-              action: "",
-              attach: {
-                bone: "Spine2",
-                position: [0, 0.06, -0.18],
-                rotation: [0, 3.14159, 0],
-                scale: 1
-              }
+        },
+        {
+          "id": "jetpack_copy2",
+          "position": [
+            -0.7368822117184837,
+            0.0319877407006231,
+            5.306805954107232
+          ],
+          "rotation": [
+            0,
+            6.283184783355017,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Jetpack",
+            "description": "Personal jetpack",
+            "action": "jetpack",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -135.913,
+                -13.161
+              ],
+              "rotation": [
+                0.167407346410207,
+                0,
+                0
+              ],
+              "scale": 1
             }
           }
-        ]
-      },
-
-
-
+        },
+        {
+          "id": "jetpack_copy3",
+          "position": [
+            4.4149714478702204,
+            0.03465050931615638,
+            10.140858941412706
+          ],
+          "rotation": [
+            0,
+            -10.810865887760157,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Jetpack",
+            "description": "Personal jetpack",
+            "action": "jetpack",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                0.08,
+                -0.22
+              ],
+              "rotation": [
+                0,
+                3.14159,
+                0
+              ],
+              "scale": 1
+            }
+          }
+        },
+        {
+          "id": "jetpack_copy4",
+          "position": [
+            3.14858661198532,
+            0.017242732564733094,
+            5.629378927174354
+          ],
+          "rotation": [
+            0,
+            7.851065963802287,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Jetpack",
+            "description": "Personal jetpack",
+            "action": "jetpack",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                0.08,
+                -0.22
+              ],
+              "rotation": [
+                0,
+                3.14159,
+                0
+              ],
+              "scale": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "wings",
+      "url": "models/wings/wings1.glb",
+      "instances": [
+        {
+          "id": "wings1",
+          "position": [
+            -2.5067111231223196,
+            0.02284485187729198,
+            6.616843562186938
+          ],
+          "rotation": [
+            0,
+            -12.879119658232689,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Backpack",
+            "description": "Wearable wings 1",
+            "action": "",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -11.045,
+                -11.045
+              ],
+              "rotation": [
+                -2.97959265358979,
+                3.14040734641021,
+                3.14040734641021
+              ],
+              "scale": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "backpack",
+      "url": "models/backpacks/backpack1.glb",
+      "instances": [
+        {
+          "id": "backpack1",
+          "position": [
+            2.894595921144557,
+            0.026048499747615188,
+            6.71185842945223
+          ],
+          "rotation": [
+            0,
+            7.804545764908181,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Small Plane",
+            "description": "Wearable backpack 1",
+            "action": "",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -20.062,
+                -15.829
+              ],
+              "rotation": [
+                2.96040734641021,
+                3.141592653589793,
+                3.1
+              ],
+              "scale": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "heli",
+      "url": "models/vehicles/flying/heli1.glb",
+      "instances": [
+        {
+          "id": "heli",
+          "position": [
+            19.498374899123533,
+            0.06287886430760348,
+            23.790290724810358
+          ],
+          "rotation": [
+            0.0010655952843955391,
+            -2.2024089549458172,
+            0.000983868260939633
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true,
+          "vehicle": {
+            "type": "Small Heli 1",
+            "description": "Small Heli 1",
+            "seatLocal": [
+              0,
+              0.8,
+              -0.43
+            ],
+            "yawOffset": 0,
+            "profile": {
+              "driveMode": "plane",
+              "maxSpeed": 18,
+              "maxReverse": 2.5,
+              "accel": 6.5,
+              "brake": 2.9,
+              "coastDecel": 1.5,
+              "turnRate": 1.2,
+              "radius": 0.95,
+              "wheelBase": 2.2,
+              "minTurnRadius": 4,
+              "minSteerSpeed": 0.05,
+              "steerResponse": 5,
+              "steerReturn": 7,
+              "lateralGrip": 10,
+              "airTurnScale": 0.65,
+              "minFlySpeed": 0.15,
+              "maxLift": 28,
+              "liftResponse": 3.2,
+              "airRollMax": 0.25,
+              "airRollResponse": 6,
+              "airRollReturn": 7,
+              "climbPitchMax": 0.08,
+              "climbPitchSpeed": 5,
+              "pitchResponse": 5,
+              "pitchReturn": 4,
+              "turnPitchMax": 0.02,
+              "propAxis": "z",
+              "trackHalfWidth": 0.5225,
+              "wetWidth": 0.46,
+              "wetLength": 0.9
+            }
+          }
+        }
+      ]
+    },
   {
     "name": "plane",
     "url": "models/vehicles/flying/plane1.glb",

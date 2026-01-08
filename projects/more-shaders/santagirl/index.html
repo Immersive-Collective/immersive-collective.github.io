@@ -68,10 +68,10 @@
 
     .avatar-ui {
       position: fixed;
-      right: 12px;
-      bottom: 12px;
+      right: 2px;
+      bottom: 2px;
       display: flex;
-      gap: 8px;
+      gap: 2px;
       align-items: center;
       z-index: 20;
       pointer-events: auto;
@@ -99,40 +99,59 @@
     }
 
     .joystick {
-      position: fixed;
+      position: absolute;
       left: 16px;
-      bottom: 74px;
-      width: 96px;
-      height: 96px;
-      border-radius: 50%;
-      border: 1px solid rgba(255, 255, 255, 0.4);
-      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.18), rgba(0, 0, 0, 0.6));
+      bottom: 41px;
+      width: 140px;
+      height: 140px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.18);
       backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
       touch-action: none;
-      z-index: 20;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .joystick-inner {
       position: absolute;
       left: 50%;
       top: 50%;
-      width: 40px;
-      height: 40px;
-      margin-left: -20px;
-      margin-top: -20px;
-      border-radius: 50%;
-      border: 1px solid rgba(255, 255, 255, 0.7);
-      background: rgba(255, 255, 255, 0.2);
-      pointer-events: none;
-      transition: transform 0.08s ease-out;
+      width: 52px;
+      height: 52px;
+      margin-left: -26px;
+      margin-top: -26px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.22);
+      border: 1px solid rgba(255,255,255,0.22);
+
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
+
+
+    .joystick--right {
+      left: auto;
+      right: 16px;
+    }
+
+
     .vehicle-ui {
-      position: absolute;
-      right: 12px;
-      bottom: 96px;
+      position: fixed;
+      bottom: 150px;
+      left: 50%;
+      transform: translate(-50%, -50%);
       max-width: 520px;
-      margin: 0 auto; /* <-- center horizontally */
+      width: auto;
+      margin: 0;
       padding: 10px 12px;
       border-radius: 12px;
       color: #fff;
@@ -142,7 +161,6 @@
       display: none;
       pointer-events: auto;
     }
-
 
     .vehicle-ui__title {
       font-weight: 700;
@@ -1148,10 +1166,10 @@
 
   <div class="avatar-ui">
     <button id="avatarToggle" class="avatar-btn">Avatar: OFF</button>
-    <button id="avatarViewToggle" class="avatar-btn">View: Behind</button>
-    <button id="worldEditToggle" class="avatar-btn">Edit World: OFF</button>
+    <button id="avatarViewToggle" class="avatar-btn">V: Behind</button>
+    <button id="worldEditToggle" class="avatar-btn">Edit: OFF</button>
     <button id="worldsBtn" class="avatar-btn">Worlds</button>
-    <button id="saveWorldBtn" class="avatar-btn">Save World</button>
+    <button id="saveWorldBtn" class="avatar-btn">Save</button>
     <button id="inventoryBtn" class="avatar-btn">Inventory</button>
     <button id="playerProfileBtn" class="avatar-btn">Profile</button>
   </div>
@@ -1180,12 +1198,18 @@
     <div id="joystickInner" class="joystick-inner"></div>
   </div> 
 
-  <div id="vehiclePrompt" class="vehicle-ui" aria-hidden="true">
-    <div id="vehiclePromptTitle" class="vehicle-ui__title"></div>
-    <div id="vehiclePromptDesc" class="vehicle-ui__desc"></div>
+  <div id="joystickRight" class="joystick joystick--right">
+    <div id="joystickRightInner" class="joystick-inner"></div>
+  </div>
+
+
+
+  <div id="vehiclePrompt" class="vehicle-ui" aria-hidden="false">
+    <div id="vehiclePromptTitle" class="vehicle-ui__title">Small Plane</div>
+    <div id="vehiclePromptDesc" class="vehicle-ui__desc">Wearable backpack 1</div>
     <div class="vehicle-ui__row">
-      <button id="vehicleEnterBtn" class="avatar-btn">Get in/on</button>
-      <button id="vehicleExitBtn" class="avatar-btn" style="display:none;">Exit</button>
+      <button id="vehicleEnterBtn" class="avatar-btn">Equip</button>
+      <button id="vehicleExitBtn" class="avatar-btn" style="display:none;">Unequip</button>
       <button id="vehicleCloseBtn" class="avatar-btn">Close</button>
     </div>
   </div>
@@ -1686,6 +1710,22 @@
 
 
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+    /* Applies an axial dead-zone and rescales remaining range back to [-1..1]. */
+    function applyDeadZone(v, deadZone) {
+      const dz = Number.isFinite(deadZone) ? deadZone : 0;
+      if (dz <= 0) return v;
+      if (dz >= 1) return 0;
+
+      const av = Math.abs(v);
+      if (av <= dz) return 0;
+
+      const sign = v < 0 ? -1 : 1;
+      const scaled = (av - dz) / (1 - dz);
+      return sign * clamp(scaled, 0, 1);
+    }
+
+
 
     // Simple seedable RNG (LCG)
     function makeSeededRandom(seed) {
@@ -4328,12 +4368,49 @@
 
           if (!inst) continue;
 
-          outInstCfg.position = [inst.position.x, inst.position.y, inst.position.z];
-          outInstCfg.rotation = [inst.rotation.x, inst.rotation.y, inst.rotation.z];
+          const isEquipped = (
+            equipmentState.enabled &&
+            equipmentState.item &&
+            equipmentState.item.object === inst
+            );
 
-          const sx = inst.scale.x;
-          const sy = inst.scale.y;
-          const sz = inst.scale.z;
+          let px, py, pz;
+          let rx, ry, rz;
+          let sx, sy, sz;
+
+          if (isEquipped) {
+            px = equipmentState.originalPosition.x;
+            py = equipmentState.originalPosition.y;
+            pz = equipmentState.originalPosition.z;
+
+            equipmentTmpEuler.setFromQuaternion(
+              equipmentState.originalQuaternion,
+              (inst.rotation && inst.rotation.order) ? inst.rotation.order : "XYZ"
+              );
+
+            rx = equipmentTmpEuler.x;
+            ry = equipmentTmpEuler.y;
+            rz = equipmentTmpEuler.z;
+
+            sx = equipmentState.originalScale.x;
+            sy = equipmentState.originalScale.y;
+            sz = equipmentState.originalScale.z;
+          } else {
+            px = inst.position.x;
+            py = inst.position.y;
+            pz = inst.position.z;
+
+            rx = inst.rotation.x;
+            ry = inst.rotation.y;
+            rz = inst.rotation.z;
+
+            sx = inst.scale.x;
+            sy = inst.scale.y;
+            sz = inst.scale.z;
+          }
+
+          outInstCfg.position = [px, py, pz];
+          outInstCfg.rotation = [rx, ry, rz];
 
           const uniform = Math.abs(sx - sy) < eps && Math.abs(sx - sz) < eps;
           outInstCfg.scale = uniform ? sx : [sx, sy, sz];
@@ -4342,6 +4419,7 @@
 
       return out;
     }
+
 
 
     /**
@@ -5146,8 +5224,21 @@
       left: false,
       right: false,
       run: false,
-      jump: false
+      jump: false,
+      jetDown: false
     };
+
+    const avatarJetpackConfig = {
+      thrustUp: 22.0,
+      thrustDown: 18.0,
+      gravity: 12.0,
+      drag: 1.9,
+      maxUpSpeed: 10.5,
+      maxDownSpeed: 13.0,
+      takeoffVelocity: 2.2,
+      groundEps: 0.02
+    };
+
 
     const AVATAR_WALK_SPEED = 2.4;
     const AVATAR_RUN_SPEED  = 4.0;
@@ -5399,8 +5490,18 @@
 
 
 
-    // Joystick state
     const joystickState = {
+      active: false,
+      pointerId: null,
+      centerX: 0,
+      centerY: 0,
+      radius: 0,
+      valueX: 0, // -1..1 (left/right)
+      valueY: 0, // -1..1 (up/down screen); forward uses -valueY
+      run: false // true when the thumb is pushed to the rim (full throw)
+    };
+
+    const joystickRightState = {
       active: false,
       pointerId: null,
       centerX: 0,
@@ -5409,6 +5510,7 @@
       valueX: 0, // -1..1 (left/right)
       valueY: 0  // -1..1 (up/down screen); forward uses -valueY
     };
+
 
     const preAvatarCameraState = {
       has: false,
@@ -5564,12 +5666,24 @@
       joystickState.pointerId = null;
       joystickState.valueX = 0;
       joystickState.valueY = 0;
-
+      joystickState.run = false;
       const inner = document.getElementById("joystickInner");
       if (inner) {
         inner.style.transform = "translate(0px, 0px)";
       }
     }
+
+    function resetRightJoystick() {
+      joystickRightState.active = false;
+      joystickRightState.pointerId = null;
+      joystickRightState.valueX = 0;
+      joystickRightState.valueY = 0;
+      const inner = document.getElementById("joystickRightInner");
+      if (inner) {
+        inner.style.transform = "translate(0px, 0px)";
+      }
+    }
+
 
     /**
      * Maps pointer position to joystick values with dead-zones and clamped thumb motion.
@@ -5577,62 +5691,74 @@
      */
     function updateJoystickFromPointer(px, py) {
       if (!joystickState.radius) return;
-
       const dx = px - joystickState.centerX;
       const dy = py - joystickState.centerY;
-
       const knobRadius = 20;
       const maxDist = Math.max(1, joystickState.radius - knobRadius);
-
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
       const clampedDist = Math.min(dist, maxDist);
+      joystickState.run = clampedDist >= maxDist * 0.985;
       const ratio = clampedDist / dist;
-
       const thumbX = dx * ratio;
       const thumbY = dy * ratio;
-
       const inner = document.getElementById("joystickInner");
       if (inner) {
         inner.style.transform = `translate(${thumbX}px, ${thumbY}px)`;
       }
-
       const isDrivingVehicle =
-      typeof vehicleDriveState !== "undefined" &&
-      vehicleDriveState &&
-      vehicleDriveState.enabled &&
-      vehicleDriveState.vehicle;
-
-      const applyDeadZone = (v, dead) => {
-        const a = Math.abs(v);
-        if (a <= dead) return 0;
-        const s = v < 0 ? -1 : 1;
-        return s * ((a - dead) / (1 - dead));
-      };
-
+      !!(vehicleDriveState && vehicleDriveState.enabled);
       const rawX = clamp(dx / maxDist, -1, 1);
       const rawY = clamp(dy / maxDist, -1, 1);
-
       const deadX = isDrivingVehicle ? 0.32 : 0.20;
       const deadY = 0.20;
-
       let vx = applyDeadZone(rawX, deadX);
       let vy = applyDeadZone(rawY, deadY);
-
       const mag = Math.sqrt(vx * vx + vy * vy);
       if (mag < 0.01) {
         joystickState.valueX = 0;
         joystickState.valueY = 0;
+        joystickState.run = false;
         return;
       }
-
       if (isDrivingVehicle) {
+        joystickState.run = false;
         const forwardAbs = Math.min(1, Math.abs(-vy)); // forward uses -valueY elsewhere
         const steerAttenuation = 1 - forwardAbs * 0.65;
         vx *= Math.max(0.25, steerAttenuation);
       }
-
       joystickState.valueX = clamp(vx, -1, 1);
       joystickState.valueY = clamp(vy, -1, 1);
+    }
+
+    function updateRightJoystickFromPointer(px, py) {
+      if (!joystickRightState.radius) return;
+      const dx = px - joystickRightState.centerX;
+      const dy = py - joystickRightState.centerY;
+      const knobRadius = 20;
+      const maxDist = Math.max(1, joystickRightState.radius - knobRadius);
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const clampedDist = Math.min(dist, maxDist);
+      const ratio = clampedDist / dist;
+      const thumbX = dx * ratio;
+      const thumbY = dy * ratio;
+      const inner = document.getElementById("joystickRightInner");
+      if (inner) {
+        inner.style.transform = `translate(${thumbX}px, ${thumbY}px)`;
+      }
+      const rawX = clamp(dx / maxDist, -1, 1);
+      const rawY = clamp(dy / maxDist, -1, 1);
+      const deadX = 0.20;
+      const deadY = 0.20;
+      let vx = applyDeadZone(rawX, deadX);
+      let vy = applyDeadZone(rawY, deadY);
+      const mag = Math.sqrt(vx * vx + vy * vy);
+      if (mag < 0.01) {
+        joystickRightState.valueX = 0;
+        joystickRightState.valueY = 0;
+        return;
+      }
+      joystickRightState.valueX = clamp(vx, -1, 1);
+      joystickRightState.valueY = clamp(vy, -1, 1);
     }
 
 
@@ -5714,6 +5840,27 @@
     function requestAvatarJump() {
       if (!avatarState.enabled || !avatar) return;
       if (vehicleDriveState.enabled) return;
+
+      const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
+      const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
+      const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
+      const isJetpack = (action === "jetpack") || (type === "jetpack");
+
+      if (isJetpack) {
+        let groundY = getWorldSurfaceY(avatar.position.x, avatar.position.z);
+        if (!Number.isFinite(groundY)) groundY = avatarJumpState.groundY;
+
+        avatarJumpState.groundY = groundY;
+        avatarJumpState.active = true;
+        avatarJumpState.grounded = false;
+
+        if (!Number.isFinite(avatarJumpState.vy)) avatarJumpState.vy = 0.0;
+        avatarJumpState.vy = Math.max(avatarJumpState.vy, avatarJetpackConfig.takeoffVelocity);
+
+        switchAvatarAction("idle");
+        return;
+      }
+
       if (avatarJumpState.active || !avatarJumpState.grounded) return;
 
       avatarJumpState.groundY = avatar.position.y;
@@ -5723,6 +5870,7 @@
 
       playAvatarJumpAction();
     }
+
 
 
 
@@ -5740,34 +5888,98 @@
         return;
       }
 
+      const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
+      const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
+      const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
+      const isJetpack = (action === "jetpack") || (type === "jetpack");
+
       let groundY = getWorldSurfaceY(avatar.position.x, avatar.position.z);
       if (!Number.isFinite(groundY)) groundY = avatarJumpState.groundY;
 
-      if (!avatarJumpState.active) {
-        avatarJumpState.grounded = true;
-        avatarJumpState.vy = 0.0;
+      if (!isJetpack) {
+        if (!avatarJumpState.active) {
+          avatarJumpState.grounded = true;
+          avatarJumpState.vy = 0.0;
+          avatarJumpState.groundY = groundY;
+
+          if (Number.isFinite(groundY)) {
+            avatar.position.y = groundY;
+          }
+          return;
+        }
+
         avatarJumpState.groundY = groundY;
 
-        if (Number.isFinite(groundY)) {
-          avatar.position.y = groundY;
+        avatarJumpState.vy -= avatarJumpConfig.gravity * dt;
+        avatar.position.y += avatarJumpState.vy * dt;
+
+        if (Number.isFinite(avatarJumpState.groundY) && avatar.position.y <= avatarJumpState.groundY) {
+          avatar.position.y = avatarJumpState.groundY;
+          avatarJumpState.vy = 0.0;
+          avatarJumpState.active = false;
+          avatarJumpState.grounded = true;
+        } else {
+          avatarJumpState.grounded = false;
         }
         return;
       }
 
+      const wantsUp = !!avatarKeys.jump;
+      const wantsDown = !!avatarKeys.jetDown;
+      const hasThrust = wantsUp || wantsDown;
+
+      const onSurface =
+      Number.isFinite(groundY) &&
+      (avatar.position.y <= groundY + avatarJetpackConfig.groundEps);
+
+      if (!avatarJumpState.active && !hasThrust && onSurface) {
+        avatarJumpState.grounded = true;
+        avatarJumpState.vy = 0.0;
+        avatarJumpState.groundY = groundY;
+
+        if (Number.isFinite(groundY)) avatar.position.y = groundY;
+        return;
+      }
+
+      avatarJumpState.active = true;
+      avatarJumpState.grounded = false;
       avatarJumpState.groundY = groundY;
 
-      avatarJumpState.vy -= avatarJumpConfig.gravity * dt;
+      if (!Number.isFinite(avatarJumpState.vy)) avatarJumpState.vy = 0.0;
+
+      let ay = -avatarJetpackConfig.gravity;
+
+      if (wantsUp) ay += avatarJetpackConfig.thrustUp;
+      if (wantsDown) ay -= avatarJetpackConfig.thrustDown;
+
+      avatarJumpState.vy += ay * dt;
+
+      const dragMul = Math.exp(-avatarJetpackConfig.drag * Math.max(0.0, dt));
+      avatarJumpState.vy *= dragMul;
+
+      avatarJumpState.vy = clamp(
+        avatarJumpState.vy,
+        -avatarJetpackConfig.maxDownSpeed,
+        avatarJetpackConfig.maxUpSpeed
+        );
+
       avatar.position.y += avatarJumpState.vy * dt;
 
-      if (Number.isFinite(avatarJumpState.groundY) && avatar.position.y <= avatarJumpState.groundY) {
-        avatar.position.y = avatarJumpState.groundY;
-        avatarJumpState.vy = 0.0;
-        avatarJumpState.active = false;
-        avatarJumpState.grounded = true;
-      } else {
-        avatarJumpState.grounded = false;
+      if (Number.isFinite(groundY) && avatar.position.y <= groundY) {
+        avatar.position.y = groundY;
+
+        if (wantsUp) {
+          avatarJumpState.vy = Math.max(avatarJumpState.vy, avatarJetpackConfig.takeoffVelocity);
+          avatarJumpState.active = true;
+          avatarJumpState.grounded = false;
+        } else {
+          avatarJumpState.vy = 0.0;
+          avatarJumpState.active = false;
+          avatarJumpState.grounded = true;
+        }
       }
     }
+
 
 
 
@@ -6041,6 +6253,7 @@
       avatarKeys.right = false;
       avatarKeys.run = false;
       avatarKeys.jump = false;
+      avatarKeys.jetDown = false;
 
       avatarState.moveX = 0;
       avatarState.moveZ = 0;
@@ -6069,6 +6282,7 @@
       restorePreAvatarCameraState();
       updateAvatarButtons();
     }
+
 
 
 
@@ -6258,6 +6472,7 @@
 
 
 
+    /* Updates avatar horizontal movement + yaw + gait switching from keyboard/left joystick inputs. */
     function updateAvatarFromInputs(dt) {
       if (!avatar || !avatarState.enabled) return;
 
@@ -6274,7 +6489,7 @@
         forwardAmount = joyForward;
         strafeAmount = joyStrafe;
         inputMag = joyMag;
-        wantsRun = false;
+        wantsRun = ((!!avatarKeys.run) || (!!joystickState.run)) && joyMag > 0;
       } else {
         forwardAmount = avatarState.moveZ;
         strafeAmount = avatarState.moveX;
@@ -6344,8 +6559,8 @@
       if (avatarVelocity.lengthSq() > 0) {
         avatarTmpMove.copy(avatarVelocity).multiplyScalar(dt);
         avatarTmpMove.y = 0;
-        avatar.position.add(avatarTmpMove);
 
+        avatar.position.add(avatarTmpMove);
         resolveAvatarXZCollisions(avatar.position);
 
         if (avatarState.viewMode === "third") {
@@ -6365,10 +6580,18 @@
       const actualSpeed = dt > 0 ? (Math.sqrt(dx * dx + dz * dz) / dt) : 0;
 
       const airborne = !!avatarJumpState.active && !avatarJumpState.grounded;
-
       if (airborne) {
-        if (avatarMixer && avatarActions.jump) {
-          if (avatarCurrentActionName !== "jump") playAvatarJumpAction();
+        const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
+        const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
+        const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
+        const isJetpack = (action === "jetpack") || (type === "jetpack");
+
+        if (isJetpack) {
+          switchAvatarAction("idle");
+        } else {
+          if (avatarMixer && avatarActions.jump) {
+            if (avatarCurrentActionName !== "jump") playAvatarJumpAction();
+          }
         }
         return;
       }
@@ -6383,9 +6606,11 @@
 
       switchAvatarAction(targetAction);
       updateAvatarClipSpeed(actualSpeed);
-
       stampSnowFromAvatar(actualSpeed);
     }
+
+
+
 
 
 
@@ -6723,15 +6948,18 @@
       const worldEditUndoBtn = document.getElementById("worldEditUndoBtn");
       const worldEditRedoBtn = document.getElementById("worldEditRedoBtn");
       const worldEditTransformModeBtn = document.getElementById("worldEditTransformMode");
+
       const worldEditDuplicateBtn = document.getElementById("worldEditDuplicateBtn");
       const worldEditDeleteBtn = document.getElementById("worldEditDeleteBtn");
       const worldEditAddBtn = document.getElementById("worldEditAddBtn");
-
       const joystickEl = document.getElementById("joystick");
-
+      const joystickRightEl = document.getElementById("joystickRight");
       const vehicleEnterBtn = document.getElementById("vehicleEnterBtn");
       const vehicleExitBtn = document.getElementById("vehicleExitBtn");
       const vehicleCloseBtn = document.getElementById("vehicleCloseBtn");
+
+
+
 
       worldNameEl = document.getElementById("worldName");
       setWorldNameLabel(worldUiState.title);
@@ -6919,13 +7147,23 @@
         });
       }
 
+
+
       if (vehicleCloseBtn) {
         vehicleCloseBtn.addEventListener("click", () => {
+          /* Dismisses the current prompt target until the avatar leaves proximity and re-enters. */
+          const near = vehiclePromptState.nearby;
+
+          const id = near ? String(near.id || "") : "";
+          const kind = near ? String(near.kind || "vehicle") : "";
+
+          vehiclePromptState.dismissedId = id;
+          vehiclePromptState.dismissedKind = kind;
+
           setVehiclePrompt(false, null);
           updateVehicleOutlineFor(null);
         });
       }
-
 
 
       if (joystickEl) {
@@ -6933,33 +7171,57 @@
           event.preventDefault();
           joystickState.active = true;
           joystickState.pointerId = event.pointerId;
-
           const rect = joystickEl.getBoundingClientRect();
           joystickState.centerX = rect.left + rect.width * 0.5;
           joystickState.centerY = rect.top + rect.height * 0.5;
           joystickState.radius = rect.width * 0.5;
-
           joystickEl.setPointerCapture(event.pointerId);
           updateJoystickFromPointer(event.clientX, event.clientY);
         });
-
         joystickEl.addEventListener("pointermove", (event) => {
           if (!joystickState.active || event.pointerId !== joystickState.pointerId) return;
           event.preventDefault();
           updateJoystickFromPointer(event.clientX, event.clientY);
         });
-
         const endHandler = (event) => {
           if (event.pointerId !== joystickState.pointerId) return;
           event.preventDefault();
-
           joystickEl.releasePointerCapture(event.pointerId);
           resetJoystick();
         };
-
         joystickEl.addEventListener("pointerup", endHandler);
         joystickEl.addEventListener("pointercancel", endHandler);
       }
+      if (joystickRightEl) {
+        joystickRightEl.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          joystickRightState.active = true;
+          joystickRightState.pointerId = event.pointerId;
+          const rect = joystickRightEl.getBoundingClientRect();
+          joystickRightState.centerX = rect.left + rect.width * 0.5;
+          joystickRightState.centerY = rect.top + rect.height * 0.5;
+          joystickRightState.radius = rect.width * 0.5;
+          joystickRightEl.setPointerCapture(event.pointerId);
+          updateRightJoystickFromPointer(event.clientX, event.clientY);
+          requestAvatarJump();
+        });
+        joystickRightEl.addEventListener("pointermove", (event) => {
+          if (!joystickRightState.active || event.pointerId !== joystickRightState.pointerId) return;
+          event.preventDefault();
+          updateRightJoystickFromPointer(event.clientX, event.clientY);
+        });
+        const endHandler = (event) => {
+          if (event.pointerId !== joystickRightState.pointerId) return;
+          event.preventDefault();
+          joystickRightEl.releasePointerCapture(event.pointerId);
+          resetRightJoystick();
+        };
+        joystickRightEl.addEventListener("pointerup", endHandler);
+        joystickRightEl.addEventListener("pointercancel", endHandler);
+      }
+
+
+
 
       updateAvatarButtons();
       setVehiclePrompt(false, null);
@@ -8524,8 +8786,12 @@ let avatarModelColliderOBBs = [];
 const vehicleInteractables = [];
 const vehiclePromptState = {
   open: false,
-  nearby: null
+  nearby: null,
+
+  dismissedId: "",
+  dismissedKind: ""
 };
+
 
 // Equipment interaction + wearable/tool state (POC)
 const equipmentInteractables = [];
@@ -8547,6 +8813,8 @@ const equipmentTmpPos = new THREE.Vector3();
 const equipmentTmpForward = new THREE.Vector3();
 const equipmentWorldUp = new THREE.Vector3(0, 1, 0);
 const equipmentTmpWorldScale = new THREE.Vector3();
+const equipmentTmpEuler = new THREE.Euler();
+
 
 
 
@@ -8915,6 +9183,9 @@ function installVehicleDebugBridge(canvasEl) {
     /**
      * Shows/hides the vehicle prompt panel and refreshes the current selection.
      */
+/**
+ * Shows/hides the vehicle prompt panel and refreshes the current selection.
+ */
 function setVehiclePrompt(open, v) {
   vehiclePromptState.open = !!open;
   vehiclePromptState.nearby = open ? (v || null) : null;
@@ -8941,7 +9212,9 @@ function setVehiclePrompt(open, v) {
   const isEquipment = near && near.kind === "equipment";
   const meta = (near && near.meta) || {};
 
-  if (!isEquipment) {
+  if (isEquipment) {
+    syncEquipmentTuningSelection();
+  } else {
     syncVehicleTuningSelection();
   }
 
@@ -8975,6 +9248,7 @@ function setVehiclePrompt(open, v) {
   panel.style.display = "block";
   panel.setAttribute("aria-hidden", "false");
 }
+
 
 
 
@@ -9822,6 +10096,273 @@ function unequipItem() {
   setVehiclePrompt(false, null);
   updateVehicleOutlineFor(null);
 }
+
+
+/**
+ * Equipment attachment tuning state for lil-gui, bound to the current equipment target:
+ * - while equipped: the equipped item
+ * - otherwise: the currently nearby (prompt) equipment
+ */
+const equipmentTuningState = {
+  available: false,
+  id: "",
+  type: "",
+  description: "",
+
+  bone: "",
+
+  posX: 0.0,
+  posY: 0.06,
+  posZ: -0.22,
+
+  rotX: 0.0,
+  rotY: 0.0,
+  rotZ: 0.0,
+
+  scale: 1.0
+};
+
+let equipmentTuningLastId = "";
+let equipmentTuningFolder = null;
+
+/**
+ * Resolves the current tuning target equipment based on interaction/equip state.
+ */
+function getEquipmentTuningTarget() {
+  if (equipmentState.enabled && equipmentState.item) return equipmentState.item;
+  if (vehiclePromptState.open && vehiclePromptState.nearby && vehiclePromptState.nearby.kind === "equipment") return vehiclePromptState.nearby;
+  return null;
+}
+
+/**
+ * Copies equipment attachment values into the tuning state (used for GUI display/listen).
+ */
+function readEquipmentMetaIntoTuningState(e) {
+  if (!e || !e.meta) return;
+  equipmentTuningState.available = true;
+  equipmentTuningState.id = e.id || "";
+  equipmentTuningState.type = e.meta.type || "Item";
+  equipmentTuningState.description = e.meta.description || "";
+  const attach = (e.meta.attach && typeof e.meta.attach === "object") ? e.meta.attach : {};
+  equipmentTuningState.bone = typeof attach.bone === "string" ? attach.bone : "";
+  const p = Array.isArray(attach.position) && attach.position.length === 3 ? attach.position : [0, 0.06, -0.22];
+  equipmentTuningState.posX = Number.isFinite(p[0]) ? p[0] : 0.0;
+  equipmentTuningState.posY = Number.isFinite(p[1]) ? p[1] : 0.06;
+  equipmentTuningState.posZ = Number.isFinite(p[2]) ? p[2] : -0.22;
+  const r = Array.isArray(attach.rotation) && attach.rotation.length === 3 ? attach.rotation : [0, 0, 0];
+  equipmentTuningState.rotX = Number.isFinite(r[0]) ? r[0] : 0.0;
+  equipmentTuningState.rotY = Number.isFinite(r[1]) ? r[1] : 0.0;
+  equipmentTuningState.rotZ = Number.isFinite(r[2]) ? r[2] : 0.0;
+  const s = attach.scale;
+  if (Array.isArray(s) && s.length === 3) {
+    let sx = Number.isFinite(s[0]) ? s[0] : 1.0;
+    let sy = Number.isFinite(s[1]) ? s[1] : 1.0;
+    let sz = Number.isFinite(s[2]) ? s[2] : 1.0;
+    if (sx > 10 || sy > 10 || sz > 10) {
+      sx *= 0.01;
+      sy *= 0.01;
+      sz *= 0.01;
+    }
+    equipmentTuningState.scale = (sx + sy + sz) / 3.0;
+  } else if (Number.isFinite(s)) {
+    equipmentTuningState.scale = (s > 10) ? (s * 0.01) : s;
+  } else {
+    equipmentTuningState.scale = 1.0;
+  }
+}
+
+
+/**
+ * Writes the tuning state back to the target equipment meta (saved with worlds).
+ */
+function writeTuningStateIntoEquipmentMeta(e) {
+  if (!e || !e.meta) return;
+
+  if (!e.meta.attach || typeof e.meta.attach !== "object") e.meta.attach = {};
+  const attach = e.meta.attach;
+
+  attach.bone = String(equipmentTuningState.bone || "").trim();
+
+  attach.position = [
+    Number.isFinite(equipmentTuningState.posX) ? equipmentTuningState.posX : 0.0,
+    Number.isFinite(equipmentTuningState.posY) ? equipmentTuningState.posY : 0.06,
+    Number.isFinite(equipmentTuningState.posZ) ? equipmentTuningState.posZ : -0.22
+  ];
+
+  attach.rotation = [
+    Number.isFinite(equipmentTuningState.rotX) ? equipmentTuningState.rotX : 0.0,
+    Number.isFinite(equipmentTuningState.rotY) ? equipmentTuningState.rotY : 0.0,
+    Number.isFinite(equipmentTuningState.rotZ) ? equipmentTuningState.rotZ : 0.0
+  ];
+
+  attach.scale = Number.isFinite(equipmentTuningState.scale) ? Math.max(0.001, equipmentTuningState.scale) : 1.0;
+}
+
+/**
+ * Applies the current equipment meta.attach transform to the equipped object (bone-relative, scale-compensated).
+ */
+function applyEquipmentAttachmentNow(e) {
+  if (!avatar || !e || !e.object || !e.meta) return;
+  if (!equipmentState.enabled || equipmentState.item !== e) return;
+
+  if (!e.meta.attach || typeof e.meta.attach !== "object") e.meta.attach = {};
+  const attach = e.meta.attach;
+
+  const bone = typeof attach.bone === "string" ? attach.bone.trim() : "";
+  const node = getAvatarEquipAttachmentNode(bone) || avatar;
+  if (!node) return;
+
+  const obj = e.object;
+
+  if (obj.parent !== node) {
+    obj.removeFromParent();
+    node.add(obj);
+  }
+
+  node.updateWorldMatrix(true, false);
+  node.getWorldScale(equipmentTmpWorldScale);
+
+  const wsx = Math.abs(equipmentTmpWorldScale.x) > 1e-6 ? equipmentTmpWorldScale.x : 1.0;
+  const wsy = Math.abs(equipmentTmpWorldScale.y) > 1e-6 ? equipmentTmpWorldScale.y : 1.0;
+  const wsz = Math.abs(equipmentTmpWorldScale.z) > 1e-6 ? equipmentTmpWorldScale.z : 1.0;
+
+  const p = Array.isArray(attach.position) && attach.position.length === 3 ? attach.position : [0, 0.06, -0.22];
+  const r = Array.isArray(attach.rotation) && attach.rotation.length === 3 ? attach.rotation : [0, 0, 0];
+
+  obj.position.set(
+    Number.isFinite(p[0]) ? p[0] : 0.0,
+    Number.isFinite(p[1]) ? p[1] : 0.0,
+    Number.isFinite(p[2]) ? p[2] : 0.0
+    );
+
+  obj.rotation.set(
+    Number.isFinite(r[0]) ? r[0] : 0.0,
+    Number.isFinite(r[1]) ? r[1] : 0.0,
+    Number.isFinite(r[2]) ? r[2] : 0.0
+    );
+
+  const s = attach.scale;
+
+  if (Array.isArray(s) && s.length === 3) {
+    const sx = Number.isFinite(s[0]) ? s[0] : 1.0;
+    const sy = Number.isFinite(s[1]) ? s[1] : 1.0;
+    const sz = Number.isFinite(s[2]) ? s[2] : 1.0;
+
+    obj.scale.set(
+      sx / wsx,
+      sy / wsy,
+      sz / wsz
+      );
+  } else if (Number.isFinite(s)) {
+    const ss = Math.max(0.001, s);
+    obj.scale.set(
+      ss / wsx,
+      ss / wsy,
+      ss / wsz
+      );
+  } else {
+    obj.scale.set(
+      1.0 / wsx,
+      1.0 / wsy,
+      1.0 / wsz
+      );
+  }
+
+  obj.updateMatrixWorld(true);
+}
+
+/**
+ * Keeps the equipment tuning state aligned with the current selection.
+ */
+function syncEquipmentTuningSelection() {
+  if (!equipmentTuningFolder) return;
+
+  const e = getEquipmentTuningTarget();
+  const id = e ? (e.id || "") : "";
+
+  if (!e) {
+    equipmentTuningState.available = false;
+    equipmentTuningState.id = "";
+    equipmentTuningState.type = "";
+    equipmentTuningState.description = "";
+    equipmentTuningState.bone = "";
+    equipmentTuningLastId = "";
+    return;
+  }
+
+  if (id === equipmentTuningLastId) return;
+
+  equipmentTuningLastId = id;
+  readEquipmentMetaIntoTuningState(e);
+}
+
+/**
+ * Sets up lil-gui controls for the selected equipment attachment transform.
+ */
+function setupEquipmentTuningGui(folder) {
+  equipmentTuningFolder = folder;
+
+  const info = folder.addFolder("Selection");
+  info.add(equipmentTuningState, "available").name("Available").listen();
+  info.add(equipmentTuningState, "id").name("Id").listen();
+  info.add(equipmentTuningState, "type").name("Type").listen();
+  info.add(equipmentTuningState, "description").name("Description").listen();
+  info.close();
+
+  const attach = folder.addFolder("Attach");
+
+  attach.add(equipmentTuningState, "bone").name("Bone").listen().onFinishChange(() => {
+    const e = getEquipmentTuningTarget();
+    writeTuningStateIntoEquipmentMeta(e);
+    applyEquipmentAttachmentNow(e);
+  });
+
+  attach.add(equipmentTuningState, "posX", -150.0, 150.0, 0.001).name("Pos X").listen().onChange(() => {
+    const e = getEquipmentTuningTarget();
+    writeTuningStateIntoEquipmentMeta(e);
+    applyEquipmentAttachmentNow(e);
+  });
+
+  attach.add(equipmentTuningState, "posY", -150.0, 150.0, 0.001).name("Pos Y").listen().onChange(() => {
+    const e = getEquipmentTuningTarget();
+    writeTuningStateIntoEquipmentMeta(e);
+    applyEquipmentAttachmentNow(e);
+  });
+
+  attach.add(equipmentTuningState, "posZ", -150.0, 150.0, 0.001).name("Pos Z").listen().onChange(() => {
+    const e = getEquipmentTuningTarget();
+    writeTuningStateIntoEquipmentMeta(e);
+    applyEquipmentAttachmentNow(e);
+  });
+
+  attach.add(equipmentTuningState, "rotX", -Math.PI, Math.PI, 0.001).name("Rot X").listen().onChange(() => {
+    const e = getEquipmentTuningTarget();
+    writeTuningStateIntoEquipmentMeta(e);
+    applyEquipmentAttachmentNow(e);
+  });
+
+  attach.add(equipmentTuningState, "rotY", -Math.PI, Math.PI, 0.001).name("Rot Y").listen().onChange(() => {
+    const e = getEquipmentTuningTarget();
+    writeTuningStateIntoEquipmentMeta(e);
+    applyEquipmentAttachmentNow(e);
+  });
+
+  attach.add(equipmentTuningState, "rotZ", -Math.PI, Math.PI, 0.001).name("Rot Z").listen().onChange(() => {
+    const e = getEquipmentTuningTarget();
+    writeTuningStateIntoEquipmentMeta(e);
+    applyEquipmentAttachmentNow(e);
+  });
+
+  attach.add(equipmentTuningState, "scale", 0.01, 10.0, 0.01).name("Scale").listen().onChange(() => {
+    const e = getEquipmentTuningTarget();
+    writeTuningStateIntoEquipmentMeta(e);
+    applyEquipmentAttachmentNow(e);
+  });
+
+  attach.close();
+}
+
+
 
 
 
@@ -10896,9 +11437,21 @@ function tickVehicle(dt) {
     if (exitBtn) exitBtn.style.display = "";
   }
 
-  updateVehicleOutlineFor(v);
-  setVehiclePrompt(true, v);
+  /* Keeps the prompt closed while dismissed for this vehicle id. */
+  const dismissed =
+  vehiclePromptState.dismissedId &&
+  String(vehiclePromptState.dismissedId) === String(v.id || "") &&
+  String(vehiclePromptState.dismissedKind || "vehicle") === "vehicle";
+
+  if (dismissed) {
+    if (vehiclePromptState.open) setVehiclePrompt(false, null);
+    updateVehicleOutlineFor(null);
+  } else {
+    updateVehicleOutlineFor(v);
+    setVehiclePrompt(true, v);
+  }
 }
+
 
 
 
@@ -10909,13 +11462,29 @@ function tickVehicle(dt) {
  * Shows the interaction prompt for nearby vehicles/equipment (and updates vehicle outline when applicable).
  */
 function tickVehicleProximity() {
+  /* Shows prompt for nearby interactables unless that specific target was dismissed and still in range. */
   if (!avatarState.enabled || vehicleDriveState.enabled) {
     if (vehiclePromptState.open) setVehiclePrompt(false, null);
     updateVehicleOutlineFor(null);
     return;
   }
 
+  const dismissedId = String(vehiclePromptState.dismissedId || "");
+  const dismissedKind = String(vehiclePromptState.dismissedKind || "");
+
+  const isDismissed = (near) => {
+    if (!dismissedId || !near) return false;
+    const id = String(near.id || "");
+    const kind = String(near.kind || "vehicle");
+    return id === dismissedId && kind === (dismissedKind || kind);
+  };
+
   if (equipmentState.enabled && equipmentState.item) {
+    if (isDismissed(equipmentState.item)) {
+      if (vehiclePromptState.open) setVehiclePrompt(false, null);
+      updateVehicleOutlineFor(null);
+      return;
+    }
     setVehiclePrompt(true, equipmentState.item);
     updateVehicleOutlineFor(null);
     return;
@@ -10923,6 +11492,11 @@ function tickVehicleProximity() {
 
   const nearVehicle = findNearbyVehicle();
   if (nearVehicle) {
+    if (isDismissed(nearVehicle)) {
+      if (vehiclePromptState.open) setVehiclePrompt(false, null);
+      updateVehicleOutlineFor(null);
+      return;
+    }
     setVehiclePrompt(true, nearVehicle);
     updateVehicleOutlineFor(nearVehicle);
     return;
@@ -10930,14 +11504,25 @@ function tickVehicleProximity() {
 
   const nearEquip = findNearbyEquipment();
   if (nearEquip) {
+    if (isDismissed(nearEquip)) {
+      if (vehiclePromptState.open) setVehiclePrompt(false, null);
+      updateVehicleOutlineFor(null);
+      return;
+    }
     setVehiclePrompt(true, nearEquip);
     updateVehicleOutlineFor(null);
     return;
   }
 
+  if (dismissedId) {
+    vehiclePromptState.dismissedId = "";
+    vehiclePromptState.dismissedKind = "";
+  }
+
   if (vehiclePromptState.open) setVehiclePrompt(false, null);
   updateVehicleOutlineFor(null);
 }
+
 
 
 
@@ -15409,6 +15994,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         "rebuildTerrain"
         )
         .name("Rebuild terrain");
+        terrain.close();
 
 
 
@@ -15634,6 +16220,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         setupVehicleTuningGui(vehiclesFolder);
         vehiclesFolder.close();
 
+        const equipmentFolder = gui.addFolder("Equipment");
+        setupEquipmentTuningGui(equipmentFolder);
+        equipmentFolder.close();
+
+
 
 
         sim.close();
@@ -15848,6 +16439,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           joystickEl.style.display = hidden ? "none" : "";
         }
 
+        const joystickRightEl = document.getElementById("joystickRight");
+        if (joystickRightEl) {
+          joystickRightEl.style.display = hidden ? "none" : "";
+        }
+
         const vehiclePanel = document.getElementById("vehiclePrompt");
         if (vehiclePanel) {
           if (hidden) {
@@ -15868,6 +16464,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           }
         }
       }
+
 
 
 
@@ -16646,9 +17243,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
-        /**
-         * World editor hotkeys: undo/redo, duplicate/delete, and TransformControls mode switching.
-         */
         if (worldEditState.enabled) {
           const mod = event.metaKey || event.ctrlKey;
 
@@ -16754,8 +17348,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
-
-
         if (event.code === "KeyE") {
           event.preventDefault();
 
@@ -16783,7 +17375,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
           return;
         }
-
 
         if (event.code === "KeyO") {
           event.preventDefault();
@@ -16828,6 +17419,13 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         case "ArrowRight":
           avatarKeys.right = true;
           recomputeAvatarMoveFromKeys();
+          break;
+
+        case "KeyQ":
+          if (avatarState.enabled && !vehicleDriveState.enabled) {
+            event.preventDefault();
+            avatarKeys.jetDown = true;
+          }
           break;
 
         case "Space":
@@ -16898,6 +17496,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           recomputeAvatarMoveFromKeys();
           break;
 
+        case "KeyQ":
+          avatarKeys.jetDown = false;
+          break;
+
         case "Space":
           avatarKeys.jump = false;
           break;
@@ -16906,8 +17508,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           break;
         }
       }
-
-
 
 
 
@@ -17006,6 +17606,23 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         handleResize();
         window.addEventListener("resize", handleResize, { passive: true });
+
+
+        /* Prevents browser scrolling/selection when interacting with the on-screen joysticks. */
+        
+        // document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        document.addEventListener(
+          "touchmove",
+          (e) => {
+            if (joystickState.active || (typeof joystickRightState !== "undefined" && joystickRightState.active)) {
+              e.preventDefault();
+            }
+          },
+          { passive: false }
+          );
+
+
 
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
