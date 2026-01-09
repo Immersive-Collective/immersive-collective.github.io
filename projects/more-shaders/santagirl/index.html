@@ -5,1146 +5,1249 @@
   <title>Yolo - Nano</title>
   <link rel="icon" href="data:,">
 
-  <meta
-  name="viewport"
-  content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+  <meta name="viewport" content="width=device-width, minimal-ui, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
   />
+
+  <link rel="preload" href="fonts/minimalo-font/Minimalo-LVzzy.ttf" as="font" type="font/ttf" crossorigin>
 
   <style>
 
-    @font-face {
-      font-family: "Minimalo";
-      src: url("fonts/minimalo-font/Minimalo-LVzzy.ttf") format("truetype");
-      font-weight: 400;
-      font-style: normal;
-      font-display: swap;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #0a1220;
-      font-family: "Minimalo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-
-    button {
-      font-family: "Minimalo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      border-radius: 14px;
-      border: 0px solid rgba(255, 255, 255, 0.18);
-      background: rgba(0, 0, 0, 0.28);
-      color: #fff;
-      padding: 12px 14px;
-
-    }
-
-    #app {
-      position: fixed;
-      inset: 0;
-    }
-    .hud {
-      position: fixed;
-      left: 12px;
-      top: 12px;
-      font: 12px/1.4 "Minimalo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      color: rgba(255,255,255,0.92);
-      background: rgba(0,0,0,0.28);
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 12px;
-      padding: 10px 12px;
-      backdrop-filter: blur(8px);
-      user-select: none;
-      pointer-events: none;
-      max-width: 380px;
-    }
-    .hud b {
-      color: rgba(255,255,255,0.98);
-    }
-
-    .avatar-ui {
-      position: fixed;
-      right: 2px;
-      bottom: 2px;
-      display: flex;
-      gap: 2px;
-      align-items: center;
-      z-index: 20;
-      pointer-events: auto;
-    }
-
-    .avatar-btn {
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.24);
-      background: rgba(0,0,0,0.55);
-      color: #f5f5f5;
-      font-size: 12px;;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      cursor: pointer;
-      backdrop-filter: blur(10px);
-    }
-
-    .avatar-btn:hover {
-      background: rgba(0,0,0,0.8);
-    }
-
-    .avatar-btn:active {
-      background: rgba(0,0,0,0.95);
-    }
-
-    .joystick {
-      position: absolute;
-      left: 16px;
-      bottom: 41px;
-      width: 140px;
-      height: 140px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.10);
-      border: 1px solid rgba(255,255,255,0.18);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-      touch-action: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .joystick-inner {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 52px;
-      height: 52px;
-      margin-left: -26px;
-      margin-top: -26px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.22);
-      border: 1px solid rgba(255,255,255,0.22);
-
-      user-select: none;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
-      touch-action: none;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-
-
-    .joystick--right {
-      left: auto;
-      right: 16px;
-    }
-
-
-    .vehicle-ui {
-      position: fixed;
-      bottom: 150px;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      max-width: 520px;
-      width: auto;
-      margin: 0;
-      padding: 10px 12px;
-      border-radius: 12px;
-      color: #fff;
-      background: rgba(0, 0, 0, 0.58);
-      backdrop-filter: blur(10px);
-      z-index: 25;
-      display: none;
-      pointer-events: auto;
-    }
-
-    .vehicle-ui__title {
-      font-weight: 700;
-      margin-bottom: 4px;
-      line-height: 1.2;
-    }
-
-    .vehicle-ui__desc {
-      opacity: 0.92;
-      font-size: 14px;
-      line-height: 1.25;
-      margin-bottom: 10px;
-    }
-
-    .vehicle-ui__row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-
-    .kbd-help {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 60;
-      background: rgba(0, 0, 0, 0.55);
-      pointer-events: auto;
-    }
-
-    .kbd-help.is-open {
-      display: flex;
-    }
-
-    .kbd-help__panel {
-      width: min(520px, calc(100vw - 24px));
-      background: rgba(18, 18, 18, 0.92);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 14px;
-      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
-      padding: 14px 14px 12px 14px;
-      color: rgba(255, 255, 255, 0.95);
-    }
-
-    .kbd-help__header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-
-    .kbd-help__title {
-      font-weight: 700;
-      font-size: 24px;;
-      letter-spacing: 0.2px;
-    }
-
-    .kbd-help__grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
-
-    .kbd-help__row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .kbd {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 34px;
-      padding: 4px 8px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.22);
-      background: rgba(255, 255, 255, 0.08);
-      font-size: 14px;;
-      font-weight: 700;
-      font-family: "Minimalo", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      user-select: none;
-    }
-
-    .kbd--wide {
-      min-width: 90px;
-    }
-
-    .kbd-help__text {
-      font-size: 14px;;
-      line-height: 1.25;
-      color: rgba(255, 255, 255, 0.88);
-    }
-
-    .kbd-help__note {
-      margin-top: 10px;
-      font-size: 14px;;
-      color: rgba(255, 255, 255, 0.75);
-    }
-
-
-
-
-
-    .edit-stack {
-      position: fixed;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 22;
-      pointer-events: auto;
-    }
-
-    @media (max-width: 540px) {
-      .edit-stack {
-        right: 10px;
-        top: calc(50% - 16px);
-      }
-    }
-
-    .edit-transform-mode-btn {
-      width: 44px;
-      height: 44px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.24);
-      background: rgba(0,0,0,0.55);
-      color: #f5f5f5;
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      pointer-events: auto;
-      cursor: pointer;
-      backdrop-filter: blur(10px);
-    }
-
-    .edit-transform-mode-btn:hover {
-      background: rgba(0,0,0,0.8);
-    }
-
-    .edit-transform-mode-btn:active {
-      background: rgba(0,0,0,0.95);
-    }
-
-    .edit-transform-mode-btn[disabled] {
-      opacity: 0.35;
-      cursor: default;
-    }
-
-
-
-
-
-    .action-toast {
-      position: fixed;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%) scale(0.98);
-      padding: 10px 14px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.22);
-      background: rgba(0,0,0,0.68);
-      color: #f5f5f5;
-      font-size: 14px;;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      opacity: 0;
-      pointer-events: none;
-      z-index: 25;
-      backdrop-filter: blur(10px);
-      transition: opacity 180ms ease, transform 180ms ease;
-    }
-
-    .action-toast.is-open {
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
-    }
-
-
-    .edit-transform-mode-btn[disabled] {
-      opacity: 0.35;
-      cursor: default;
-    }
-
-    .profile-help {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 65;
-      background: rgba(0, 0, 0, 0.55);
-      pointer-events: auto;
-    }
-
-    .profile-help.is-open {
-      display: flex;
-    }
-
-    .profile-help__panel {
-      width: min(520px, calc(100vw - 24px));
-      background: rgba(18, 18, 18, 0.92);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 14px;
-      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
-      padding: 1.5rem;
-      color: rgba(255, 255, 255, 0.95);
-    }
-
-    .profile-form {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      margin-top: 6px;
-    }
-
-    .profile-field {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 6px;
-    }
-
-    .profile-label {
-      font-size: 14px;;
-      color: rgba(255, 255, 255, 0.78);
-      letter-spacing: 0.2px;
-    }
-
-    .profile-input,
-    .profile-textarea {
-      width: 100%;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      background: rgba(0, 0, 0, 0.35);
-      color: rgba(255, 255, 255, 0.92);
-      padding: 10px 10px;
-      outline: none;
-      font-size: 14px;;
-      line-height: 1.2;
-    }
-
-    .profile-textarea {
-      resize: none;
-      min-height: 74px;
-    }
-
-    .profile-input:focus,
-    .profile-textarea:focus {
-      border-color: rgba(255, 255, 255, 0.32);
-      background: rgba(0, 0, 0, 0.45);
-    }
-
-    .profile-readonly {
-      width: 100%;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(255, 255, 255, 0.06);
-      color: rgba(255, 255, 255, 0.88);
-      padding: 10px 10px;
-      font-size: 14px;;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      user-select: text;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .profile-color {
-      height: 44px;
-      padding: 4px 6px;
-    }
-
-    .profile-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 2px;
-    }
-
-
-    .world-picker {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 70;
-      background: rgba(0, 0, 0, 0.62);
-      pointer-events: auto;
-      padding: 12px;
-    }
-
-    .world-picker.is-open {
-      display: flex;
-    }
-
-    @media (max-width: 540px) {
-      .world-picker {
-        align-items: flex-end;
-        padding: 0;
-      }
-    }
-
-    .world-picker__panel {
-      width: min(920px, calc(100vw - 24px));
-      max-height: min(760px, calc(100vh - 24px));
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      background: rgba(18, 18, 18, 0.92);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 14px;
-      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
-      padding: 14px 14px 12px 14px;
-      color: rgba(255, 255, 255, 0.95);
-    }
-
-    @media (max-width: 540px) {
-      .world-picker__panel {
-        width: 100vw;
-        max-height: calc(100vh - env(safe-area-inset-top));
-        border-radius: 16px 16px 0 0;
-        padding: 12px 12px calc(12px + env(safe-area-inset-bottom)) 12px;
-      }
-    }
-
-    .world-picker__save {
-      display: none;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .world-picker.is-editing .world-picker__save {
-      display: grid;
-    }
-
-    .world-picker__save-row {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 2px;
-    }
-
-
-
-
-    .world-picker__list {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
-      flex: 1 1 auto;
-      min-height: 0;
-      padding: 2px;
-
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-
-    .world-picker__section {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      padding: 2px 2px 10px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-    }
-
-    .world-picker__section:last-child {
-      border-bottom: none;
-      padding-bottom: 2px;
-    }
-
-    .world-picker__sectionHead {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 10px;
-    }
-
-    .world-picker__sectionTitle {
-      font-size: 12px;
-      font-weight: 850;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.90);
-    }
-
-    .world-picker__sectionMeta {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.62);
-      white-space: nowrap;
-    }
-
-    .world-picker__sectionGrid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-
-    @media (min-width: 720px) {
-      .world-picker__sectionGrid {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
-
-    @media (min-width: 1040px) {
-      .world-picker__sectionGrid {
-        grid-template-columns: 1fr 1fr 1fr;
-      }
-    }
-
-    .world-picker__empty {
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.62);
-      padding: 6px 2px 0;
-    }
-
-    .world-picker__footer {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 8px;
-    }
-
-
-    .world-card {
-      border: 2px solid rgba(255, 255, 255, 0.16);
-      border-radius: 12px;
-      overflow: hidden;
-      background: rgba(0, 0, 0, 0.35);
-      position: relative;
-      height: clamp(220px, 32vw, 290px);
-      display: block;
-      isolation: isolate;
-    }
-
-    .world-card.is-active {
-      border-color: rgba(34, 197, 94, 0.60);
-    }
-
-    .world-card__thumb {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      background: rgba(255, 255, 255, 0.06);
-      display: block;
-      transform: scale(1.01);
-      filter: saturate(1.02) contrast(1.02);
-    }
-
-    .world-card__body {
-      position: absolute;
-      inset: 0;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      background: linear-gradient(
-        to bottom,
-        rgba(0, 0, 0, 0.74),
-        rgba(0, 0, 0, 0.22) 48%,
-        rgba(0, 0, 0, 0.84)
-      );
-      color: rgba(255, 255, 255, 0.95);
-      z-index: 2;
-    }
-
-
-    .world-card__titleRow {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      min-width: 0;
-    }
-
-    .world-card__title {
-      font-weight: 700;
-      font-size: 22px;;
-      letter-spacing: 0.2px;
-      line-height: 1.2;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      min-width: 0;
-      flex: 1 1 auto;
-    }
-
-    .world-card__meta {
-      font-size: 12px;
-      opacity: 0.85;
-      white-space: nowrap;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
-      flex: 0 0 auto;
-    }
-
-    .world-card__desc {
-      font-size: 12px;
-      opacity: 0.92;
-      line-height: 1.25;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 3;
-      max-height: 3.75em;
-    }
-
-    .world-card__actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      align-items: center;
-      margin-top: auto;
-    }
-
-    .world-card .avatar-btn {
-      padding: 6px 10px;
-      font-size: 12px;;
-      touch-action: manipulation;
-    }
-
-    @media (max-width: 420px) {
-      .world-card {
-        height: 230px;
-      }
-
-      .world-card__body {
-        padding: 10px 10px 12px 10px;
-        gap: 8px;
-      }
-
-      .world-card__title {
-        font-size: 14px;;
-      }
-
-      .world-card__desc {
-        font-size: 12px;
-        -webkit-line-clamp: 2;
-        max-height: 2.5em;
-      }
-
-      .world-card__actions {
-        gap: 6px;
-      }
-    }
-
-    .world-name {
-      position: fixed;
-      left: 50%;
-      top: calc(30px + env(safe-area-inset-top));
-      transform: translateX(-50%);
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: rgb(192 192 192 / 42%);
-      color: rgb(50 50 50 / 92%);
-      font-size: 22px;;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      z-index: 23;
-      pointer-events: none;
-      backdrop-filter: blur(10px);
-      max-width: min(84vw, 520px);
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .world-name[aria-hidden="true"] {
-      display: none;
-    }
-
-    .inventory-picker {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 70;
-      background: rgba(0, 0, 0, 0.62);
-      pointer-events: auto;
-      padding: 12px;
-    }
-
-    .inventory-picker.is-open {
-      display: flex;
-    }
-
-    @media (max-width: 540px) {
-      .inventory-picker {
-        align-items: flex-end;
-        padding: 0;
-      }
-    }
-
-    .inventory-picker__panel {
-      width: min(760px, calc(100vw - 24px));
-      max-height: min(720px, calc(100vh - 24px));
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      background: rgba(18, 18, 18, 0.92);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 14px;
-      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
-      padding: 14px 14px 12px 14px;
-      color: rgba(255, 255, 255, 0.95);
-    }
-
-    @media (max-width: 540px) {
-      .inventory-picker__panel {
-        width: 100vw;
-        max-height: calc(100vh - env(safe-area-inset-top));
-        border-radius: 16px 16px 0 0;
-        padding: 12px 12px calc(12px + env(safe-area-inset-bottom)) 12px;
-      }
-    }
-
-    .inventory-picker__list {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
-      flex: 1 1 auto;
-      min-height: 0;
-      padding: 2px;
-      scrollbar-width: none;
-    }
-
-    .inventory-picker__list::-webkit-scrollbar {
-      width: 0;
-      height: 0;
-    }
-
-    @media (min-width: 720px) {
-      .inventory-picker__list {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-    }
-
-    .inv-slot {
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      border-radius: 12px;
-      overflow: hidden;
-      background: rgba(0, 0, 0, 0.35);
-      display: flex;
-      flex-direction: column;
-      min-height: 168px;
-    }
-
-    .inv-slot--empty {
-      background: rgba(255, 255, 255, 0.04);
-      border-style: dashed;
-    }
-
-    .inv-slot__empty {
-      margin: auto;
-      font-size: 12px;
-      opacity: 0.75;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .inv-item__thumb {
-      width: 100%;
-      height: 92px;
-      object-fit: cover;
-      background: rgba(255, 255, 255, 0.06);
-      display: block;
-    }
-
-    .inv-item__body {
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      color: white;
-    }
-
-    .inv-item__name {
-      font-weight: 800;
-      font-size: 13px;
-      letter-spacing: 0.2px;
-      line-height: 1.2;
-    }
-
-    .inv-item__desc {
-      font-size: 12px;
-      opacity: 0.86;
-      line-height: 1.25;
-      min-height: 2.5em;
-    }
-
-
-
-
-
-
-    .avatar-picker {
-      display: grid;
-      grid-template-columns: 52px 1fr 52px;
-      gap: 0px;
-      align-items: center;
-      width: 100%;
-      margin-top: 6px;
-    }
-
-    .avatar-picker__nav {
-      height: 52px;
-      width: 52px;
-      border-radius: 14px;
-      border: 0px solid rgba(255,255,255,0.18);
-      background: rgba(0,0,0,0.28);
-      color: #ffeb3b;
-      font-weight: 900;
-      font-size: 22px;
-      display: grid;
-      place-items: center;
-      cursor: pointer;
-      touch-action: manipulation;
-    }
-
-    .avatar-picker__nav:active {
-      transform: translateY(1px);
-    }
-
-    .avatar-picker__card {
-      position: relative;
-      border-radius: 16px;
-      border: 0px solid rgba(255,255,255,0.18);
-      background: rgba(0,0,0,0);
-      overflow: hidden;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      min-height: clamp(280px, 38vh, 420px);
-    }
-
-    .avatar-picker__thumb {
-      width: 100%;
-      height: clamp(190px, 26vh, 360px);
-      border-radius: 14px;
-      object-fit: contain;
-      object-position: center center;
-      background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 66%);
-      border: 0px solid rgba(255,255,255,0.10);
-      cursor: pointer;
-      touch-action: manipulation;
-    }
-
-    .avatar-picker__meta {
-      display: grid;
-      gap: 4px;
-      align-content: start;
-      min-width: 0;
-      padding: 0 2px;
-    }
-
-    .avatar-picker__title {
-      font-weight: 900;
-      font-size: 18px;
-      line-height: 1.2;
-      letter-spacing: 0.2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .avatar-picker__desc {
-      font-size: 13px;
-      line-height: 1.25;
-      opacity: 0.88;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-    }
-
-    .avatar-picker__badge {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      font-size: 12px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 0px solid rgba(255,255,255,0.18);
-      background: rgba(0,0,0,0.32);
-    }
-
-    .avatar-picker__actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 8px;
-    }
-
-    .avatar-picker__select {
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: rgba(0,0,0,0.28);
-      color: #fff;
-      padding: 12px 14px;
-      font-weight: 900;
-      cursor: pointer;
-      touch-action: manipulation;
-    }
 
-    .avatar-picker__select[disabled] {
-      opacity: 0.45;
-      cursor: default;
-    }
-
-    @media (max-width: 520px) {
-      .avatar-picker {
-        grid-template-columns: 44px 1fr 44px;
-        gap: 10px;
-      }
-
-      .avatar-picker__nav {
-        height: 44px;
-        width: 44px;
-        border-radius: 14px;
-        font-size: 20px;
-      }
-
-      .avatar-picker__card {
-        padding: 10px;
-        min-height: clamp(260px, 36vh, 380px);
-      }
-
-      .avatar-picker__thumb {
-        height: clamp(180px, 24vh, 280px);
-      }
-
-      .avatar-picker__title {
-        font-size: 16px;
-      }
-
-      .avatar-picker__desc {
-        font-size: 12px;
-      }
-    }
-
-
-
-    .minimap {
-      position: fixed;
-      left: calc(12px + env(safe-area-inset-left));
-      top: calc(12px + env(safe-area-inset-top));
-      width: var(--minimap-size, 160px);
-      height: var(--minimap-size, 160px);
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: rgba(0,0,0,0.35);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-      padding: 0;
-      overflow: hidden;
-      z-index: 22;
-      pointer-events: auto;
-      cursor: pointer;
-      backdrop-filter: blur(10px);
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    .minimap:active {
-      transform: translateY(1px);
-    }
-
-    .minimap.is-medium {
-      --minimap-size: 320px;
-      border-radius: 18px;
-    }
-
-    .minimap__canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-
-    .map-overlay {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: calc(16px + env(safe-area-inset-top))
-      calc(16px + env(safe-area-inset-right))
-      calc(16px + env(safe-area-inset-bottom))
-      calc(16px + env(safe-area-inset-left));
-      background: rgba(0,0,0,0.45);
-      z-index: 60;
-      pointer-events: auto;
-      backdrop-filter: blur(10px);
-    }
-
-    .map-overlay.is-open {
-      display: flex;
-    }
-
-    .map-overlay__panel {
-      width: min(96vw, 980px);
-      height: min(90vh, 980px);
-      border-radius: 22px;
-      border: 1px solid rgba(255,255,255,0.16);
-      background: rgba(12,12,12,0.65);
-      box-shadow: 0 18px 60px rgba(0,0,0,0.55);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .map-overlay__header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.10);
-    }
-
-    .map-overlay__title {
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.92);
-    }
-
-    .map-overlay__canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-      flex: 1 1 auto;
-    }
-
-    @media (max-width: 520px) {
-      .minimap { --minimap-size: 132px; border-radius: 14px; }
-      .minimap.is-medium { --minimap-size: 240px; border-radius: 16px; }
-      .map-overlay__panel { width: 96vw; height: 86vh; border-radius: 18px; }
-    }
-
-
-
-
-  </style>
-
-
-
-  <!-- Import map for Three.js -->
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/"
-      }
-    }
-  </script>
+/* Target the game UI element or body for full coverage */
+body {
+  /* Core: Disables text selection across browsers */
+  -webkit-user-select: none;  /* iOS Safari & Chrome */
+  -moz-user-select: none;     /* Firefox */
+  -ms-user-select: none;      /* IE/Edge */
+  user-select: none;          /* Standard */
+
+  /* iOS-specific: Hides the long-press callout menu */
+  -webkit-touch-callout: none;
+
+  /* Optional: Reduces tap highlight (blue glow) on interactive elements */
+  -webkit-tap-highlight-color: transparent;
+
+  /* For canvas-heavy games: Prevent accidental drag selection */
+  -webkit-user-drag: none;
+}
+
+
+@font-face {
+  font-family: "Minimalo";
+  src: url("fonts/minimalo-font/Minimalo-LVzzy.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a1220;
+  font-family: "Minimalo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button {
+  font-family: "Minimalo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  border-radius: 14px;
+  border: 0px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  padding: 12px 14px;
+
+}
+
+.profile-btn {
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+.hud {
+  position: fixed;
+  left: 12px;
+  top: 12px;
+  font: 12px/1.4 "Minimalo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  color: rgba(255,255,255,0.92);
+  background: rgba(0,0,0,0.28);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  padding: 10px 12px;
+  backdrop-filter: blur(8px);
+  user-select: none;
+  pointer-events: none;
+  max-width: 380px;
+}
+.hud b {
+  color: rgba(255,255,255,0.98);
+}
+
+.avatar-ui {
+  position: fixed;
+  right: 2px;
+  bottom: 2px;
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  z-index: 20;
+  pointer-events: auto;
+}
+
+.avatar-btn {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.24);
+  background: rgba(0,0,0,0.55);
+  color: #f5f5f5;
+  font-size: 12px;;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.avatar-btn:hover {
+  background: rgba(0,0,0,0.8);
+}
+
+.avatar-btn:active {
+  background: rgba(0,0,0,0.95);
+}
+
+.joystick {
+  position: absolute;
+  left: 16px;
+  bottom: 41px;
+  width: 140px;
+  height: 140px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.joystick-inner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  margin-left: -26px;
+  margin-top: -26px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.22);
+  border: 1px solid rgba(255,255,255,0.22);
+
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+
+
+.joystick--right {
+  left: auto;
+  right: 16px;
+}
+
+
+.vehicle-ui {
+  position: fixed;
+  bottom: 150px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 520px;
+  width: auto;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(10px);
+  z-index: 25;
+  display: none;
+  pointer-events: auto;
+}
+
+.vehicle-ui__title {
+  font-weight: 700;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.vehicle-ui__desc {
+  opacity: 0.92;
+  font-size: 14px;
+  line-height: 1.25;
+  margin-bottom: 10px;
+}
+
+.vehicle-ui__row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.vehicle-quick-action {
+  position: fixed;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  z-index: 55;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  min-width: 120px;
+}
+
+
+
+.kbd-help {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.kbd-help.is-open {
+  display: flex;
+}
+
+.kbd-help__panel {
+  width: min(520px, calc(100vw - 24px));
+  background: rgba(18, 18, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  padding: 14px 14px 12px 14px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.kbd-help__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.kbd-help__title {
+  font-weight: 700;
+  font-size: 24px;;
+  letter-spacing: 0.2px;
+}
+
+.kbd-help__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.kbd-help__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 14px;;
+  font-weight: 700;
+  font-family: "Minimalo", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  user-select: none;
+}
+
+.kbd--wide {
+  min-width: 90px;
+}
+
+.kbd-help__text {
+  font-size: 14px;;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.kbd-help__note {
+  margin-top: 10px;
+  font-size: 14px;;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+
+
+
+
+.edit-stack {
+  position: fixed;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 22;
+  pointer-events: auto;
+}
+
+@media (max-width: 540px) {
+  .edit-stack {
+    right: 10px;
+    top: calc(50% - 16px);
+  }
+}
+
+.edit-transform-mode-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.24);
+  background: rgba(0,0,0,0.55);
+  color: #f5f5f5;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.edit-transform-mode-btn:hover {
+  background: rgba(0,0,0,0.8);
+}
+
+.edit-transform-mode-btn:active {
+  background: rgba(0,0,0,0.95);
+}
+
+.edit-transform-mode-btn[disabled] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+
+
+
+
+.action-toast {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.98);
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(0,0,0,0.68);
+  color: #f5f5f5;
+  font-size: 14px;;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 25;
+  backdrop-filter: blur(10px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.action-toast.is-open {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+
+.edit-transform-mode-btn[disabled] {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.profile-help {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 65;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.profile-help.is-open {
+  display: flex;
+}
+
+.profile-help__panel {
+  width: min(520px, calc(100vw - 24px));
+  background: rgba(18, 18, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  padding: 1.5rem;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.profile-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.profile-field {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}
+
+.profile-label {
+  font-size: 14px;;
+  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: 0.2px;
+}
+
+.profile-input,
+.profile-textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 10px 10px;
+  outline: none;
+  font-size: 14px;;
+  line-height: 1.2;
+}
+
+.profile-textarea {
+  resize: none;
+  min-height: 74px;
+}
+
+.profile-input:focus,
+.profile-textarea:focus {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.profile-readonly {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.88);
+  padding: 10px 10px;
+  font-size: 14px;;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  user-select: text;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-color {
+  height: 44px;
+  padding: 4px 6px;
+}
+
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+
+.world-picker {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.62);
+  pointer-events: auto;
+  padding: 12px;
+}
+
+.world-picker.is-open {
+  display: flex;
+}
+
+@media (max-width: 540px) {
+  .world-picker {
+    align-items: flex-end;
+    padding: 0;
+  }
+}
+
+.world-picker__panel {
+  width: min(920px, calc(100vw - 24px));
+  max-height: min(760px, calc(100vh - 24px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: rgba(18, 18, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  padding: 14px 14px 12px 14px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+@media (max-width: 540px) {
+  .world-picker__panel {
+    width: 100vw;
+    max-height: calc(100vh - env(safe-area-inset-top));
+    border-radius: 16px 16px 0 0;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom)) 12px;
+  }
+}
+
+.world-picker__save {
+  display: none;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.world-picker.is-editing .world-picker__save {
+  display: grid;
+}
+
+.world-picker__save-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+
+
+
+.world-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 2px;
+
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.world-picker__section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 2px 2px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+}
+
+.world-picker__section:last-child {
+  border-bottom: none;
+  padding-bottom: 2px;
+}
+
+.world-picker__sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.world-picker__sectionTitle {
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.90);
+}
+
+.world-picker__sectionMeta {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+}
+
+.world-picker__sectionGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 720px) {
+  .world-picker__sectionGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1040px) {
+  .world-picker__sectionGrid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
+
+.world-picker__empty {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  padding: 6px 2px 0;
+}
+
+.world-picker__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+
+.world-card {
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+  position: relative;
+  height: clamp(220px, 32vw, 290px);
+  display: block;
+  isolation: isolate;
+}
+
+.world-card.is-active {
+  border-color: rgba(34, 197, 94, 0.60);
+}
+
+.world-card__thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+  display: block;
+  transform: scale(1.01);
+  filter: saturate(1.02) contrast(1.02);
+}
+
+.world-card__body {
+  position: absolute;
+  inset: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.74),
+    rgba(0, 0, 0, 0.22) 48%,
+    rgba(0, 0, 0, 0.84)
+  );
+  color: rgba(255, 255, 255, 0.95);
+  z-index: 2;
+}
+
+
+.world-card__titleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.world-card__title {
+  font-weight: 700;
+  font-size: 22px;;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.world-card__meta {
+  font-size: 12px;
+  opacity: 0.85;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  flex: 0 0 auto;
+}
+
+.world-card__desc {
+  font-size: 12px;
+  opacity: 0.92;
+  line-height: 1.25;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  max-height: 3.75em;
+}
+
+.world-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: auto;
+}
+
+.world-card .avatar-btn {
+  padding: 6px 10px;
+  font-size: 12px;;
+  touch-action: manipulation;
+}
+
+@media (max-width: 420px) {
+  .world-card {
+    height: 230px;
+  }
+
+  .world-card__body {
+    padding: 10px 10px 12px 10px;
+    gap: 8px;
+  }
+
+  .world-card__title {
+    font-size: 14px;;
+  }
+
+  .world-card__desc {
+    font-size: 12px;
+    -webkit-line-clamp: 2;
+    max-height: 2.5em;
+  }
+
+  .world-card__actions {
+    gap: 6px;
+  }
+}
+
+.world-name {
+  position: fixed;
+  left: 50%;
+  top: calc(30px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgb(192 192 192 / 42%);
+  color: rgb(50 50 50 / 92%);
+  font-size: 22px;;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  z-index: 23;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+  max-width: min(84vw, 520px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.world-name[aria-hidden="true"] {
+  display: none;
+}
+
+.inventory-picker {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 70;
+  background: rgba(0, 0, 0, 0.62);
+  pointer-events: auto;
+  padding: 12px;
+}
+
+.inventory-picker.is-open {
+  display: flex;
+}
+
+@media (max-width: 540px) {
+  .inventory-picker {
+    align-items: flex-end;
+    padding: 0;
+  }
+}
+
+.inventory-picker__panel {
+  width: min(760px, calc(100vw - 24px));
+  max-height: min(720px, calc(100vh - 24px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: rgba(18, 18, 18, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  padding: 14px 14px 12px 14px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+@media (max-width: 540px) {
+  .inventory-picker__panel {
+    width: 100vw;
+    max-height: calc(100vh - env(safe-area-inset-top));
+    border-radius: 16px 16px 0 0;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom)) 12px;
+  }
+}
+
+.inventory-picker__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 2px;
+  scrollbar-width: none;
+}
+
+.inventory-picker__list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+@media (min-width: 720px) {
+  .inventory-picker__list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.inv-slot {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  min-height: 168px;
+}
+
+.inv-slot--empty {
+  background: rgba(255, 255, 255, 0.04);
+  border-style: dashed;
+}
+
+.inv-slot__empty {
+  margin: auto;
+  font-size: 12px;
+  opacity: 0.75;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.inv-item__thumb {
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+  display: block;
+}
+
+.inv-item__body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: white;
+}
+
+.inv-item__name {
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+
+.inv-item__desc {
+  font-size: 12px;
+  opacity: 0.86;
+  line-height: 1.25;
+  min-height: 2.5em;
+}
+
+
+
+
+
+
+.avatar-picker {
+  display: grid;
+  grid-template-columns: 52px 1fr 52px;
+  gap: 0px;
+  align-items: center;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.avatar-picker__nav {
+  height: 52px;
+  width: 52px;
+  border-radius: 14px;
+  border: 0px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.28);
+  color: #ffeb3b;
+  font-weight: 900;
+  font-size: 22px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.avatar-picker__nav:active {
+  transform: translateY(1px);
+}
+
+.avatar-picker__card {
+  position: relative;
+  border-radius: 16px;
+  border: 0px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0);
+  overflow: hidden;
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: clamp(280px, 38vh, 420px);
+}
+
+.avatar-picker__thumb {
+  width: 100%;
+  height: clamp(190px, 26vh, 360px);
+  border-radius: 14px;
+  object-fit: contain;
+  object-position: center center;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0) 66%);
+  border: 0px solid rgba(255,255,255,0.10);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.avatar-picker__meta {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+  padding: 0 2px;
+}
+
+.avatar-picker__title {
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avatar-picker__desc {
+  font-size: 13px;
+  line-height: 1.25;
+  opacity: 0.88;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.avatar-picker__badge {
+  position: absolute;
+  top: 20px;
+  right: 0px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 0px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.32);
+}
+
+.avatar-picker__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.avatar-picker__select {
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.28);
+  color: #fff;
+  padding: 12px 14px;
+  font-weight: 900;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.avatar-picker__select[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (max-width: 520px) {
+  .avatar-picker {
+    grid-template-columns: 44px 1fr 44px;
+    gap: 10px;
+  }
+
+  .avatar-picker__nav {
+    height: 44px;
+    width: 44px;
+    border-radius: 14px;
+    font-size: 20px;
+  }
+
+  .avatar-picker__card {
+    padding: 10px;
+    min-height: clamp(260px, 36vh, 380px);
+  }
+
+  .avatar-picker__thumb {
+    height: clamp(180px, 24vh, 280px);
+  }
+
+  .avatar-picker__title {
+    font-size: 16px;
+  }
+
+  .avatar-picker__desc {
+    font-size: 12px;
+  }
+}
+
+
+
+.minimap {
+  position: fixed;
+  left: calc(12px + env(safe-area-inset-left));
+  top: calc(12px + env(safe-area-inset-top));
+  width: var(--minimap-size, 160px);
+  height: var(--minimap-size, 160px);
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.35);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  padding: 0;
+  overflow: hidden;
+  z-index: 22;
+  pointer-events: auto;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.minimap:active {
+  transform: translateY(1px);
+}
+
+.minimap.is-medium {
+  --minimap-size: 320px;
+  border-radius: 18px;
+}
+
+.minimap__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.map-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top))
+  calc(16px + env(safe-area-inset-right))
+  calc(16px + env(safe-area-inset-bottom))
+  calc(16px + env(safe-area-inset-left));
+  background: rgba(0,0,0,0.45);
+  z-index: 60;
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+}
+
+.map-overlay.is-open {
+  display: flex;
+}
+
+.map-overlay__panel {
+  width: min(96vw, 980px);
+  height: min(90vh, 980px);
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(12,12,12,0.65);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.map-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+
+.map-overlay__title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.92);
+}
+
+.map-overlay__canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 520px) {
+  .minimap { --minimap-size: 132px; border-radius: 14px; }
+  .minimap.is-medium { --minimap-size: 240px; border-radius: 16px; }
+  .map-overlay__panel { width: 96vw; height: 86vh; border-radius: 18px; }
+}
+
+
+
+
+
+/* Minimal reset only for title container */
+.doggerland-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.doggerland-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: clamp(4rem, 10vw, 12rem);
+  background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: doggerlandGradientShift 30s ease-in-out infinite;
+  text-align: center;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  font-family: "Minimalo";
+}
+
+@keyframes doggerlandGradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@media (max-width: 480px) {
+  .doggerland-title {
+    font-size: clamp(3rem, 8vw, 8rem);
+    letter-spacing: 0.05em;
+  }
+}
+
+
+
+</style>
+
+
+
+<!-- Import map for Three.js -->
+<script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/"
+    }
+  }
+</script>
 
 
 </head>
 
 
 <body>
+
+
   <div id="app"></div>
+
+
+<!--   <div class="doggerland-wrapper" id="doggerland-root">
+    <div class="doggerland-title" id="doggerland-title">Doggerland</div>
+  </div>
+  -->  
 
   <div id="worldName" class="world-name" aria-hidden="true" aria-live="polite"></div>
 
@@ -1202,7 +1305,7 @@
     <div id="joystickRightInner" class="joystick-inner"></div>
   </div>
 
-
+  <button id="vehicleQuickActionBtn" class="avatar-btn vehicle-quick-action" type="button" aria-hidden="true" style="display:none;"></button>
 
   <div id="vehiclePrompt" class="vehicle-ui" aria-hidden="false">
     <div id="vehiclePromptTitle" class="vehicle-ui__title">Small Plane</div>
@@ -1213,6 +1316,7 @@
       <button id="vehicleCloseBtn" class="avatar-btn">Close</button>
     </div>
   </div>
+
 
 
   <div id="keyboardHelp" class="kbd-help" aria-hidden="true">
@@ -1282,7 +1386,7 @@
           </div>
         </div>
 
-        <div class="profile-field">
+        <div class="profile-field" style="display:none;">
           <label class="profile-label">Player ID</label>
           <div class="profile-readonly" id="playerProfileId"></div>
         </div>
@@ -1292,7 +1396,7 @@
           <input class="profile-input" id="playerNameInput" type="text" maxlength="32" autocomplete="nickname" />
         </div>
 
-        <div class="profile-field">
+        <div class="profile-field" style="display:none;">
           <label class="profile-label" for="playerColorInput">Accent color</label>
           <input class="profile-input profile-input--color" id="playerColorInput" type="color" />
         </div>
@@ -1411,6 +1515,28 @@
 
   <script type="module">
 
+
+// Optional JS: Add subtle entrance animation on load
+    // window.addEventListener('load', () => {
+    //   const title = document.querySelector('.title');
+    //   title.style.opacity = '0';
+    //   title.style.transform = 'scale(0.8) translateY(20px)';
+
+    //   title.animate([
+    //     { opacity: 0, transform: 'scale(0.8) translateY(20px)' },
+    //     { opacity: 1, transform: 'scale(1) translateY(0)' }
+    //   ], {
+    //     duration: 1000,
+    //     easing: 'ease-out',
+    //     fill: 'forwards'
+    //   });
+    // });
+
+
+
+
+
+
     import * as THREE from "three";
     import { OrbitControls } from "three/addons/controls/OrbitControls.js";
     import { TransformControls } from "three/addons/controls/TransformControls.js";
@@ -1449,7 +1575,7 @@
       { id: "male/musil2", name: "Ahmob", desc: "Ahmob bobo 2.", url: "models/ready/male/musils/musils2-anims.glb", thumb: "models/ready/male/musils/musils2-anims.png" },
 
       { id: "female/blondie-anims", name: "Blondie", desc: "Female avatar.", url: "models/ready/female/blondie-anims.glb", thumb: "models/ready/female/blondie-anims.png" },
-      
+
 
       { id: "female/avad", name: "Ava D", desc: "Female avatar.", url: "models/ready/female/avad/avad1-anims.glb", thumb: "models/ready/female/avad/avad1-anims.png" },
 
@@ -1471,33 +1597,33 @@
       { id: "female/camouflage1", name: "Camouflage", desc: "Female avatar.", url: "models/ready/female/camouflage1.glb", thumb: "models/ready/female/camouflage1.png" },
 
       { id: "female/computer", name: "Computer", desc: "Female avatar.", url: "models/ready/female/computer.glb", thumb: "models/ready/female/computer.png" },
-      
+
       { id: "female/crocs_anims", name: "Crocs", desc: "Female avatar.", url: "models/ready/female/crocs_anims.glb", thumb: "models/ready/female/crocs_anims.png" },
 
       // { id: "female/elizabeth", name: "Elizabeth", desc: "Female avatar.", url: "models/ready/female/elizabeth.glb", thumb: "models/ready/female/elizabeth.png" },
-      
+
       { id: "female/pinky1-anims", name: "Pinky", desc: "Female avatar.", url: "models/ready/female/pinky1-anims.glb", thumb: "models/ready/female/pinky1-anims.png" },
-      
+
       { id: "female/redsa1", name: "Redsa", desc: "Female avatar.", url: "models/ready/female/redsa1.glb", thumb: "models/ready/female/redsa1.png" },
-      
+
       { id: "female/santa5", name: "Santa 5", desc: "Holiday avatar.", url: "models/ready/female/santa5.glb", thumb: "models/ready/female/santa5.png" },
-      
+
       { id: "female/santa6", name: "Santa 6", desc: "Holiday avatar.", url: "models/ready/female/santa6.glb", thumb: "models/ready/female/santa6.png" },
-      
+
       // { id: "female/santagirl", name: "Santa Girl", desc: "Holiday avatar.", url: "models/ready/female/santagirl.glb", thumb: "models/ready/female/santagirl.png" },
-      
+
       { id: "female/santagirl2", name: "Santa Girl 2", desc: "Holiday avatar.", url: "models/ready/female/santagirl2.glb", thumb: "models/ready/female/santagirl2.png" },
-      
+
       { id: "female/santagirl21-eu", name: "Santa Girl EU", desc: "Holiday avatar.", url: "models/ready/female/santagirl21-eu.glb", thumb: "models/ready/female/santagirl21-eu.png" },
-      
+
       { id: "female/santagirl3", name: "Santa Girl 3", desc: "Holiday avatar.", url: "models/ready/female/santagirl3.glb", thumb: "models/ready/female/santagirl3.png" },
-      
+
       { id: "female/santax1", name: "Santa X1", desc: "Holiday avatar.", url: "models/ready/female/santax1.glb", thumb: "models/ready/female/santax1.png" },
-      
+
       { id: "female/santax2-a2", name: "Santa X2", desc: "Holiday avatar.", url: "models/ready/female/santax2-a2.glb", thumb: "models/ready/female/santax2-a2.png" },
-      
+
       { id: "female/sanya-a", name: "Sanya", desc: "Female avatar.", url: "models/ready/female/sanya-a.glb", thumb: "models/ready/female/sanya-a.png" },
-      
+
 
       { id: "female/she/she1_anims-anims", name: "She 1", desc: "Female avatar.", url: "models/ready/female/she/she1_anims-anims.glb", thumb: "models/ready/female/she/she1_anims-anims.png" },
 
@@ -2559,7 +2685,7 @@
 
 
     /**
-     * Clears current world editor selection, hides the gizmo, and refreshes UI state.
+     * Clears world editor selection, detaches the gizmo, and refreshes UI state.
      */
     function clearWorldEditSelection() {
       worldEditState.selected = null;
@@ -2572,12 +2698,14 @@
         transformControlsHelper.visible = false;
       }
 
+      syncWorldEditObjectGuiSelection();
       updateAvatarButtons();
     }
 
 
+
     /**
-     * Selects a world-editable root, attaches TransformControls to it, and refreshes UI state.
+     * Selects a world model root for editing, attaches the gizmo, and refreshes UI state.
      */
     function selectWorldEditRoot(root) {
       if (!root || !worldEditSelectableRoots.has(root) || !transformControls) return;
@@ -2593,8 +2721,10 @@
         controls.autoRotate = false;
       }
 
+      syncWorldEditObjectGuiSelection();
       updateAvatarButtons();
     }
+
 
 
     /**
@@ -3194,456 +3324,456 @@
 
     const MODEL_CONFIG = [
 
-      {
-        name: "ginger bread",
-        url: "models/gingerbread_man-c.glb",
-        instances: [
-          {
-            id: "model1_center",
-            position: [3, 0, -5],
-            rotation: [0, 0, 0],
-            scale: 1.0,
-            stick: true,
-            collide: false
-          }
-        ]
-      },
+      // {
+      //   name: "ginger bread",
+      //   url: "models/gingerbread_man-c.glb",
+      //   instances: [
+      //     {
+      //       id: "model1_center",
+      //       position: [3, 0, -5],
+      //       rotation: [0, 0, 0],
+      //       scale: 1.0,
+      //       stick: true,
+      //       collide: false
+      //     }
+      //   ]
+      // },
 
-      {
-        name: "5gmast",
-        url: "models/buildings/5gmast.glb",
-        instances: [
-          {
-            id: "5gmast_center",
-            position: [3, 0, -5],
-            rotation: [0, 0, 0],
-            scale: 1.0,
-            stick: true,
-            collide: false
-          }
-        ]
-      },
+      // {
+      //   name: "5gmast",
+      //   url: "models/buildings/5gmast.glb",
+      //   instances: [
+      //     {
+      //       id: "5gmast_center",
+      //       position: [3, 0, -5],
+      //       rotation: [0, 0, 0],
+      //       scale: 1.0,
+      //       stick: true,
+      //       collide: false
+      //     }
+      //   ]
+      // },
 
-      {
-        name: "vending1",
-        url: "models/vending/vending.glb",
-        instances: [
-          {
-            id: "vending1_center",
-            position: [3, 0, -5],
-            rotation: [0, 0, 0],
-            scale: 1.0,
-            stick: false,
-            collide: false
-          }
-        ]
-      },  
+      // {
+      //   name: "vending1",
+      //   url: "models/vending/vending.glb",
+      //   instances: [
+      //     {
+      //       id: "vending1_center",
+      //       position: [3, 0, -5],
+      //       rotation: [0, 0, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: false
+      //     }
+      //   ]
+      // },  
 
-      {
-        name: "box1",
-        url: "models/boxes/box1.glb",
-        instances: [
-          {
-            id: "box1_center",
-            position: [3, 0, -5],
-            rotation: [0, 0, 0],
-            scale: 1.0,
-            stick: false,
-            collide: false
-          }
-        ]
-      },      
+      // {
+      //   name: "box1",
+      //   url: "models/boxes/box1.glb",
+      //   instances: [
+      //     {
+      //       id: "box1_center",
+      //       position: [3, 0, -5],
+      //       rotation: [0, 0, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: false
+      //     }
+      //   ]
+      // },      
 
-      {
-        name: "trees1",
-        url: "models/trees/trees.glb",
-        instances: [
-          {
-            id: "tree_center",
-            position: [10, 0, -10],
-            rotation: [0, 0, 0],
-            scale: 1.0,
-            stick: false,
-            collide: false
-          }
-        ]
-      }, 
+      // {
+      //   name: "trees1",
+      //   url: "models/trees/trees.glb",
+      //   instances: [
+      //     {
+      //       id: "tree_center",
+      //       position: [10, 0, -10],
+      //       rotation: [0, 0, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: false
+      //     }
+      //   ]
+      // }, 
 
-      {
-        name: "box",
-        url: "models/boxes/box1.glb",
-        instances: [
-          {
-            id: "box_center",
-            position: [14, 0, -12],
-            rotation: [0, 0, 0],
-            scale: 1.0,
-            stick: false,
-            collide: false
-          }
-        ]
-      }, 
-
-
-      {
-        name: "house",
-        url: "models/buildings/house.glb",
-        instances: [
-          {
-            id: "house_center",
-            position: [21, -1, -11],
-            rotation: [0, 0, 0],
-            scale: 1.0,
-            stick: false,
-            collide: true
-          }
-        ]
-      },       
+      // {
+      //   name: "box",
+      //   url: "models/boxes/box1.glb",
+      //   instances: [
+      //     {
+      //       id: "box_center",
+      //       position: [14, 0, -12],
+      //       rotation: [0, 0, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: false
+      //     }
+      //   ]
+      // }, 
 
 
-      {
-        name: "cinema",
-        url: "models/buildings/cinema/ashford-cinema-1.glb",
-        instances: [
-          {
-            id: "cinema_center",
-            position: [32, -1, -18],
-            rotation: [0, 0, 0],
-            scale: 1.0,
-            stick: false,
-            collide: true
-          }
-        ]
-      }, 
+      // {
+      //   name: "house",
+      //   url: "models/buildings/house.glb",
+      //   instances: [
+      //     {
+      //       id: "house_center",
+      //       position: [21, -1, -11],
+      //       rotation: [0, 0, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: true
+      //     }
+      //   ]
+      // },       
 
 
-
-      {
-        name: "model2",
-        url: "models/christmas_tree_polycraft-c.glb",
-        instances: [
-          {
-            id: "tree_center",
-            position: [0, 0, 0],
-            rotation: [0, 0, 0],
-            scale: 0.05,
-            stick: true,
-            collide: false
-          }
-        ]
-      },
-      {
-        name: "model3",
-        url: "models/snowman-c.glb",
-        instances: [
-          {
-            id: "snowman",
-            position: [-7, -0.2, -1],
-            rotation: [0, 1, 0],
-            scale: 1.0,
-            stick: false,
-            collide: false
-          }
-        ]
-      },
-      {
-        name: "model4",
-        url: "models/car-c.glb",
-        instances: [
-          {
-            id: "car",
-            position: [4, -0.5, 6],
-            rotation: [0, 1, 0],
-            scale: 1.0,
-            stick: false,
-            collide: false,
-            vehicle: {
-              type: "Car",
-              description: "Ground vehicle",
-              seatLocal: [0.0, 0.55, 0.15],
-              yawOffset: 0.0,
-              profile: {
-                maxSpeed: 1.0,
-                maxReverse: 1.0,
-                accel: 10.0,
-                brake: 14.0,
-                coastDecel: 3.2,
-                turnRate: 5,
-                radius: 0.85
-              }
-            }
-          }
-        ]
-      },
-
-
-      {
-        name: "jetpack",
-        url: "models/vehicles/jetpacks/jetpack.glb",
-        instances: [
-          {
-            id: "jetpack_1",
-            position: [3, 0, -5],
-            rotation: [0, 0, 0],
-            scale: 1,
-            stick: false,
-            collide: false,
-            equipment: {
-              type: "Jetpack",
-              description: "Personal jetpack",
-              action: "jetpack",
-              attach: {
-                bone: "Spine2",
-                position: [0, 0.08, -0.22],
-                rotation: [0, 3.14159, 0],
-                scale: 1
-              }
-            }
-          }
-        ]
-      },
-
-      {
-        name: "backpack",
-        url: "models/backpacks/backpack1.glb",
-        instances: [
-          {
-            id: "backpack1",
-            position: [3, 0, -5],
-            rotation: [0, 0, 0],
-            scale: 1,
-            stick: false,
-            collide: false,
-            equipment: {
-              type: "Backpack",
-              description: "Wearable backpack",
-              action: "",
-              attach: {
-                bone: "Spine2",
-                position: [0, 0.06, -0.18],
-                rotation: [0, 3.14159, 0],
-                scale: 1
-              }
-            }
-          }
-        ]
-      },
+      // {
+      //   name: "cinema",
+      //   url: "models/buildings/cinema/ashford-cinema-1.glb",
+      //   instances: [
+      //     {
+      //       id: "cinema_center",
+      //       position: [32, -1, -18],
+      //       rotation: [0, 0, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: true
+      //     }
+      //   ]
+      // }, 
 
 
 
-      {
-        name: "plane",
-        url: "models/vehicles/flying/plane1.glb",
-
-        instances: [
-          {
-            id: "plane",
-            position: [4, 0, 15],
-            rotation: [0, 1.5, 0],
-            scale: 1.0,
-            stick: false,
-            collide: true,
-
-            vehicle: {
-              type: "Small Airplane",
-              description: "Small Airplane 1",
-              seatLocal: [0.0, 0.8, -0.43],
-              yawOffset: 0.0,
-              profile: {
-                maxSpeed: 27.2,
-                maxReverse: 2.1,
-                accel: 7.1,
-                brake: 2.7,
-                coastDecel: 1.7,
-                turnRate: 0.6,
-                radius: 0.95,
-                wheelBase: 2.66,
-                minTurnRadius: 7.7,
-                minSteerSpeed: 0.35,
-                steerResponse: 2.0,
-                steerReturn: 6.0,
-                lateralGrip: 8.0,
-                wetWidth: 0.05,
-                wetLength: 1.04,
-                trackHalfWidth: 1.0,
-                airRollResponse: 1.7,
-                airRollReturn: 5.0,
-                climbPitchMax: 0.17,
-                climbPitchSpeed: 6.6,
-                pitchResponse: 3.2,
-                pitchReturn: 0.1,
-                turnPitchMax: 0.08,
-                propAxis: "z",
-                airRollMax: 1.18,
-                airTurnScale: 0.21,
-                liftResponse: 0.1,
-                maxLift: 21.9,
-                minFlySpeed: 22.3
-              }
-            }
-          }
-        ]
-      },
-
-      {
-        name: "plane2",
-        url: "models/vehicles/flying/plane2.glb",
-        
-        instances: [
-          {
-            id: "plane2",
-            position: [4, 0, 35],
-            rotation: [0, 1.5, 0],
-            scale: 1.0,
-            stick: false,
-            collide: true,
-
-            vehicle: {
-              type: "Small Airplane 2",
-              description: "Small Airplane 2",
-
-              seatLocal: [0.19, 0.82, -0.91],
-
-              yawOffset: 0.0,
-              profile: {
-                maxSpeed: 27.2,
-                maxReverse: 2.1,
-                accel: 7.1,
-                brake: 2.7,
-                coastDecel: 1.7,
-                turnRate: 0.6,
-                radius: 0.95,
-                wheelBase: 2.66,
-                minTurnRadius: 7.7,
-                minSteerSpeed: 0.35,
-                steerResponse: 2.0,
-                steerReturn: 6.0,
-                lateralGrip: 8.0,
-
-                wetWidth: 0.05,
-                wetLength: 1.04,
-
-                trackHalfWidth: 1.57,
-
-                airRollResponse: 1.7,
-                airRollReturn: 5.0,
-                climbPitchMax: 0.17,
-                climbPitchSpeed: 6.6,
-                pitchResponse: 3.2,
-                pitchReturn: 0.1,
-                turnPitchMax: 0.08,
-                propAxis: "z",
-                airRollMax: 1.18,
-                airTurnScale: 0.21,
-                liftResponse: 0.1,
-                maxLift: 21.9,
-                minFlySpeed: 22.3
-              }
-            }
-          }
-        ]
-      },
+      // {
+      //   name: "model2",
+      //   url: "models/christmas_tree_polycraft-c.glb",
+      //   instances: [
+      //     {
+      //       id: "tree_center",
+      //       position: [0, 0, 0],
+      //       rotation: [0, 0, 0],
+      //       scale: 0.05,
+      //       stick: true,
+      //       collide: false
+      //     }
+      //   ]
+      // },
+      // {
+      //   name: "model3",
+      //   url: "models/snowman-c.glb",
+      //   instances: [
+      //     {
+      //       id: "snowman",
+      //       position: [-7, -0.2, -1],
+      //       rotation: [0, 1, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: false
+      //     }
+      //   ]
+      // },
+      // {
+      //   name: "model4",
+      //   url: "models/car-c.glb",
+      //   instances: [
+      //     {
+      //       id: "car",
+      //       position: [4, -0.5, 6],
+      //       rotation: [0, 1, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: false,
+      //       vehicle: {
+      //         type: "Car",
+      //         description: "Ground vehicle",
+      //         seatLocal: [0.0, 0.55, 0.15],
+      //         yawOffset: 0.0,
+      //         profile: {
+      //           maxSpeed: 1.0,
+      //           maxReverse: 1.0,
+      //           accel: 10.0,
+      //           brake: 14.0,
+      //           coastDecel: 3.2,
+      //           turnRate: 5,
+      //           radius: 0.85
+      //         }
+      //       }
+      //     }
+      //   ]
+      // },
 
 
-      {
-        name: "skipatrol",
-        url: "models/vehicles/ski_patrol1.glb",
-        instances: [
-          {
-            id: "skipatrol",
-            position: [9, 0, 4],
-            rotation: [0, 1, 0],
-            scale: 1.0,
-            stick: false,
-            collide: true,
+      // {
+      //   name: "jetpack",
+      //   url: "models/vehicles/jetpacks/jetpack.glb",
+      //   instances: [
+      //     {
+      //       id: "jetpack_1",
+      //       position: [3, 0, -5],
+      //       rotation: [0, 0, 0],
+      //       scale: 1,
+      //       stick: false,
+      //       collide: false,
+      //       equipment: {
+      //         type: "Jetpack",
+      //         description: "Personal jetpack",
+      //         action: "jetpack",
+      //         attach: {
+      //           bone: "Spine2",
+      //           position: [0, 0.08, -0.22],
+      //           rotation: [0, 3.14159, 0],
+      //           scale: 1
+      //         }
+      //       }
+      //     }
+      //   ]
+      // },
 
-            // MODEL_CONFIG -> instance "skipatrol" (Ski Patrol)
-            vehicle: {
-              type: "Ski Patrol",
-              description: "Snow vehicle / patrol sled",
-              seatLocal: [0.0, 0.034, -0.52],
-              yawOffset: 0.0,
-              profile: {
-                maxSpeed: 11.2,
-                maxReverse: 5.0,
-                accel: 4.2,
-                brake: 18.0,
-                coastDecel: 4.0,
-                turnRate: 2.8,
-                radius: 1.55,
-                wheelBase: 2.66,
-                minTurnRadius: 6.0,
-                minSteerSpeed: 0.35,
-                steerResponse: 2.1,
-                steerReturn: 6.0,
-                lateralGrip: 8.0,
-                wetWidth: 0.05,
-                wetLength: 1.04,
-                trackHalfWidth: 0.5,
-                airRollResponse: 8.0,
-                airRollReturn: 5.0,
-                climbPitchMax: 0.22,
-                climbPitchSpeed: 4.0,
-                pitchResponse: 4.0,
-                pitchReturn: 3.0,
-                turnPitchMax: 0.1,
-                airRollMax: 0.35,
-                airTurnScale: 0.35,
-                liftResponse: 5.0,
-                maxLift: 10.0,
-                minFlySpeed: 14.0
-              }
-            }
+      // {
+      //   name: "backpack",
+      //   url: "models/backpacks/backpack1.glb",
+      //   instances: [
+      //     {
+      //       id: "backpack1",
+      //       position: [3, 0, -5],
+      //       rotation: [0, 0, 0],
+      //       scale: 1,
+      //       stick: false,
+      //       collide: false,
+      //       equipment: {
+      //         type: "Backpack",
+      //         description: "Wearable backpack",
+      //         action: "",
+      //         attach: {
+      //           bone: "Spine2",
+      //           position: [0, 0.06, -0.18],
+      //           rotation: [0, 3.14159, 0],
+      //           scale: 1
+      //         }
+      //       }
+      //     }
+      //   ]
+      // },
 
 
 
-          }
-        ]
-      },
+      // {
+      //   name: "plane",
+      //   url: "models/vehicles/flying/plane1.glb",
 
-      {
-        name: "snowcar",
-        url: "models/vehicles/snowcar.glb",
-        instances: [
-          {
-            id: "car2",
-            position: [-4, 0.19, 6],
-            rotation: [0, 1, 0],
-            scale: 1.0,
-            stick: false,
-            collide: true,
-            vehicle: {
-              type: "Snowcar",
-              description: "Snow-capable car",
-              seatLocal: [0.5, 0.54, 1.15],
-              yawOffset: 0.0,
-              profile: {
-                maxSpeed: 13.2,
-                maxReverse: 6.9,
-                accel: 3.2,
-                brake: 15.9,
-                coastDecel: 1.8,
-                turnRate: 0.64,
-                radius: 0.7,
-                wheelBase: 1.9,
-                minTurnRadius: 3.8,
-                minSteerSpeed: 0.55,
-                steerResponse: 5.7,
-                steerReturn: 7.0,
-                lateralGrip: 9.0,
-                wetWidth: 0.15,
-                wetLength: 1.63,
-                trackHalfWidth: 1.1,
-                propSpinIdle: 8.0,
-                propSpinMax: 80.0,
-                propSpinMul: 1.0,
-                propAxis: "z",
-                propInvert: false             
-              }
-            }
-          }
-        ]
-      }
+      //   instances: [
+      //     {
+      //       id: "plane",
+      //       position: [4, 0, 15],
+      //       rotation: [0, 1.5, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: true,
+
+      //       vehicle: {
+      //         type: "Small Airplane",
+      //         description: "Small Airplane 1",
+      //         seatLocal: [0.0, 0.8, -0.43],
+      //         yawOffset: 0.0,
+      //         profile: {
+      //           maxSpeed: 27.2,
+      //           maxReverse: 2.1,
+      //           accel: 7.1,
+      //           brake: 2.7,
+      //           coastDecel: 1.7,
+      //           turnRate: 0.6,
+      //           radius: 0.95,
+      //           wheelBase: 2.66,
+      //           minTurnRadius: 7.7,
+      //           minSteerSpeed: 0.35,
+      //           steerResponse: 2.0,
+      //           steerReturn: 6.0,
+      //           lateralGrip: 8.0,
+      //           wetWidth: 0.05,
+      //           wetLength: 1.04,
+      //           trackHalfWidth: 1.0,
+      //           airRollResponse: 1.7,
+      //           airRollReturn: 5.0,
+      //           climbPitchMax: 0.17,
+      //           climbPitchSpeed: 6.6,
+      //           pitchResponse: 3.2,
+      //           pitchReturn: 0.1,
+      //           turnPitchMax: 0.08,
+      //           propAxis: "z",
+      //           airRollMax: 1.18,
+      //           airTurnScale: 0.21,
+      //           liftResponse: 0.1,
+      //           maxLift: 21.9,
+      //           minFlySpeed: 22.3
+      //         }
+      //       }
+      //     }
+      //   ]
+      // },
+
+      // {
+      //   name: "plane2",
+      //   url: "models/vehicles/flying/plane2.glb",
+
+      //   instances: [
+      //     {
+      //       id: "plane2",
+      //       position: [4, 0, 35],
+      //       rotation: [0, 1.5, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: true,
+
+      //       vehicle: {
+      //         type: "Small Airplane 2",
+      //         description: "Small Airplane 2",
+
+      //         seatLocal: [0.19, 0.82, -0.91],
+
+      //         yawOffset: 0.0,
+      //         profile: {
+      //           maxSpeed: 27.2,
+      //           maxReverse: 2.1,
+      //           accel: 7.1,
+      //           brake: 2.7,
+      //           coastDecel: 1.7,
+      //           turnRate: 0.6,
+      //           radius: 0.95,
+      //           wheelBase: 2.66,
+      //           minTurnRadius: 7.7,
+      //           minSteerSpeed: 0.35,
+      //           steerResponse: 2.0,
+      //           steerReturn: 6.0,
+      //           lateralGrip: 8.0,
+
+      //           wetWidth: 0.05,
+      //           wetLength: 1.04,
+
+      //           trackHalfWidth: 1.57,
+
+      //           airRollResponse: 1.7,
+      //           airRollReturn: 5.0,
+      //           climbPitchMax: 0.17,
+      //           climbPitchSpeed: 6.6,
+      //           pitchResponse: 3.2,
+      //           pitchReturn: 0.1,
+      //           turnPitchMax: 0.08,
+      //           propAxis: "z",
+      //           airRollMax: 1.18,
+      //           airTurnScale: 0.21,
+      //           liftResponse: 0.1,
+      //           maxLift: 21.9,
+      //           minFlySpeed: 22.3
+      //         }
+      //       }
+      //     }
+      //   ]
+      // },
+
+
+      // {
+      //   name: "skipatrol",
+      //   url: "models/vehicles/ski_patrol1.glb",
+      //   instances: [
+      //     {
+      //       id: "skipatrol",
+      //       position: [9, 0, 4],
+      //       rotation: [0, 1, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: true,
+
+      //       // MODEL_CONFIG -> instance "skipatrol" (Ski Patrol)
+      //       vehicle: {
+      //         type: "Ski Patrol",
+      //         description: "Snow vehicle / patrol sled",
+      //         seatLocal: [0.0, 0.034, -0.52],
+      //         yawOffset: 0.0,
+      //         profile: {
+      //           maxSpeed: 11.2,
+      //           maxReverse: 5.0,
+      //           accel: 4.2,
+      //           brake: 18.0,
+      //           coastDecel: 4.0,
+      //           turnRate: 2.8,
+      //           radius: 1.55,
+      //           wheelBase: 2.66,
+      //           minTurnRadius: 6.0,
+      //           minSteerSpeed: 0.35,
+      //           steerResponse: 2.1,
+      //           steerReturn: 6.0,
+      //           lateralGrip: 8.0,
+      //           wetWidth: 0.05,
+      //           wetLength: 1.04,
+      //           trackHalfWidth: 0.5,
+      //           airRollResponse: 8.0,
+      //           airRollReturn: 5.0,
+      //           climbPitchMax: 0.22,
+      //           climbPitchSpeed: 4.0,
+      //           pitchResponse: 4.0,
+      //           pitchReturn: 3.0,
+      //           turnPitchMax: 0.1,
+      //           airRollMax: 0.35,
+      //           airTurnScale: 0.35,
+      //           liftResponse: 5.0,
+      //           maxLift: 10.0,
+      //           minFlySpeed: 14.0
+      //         }
+      //       }
+
+
+
+      //     }
+      //   ]
+      // },
+
+      // {
+      //   name: "snowcar",
+      //   url: "models/vehicles/snowcar.glb",
+      //   instances: [
+      //     {
+      //       id: "car2",
+      //       position: [-4, 0.19, 6],
+      //       rotation: [0, 1, 0],
+      //       scale: 1.0,
+      //       stick: false,
+      //       collide: true,
+      //       vehicle: {
+      //         type: "Snowcar",
+      //         description: "Snow-capable car",
+      //         seatLocal: [0.5, 0.54, 1.15],
+      //         yawOffset: 0.0,
+      //         profile: {
+      //           maxSpeed: 13.2,
+      //           maxReverse: 6.9,
+      //           accel: 3.2,
+      //           brake: 15.9,
+      //           coastDecel: 1.8,
+      //           turnRate: 0.64,
+      //           radius: 0.7,
+      //           wheelBase: 1.9,
+      //           minTurnRadius: 3.8,
+      //           minSteerSpeed: 0.55,
+      //           steerResponse: 5.7,
+      //           steerReturn: 7.0,
+      //           lateralGrip: 9.0,
+      //           wetWidth: 0.15,
+      //           wetLength: 1.63,
+      //           trackHalfWidth: 1.1,
+      //           propSpinIdle: 8.0,
+      //           propSpinMax: 80.0,
+      //           propSpinMul: 1.0,
+      //           propAxis: "z",
+      //           propInvert: false             
+      //         }
+      //       }
+      //     }
+      //   ]
+      // }
 
 
     ];
@@ -5924,9 +6054,16 @@
         return;
       }
 
-      const wantsUp = !!avatarKeys.jump;
-      const wantsDown = !!avatarKeys.jetDown;
-      const hasThrust = wantsUp || wantsDown;
+      const keyUp = !!avatarKeys.jump;
+      const keyDown = !!avatarKeys.jetDown;
+
+      const joyY = (joystickRightState && joystickRightState.active) ? joystickRightState.valueY : 0.0;
+      const joyUp = clamp(-joyY, 0.0, 1.0);
+      const joyDown = clamp(joyY, 0.0, 1.0);
+
+      const upAmt = keyUp ? 1.0 : joyUp;
+      const downAmt = keyDown ? 1.0 : joyDown;
+      const hasThrust = (upAmt > 0.0) || (downAmt > 0.0);
 
       const onSurface =
       Number.isFinite(groundY) &&
@@ -5947,10 +6084,14 @@
 
       if (!Number.isFinite(avatarJumpState.vy)) avatarJumpState.vy = 0.0;
 
+      if (onSurface && upAmt > 0.0) {
+        avatarJumpState.vy = Math.max(avatarJumpState.vy, avatarJetpackConfig.takeoffVelocity * upAmt);
+      }
+
       let ay = -avatarJetpackConfig.gravity;
 
-      if (wantsUp) ay += avatarJetpackConfig.thrustUp;
-      if (wantsDown) ay -= avatarJetpackConfig.thrustDown;
+      if (upAmt > 0.0) ay += avatarJetpackConfig.thrustUp * upAmt;
+      if (downAmt > 0.0) ay -= avatarJetpackConfig.thrustDown * downAmt;
 
       avatarJumpState.vy += ay * dt;
 
@@ -5968,8 +6109,8 @@
       if (Number.isFinite(groundY) && avatar.position.y <= groundY) {
         avatar.position.y = groundY;
 
-        if (wantsUp) {
-          avatarJumpState.vy = Math.max(avatarJumpState.vy, avatarJetpackConfig.takeoffVelocity);
+        if (upAmt > 0.0) {
+          avatarJumpState.vy = Math.max(avatarJumpState.vy, avatarJetpackConfig.takeoffVelocity * upAmt);
           avatarJumpState.active = true;
           avatarJumpState.grounded = false;
         } else {
@@ -6471,7 +6612,6 @@
 
 
 
-
     /* Updates avatar horizontal movement + yaw + gait switching from keyboard/left joystick inputs. */
     function updateAvatarFromInputs(dt) {
       if (!avatar || !avatarState.enabled) return;
@@ -6528,7 +6668,16 @@
           avatarMoveDir.set(0, 0, 0);
         }
 
-        const speedTarget = (wantsRun ? AVATAR_RUN_SPEED : AVATAR_WALK_SPEED) * inputMag;
+        const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
+        const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
+        const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
+        const isJetpack = (action === "jetpack") || (type === "jetpack");
+        const jetpackFlying = isJetpack && !!avatarJumpState.active && !avatarJumpState.grounded;
+
+        let baseSpeed = wantsRun ? AVATAR_RUN_SPEED : AVATAR_WALK_SPEED;
+        if (jetpackFlying) baseSpeed = AVATAR_RUN_SPEED * 2.0;
+
+        const speedTarget = baseSpeed * inputMag;
         const desiredVel = avatarTmpVec.copy(avatarMoveDir).multiplyScalar(speedTarget);
 
         const speedNow = avatarVelocity.length();
@@ -6608,7 +6757,6 @@
       updateAvatarClipSpeed(actualSpeed);
       stampSnowFromAvatar(actualSpeed);
     }
-
 
 
 
@@ -6944,22 +7092,20 @@
       const saveWorldBtn = document.getElementById("saveWorldBtn");
       const inventoryBtn = document.getElementById("inventoryBtn");
       const playerProfileBtn = document.getElementById("playerProfileBtn");
-
+      const miniMapBtn = document.getElementById("miniMap");
+      const keyboardHelpBtn = document.getElementById("keyboardHelpBtn");
       const worldEditUndoBtn = document.getElementById("worldEditUndoBtn");
       const worldEditRedoBtn = document.getElementById("worldEditRedoBtn");
       const worldEditTransformModeBtn = document.getElementById("worldEditTransformMode");
-
+      const worldEditAddBtn = document.getElementById("worldEditAddBtn");
       const worldEditDuplicateBtn = document.getElementById("worldEditDuplicateBtn");
       const worldEditDeleteBtn = document.getElementById("worldEditDeleteBtn");
-      const worldEditAddBtn = document.getElementById("worldEditAddBtn");
       const joystickEl = document.getElementById("joystick");
       const joystickRightEl = document.getElementById("joystickRight");
       const vehicleEnterBtn = document.getElementById("vehicleEnterBtn");
       const vehicleExitBtn = document.getElementById("vehicleExitBtn");
       const vehicleCloseBtn = document.getElementById("vehicleCloseBtn");
-
-
-
+      const vehicleQuickActionBtn = document.getElementById("vehicleQuickActionBtn");
 
       worldNameEl = document.getElementById("worldName");
       setWorldNameLabel(worldUiState.title);
@@ -6971,60 +7117,6 @@
       if (typeof ensureInventoryPickerOverlayWired === "function") ensureInventoryPickerOverlayWired();
       if (typeof ensureWorldObjectPickerOverlayWired === "function") ensureWorldObjectPickerOverlayWired();
 
-      if (keyboardHelpCloseBtn) {
-        keyboardHelpCloseBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          setKeyboardHelpOpen(false);
-        });
-      }
-
-      if (keyboardHelpEl) {
-        keyboardHelpEl.addEventListener("pointerdown", (event) => {
-          if (event.target === keyboardHelpEl) setKeyboardHelpOpen(false);
-        });
-
-        setKeyboardHelpOpen(keyboardHelpState.open);
-      }
-
-      if (worldsBtn) {
-        worldsBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          if (worldPickerState && worldPickerState.open) setWorldPickerOpen(false);
-          else openWorldPickerOverlay();
-        });
-      }
-
-      if (saveWorldBtn) {
-        saveWorldBtn.addEventListener("click", async (event) => {
-          event.preventDefault();
-          await saveActiveWorld();
-        });
-      }
-
-      if (inventoryBtn) {
-        inventoryBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          if (inventoryPickerState && inventoryPickerState.open) setInventoryPickerOpen(false);
-          else openInventoryPickerOverlay();
-        });
-      }
-
-      if (playerProfileBtn) {
-        playerProfileBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          setPlayerProfileOpen(!playerProfileState.open);
-        });
-      }
-
-      if (worldEditAddBtn) {
-        worldEditAddBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          if (!worldEditState.enabled) return;
-          if (worldObjectPickerState && worldObjectPickerState.open) setWorldObjectPickerOpen(false);
-          else openWorldObjectPickerOverlay();
-        });
-      }
-
       if (avatarToggleBtn) {
         avatarToggleBtn.addEventListener("click", () => {
           if (avatarState.enabled) {
@@ -7032,20 +7124,17 @@
           } else {
             enableAvatarControl(avatarState.viewMode);
           }
+
           updateAvatarButtons();
+          if (typeof updateVehicleQuickActionButton === "function") updateVehicleQuickActionButton();
         });
       }
 
       if (avatarViewToggleBtn) {
         avatarViewToggleBtn.addEventListener("click", () => {
-          const next = avatarState.viewMode === "third" ? "first" : "third";
-
-          if (avatarState.enabled) {
-            setAvatarViewMode(next, true);
-          } else {
-            avatarState.viewMode = next;
-          }
-
+          if (!avatarState.enabled) return;
+          if (avatarState.viewMode === "third") avatarState.viewMode = "first";
+          else avatarState.viewMode = "third";
           updateAvatarButtons();
         });
       }
@@ -7056,67 +7145,98 @@
         });
       }
 
-      if (worldEditUndoBtn) {
-        worldEditUndoBtn.addEventListener("click", (event) => {
+      /* Toggles the worlds picker overlay (loads/refreshes list on open). */
+      if (worldsBtn) {
+        worldsBtn.addEventListener("click", (event) => {
           event.preventDefault();
-          if (!worldEditState.enabled) return;
-          worldEditUndo();
-          updateAvatarButtons();
+
+          if (typeof worldPickerState === "object" && worldPickerState && worldPickerState.open) {
+            if (typeof setWorldPickerOpen === "function") setWorldPickerOpen(false);
+            return;
+          }
+
+          if (typeof openWorldPickerOverlay === "function") openWorldPickerOverlay();
         });
       }
 
-      if (worldEditRedoBtn) {
-        worldEditRedoBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          if (!worldEditState.enabled) return;
-          worldEditRedo();
-          updateAvatarButtons();
+      /* Saves the active world to IndexedDB (creates one if none exists). */
+      if (saveWorldBtn) {
+        saveWorldBtn.addEventListener("click", () => {
+          if (typeof saveActiveWorld === "function") saveActiveWorld();
         });
       }
 
-      if (worldEditTransformModeBtn) {
-        worldEditTransformModeBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          if (!worldEditState.enabled || !transformControls) return;
-
-          const mode = transformControls.mode || "translate";
-          const next =
-          mode === "translate" ? "rotate" :
-          mode === "rotate" ? "scale" :
-          "translate";
-
-          transformControls.setMode(next);
-          updateAvatarButtons();
+      if (inventoryBtn) {
+        inventoryBtn.addEventListener("click", () => {
+          if (typeof setInventoryPickerOpen === "function") setInventoryPickerOpen(true);
         });
       }
 
-      if (worldEditDuplicateBtn) {
-        worldEditDuplicateBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          if (!worldEditState.enabled || !worldEditState.selected) return;
-          duplicateSelectedWorldModel();
-          updateAvatarButtons();
+      if (playerProfileBtn) {
+        playerProfileBtn.addEventListener("click", () => {
+          setPlayerProfileOpen(true);
         });
       }
 
-      if (worldEditDeleteBtn) {
-        worldEditDeleteBtn.addEventListener("click", (event) => {
-          event.preventDefault();
-          if (!worldEditState.enabled || !worldEditState.selected) return;
-          deleteSelectedWorldModel();
-          updateAvatarButtons();
-        });
-      }
-
-      if (vehicleEnterBtn) {
-        vehicleEnterBtn.addEventListener("click", () => {
-          if (!vehicleDriveState.enabled && vehiclePromptState.nearby) {
-            enterVehicle(vehiclePromptState.nearby);
+      if (miniMapBtn) {
+        miniMapBtn.addEventListener("click", () => {
+          if (typeof setMinimapMode === "function") {
+            if (minimapState.mode === 0) setMinimapMode(1);
+            else if (minimapState.mode === 1) setMinimapMode(2);
+            else setMinimapMode(0);
           }
         });
       }
 
+      if (keyboardHelpBtn) {
+        keyboardHelpBtn.addEventListener("click", () => {
+          setKeyboardHelpOpen(true);
+        });
+      }
 
+      if (keyboardHelpCloseBtn) {
+        keyboardHelpCloseBtn.addEventListener("click", () => {
+          setKeyboardHelpOpen(false);
+        });
+      }
+
+      if (worldEditUndoBtn) {
+        worldEditUndoBtn.addEventListener("click", () => {
+          if (typeof worldEditUndo === "function") worldEditUndo();
+        });
+      }
+
+      if (worldEditRedoBtn) {
+        worldEditRedoBtn.addEventListener("click", () => {
+          if (typeof worldEditRedo === "function") worldEditRedo();
+        });
+      }
+
+      if (worldEditTransformModeBtn) {
+        worldEditTransformModeBtn.addEventListener("click", () => {
+          if (typeof cycleWorldEditTransformMode === "function") cycleWorldEditTransformMode();
+        });
+      }
+
+      /* Opens the world object picker overlay for adding objects while world edit mode is enabled. */
+      if (worldEditAddBtn) {
+        worldEditAddBtn.addEventListener("click", () => {
+          if (!worldEditState.enabled) return;
+          if (typeof setWorldObjectPickerOpen === "function") setWorldObjectPickerOpen(true);
+        });
+      }
+
+      if (worldEditDuplicateBtn) {
+        worldEditDuplicateBtn.addEventListener("click", () => {
+          if (typeof worldEditDuplicateSelection === "function") worldEditDuplicateSelection();
+        });
+      }
+
+      if (worldEditDeleteBtn) {
+        worldEditDeleteBtn.addEventListener("click", () => {
+          if (typeof worldEditDeleteSelection === "function") worldEditDeleteSelection();
+        });
+      }
 
       if (vehicleEnterBtn) {
         vehicleEnterBtn.addEventListener("click", () => {
@@ -7128,9 +7248,7 @@
             return;
           }
 
-          if (!vehicleDriveState.enabled) {
-            enterVehicle(near);
-          }
+          if (!vehicleDriveState.enabled) enterVehicle(near);
         });
       }
 
@@ -7146,8 +7264,6 @@
           if (vehicleDriveState.enabled) exitVehicle();
         });
       }
-
-
 
       if (vehicleCloseBtn) {
         vehicleCloseBtn.addEventListener("click", () => {
@@ -7165,69 +7281,100 @@
         });
       }
 
+      if (vehicleQuickActionBtn) {
+        vehicleQuickActionBtn.addEventListener("click", () => {
+          if (equipmentState.enabled && equipmentState.item) {
+            unequipItem();
+          } else if (vehicleDriveState.enabled && vehicleDriveState.vehicle) {
+            exitVehicle();
+          }
+          updateVehicleQuickActionButton();
+        });
+      }
 
       if (joystickEl) {
         joystickEl.addEventListener("pointerdown", (event) => {
+          if (!avatarState.enabled) return;
           event.preventDefault();
+
           joystickState.active = true;
           joystickState.pointerId = event.pointerId;
+
           const rect = joystickEl.getBoundingClientRect();
           joystickState.centerX = rect.left + rect.width * 0.5;
           joystickState.centerY = rect.top + rect.height * 0.5;
           joystickState.radius = rect.width * 0.5;
+
           joystickEl.setPointerCapture(event.pointerId);
           updateJoystickFromPointer(event.clientX, event.clientY);
         });
+
         joystickEl.addEventListener("pointermove", (event) => {
           if (!joystickState.active || event.pointerId !== joystickState.pointerId) return;
           event.preventDefault();
           updateJoystickFromPointer(event.clientX, event.clientY);
         });
-        const endHandler = (event) => {
+
+        const endLeft = (event) => {
           if (event.pointerId !== joystickState.pointerId) return;
           event.preventDefault();
           joystickEl.releasePointerCapture(event.pointerId);
           resetJoystick();
         };
-        joystickEl.addEventListener("pointerup", endHandler);
-        joystickEl.addEventListener("pointercancel", endHandler);
+
+        joystickEl.addEventListener("pointerup", endLeft);
+        joystickEl.addEventListener("pointercancel", endLeft);
       }
+
       if (joystickRightEl) {
         joystickRightEl.addEventListener("pointerdown", (event) => {
+          if (!avatarState.enabled) return;
           event.preventDefault();
+
           joystickRightState.active = true;
           joystickRightState.pointerId = event.pointerId;
+
           const rect = joystickRightEl.getBoundingClientRect();
           joystickRightState.centerX = rect.left + rect.width * 0.5;
           joystickRightState.centerY = rect.top + rect.height * 0.5;
           joystickRightState.radius = rect.width * 0.5;
+
           joystickRightEl.setPointerCapture(event.pointerId);
           updateRightJoystickFromPointer(event.clientX, event.clientY);
-          requestAvatarJump();
+
+          const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
+          const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
+          const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
+          const isJetpack = (action === "jetpack") || (type === "jetpack");
+
+          if (!isJetpack) requestAvatarJump();
         });
+
         joystickRightEl.addEventListener("pointermove", (event) => {
           if (!joystickRightState.active || event.pointerId !== joystickRightState.pointerId) return;
           event.preventDefault();
           updateRightJoystickFromPointer(event.clientX, event.clientY);
         });
-        const endHandler = (event) => {
+
+        const endRight = (event) => {
           if (event.pointerId !== joystickRightState.pointerId) return;
           event.preventDefault();
           joystickRightEl.releasePointerCapture(event.pointerId);
           resetRightJoystick();
         };
-        joystickRightEl.addEventListener("pointerup", endHandler);
-        joystickRightEl.addEventListener("pointercancel", endHandler);
+
+        joystickRightEl.addEventListener("pointerup", endRight);
+        joystickRightEl.addEventListener("pointercancel", endRight);
       }
-
-
-
 
       updateAvatarButtons();
       setVehiclePrompt(false, null);
       updateVehicleOutlineFor(null);
       setPlayerProfileOpen(false);
+      if (typeof updateVehicleQuickActionButton === "function") updateVehicleQuickActionButton();
     }
+
+
 
 
 
@@ -9180,9 +9327,32 @@ function installVehicleDebugBridge(canvasEl) {
 }
 
 
-    /**
-     * Shows/hides the vehicle prompt panel and refreshes the current selection.
-     */
+
+/**
+ * Shows/hides the bottom-center quick action button for exiting vehicles or dropping equipment when the main prompt is hidden.
+ */
+function updateVehicleQuickActionButton() {
+  const btn = document.getElementById("vehicleQuickActionBtn");
+  if (!btn) return;
+
+  const promptVisible = !uiHidden && !!(vehiclePromptState.open && vehiclePromptState.nearby);
+  const hasVehicle = !!(vehicleDriveState.enabled && vehicleDriveState.vehicle);
+  const hasEquipment = !!(equipmentState.enabled && equipmentState.item);
+
+  const shouldShow = !uiHidden && !promptVisible && (hasVehicle || hasEquipment);
+
+  if (!shouldShow) {
+    btn.style.display = "none";
+    btn.setAttribute("aria-hidden", "true");
+    btn.textContent = "";
+    return;
+  }
+
+  btn.textContent = hasEquipment ? "Drop" : "Exit";
+  btn.style.display = "";
+  btn.setAttribute("aria-hidden", "false");
+}
+
 /**
  * Shows/hides the vehicle prompt panel and refreshes the current selection.
  */
@@ -9205,6 +9375,7 @@ function setVehiclePrompt(open, v) {
     desc.textContent = "";
     enterBtn.style.display = "none";
     exitBtn.style.display = "none";
+    updateVehicleQuickActionButton();
     return;
   }
 
@@ -9247,7 +9418,9 @@ function setVehiclePrompt(open, v) {
 
   panel.style.display = "block";
   panel.setAttribute("aria-hidden", "false");
+  updateVehicleQuickActionButton();
 }
+
 
 
 
@@ -10363,6 +10536,224 @@ function setupEquipmentTuningGui(folder) {
 }
 
 
+
+
+    // -------------------------------------------------------------------------
+    // World edit selection inspector (lil-gui)
+    // -------------------------------------------------------------------------
+
+let worldEditObjectFolder = null;
+
+const worldEditObjectState = {
+  available: false,
+
+  entryName: "",
+  url: "",
+  id: "",
+
+  posX: 0.0,
+  posY: 0.0,
+  posZ: 0.0,
+
+  rotX: 0.0,
+  rotY: 0.0,
+  rotZ: 0.0,
+
+  uniformScale: true,
+  scale: 1.0,
+  scaleX: 1.0,
+  scaleY: 1.0,
+  scaleZ: 1.0
+};
+
+const worldEditObjectActions = {
+      /* Copies the currently selected world-edit object transform snapshot as JSON text to the clipboard. */
+  copy: () => {
+    copyWorldEditObjectSnapshotToClipboard();
+  }
+};
+
+    /* Updates the Object folder state from the currently selected world-edit root (if any). */
+function syncWorldEditObjectGuiSelection() {
+  if (!worldEditObjectFolder) return;
+
+  const root = worldEditState.enabled ? worldEditState.selected : null;
+
+  if (!root) {
+    worldEditObjectState.available = false;
+    worldEditObjectState.entryName = "";
+    worldEditObjectState.url = "";
+    worldEditObjectState.id = "";
+
+    worldEditObjectState.posX = 0.0;
+    worldEditObjectState.posY = 0.0;
+    worldEditObjectState.posZ = 0.0;
+
+    worldEditObjectState.rotX = 0.0;
+    worldEditObjectState.rotY = 0.0;
+    worldEditObjectState.rotZ = 0.0;
+
+    worldEditObjectState.uniformScale = true;
+    worldEditObjectState.scale = 1.0;
+    worldEditObjectState.scaleX = 1.0;
+    worldEditObjectState.scaleY = 1.0;
+    worldEditObjectState.scaleZ = 1.0;
+    return;
+  }
+
+  const found = findWorldEditConfigForRoot(root);
+
+  worldEditObjectState.available = true;
+  worldEditObjectState.entryName = found && found.entry && found.entry.name != null ? String(found.entry.name) : "";
+  worldEditObjectState.url = found && found.entry && found.entry.url != null ? String(found.entry.url) : "";
+  worldEditObjectState.id = found && found.instCfg && found.instCfg.id != null ? String(found.instCfg.id) : "";
+
+  worldEditObjectState.posX = root.position.x;
+  worldEditObjectState.posY = root.position.y;
+  worldEditObjectState.posZ = root.position.z;
+
+  worldEditObjectState.rotX = root.rotation.x;
+  worldEditObjectState.rotY = root.rotation.y;
+  worldEditObjectState.rotZ = root.rotation.z;
+
+  const sx = root.scale.x;
+  const sy = root.scale.y;
+  const sz = root.scale.z;
+
+  const eps = 1e-6;
+  const uniform = Math.abs(sx - sy) < eps && Math.abs(sx - sz) < eps;
+
+  worldEditObjectState.uniformScale = uniform;
+  worldEditObjectState.scale = uniform ? sx : sx;
+
+  worldEditObjectState.scaleX = sx;
+  worldEditObjectState.scaleY = sy;
+  worldEditObjectState.scaleZ = sz;
+}
+
+
+
+    /* Produces a JSON-safe deep clone of config objects (drops runtime/Three.js references). */
+function sanitizeWorldEditJson(value) {
+  return JSON.parse(JSON.stringify(value, (k, v) => {
+    if (typeof v === "function") return undefined;
+
+    if (
+      k === "runtimeObject" ||
+      k === "object" ||
+      k === "mesh" ||
+      k === "model" ||
+      k === "gltf" ||
+      k === "scene" ||
+      k === "parent"
+      ) {
+      return undefined;
+  }
+
+  if (v && typeof v === "object") {
+    if (v.isObject3D || v.isScene || v.isMesh || v.isGroup) return undefined;
+  }
+
+  return v;
+}));
+}
+
+
+
+
+    /* Builds a full entry+instance JSON snapshot of the selected world-edit object. */
+function buildWorldEditObjectSnapshot() {
+  const root = worldEditState.enabled ? worldEditState.selected : null;
+  if (!root) return null;
+
+  const found = findWorldEditConfigForRoot(root);
+  if (!found || !found.entry || !found.instCfg) return null;
+
+  const entryCopy = sanitizeWorldEditJson(found.entry);
+  const instCopy = sanitizeWorldEditJson(found.instCfg);
+
+  const sx = root.scale.x;
+  const sy = root.scale.y;
+  const sz = root.scale.z;
+
+  const eps = 1e-6;
+  const uniform = Math.abs(sx - sy) < eps && Math.abs(sx - sz) < eps;
+
+  instCopy.position = [root.position.x, root.position.y, root.position.z];
+  instCopy.rotation = [root.rotation.x, root.rotation.y, root.rotation.z];
+  instCopy.scale = uniform ? sx : [sx, sy, sz];
+
+  entryCopy.name = entryCopy.name != null ? entryCopy.name : (found.entry.name != null ? String(found.entry.name) : "");
+  entryCopy.url = entryCopy.url != null ? entryCopy.url : (found.entry.url != null ? String(found.entry.url) : "");
+  entryCopy.instances = [instCopy];
+
+  return entryCopy;
+}
+
+
+    /* Copies the selected entry+instance snapshot JSON to clipboard. */
+async function copyWorldEditObjectSnapshotToClipboard() {
+  const snap = buildWorldEditObjectSnapshot();
+  if (!snap) return;
+
+  const text = JSON.stringify(snap, null, 2);
+
+  try {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+  } catch (e) {
+  }
+
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "true");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    ta.style.top = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  } catch (e) {
+    console.warn("Clipboard copy failed:", e);
+  }
+}
+
+
+    /* Creates the Object folder UI (read-only fields + Copy button). */
+function setupWorldEditObjectGui(folder) {
+  worldEditObjectFolder = folder;
+
+  const info = folder.addFolder("Selection");
+  trackController(info.add(worldEditObjectState, "available").name("Available").listen().disable());
+  trackController(info.add(worldEditObjectState, "entryName").name("Name").listen().disable());
+  trackController(info.add(worldEditObjectState, "url").name("Url").listen().disable());
+  trackController(info.add(worldEditObjectState, "id").name("Id").listen().disable());
+  info.close();
+
+  const t = folder.addFolder("Transform");
+  trackController(t.add(worldEditObjectState, "posX").name("Pos X").listen().disable());
+  trackController(t.add(worldEditObjectState, "posY").name("Pos Y").listen().disable());
+  trackController(t.add(worldEditObjectState, "posZ").name("Pos Z").listen().disable());
+
+  trackController(t.add(worldEditObjectState, "rotX").name("Rot X").listen().disable());
+  trackController(t.add(worldEditObjectState, "rotY").name("Rot Y").listen().disable());
+  trackController(t.add(worldEditObjectState, "rotZ").name("Rot Z").listen().disable());
+
+  trackController(t.add(worldEditObjectState, "uniformScale").name("Uniform").listen().disable());
+  trackController(t.add(worldEditObjectState, "scale").name("Scale").listen().disable());
+  trackController(t.add(worldEditObjectState, "scaleX").name("Scale X").listen().disable());
+  trackController(t.add(worldEditObjectState, "scaleY").name("Scale Y").listen().disable());
+  trackController(t.add(worldEditObjectState, "scaleZ").name("Scale Z").listen().disable());
+  t.close();
+
+  trackController(folder.add(worldEditObjectActions, "copy").name("Copy"));
+
+  syncWorldEditObjectGuiSelection();
+}
 
 
 
@@ -12022,7 +12413,7 @@ let presetSelectCtrl = null;
 
     // JSON file presets (edit / extend this list)
 const FILE_PRESET_URLS = [
-  "presets/snow-Hello.json",
+  "presets/preset-default.json",
   "presets/snow-Forrest.json",
   "presets/snow-Moist-1.json",
   "presets/snow-More-Snow.json",
@@ -14517,8 +14908,15 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           }
         }
 
+        syncWorldEditObjectGuiSelection();
         commitWorldEditTransform();
       });
+
+      transformControls.addEventListener("change", () => {
+        if (!worldEditState.enabled || !worldEditState.selected) return;
+        syncWorldEditObjectGuiSelection();
+      });
+
 
       renderer.domElement.addEventListener("pointerdown", (event) => {
         onWorldEditPointerDown(event);
@@ -14642,7 +15040,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
       // Axes helper at origin
       const axes = new THREE.AxesHelper(5);
-      scene.add(axes);
+      //scene.add(axes);
 
 
       // Cube centered at origin (sitting on ground)
@@ -15007,6 +15405,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         input.click();
       }
+
+
+
+
+
+
+
+
 
 
 
@@ -16216,6 +16622,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         // start folded to not spam the UI
         // snowmanFolder.open(); // enable if you prefer it open by default
 
+
+
+
         const vehiclesFolder = gui.addFolder("Vehicles");
         setupVehicleTuningGui(vehiclesFolder);
         vehiclesFolder.close();
@@ -16223,6 +16632,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const equipmentFolder = gui.addFolder("Equipment");
         setupEquipmentTuningGui(equipmentFolder);
         equipmentFolder.close();
+
+        const objectFolder = gui.addFolder("Object");
+        setupWorldEditObjectGui(objectFolder);
+        objectFolder.close();
+
 
 
 
@@ -16463,7 +16877,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
             updateVehicleOutlineFor(vehiclePromptState.nearby);
           }
         }
+
+        updateVehicleQuickActionButton();
       }
+
 
 
 
@@ -17521,7 +17938,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 // This is used for bootstrapping a consistent “Default” scene state without persisting it.
 
       async function loadDefaultPresetFromFile(url) {
-        const presetUrl = typeof url === "string" && url.trim() ? url.trim() : "presets/snow-Hello.json";
+        const presetUrl = typeof url === "string" && url.trim() ? url.trim() : "presets/preset-default.json";
 
         try {
           const response = await fetch(presetUrl, { cache: "no-store" });
@@ -17610,7 +18027,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         /* Prevents browser scrolling/selection when interacting with the on-screen joysticks. */
         
-        // document.addEventListener("contextmenu", (e) => e.preventDefault());
+        document.addEventListener("contextmenu", (e) => e.preventDefault());
 
         document.addEventListener(
           "touchmove",
@@ -17649,7 +18066,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         if (!bootActiveWorldId) {
           try {
-            await loadDefaultPresetFromFile("presets/snow-Hello.json");
+            await loadDefaultPresetFromFile("presets/preset-default.json");
             updateFogFromParams();
           } catch (e) {
             console.warn("[snow] default preset load failed", e);
