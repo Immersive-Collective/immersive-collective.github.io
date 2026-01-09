@@ -10,6 +10,31 @@
 
   <link rel="preload" href="fonts/minimalo-font/Minimalo-LVzzy.ttf" as="font" type="font/ttf" crossorigin>
 
+  <script>
+        // Conditional analytics loader: Skips on localhost/local dev, handles errors gracefully
+    (function() {
+            // Skip in local dev environments
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname === '192.168.1.90' || location.protocol === 'file:') {
+        return;
+      }
+
+            // Create script element dynamically
+      const script = document.createElement('script');
+      script.defer = true;
+      script.src = 'https://analytics.mielniczuk.com/script.js';
+      script.setAttribute('data-website-id', 'ff22cca0-067d-440f-98ba-2e4c176300ef');
+      
+            // Error handling: Log but don't block
+      script.onerror = function() {
+        console.warn('Analytics script failed to load—continuing without tracking.');
+      };
+      
+            // Append to head (or body end) for async loading
+      document.head.appendChild(script);
+    })();
+  </script>
+
+
   <style>
 
 
