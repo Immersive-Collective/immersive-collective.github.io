@@ -217,6 +217,7 @@ button {
   font-weight: 700;
   margin-bottom: 4px;
   line-height: 1.2;
+  color: yellow;
 }
 
 .vehicle-ui__desc {
@@ -2093,6 +2094,8 @@ button {
     const DEFAULTS = {
 
       avatarId: DEFAULT_AVATAR_ID,
+      avatarMaxStepUp: 0.37,
+      avatarFallStart: 0.8,
 
 
   // Performance
@@ -2938,28 +2941,61 @@ button {
 
     /**
      * Applies instCfg transform values to a runtime instance.
+     * If instCfg.ground is true, Y is treated as an offset from the current surface height at XZ.
      */
     function applyInstCfgTransformToInstance(inst, instCfg) {
       const p = instCfg.position || [0, 0, 0];
       const r = instCfg.rotation || [0, 0, 0];
       const s = instCfg.scale != null ? instCfg.scale : 1.0;
 
-      inst.position.set(p[0] || 0, p[1] || 0, p[2] || 0);
-      inst.rotation.set(r[0] || 0, r[1] || 0, r[2] || 0);
+      const x = Number.isFinite(p[0]) ? p[0] : 0;
+      const z = Number.isFinite(p[2]) ? p[2] : 0;
+
+      let y;
+      if (instCfg.ground) {
+        const surfaceY = getWorldSurfaceY(x, z);
+        const offY = Number.isFinite(p[1]) ? p[1] : 0;
+        y = (Number.isFinite(surfaceY) ? surfaceY : 0) + offY;
+      } else {
+        y = Number.isFinite(p[1]) ? p[1] : 0;
+      }
+
+      inst.position.set(x, y, z);
+      inst.rotation.set(
+        Number.isFinite(r[0]) ? r[0] : 0,
+        Number.isFinite(r[1]) ? r[1] : 0,
+        Number.isFinite(r[2]) ? r[2] : 0
+        );
 
       if (Array.isArray(s) && s.length === 3) {
-        inst.scale.set(s[0] || 1, s[1] || 1, s[2] || 1);
+        inst.scale.set(
+          Number.isFinite(s[0]) ? s[0] : 1,
+          Number.isFinite(s[1]) ? s[1] : 1,
+          Number.isFinite(s[2]) ? s[2] : 1
+          );
       } else {
         const u = Number.isFinite(s) ? s : 1.0;
         inst.scale.setScalar(u);
       }
     }
 
+
     /**
      * Syncs a runtime instance transform back into its instCfg (position/rotation/scale).
+     * If instCfg.ground is true, Y is stored as an offset from the current surface height at XZ.
      */
     function syncInstanceTransformToInstCfg(inst, instCfg) {
-      instCfg.position = [inst.position.x, inst.position.y, inst.position.z];
+      const x = inst.position.x;
+      const z = inst.position.z;
+
+      if (instCfg && instCfg.ground) {
+        const surfaceY = getWorldSurfaceY(x, z);
+        const baseY = Number.isFinite(surfaceY) ? surfaceY : 0;
+        instCfg.position = [x, inst.position.y - baseY, z];
+      } else {
+        instCfg.position = [x, inst.position.y, z];
+      }
+
       instCfg.rotation = [inst.rotation.x, inst.rotation.y, inst.rotation.z];
 
       const sx = inst.scale.x;
@@ -2971,6 +3007,8 @@ button {
 
       instCfg.scale = uniform ? sx : [sx, sy, sz];
     }
+
+
 
     /**
      * Builds an OBB record for a model root (used by avatar collisions).
@@ -5205,6 +5243,8 @@ button {
       avatarModelColliderBounds.length = 0;
       avatarModelColliderOBBs.length = 0;
 
+      worldGroundMeshes.length = 0;
+
       vehicleInteractables.length = 0;
       equipmentInteractables.length = 0;
 
@@ -5283,6 +5323,7 @@ button {
                       }
 
                       if (instCfg.stick) colliderObjects.push(obj);
+                      if (instCfg.ground) worldGroundMeshes.push(obj);
                     });
 
                     scene.add(inst);
@@ -5324,6 +5365,7 @@ button {
             }
           })();
         }
+
 
 
 
@@ -5710,6 +5752,10 @@ button {
       preAvatarCameraState.autoRotateEnabled = !!autoRotateEnabled;
     }
 
+
+
+
+
     /**
      * Restores camera + OrbitControls state to the exact pre-avatar snapshot.
      */
@@ -5739,13 +5785,75 @@ button {
       controls.update();
     }
 
+
+
+    /* Smooth Y-follow state to prevent abrupt camera jumps on terrain/ground height changes. */
+    const avatarCameraYFollowState = {
+      has: false,
+      y: 0,
+      stiffness: 10.0,
+      maxStep: 1.25
+    };
+
+    /* First-person Y-follow is tighter to reduce perceived head lag. */
+    const avatarCameraYFollowFirstState = {
+      has: false,
+      y: 0,
+      stiffness: 18.0,
+      maxStep: 2.5
+    };
+
+    /* Chase-camera target Y smoothing (kept separate from standard follow). */
+    const avatarChaseTargetYFollowState = {
+      has: false,
+      y: 0,
+      stiffness: 10.0,
+      maxStep: 1.25
+    };
+
+    /**
+     * Smooths a desired Y value with exponential easing and a per-frame step clamp.
+     * Prevents camera target/position snapping when the avatar ground height changes abruptly.
+     */
+    function smoothFollowY(state, desiredY, dt) {
+      if (!Number.isFinite(desiredY)) return state.has ? state.y : desiredY;
+
+      if (!state.has || !Number.isFinite(state.y)) {
+        state.has = true;
+        state.y = desiredY;
+        return desiredY;
+      }
+
+      const k = Math.max(0.0, state.stiffness);
+      const alpha = 1 - Math.pow(0.001, k * Math.max(0.0, dt));
+
+      let step = (desiredY - state.y) * alpha;
+
+      const maxStep = state.maxStep;
+      if (Number.isFinite(maxStep) && maxStep > 0) {
+        if (step > maxStep) step = maxStep;
+        else if (step < -maxStep) step = -maxStep;
+      }
+
+      state.y += step;
+      return state.y;
+    }
+
+
+
+
     /**
      * Positions the camera behind the avatar and targets the avatar head.
+     * Initializes camera Y smoothing state so snaps do not create a follow-step on the next frame.
      */
     function placeCameraBehindAvatar() {
       if (!avatar || !controls) return;
 
       avatar.getWorldPosition(avatarWorldPos);
+
+      avatarCameraYFollowState.has = true;
+      avatarCameraYFollowState.y = avatarWorldPos.y;
+      avatarCameraYFollowFirstState.has = false;
 
       avatarHeadPos.copy(avatarWorldPos);
       avatarHeadPos.y += avatarViewConfig.thirdPersonHeight;
@@ -5761,9 +5869,10 @@ button {
       camera.lookAt(avatarHeadPos);
       controls.target.copy(avatarHeadPos);
 
-      avatarLastWorldPos.copy(avatarWorldPos);
+      avatarLastWorldPos.set(avatarWorldPos.x, avatarCameraYFollowState.y, avatarWorldPos.z);
       avatarHasLastPos = true;
     }
+
 
     /**
      * Switches avatar view mode and configures OrbitControls constraints for that mode.
@@ -6053,6 +6162,24 @@ button {
 
       if (!isJetpack) {
         if (!avatarJumpState.active) {
+          const fallStart = Number.isFinite(params.avatarFallStart) ? params.avatarFallStart : 0.0;
+
+          if (Number.isFinite(groundY) && fallStart > 0.0) {
+            const drop = avatar.position.y - groundY;
+
+            if (drop > fallStart) {
+              avatarJumpState.groundY = groundY;
+              avatarJumpState.vy = 0.0;
+              avatarJumpState.active = true;
+              avatarJumpState.grounded = false;
+
+              if (avatarMixer && avatarActions && avatarActions.jump) {
+                if (avatarCurrentActionName !== "jump") playAvatarJumpAction();
+              }
+              return;
+            }
+          }
+
           avatarJumpState.grounded = true;
           avatarJumpState.vy = 0.0;
           avatarJumpState.groundY = groundY;
@@ -6075,6 +6202,9 @@ button {
           avatarJumpState.grounded = true;
         } else {
           avatarJumpState.grounded = false;
+          if (avatarMixer && avatarActions && avatarActions.jump) {
+            if (avatarCurrentActionName !== "jump") playAvatarJumpAction();
+          }
         }
         return;
       }
@@ -6082,13 +6212,9 @@ button {
       const keyUp = !!avatarKeys.jump;
       const keyDown = !!avatarKeys.jetDown;
 
-      const joyY = (joystickRightState && joystickRightState.active) ? joystickRightState.valueY : 0.0;
-      const joyUp = clamp(-joyY, 0.0, 1.0);
-      const joyDown = clamp(joyY, 0.0, 1.0);
-
-      const upAmt = keyUp ? 1.0 : joyUp;
-      const downAmt = keyDown ? 1.0 : joyDown;
-      const hasThrust = (upAmt > 0.0) || (downAmt > 0.0);
+      const wantsUp = keyUp || (joystickRightState && joystickRightState.active && joystickRightState.valueY < -0.18);
+      const wantsDown = keyDown || (joystickRightState && joystickRightState.active && joystickRightState.valueY > 0.18);
+      const hasThrust = wantsUp || wantsDown;
 
       const onSurface =
       Number.isFinite(groundY) &&
@@ -6109,42 +6235,27 @@ button {
 
       if (!Number.isFinite(avatarJumpState.vy)) avatarJumpState.vy = 0.0;
 
-      if (onSurface && upAmt > 0.0) {
-        avatarJumpState.vy = Math.max(avatarJumpState.vy, avatarJetpackConfig.takeoffVelocity * upAmt);
-      }
-
       let ay = -avatarJetpackConfig.gravity;
 
-      if (upAmt > 0.0) ay += avatarJetpackConfig.thrustUp * upAmt;
-      if (downAmt > 0.0) ay -= avatarJetpackConfig.thrustDown * downAmt;
+      if (wantsUp) ay += avatarJetpackConfig.thrustUp;
+      if (wantsDown) ay -= avatarJetpackConfig.thrustDown;
 
       avatarJumpState.vy += ay * dt;
-
-      const dragMul = Math.exp(-avatarJetpackConfig.drag * Math.max(0.0, dt));
-      avatarJumpState.vy *= dragMul;
-
-      avatarJumpState.vy = clamp(
-        avatarJumpState.vy,
-        -avatarJetpackConfig.maxDownSpeed,
-        avatarJetpackConfig.maxUpSpeed
-        );
+      avatarJumpState.vy *= Math.exp(-avatarJetpackConfig.damp * dt);
 
       avatar.position.y += avatarJumpState.vy * dt;
 
-      if (Number.isFinite(groundY) && avatar.position.y <= groundY) {
+      if (Number.isFinite(groundY) && avatar.position.y < groundY) {
         avatar.position.y = groundY;
+        avatarJumpState.vy = 0.0;
+        avatarJumpState.grounded = true;
 
-        if (upAmt > 0.0) {
-          avatarJumpState.vy = Math.max(avatarJumpState.vy, avatarJetpackConfig.takeoffVelocity * upAmt);
-          avatarJumpState.active = true;
-          avatarJumpState.grounded = false;
-        } else {
-          avatarJumpState.vy = 0.0;
+        if (!hasThrust) {
           avatarJumpState.active = false;
-          avatarJumpState.grounded = true;
         }
       }
     }
+
 
 
 
@@ -6636,6 +6747,22 @@ button {
 
 
 
+    /**
+     * Returns true when stepping onto the surface at (x,z) would require rising
+     * more than params.avatarMaxStepUp above prevGroundY.
+     */
+    function isAvatarStepUpBlocked(prevGroundY, x, z) {
+      const maxStepUp = Number.isFinite(params.avatarMaxStepUp) ? params.avatarMaxStepUp : 0.0;
+      if (!(maxStepUp > 0.0)) return false;
+      if (!Number.isFinite(prevGroundY)) return false;
+
+      const nextY = getWorldSurfaceY(x, z);
+      if (!Number.isFinite(nextY)) return false;
+
+      return (nextY - prevGroundY) > maxStepUp;
+    }
+
+
 
     /* Updates avatar horizontal movement + yaw + gait switching from keyboard/left joystick inputs. */
     function updateAvatarFromInputs(dt) {
@@ -6664,20 +6791,24 @@ button {
 
       if (inputMag <= 0) {
         const speedNow = avatarVelocity.length();
-        if (speedNow > 0) {
-          avatarToTarget.copy(avatarVelocity).multiplyScalar(-1);
-          const maxStep = avatarMotionConfig.maxDecel * dt;
-          if (avatarToTarget.length() <= maxStep) {
+        if (speedNow > 1e-8) {
+          const decel = avatarMotionConfig.maxDecel;
+          const maxStep = decel * dt;
+
+          if (speedNow <= maxStep) {
             avatarVelocity.set(0, 0, 0);
           } else {
-            avatarToTarget.setLength(maxStep);
-            avatarVelocity.add(avatarToTarget);
+            const s = (speedNow - maxStep) / speedNow;
+            avatarVelocity.multiplyScalar(s);
           }
+        } else {
+          avatarVelocity.set(0, 0, 0);
         }
       } else {
         camera.getWorldDirection(camForward);
         camForward.y = 0;
-        if (camForward.lengthSq() < 1e-8) camForward.set(0, 0, -1);
+
+        if (camForward.lengthSq() < 1e-8) camForward.set(0, 0, 1);
         camForward.normalize();
 
         camRight.crossVectors(camForward, worldUp).normalize();
@@ -6730,12 +6861,70 @@ button {
       const prevX = avatar.position.x;
       const prevZ = avatar.position.z;
 
+      const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
+      const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
+      const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
+      const isJetpack = (action === "jetpack") || (type === "jetpack");
+
+      const maxStepUp = Number.isFinite(params.avatarMaxStepUp) ? params.avatarMaxStepUp : 0.0;
+      const stepCheckActive =
+      (maxStepUp > 0.0) &&
+      !isJetpack &&
+      !avatarJumpState.active &&
+      !!avatarJumpState.grounded;
+
+      let prevGroundY = avatarJumpState.groundY;
+      if (stepCheckActive) {
+        const gy = getWorldSurfaceY(prevX, prevZ);
+        if (Number.isFinite(gy)) prevGroundY = gy;
+      }
+
       if (avatarVelocity.lengthSq() > 0) {
         avatarTmpMove.copy(avatarVelocity).multiplyScalar(dt);
         avatarTmpMove.y = 0;
 
-        avatar.position.add(avatarTmpMove);
-        resolveAvatarXZCollisions(avatar.position);
+        if (stepCheckActive && avatarTmpMove.lengthSq() > 1e-14) {
+          avatarTmpVec.set(prevX + avatarTmpMove.x, avatar.position.y, prevZ + avatarTmpMove.z);
+          resolveAvatarXZCollisions(avatarTmpVec);
+
+          if (isAvatarStepUpBlocked(prevGroundY, avatarTmpVec.x, avatarTmpVec.z)) {
+            let moved = false;
+
+            if (Math.abs(avatarTmpMove.x) > 1e-12) {
+              avatarTmpVec.set(prevX + avatarTmpMove.x, avatar.position.y, prevZ);
+              resolveAvatarXZCollisions(avatarTmpVec);
+
+              if (!isAvatarStepUpBlocked(prevGroundY, avatarTmpVec.x, avatarTmpVec.z)) {
+                avatar.position.x = avatarTmpVec.x;
+                avatar.position.z = avatarTmpVec.z;
+                moved = true;
+              }
+            }
+
+            if (!moved && Math.abs(avatarTmpMove.z) > 1e-12) {
+              avatarTmpVec.set(prevX, avatar.position.y, prevZ + avatarTmpMove.z);
+              resolveAvatarXZCollisions(avatarTmpVec);
+
+              if (!isAvatarStepUpBlocked(prevGroundY, avatarTmpVec.x, avatarTmpVec.z)) {
+                avatar.position.x = avatarTmpVec.x;
+                avatar.position.z = avatarTmpVec.z;
+                moved = true;
+              }
+            }
+
+            if (!moved) {
+              avatar.position.x = prevX;
+              avatar.position.z = prevZ;
+              resolveAvatarXZCollisions(avatar.position);
+            }
+          } else {
+            avatar.position.x = avatarTmpVec.x;
+            avatar.position.z = avatarTmpVec.z;
+          }
+        } else {
+          avatar.position.add(avatarTmpMove);
+          resolveAvatarXZCollisions(avatar.position);
+        }
 
         if (avatarState.viewMode === "third") {
           const dx = avatar.position.x - prevX;
@@ -6795,8 +6984,8 @@ button {
 
     /**
      * Updates camera rig to follow the avatar.
-     * third-person: move camera+target by avatar movement delta.
-     * first-person: camera pinned to head; avatar yaw follows camera look.
+     * third-person: move camera+target by avatar movement delta (Y is smoothed to prevent snapping).
+     * first-person: camera pinned to head (head Y is smoothed to avoid abrupt vertical jumps).
      */
     function updateAvatarCamera(dt) {
       if (!avatarState.enabled || !avatar || !controls) return;
@@ -6811,13 +7000,20 @@ button {
           return;
         }
 
-        avatarTmpVec.subVectors(avatarWorldPos, avatarLastWorldPos);
+        const smoothY = smoothFollowY(avatarCameraYFollowState, avatarWorldPos.y, dt);
+
+        avatarTmpVec.set(
+          avatarWorldPos.x - avatarLastWorldPos.x,
+          smoothY - avatarLastWorldPos.y,
+          avatarWorldPos.z - avatarLastWorldPos.z
+          );
+
         if (avatarTmpVec.lengthSq() > 0) {
           controls.target.add(avatarTmpVec);
           camera.position.add(avatarTmpVec);
         }
 
-        avatarLastWorldPos.copy(avatarWorldPos);
+        avatarLastWorldPos.set(avatarWorldPos.x, smoothY, avatarWorldPos.z);
         return;
       }
 
@@ -6825,6 +7021,8 @@ button {
 
       avatarHeadPos.copy(avatarWorldPos);
       avatarHeadPos.y += avatarViewConfig.firstPersonHeight;
+
+      avatarHeadPos.y = smoothFollowY(avatarCameraYFollowFirstState, avatarHeadPos.y, dt);
 
       camera.getWorldDirection(avatarTmpDir);
       avatarTmpDir.normalize();
@@ -6837,6 +7035,7 @@ button {
 
       avatarHasLastPos = false;
     }
+
 
 
     const avatarChaseCamState = {
@@ -6915,6 +7114,7 @@ button {
     /**
      * Enables/disables avatar chase camera mode while keeping OrbitControls usable:
      * rotate/zoom/damping remain enabled; pan is disabled so the target stays locked to the avatar.
+     * Resets chase Y smoothing state so enabling does not produce a vertical snap.
      */
     function setAvatarChaseCameraEnabled(enabled) {
       const next = !!enabled;
@@ -6925,6 +7125,8 @@ button {
       avatarChaseCamState.userOverride = false;
       avatarChaseCamState.pendingRecenter = false;
       avatarChaseCamState.userInteracting = false;
+
+      avatarChaseTargetYFollowState.has = false;
 
       if (!controls) return;
 
@@ -6958,12 +7160,14 @@ button {
     }
 
 
+
     /**
      * Updates the avatar chase camera:
      * - Smoothly moves OrbitControls target to the avatar head while translating the camera by the same delta
      *   to preserve orbit distance and prevent drift.
      * - Auto-behind yaw easing runs while the avatar is moving, unless the user has manually orbited.
      * - Manual orbit blocks auto-behind until movement input resumes.
+     * - Target Y is additionally smoothed to prevent vertical snapping when ground height changes abruptly.
      */
     function updateAvatarChaseCamera(dt) {
       if (!avatarChaseCamState.enabled || !controls) return;
@@ -6974,7 +7178,9 @@ button {
       avatar.getWorldPosition(avatarChaseWorldPos);
 
       avatarChaseHeadPos.copy(avatarChaseWorldPos);
-      avatarChaseHeadPos.y += avatarChaseCamState.lookHeight;
+
+      const desiredHeadY = avatarChaseWorldPos.y + avatarChaseCamState.lookHeight;
+      avatarChaseHeadPos.y = smoothFollowY(avatarChaseTargetYFollowState, desiredHeadY, dt);
 
       const targetAlpha =
       1 - Math.pow(0.001, avatarChaseCamState.targetStiffness * Math.max(0.0, dt));
@@ -7042,7 +7248,6 @@ button {
 
           let yawAlpha =
           1 - Math.pow(0.001, avatarChaseCamState.yawStiffness * Math.max(0.0, dt));
-
           yawAlpha = Math.min(avatarChaseCamState.maxYawAlpha, Math.max(0.0, yawAlpha));
 
           avatarChaseSpherical.theta = lerpYaw(avatarChaseSpherical.theta, desiredTheta, yawAlpha);
@@ -7068,6 +7273,10 @@ button {
       controls.autoRotate = false;
       controls.update();
     }
+
+
+
+    
 
 
 
@@ -8953,6 +9162,12 @@ let avatarModelColliderObjects = [];
 let avatarModelColliderBounds = [];
 let avatarModelColliderOBBs = [];
 
+// Walkable ground meshes (optional per-instance), used for surface Y ray-tests for avatar/jetpack landing.
+const worldGroundMeshes = [];
+const worldGroundRaycaster = new THREE.Raycaster();
+const worldGroundRayOrigin = new THREE.Vector3();
+const worldGroundRayDir = new THREE.Vector3(0, -1, 0);
+
 
 // Vehicle interaction + driving state (POC)
 const vehicleInteractables = [];
@@ -10778,6 +10993,28 @@ function setupWorldEditObjectGui(folder) {
   trackController(folder.add(worldEditObjectActions, "copy").name("Copy"));
 
   syncWorldEditObjectGuiSelection();
+}
+
+
+/**
+ * Adds avatar locomotion limits (step-up + ledge-fall start) controls to lil-gui.
+ * Max step up blocks stepping onto ledges higher than the threshold while grounded.
+ * Fall start triggers falling physics + jump animation when walking off a ledge above the threshold.
+ */
+function setupAvatarStepGui(folder) {
+  if (!folder) return;
+
+  const stepFolder = folder.addFolder("Step");
+
+  trackController(
+    stepFolder.add(params, "avatarMaxStepUp", 0.0, 3.0, 0.01).name("Max step up").listen()
+    );
+
+  trackController(
+    stepFolder.add(params, "avatarFallStart", 0.0, 3.0, 0.01).name("Fall start").listen()
+    );
+
+  stepFolder.close();
 }
 
 
@@ -13201,8 +13438,33 @@ function getSnowSurfaceY(x, z) {
  * Today this is the snow surface; future surfaces (water/dunes/etc.) can be routed here.
  */
 function getWorldSurfaceY(x, z) {
-  return getSnowSurfaceY(x, z);
+  /* Returns the highest traversable surface at XZ: snow surface plus any instance meshes flagged `ground:true`. */
+  const snowY = getSnowSurfaceY(x, z);
+
+  if (!worldGroundMeshes || worldGroundMeshes.length === 0) return snowY;
+
+  // Keep matrices fresh when world-editing/transforming objects.
+  if (worldEditState && worldEditState.enabled) {
+    for (let i = 0; i < worldGroundMeshes.length; i++) {
+      const m = worldGroundMeshes[i];
+      if (m && m.matrixWorldNeedsUpdate) m.updateWorldMatrix(true, false);
+    }
+  }
+
+  worldGroundRayOrigin.set(x, snowY + 1000.0, z);
+  worldGroundRaycaster.near = 0.0;
+  worldGroundRaycaster.far = 2000.0;
+  worldGroundRaycaster.set(worldGroundRayOrigin, worldGroundRayDir);
+
+  const hits = worldGroundRaycaster.intersectObjects(worldGroundMeshes, false);
+  if (!hits || hits.length === 0) return snowY;
+
+  const hitY = hits[0].point ? hits[0].point.y : NaN;
+  if (!Number.isFinite(hitY)) return snowY;
+
+  return hitY > snowY ? hitY : snowY;
 }
+
 
 /**
  * Approximates the current traversable surface normal at XZ using central differences.
@@ -16658,9 +16920,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         setupEquipmentTuningGui(equipmentFolder);
         equipmentFolder.close();
 
+        const avatarFolder = gui.addFolder("Avatar");
+        setupAvatarStepGui(avatarFolder);
+        avatarFolder.close();
+
         const objectFolder = gui.addFolder("Object");
         setupWorldEditObjectGui(objectFolder);
         objectFolder.close();
+
 
 
 
