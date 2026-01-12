@@ -1345,201 +1345,211 @@ button {
 
 
 
-  <div id="keyboardHelp" class="kbd-help" aria-hidden="true">
-    <div class="kbd-help__panel" role="dialog" aria-modal="true" aria-label="Keyboard controls">
-      <div class="kbd-help__header">
-        <div class="kbd-help__title">Keyboard</div>
-        <button id="keyboardHelpClose" class="avatar-btn">Close</button>
-      </div>
-
-      <div class="kbd-help__grid">
-        <div class="kbd-help__row"><span class="kbd">V</span><span class="kbd-help__text">Toggle avatar control on/off</span></div>
-        <div class="kbd-help__row"><span class="kbd">C</span><span class="kbd-help__text">Toggle avatar camera view (third ↔ first) when avatar is enabled</span></div>
-        <div class="kbd-help__row"><span class="kbd">B</span><span class="kbd-help__text">Toggle chase camera behind avatar/vehicle</span></div>
-
-        <div class="kbd-help__row"><span class="kbd">P</span><span class="kbd-help__text">Pause / resume simulation</span></div>
-        <div class="kbd-help__row"><span class="kbd kbd--wide">⌘/Ctrl+S</span><span class="kbd-help__text">Save current world</span></div>
-
-        <div class="kbd-help__row"><span class="kbd kbd--wide">W/A/S/D</span><span class="kbd-help__text">Move avatar (and drive vehicles when mounted)</span></div>
-        <div class="kbd-help__row"><span class="kbd kbd--wide">Arrows</span><span class="kbd-help__text">Move avatar (and drive vehicles when mounted)</span></div>
-        <div class="kbd-help__row"><span class="kbd kbd--wide">Shift</span><span class="kbd-help__text">Run (avatar)</span></div>
-        <div class="kbd-help__row"><span class="kbd kbd--wide">Space</span><span class="kbd-help__text">Jump (avatar)</span></div>
-
-        <div class="kbd-help__row"><span class="kbd">E</span><span class="kbd-help__text">Enter nearest vehicle / exit current vehicle</span></div>
-        <div class="kbd-help__row"><span class="kbd">I</span><span class="kbd-help__text">Enter nearest vehicle (only when near and not already driving)</span></div>
-        <div class="kbd-help__row"><span class="kbd">O</span><span class="kbd-help__text">Exit vehicle (only when driving)</span></div>
-
-        <div class="kbd-help__row"><span class="kbd">F</span><span class="kbd-help__text">Toggle fullscreen</span></div>
-        <div class="kbd-help__row"><span class="kbd kbd--wide">Esc</span><span class="kbd-help__text">Exit fullscreen (if active)</span></div>
-      </div>
-
-
-      <div class="kbd-help__note">Toggle with Cmd+/ (Mac) or Ctrl+/ (Windows/Linux).</div>
+<!-- Updated keyboard help to match current keybinds -->
+<div id="keyboardHelp" class="kbd-help" aria-hidden="true">
+  <div class="kbd-help__panel" role="dialog" aria-modal="true" aria-label="Keyboard controls">
+    <div class="kbd-help__header">
+      <div class="kbd-help__title">Keyboard</div>
+      <button id="keyboardHelpClose" class="avatar-btn">Close</button>
     </div>
+
+    <div class="kbd-help__grid">
+      <div class="kbd-help__row"><span class="kbd">V</span><span class="kbd-help__text">Toggle avatar control on/off</span></div>
+      <div class="kbd-help__row"><span class="kbd">C</span><span class="kbd-help__text">Toggle camera view (third ↔ first) when avatar is enabled</span></div>
+      <div class="kbd-help__row"><span class="kbd">B</span><span class="kbd-help__text">Toggle chase camera behind avatar/vehicle</span></div>
+
+      <div class="kbd-help__row"><span class="kbd">P</span><span class="kbd-help__text">Pause / resume simulation</span></div>
+      <div class="kbd-help__row"><span class="kbd kbd--wide">Ctrl/Cmd+S</span><span class="kbd-help__text">Save current world</span></div>
+
+      <div class="kbd-help__row"><span class="kbd kbd--wide">WASD / Arrows</span><span class="kbd-help__text">Move avatar (and drive vehicles when mounted)</span></div>
+      <div class="kbd-help__row"><span class="kbd kbd--wide">Shift</span><span class="kbd-help__text">Run (avatar)</span></div>
+      <div class="kbd-help__row"><span class="kbd kbd--wide">Space</span><span class="kbd-help__text">Jump (avatar) / Jetpack ascend (when equipped)</span></div>
+      <div class="kbd-help__row"><span class="kbd">Q</span><span class="kbd-help__text">Jetpack descend (when equipped) / Edit mode: local ↔ world space</span></div>
+
+      <div class="kbd-help__row"><span class="kbd">E</span><span class="kbd-help__text">Interact: enter nearest vehicle / equip nearby item</span></div>
+      <div class="kbd-help__row"><span class="kbd">O</span><span class="kbd-help__text">Exit vehicle / unequip item</span></div>
+
+      <div class="kbd-help__row"><span class="kbd kbd--wide">Ctrl/Cmd+E</span><span class="kbd-help__text">Toggle Edit World mode</span></div>
+      <div class="kbd-help__row"><span class="kbd">W</span><span class="kbd-help__text">Edit mode: Translate</span></div>
+      <div class="kbd-help__row"><span class="kbd">T</span><span class="kbd-help__text">Edit mode: Rotate</span></div>
+      <div class="kbd-help__row"><span class="kbd">R</span><span class="kbd-help__text">Edit mode: Scale</span></div>
+      <div class="kbd-help__row"><span class="kbd kbd--wide">Shift+D</span><span class="kbd-help__text">Edit mode: Duplicate selection</span></div>
+      <div class="kbd-help__row"><span class="kbd">X</span><span class="kbd-help__text">Edit mode: Delete selection</span></div>
+      <div class="kbd-help__row"><span class="kbd kbd--wide">Ctrl/Cmd+Z</span><span class="kbd-help__text">Edit mode: Undo</span></div>
+      <div class="kbd-help__row"><span class="kbd kbd--wide">Ctrl/Cmd+Shift+Z</span><span class="kbd-help__text">Edit mode: Redo</span></div>
+      <div class="kbd-help__row"><span class="kbd kbd--wide">Ctrl/Cmd+Y</span><span class="kbd-help__text">Edit mode: Redo</span></div>
+
+      <div class="kbd-help__row"><span class="kbd">F</span><span class="kbd-help__text">Toggle fullscreen</span></div>
+      <div class="kbd-help__row"><span class="kbd kbd--wide">Esc</span><span class="kbd-help__text">Close overlays / toggle UI; exit fullscreen (if active)</span></div>
+    </div>
+
+    <div class="kbd-help__note">Toggle with Cmd+/ (Mac) or Ctrl+/ (Windows/Linux).</div>
   </div>
-
-
-  <div id="playerProfile" class="profile-help" aria-hidden="true">
-    <div class="profile-help__panel" role="dialog" aria-modal="true" aria-label="Player profile">
-      <div class="kbd-help__header">
-        <div class="kbd-help__title">Profile</div>
-        <button id="playerProfileClose" class="avatar-btn">Close</button>
-      </div>
+</div>
 
 
 
-      <div class="profile-form">
-        <div class="profile-field">
-          <label class="profile-label">Avatar</label>
+<div id="playerProfile" class="profile-help" aria-hidden="true">
+  <div class="profile-help__panel" role="dialog" aria-modal="true" aria-label="Player profile">
+    <div class="kbd-help__header">
+      <div class="kbd-help__title">Profile</div>
+      <button id="playerProfileClose" class="avatar-btn">Close</button>
+    </div>
 
-          <div class="avatar-picker">
-            <button class="avatar-picker__nav" id="avatarPrevBtn" type="button" aria-label="Previous avatar">‹</button>
 
-            <div class="avatar-picker__card">
-              <img class="avatar-picker__thumb" id="avatarPreviewImg" alt="" />
-              <div class="avatar-picker__meta">
-                <div class="avatar-picker__title" id="avatarPreviewName"></div>
-                <div class="avatar-picker__desc" id="avatarPreviewDesc"></div>
-              </div>
-              <div class="avatar-picker__badge" id="avatarPreviewCounter"></div>
+
+    <div class="profile-form">
+      <div class="profile-field">
+        <label class="profile-label">Avatar</label>
+
+        <div class="avatar-picker">
+          <button class="avatar-picker__nav" id="avatarPrevBtn" type="button" aria-label="Previous avatar">‹</button>
+
+          <div class="avatar-picker__card">
+            <img class="avatar-picker__thumb" id="avatarPreviewImg" alt="" />
+            <div class="avatar-picker__meta">
+              <div class="avatar-picker__title" id="avatarPreviewName"></div>
+              <div class="avatar-picker__desc" id="avatarPreviewDesc"></div>
             </div>
-
-            <button class="avatar-picker__nav" id="avatarNextBtn" type="button" aria-label="Next avatar">›</button>
+            <div class="avatar-picker__badge" id="avatarPreviewCounter"></div>
           </div>
 
-          <div class="avatar-picker__actions">
-            <button class="avatar-picker__select" id="avatarSelectBtn" type="button">Select</button>
-          </div>
+          <button class="avatar-picker__nav" id="avatarNextBtn" type="button" aria-label="Next avatar">›</button>
         </div>
 
-        <div class="profile-field" style="display:none;">
-          <label class="profile-label">Player ID</label>
-          <div class="profile-readonly" id="playerProfileId"></div>
-        </div>
-
-        <div class="profile-field">
-          <label class="profile-label" for="playerNameInput">Display name</label>
-          <input class="profile-input" id="playerNameInput" type="text" maxlength="32" autocomplete="nickname" />
-        </div>
-
-        <div class="profile-field" style="display:none;">
-          <label class="profile-label" for="playerColorInput">Accent color</label>
-          <input class="profile-input profile-input--color" id="playerColorInput" type="color" />
-        </div>
-
-        <div class="profile-field">
-          <label class="profile-label" for="playerBioInput">About</label>
-          <textarea class="profile-textarea" id="playerBioInput" maxlength="256" rows="3" placeholder="Optional short bio"></textarea>
-          <div class="profile-help">Visible to other clients once networking is enabled.</div>
-        </div>
-
-        <div class="profile-actions">
-          <button class="profile-btn profile-btn--secondary" id="playerProfileReset" type="button">Reset</button>
-          <button class="profile-btn profile-btn--primary" id="playerProfileSave" type="button">Save</button>
+        <div class="avatar-picker__actions">
+          <button class="avatar-picker__select" id="avatarSelectBtn" type="button">Select</button>
         </div>
       </div>
 
+      <div class="profile-field" style="display:none;">
+        <label class="profile-label">Player ID</label>
+        <div class="profile-readonly" id="playerProfileId"></div>
+      </div>
 
+      <div class="profile-field">
+        <label class="profile-label" for="playerNameInput">Display name</label>
+        <input class="profile-input" id="playerNameInput" type="text" maxlength="32" autocomplete="nickname" />
+      </div>
 
+      <div class="profile-field" style="display:none;">
+        <label class="profile-label" for="playerColorInput">Accent color</label>
+        <input class="profile-input profile-input--color" id="playerColorInput" type="color" />
+      </div>
 
+      <div class="profile-field">
+        <label class="profile-label" for="playerBioInput">About</label>
+        <textarea class="profile-textarea" id="playerBioInput" maxlength="256" rows="3" placeholder="Optional short bio"></textarea>
+        <div class="profile-help">Visible to other clients once networking is enabled.</div>
+      </div>
+
+      <div class="profile-actions">
+        <button class="profile-btn profile-btn--secondary" id="playerProfileReset" type="button">Reset</button>
+        <button class="profile-btn profile-btn--primary" id="playerProfileSave" type="button">Save</button>
+      </div>
     </div>
+
+
+
+
   </div>
+</div>
 
-  <div id="worldPicker" class="world-picker" aria-hidden="true">
-    <div class="world-picker__panel" role="dialog" aria-modal="true" aria-label="Worlds">
-      <div class="kbd-help__header">
-        <div class="kbd-help__title">Worlds</div>
-        <button id="worldPickerClose" class="kbd-help__close" type="button" aria-label="Close">✕</button>
-      </div>
-
-      <div class="world-picker__save">
-        <div class="profile-field">
-          <label class="profile-label" for="worldTitleInput">Title</label>
-          <input id="worldTitleInput" class="profile-input" type="text" placeholder="Untitled" autocomplete="off" />
-        </div>
-
-        <div class="profile-field">
-          <label class="profile-label" for="worldDescInput">Description</label>
-          <textarea id="worldDescInput" class="profile-input" rows="2" placeholder="Short description"></textarea>
-        </div>
-
-        <div class="profile-actions">
-          <button id="worldSaveBtn" class="avatar-btn" type="button">Save Current</button>
-        </div>
-      </div>
-
-      <div id="worldPickerList" class="world-picker__list">
-        <div class="world-picker__section">
-          <div class="world-picker__sectionHead">
-            <div class="world-picker__sectionTitle">Local Worlds</div>
-            <div id="worldPickerLocalMeta" class="world-picker__sectionMeta"></div>
-          </div>
-          <div id="worldPickerListLocal" class="world-picker__sectionGrid"></div>
-        </div>
-
-        <div class="world-picker__section">
-          <div class="world-picker__sectionHead">
-            <div class="world-picker__sectionTitle">Private Cloud Worlds</div>
-            <div id="worldPickerPrivateMeta" class="world-picker__sectionMeta"></div>
-          </div>
-          <div id="worldPickerListPrivate" class="world-picker__sectionGrid"></div>
-        </div>
-
-        <div class="world-picker__section">
-          <div class="world-picker__sectionHead">
-            <div class="world-picker__sectionTitle">Global Worlds</div>
-            <div id="worldPickerGlobalMeta" class="world-picker__sectionMeta"></div>
-          </div>
-          <div id="worldPickerListGlobal" class="world-picker__sectionGrid"></div>
-        </div>
-      </div>
-
-      <div class="world-picker__footer">
-        <button id="worldImportBtn" class="avatar-btn" type="button">Import World</button>
-      </div>
-
-      <div class="kbd-help__note">Selecting a world reloads the page to fully swap loaded models.</div>
+<div id="worldPicker" class="world-picker" aria-hidden="true">
+  <div class="world-picker__panel" role="dialog" aria-modal="true" aria-label="Worlds">
+    <div class="kbd-help__header">
+      <div class="kbd-help__title">Worlds</div>
+      <button id="worldPickerClose" class="kbd-help__close" type="button" aria-label="Close">✕</button>
     </div>
-  </div>
 
-
-  <div id="inventoryPicker" class="inventory-picker" aria-hidden="true">
-    <div class="inventory-picker__panel" role="dialog" aria-modal="true" aria-label="Inventory">
-      <div class="kbd-help__header">
-        <div class="kbd-help__title">Inventory</div>
-        <button id="inventoryPickerClose" class="avatar-btn">Close</button>
+    <div class="world-picker__save">
+      <div class="profile-field">
+        <label class="profile-label" for="worldTitleInput">Title</label>
+        <input id="worldTitleInput" class="profile-input" type="text" placeholder="Untitled" autocomplete="off" />
       </div>
 
-      <div id="inventoryPickerList" class="inventory-picker__list"></div>
-
-      <div class="kbd-help__note">Mock inventory (items + empty slots). Thumbnails are placeholders for now.</div>
-    </div>
-  </div>
-
-  <div id="worldObjectPicker" class="inventory-picker" aria-hidden="true">
-    <div class="inventory-picker__panel" role="dialog" aria-modal="true" aria-label="World objects">
-      <div class="kbd-help__header">
-        <div class="kbd-help__title">Objects</div>
-        <button id="worldObjectPickerClose" class="avatar-btn">Close</button>
+      <div class="profile-field">
+        <label class="profile-label" for="worldDescInput">Description</label>
+        <textarea id="worldDescInput" class="profile-input" rows="2" placeholder="Short description"></textarea>
       </div>
 
-      <div id="worldObjectPickerList" class="inventory-picker__list"></div>
-
-      <div class="kbd-help__note">Available world objects (Edit World only). Click an item to add it in front of the avatar.</div>
+      <div class="profile-actions">
+        <button id="worldSaveBtn" class="avatar-btn" type="button">Save Current</button>
+      </div>
     </div>
+
+    <div id="worldPickerList" class="world-picker__list">
+      <div class="world-picker__section">
+        <div class="world-picker__sectionHead">
+          <div class="world-picker__sectionTitle">Local Worlds</div>
+          <div id="worldPickerLocalMeta" class="world-picker__sectionMeta"></div>
+        </div>
+        <div id="worldPickerListLocal" class="world-picker__sectionGrid"></div>
+      </div>
+
+      <div class="world-picker__section">
+        <div class="world-picker__sectionHead">
+          <div class="world-picker__sectionTitle">Private Cloud Worlds</div>
+          <div id="worldPickerPrivateMeta" class="world-picker__sectionMeta"></div>
+        </div>
+        <div id="worldPickerListPrivate" class="world-picker__sectionGrid"></div>
+      </div>
+
+      <div class="world-picker__section">
+        <div class="world-picker__sectionHead">
+          <div class="world-picker__sectionTitle">Global Worlds</div>
+          <div id="worldPickerGlobalMeta" class="world-picker__sectionMeta"></div>
+        </div>
+        <div id="worldPickerListGlobal" class="world-picker__sectionGrid"></div>
+      </div>
+    </div>
+
+    <div class="world-picker__footer">
+      <button id="worldImportBtn" class="avatar-btn" type="button">Import World</button>
+    </div>
+
+    <div class="kbd-help__note">Selecting a world reloads the page to fully swap loaded models.</div>
   </div>
+</div>
 
 
+<div id="inventoryPicker" class="inventory-picker" aria-hidden="true">
+  <div class="inventory-picker__panel" role="dialog" aria-modal="true" aria-label="Inventory">
+    <div class="kbd-help__header">
+      <div class="kbd-help__title">Inventory</div>
+      <button id="inventoryPickerClose" class="avatar-btn">Close</button>
+    </div>
 
+    <div id="inventoryPickerList" class="inventory-picker__list"></div>
 
-
-  <div class="hud" style="visibility: hidden;">
-    <b>Snowdrifts + gusts + sticking snow + presets</b><br />
-    Drag: orbit · Wheel: zoom · Right-drag: pan<br />
-    Gust parameters, sticking, drifts, and presets are all controlled from the GUI.
+    <div class="kbd-help__note">Mock inventory (items + empty slots). Thumbnails are placeholders for now.</div>
   </div>
+</div>
 
-  <script type="module">
+<div id="worldObjectPicker" class="inventory-picker" aria-hidden="true">
+  <div class="inventory-picker__panel" role="dialog" aria-modal="true" aria-label="World objects">
+    <div class="kbd-help__header">
+      <div class="kbd-help__title">Objects</div>
+      <button id="worldObjectPickerClose" class="avatar-btn">Close</button>
+    </div>
+
+    <div id="worldObjectPickerList" class="inventory-picker__list"></div>
+
+    <div class="kbd-help__note">Available world objects (Edit World only). Click an item to add it in front of the avatar.</div>
+  </div>
+</div>
+
+
+
+
+
+<div class="hud" style="visibility: hidden;">
+  <b>Snowdrifts + gusts + sticking snow + presets</b><br />
+  Drag: orbit · Wheel: zoom · Right-drag: pan<br />
+  Gust parameters, sticking, drifts, and presets are all controlled from the GUI.
+</div>
+
+<script type="module">
 
 
 // Optional JS: Add subtle entrance animation on load
@@ -1560,215 +1570,226 @@ button {
 
 
 
-
-
-
-    import * as THREE from "three";
-    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-    import { TransformControls } from "three/addons/controls/TransformControls.js";
-    import { VRButton } from "three/addons/webxr/VRButton.js";
-    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-    import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";    
-    import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm";
+  import * as THREE from "three";
+  import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+  import { TransformControls } from "three/addons/controls/TransformControls.js";
+  import { VRButton } from "three/addons/webxr/VRButton.js";
+  import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+  import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";    
+  import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm";
 
     // -------------------------------------------------------------------------
     // Helpers / persistence utilities
     // -------------------------------------------------------------------------
 
-    const PLAYER_PROFILE_STORAGE_KEY = "snow:playerProfile:v1";
+  const PLAYER_PROFILE_STORAGE_KEY = "snow:playerProfile:v1";
 
 
-    const DEFAULT_AVATAR_ID = "female/crocs_anims";
+  const DEFAULT_AVATAR_ID = "robots/optimus";
 
     /* Static avatar catalog for the Profile carousel (thumb + GLB share the same basename). */
-    const AVATAR_CATALOG = [
+  const AVATAR_CATALOG = [
 
 
-      { id: "astro/coco1", name: "Coco 1", desc: "Coco in Space 1", url: "models/ready/astro/coco-anims.glb", thumb: "models/ready/astro/coco-anims.png" },
+    { id: "dolls/slashboy1", name: "Slash Boy", desc: "Slash Boy 1", url: "models/ready/dolls/slashboy3-anims.glb", thumb: "models/ready/dolls/slashboy3-anims.png" },
+
+    { id: "dolls/masonboy1", name: "Mason Boy", desc: "Mason Boy 1", url: "models/ready/dolls/masonboy5-anims.glb", thumb: "models/ready/dolls/masonboy5-anims.png" },
 
 
-      { id: "astro/cat1", name: "Astrocat 1", desc: "Cats in Space 1", url: "models/ready/astro/catastro-anims.glb", thumb: "models/ready/astro/catastro-anims.png" },
+    { id: "dolls/barbie1", name: "Pink Barbie", desc: "Barbie Pink 1", url: "models/ready/dolls/barbie1-anims.glb", thumb: "models/ready/dolls/barbie1-anims.png" },
 
 
-      { id: "female/afro1", name: "Lola 1", desc: "Lola in space 1", url: "models/ready/female/afro/6-anims.glb", thumb: "models/ready/female/afro/6-anims.png" },
-
-      { id: "female/afro2", name: "Lola 2", desc: "Lola in space 2", url: "models/ready/female/afro/afro4-anims.glb", thumb: "models/ready/female/afro/afro4-anims.png" },
+    { id: "dolls/deluxe", name: "Barbie Deluxe", desc: "Barbie Deluxe 1", url: "models/ready/dolls/deluxe-anims.glb", thumb: "models/ready/dolls/deluxe-anims.png" },
 
 
-
-      { id: "male/musil1", name: "Ahmob", desc: "Ahmob bobo.", url: "models/ready/male/musils/musils1-anims.glb", thumb: "models/ready/male/musils/musils1-anims.png" },
-
-      { id: "male/musil2", name: "Ahmob", desc: "Ahmob bobo 2.", url: "models/ready/male/musils/musils2-anims.glb", thumb: "models/ready/male/musils/musils2-anims.png" },
-
-      { id: "female/blondie-anims", name: "Blondie", desc: "Female avatar.", url: "models/ready/female/blondie-anims.glb", thumb: "models/ready/female/blondie-anims.png" },
+    { id: "robots/optimus", name: "Optimus 1", desc: "Optimus 2026", url: "models/ready/robots/optimus-anims.glb", thumb: "models/ready/robots/optimus-anims.png" },
 
 
-      { id: "female/avad", name: "Ava D", desc: "Female avatar.", url: "models/ready/female/avad/avad1-anims.glb", thumb: "models/ready/female/avad/avad1-anims.png" },
-
-      { id: "female/skate1", name: "Skate Girl 1", desc: "Female avatar.", url: "models/ready/female/skate/vans5-anims.glb", thumb: "models/ready/female/skate/vans5-anims.png" },
-
-      { id: "female/skate2", name: "Skate Girl 2", desc: "Female avatar.", url: "models/ready/female/skate/vans6-anims.glb", thumb: "models/ready/female/skate/vans6-anims.png" },
-
-      { id: "female/skate3", name: "Skate Girl 3", desc: "Female avatar.", url: "models/ready/female/skate/latin2-anims.glb", thumb: "models/ready/female/skate/latin2-anims.png" },
-
-      { id: "female/skate4", name: "Skate Girl 5", desc: "Female avatar.", url: "models/ready/female/skate/nord-anims.glb", thumb: "models/ready/female/skate/nord-anims.png" },
-
-      { id: "female/skate5", name: "Skate Girl 6", desc: "Female avatar.", url: "models/ready/female/skate/japa-anims.glb", thumb: "models/ready/female/skate/japa-anims.png" },
-
-      { id: "female/skate6", name: "Skate Girl 7", desc: "Female avatar.", url: "models/ready/female/skate/flo-anims.glb", thumb: "models/ready/female/skate/flo-anims.png" },
-
-      { id: "female/skate7", name: "Skate Girl 8", desc: "Female avatar.", url: "models/ready/female/skate/max-anims.glb", thumb: "models/ready/female/skate/max-anims.png" },
+    { id: "astro/coco1", name: "Coco 1", desc: "Coco in Space 1", url: "models/ready/astro/coco-anims.glb", thumb: "models/ready/astro/coco-anims.png" },
 
 
-      { id: "female/camouflage1", name: "Camouflage", desc: "Female avatar.", url: "models/ready/female/camouflage1.glb", thumb: "models/ready/female/camouflage1.png" },
+    { id: "astro/cat1", name: "Astrocat 1", desc: "Cats in Space 1", url: "models/ready/astro/catastro-anims.glb", thumb: "models/ready/astro/catastro-anims.png" },
 
-      { id: "female/computer", name: "Computer", desc: "Female avatar.", url: "models/ready/female/computer.glb", thumb: "models/ready/female/computer.png" },
 
-      { id: "female/crocs_anims", name: "Crocs", desc: "Female avatar.", url: "models/ready/female/crocs_anims.glb", thumb: "models/ready/female/crocs_anims.png" },
+    { id: "female/afro1", name: "Lola 1", desc: "Lola in space 1", url: "models/ready/female/afro/6-anims.glb", thumb: "models/ready/female/afro/6-anims.png" },
+
+    { id: "female/afro2", name: "Lola 2", desc: "Lola in space 2", url: "models/ready/female/afro/afro4-anims.glb", thumb: "models/ready/female/afro/afro4-anims.png" },
+
+
+
+    { id: "male/musil1", name: "Ahmob", desc: "Ahmob bobo.", url: "models/ready/male/musils/musils1-anims.glb", thumb: "models/ready/male/musils/musils1-anims.png" },
+
+    { id: "male/musil2", name: "Ahmob", desc: "Ahmob bobo 2.", url: "models/ready/male/musils/musils2-anims.glb", thumb: "models/ready/male/musils/musils2-anims.png" },
+
+    { id: "female/blondie-anims", name: "Blondie", desc: "Female avatar.", url: "models/ready/female/blondie-anims.glb", thumb: "models/ready/female/blondie-anims.png" },
+
+
+    { id: "female/avad", name: "Ava D", desc: "Female avatar.", url: "models/ready/female/avad/avad1-anims.glb", thumb: "models/ready/female/avad/avad1-anims.png" },
+
+    { id: "female/skate1", name: "Skate Girl 1", desc: "Female avatar.", url: "models/ready/female/skate/vans5-anims.glb", thumb: "models/ready/female/skate/vans5-anims.png" },
+
+    { id: "female/skate2", name: "Skate Girl 2", desc: "Female avatar.", url: "models/ready/female/skate/vans6-anims.glb", thumb: "models/ready/female/skate/vans6-anims.png" },
+
+    { id: "female/skate3", name: "Skate Girl 3", desc: "Female avatar.", url: "models/ready/female/skate/latin2-anims.glb", thumb: "models/ready/female/skate/latin2-anims.png" },
+
+    { id: "female/skate4", name: "Skate Girl 5", desc: "Female avatar.", url: "models/ready/female/skate/nord-anims.glb", thumb: "models/ready/female/skate/nord-anims.png" },
+
+    { id: "female/skate5", name: "Skate Girl 6", desc: "Female avatar.", url: "models/ready/female/skate/japa-anims.glb", thumb: "models/ready/female/skate/japa-anims.png" },
+
+    { id: "female/skate6", name: "Skate Girl 7", desc: "Female avatar.", url: "models/ready/female/skate/flo-anims.glb", thumb: "models/ready/female/skate/flo-anims.png" },
+
+    { id: "female/skate7", name: "Skate Girl 8", desc: "Female avatar.", url: "models/ready/female/skate/max-anims.glb", thumb: "models/ready/female/skate/max-anims.png" },
+
+
+    { id: "female/camouflage1", name: "Camouflage", desc: "Female avatar.", url: "models/ready/female/camouflage1.glb", thumb: "models/ready/female/camouflage1.png" },
+
+    { id: "female/computer", name: "Computer", desc: "Female avatar.", url: "models/ready/female/computer.glb", thumb: "models/ready/female/computer.png" },
+
+    { id: "female/crocs_anims", name: "Crocs", desc: "Female avatar.", url: "models/ready/female/crocs_anims.glb", thumb: "models/ready/female/crocs_anims.png" },
 
       // { id: "female/elizabeth", name: "Elizabeth", desc: "Female avatar.", url: "models/ready/female/elizabeth.glb", thumb: "models/ready/female/elizabeth.png" },
 
-      { id: "female/pinky1-anims", name: "Pinky", desc: "Female avatar.", url: "models/ready/female/pinky1-anims.glb", thumb: "models/ready/female/pinky1-anims.png" },
+    { id: "female/pinky1-anims", name: "Pinky", desc: "Female avatar.", url: "models/ready/female/pinky1-anims.glb", thumb: "models/ready/female/pinky1-anims.png" },
 
-      { id: "female/redsa1", name: "Redsa", desc: "Female avatar.", url: "models/ready/female/redsa1.glb", thumb: "models/ready/female/redsa1.png" },
+    { id: "female/redsa1", name: "Redsa", desc: "Female avatar.", url: "models/ready/female/redsa1.glb", thumb: "models/ready/female/redsa1.png" },
 
-      { id: "female/santa5", name: "Santa 5", desc: "Holiday avatar.", url: "models/ready/female/santa5.glb", thumb: "models/ready/female/santa5.png" },
+    { id: "female/santa5", name: "Santa 5", desc: "Holiday avatar.", url: "models/ready/female/santa5.glb", thumb: "models/ready/female/santa5.png" },
 
-      { id: "female/santa6", name: "Santa 6", desc: "Holiday avatar.", url: "models/ready/female/santa6.glb", thumb: "models/ready/female/santa6.png" },
+    { id: "female/santa6", name: "Santa 6", desc: "Holiday avatar.", url: "models/ready/female/santa6.glb", thumb: "models/ready/female/santa6.png" },
 
       // { id: "female/santagirl", name: "Santa Girl", desc: "Holiday avatar.", url: "models/ready/female/santagirl.glb", thumb: "models/ready/female/santagirl.png" },
 
-      { id: "female/santagirl2", name: "Santa Girl 2", desc: "Holiday avatar.", url: "models/ready/female/santagirl2.glb", thumb: "models/ready/female/santagirl2.png" },
+    { id: "female/santagirl2", name: "Santa Girl 2", desc: "Holiday avatar.", url: "models/ready/female/santagirl2.glb", thumb: "models/ready/female/santagirl2.png" },
 
-      { id: "female/santagirl21-eu", name: "Santa Girl EU", desc: "Holiday avatar.", url: "models/ready/female/santagirl21-eu.glb", thumb: "models/ready/female/santagirl21-eu.png" },
+    { id: "female/santagirl21-eu", name: "Santa Girl EU", desc: "Holiday avatar.", url: "models/ready/female/santagirl21-eu.glb", thumb: "models/ready/female/santagirl21-eu.png" },
 
-      { id: "female/santagirl3", name: "Santa Girl 3", desc: "Holiday avatar.", url: "models/ready/female/santagirl3.glb", thumb: "models/ready/female/santagirl3.png" },
+    { id: "female/santagirl3", name: "Santa Girl 3", desc: "Holiday avatar.", url: "models/ready/female/santagirl3.glb", thumb: "models/ready/female/santagirl3.png" },
 
-      { id: "female/santax1", name: "Santa X1", desc: "Holiday avatar.", url: "models/ready/female/santax1.glb", thumb: "models/ready/female/santax1.png" },
+    { id: "female/santax1", name: "Santa X1", desc: "Holiday avatar.", url: "models/ready/female/santax1.glb", thumb: "models/ready/female/santax1.png" },
 
-      { id: "female/santax2-a2", name: "Santa X2", desc: "Holiday avatar.", url: "models/ready/female/santax2-a2.glb", thumb: "models/ready/female/santax2-a2.png" },
+    { id: "female/santax2-a2", name: "Santa X2", desc: "Holiday avatar.", url: "models/ready/female/santax2-a2.glb", thumb: "models/ready/female/santax2-a2.png" },
 
-      { id: "female/sanya-a", name: "Sanya", desc: "Female avatar.", url: "models/ready/female/sanya-a.glb", thumb: "models/ready/female/sanya-a.png" },
+    { id: "female/sanya-a", name: "Sanya", desc: "Female avatar.", url: "models/ready/female/sanya-a.glb", thumb: "models/ready/female/sanya-a.png" },
 
 
-      { id: "female/she/she1_anims-anims", name: "She 1", desc: "Female avatar.", url: "models/ready/female/she/she1_anims-anims.glb", thumb: "models/ready/female/she/she1_anims-anims.png" },
+    { id: "female/she/she1_anims-anims", name: "She 1", desc: "Female avatar.", url: "models/ready/female/she/she1_anims-anims.glb", thumb: "models/ready/female/she/she1_anims-anims.png" },
 
 
       // { id: "female/sophie", name: "Sophie", desc: "Female avatar.", url: "models/ready/female/sophie.glb", thumb: "models/ready/female/sophie.png" },
 
-      { id: "male/tripo/tripo_anims", name: "Tripo 1", desc: "Male avatar.", url: "models/ready/male/tripo/tripo_anims.glb", thumb: "models/ready/male/tripo/tripo_anims.png" },
+    { id: "male/tripo/tripo_anims", name: "Tripo 1", desc: "Male avatar.", url: "models/ready/male/tripo/tripo_anims.glb", thumb: "models/ready/male/tripo/tripo_anims.png" },
 
-      { id: "male/tripo/prisoner_anims", name: "Tripo 1", desc: "Male avatar.", url: "models/ready/male/tripo/prisoner_anims.glb", thumb: "models/ready/male/tripo/prisoner_anims.png" },
+    { id: "male/tripo/prisoner_anims", name: "Tripo 1", desc: "Male avatar.", url: "models/ready/male/tripo/prisoner_anims.glb", thumb: "models/ready/male/tripo/prisoner_anims.png" },
 
-      { id: "aliens/alien_face2-anims", name: "Alien 1", desc: "Alien avatar.", url: "models/ready/aliens/alien_face2-anims.glb", thumb: "models/ready/aliens/alien_face2-anims.png" },
+    { id: "aliens/alien_face2-anims", name: "Alien 1", desc: "Alien avatar.", url: "models/ready/aliens/alien_face2-anims.glb", thumb: "models/ready/aliens/alien_face2-anims.png" },
 
 
       // { id: "male/josh", name: "Josh", desc: "Male avatar.", url: "models/ready/male/josh.glb", thumb: "models/ready/male/josh.png" },
 
       // { id: "male/lewis", name: "Lewis", desc: "Male avatar.", url: "models/ready/male/lewis.glb", thumb: "models/ready/male/lewis.png" },
 
-      { id: "male/tata/tata1-anims", name: "Tata 1", desc: "Male avatar.", url: "models/ready/male/tata/tata1-anims.glb", thumb: "models/ready/male/tata/tata1-anims.png" },
+    { id: "male/tata/tata1-anims", name: "Tata 1", desc: "Male avatar.", url: "models/ready/male/tata/tata1-anims.glb", thumb: "models/ready/male/tata/tata1-anims.png" },
 
 
-      { id: "male/tata/tata2-anims", name: "Tata 2", desc: "Male avatar.", url: "models/ready/male/tata/tata2-anims.glb", thumb: "models/ready/male/tata/tata2-anims.png" },
-      { id: "male/tata/tata4_1-anims", name: "Tata 4.1", desc: "Male avatar.", url: "models/ready/male/tata/tata4_1-anims.glb", thumb: "models/ready/male/tata/tata4_1-anims.png" },
-      { id: "male/tata/tata4_1-rework", name: "Tata 4.1 Rework", desc: "Male avatar.", url: "models/ready/male/tata/tata4_1-rework.glb", thumb: "models/ready/male/tata/tata4_1-rework.png" },
-      { id: "male/tata/tata5_anim-anims", name: "Tata 5", desc: "Male avatar.", url: "models/ready/male/tata/tata5_anim-anims.glb", thumb: "models/ready/male/tata/tata5_anim-anims.png" }
-    ];
+    { id: "male/tata/tata2-anims", name: "Tata 2", desc: "Male avatar.", url: "models/ready/male/tata/tata2-anims.glb", thumb: "models/ready/male/tata/tata2-anims.png" },
+    { id: "male/tata/tata4_1-anims", name: "Tata 4.1", desc: "Male avatar.", url: "models/ready/male/tata/tata4_1-anims.glb", thumb: "models/ready/male/tata/tata4_1-anims.png" },
+    { id: "male/tata/tata4_1-rework", name: "Tata 4.1 Rework", desc: "Male avatar.", url: "models/ready/male/tata/tata4_1-rework.glb", thumb: "models/ready/male/tata/tata4_1-rework.png" },
+    { id: "male/tata/tata5_anim-anims", name: "Tata 5", desc: "Male avatar.", url: "models/ready/male/tata/tata5_anim-anims.glb", thumb: "models/ready/male/tata/tata5_anim-anims.png" }
+  ];
 
     /* Returns catalog entry by id. */
-    function getAvatarById(id) {
-      const key = String(id ?? "").trim();
-      for (let i = 0; i < AVATAR_CATALOG.length; i++) {
-        if (AVATAR_CATALOG[i].id === key) return AVATAR_CATALOG[i];
-      }
-      return null;
+  function getAvatarById(id) {
+    const key = String(id ?? "").trim();
+    for (let i = 0; i < AVATAR_CATALOG.length; i++) {
+      if (AVATAR_CATALOG[i].id === key) return AVATAR_CATALOG[i];
     }
+    return null;
+  }
 
     /* Ensures avatarId always resolves to a catalog item. */
-    function sanitizeAvatarId(id, fallback = DEFAULT_AVATAR_ID) {
-      const key = String(id ?? "").trim();
-      if (key && getAvatarById(key)) return key;
-      const fb = String(fallback ?? "").trim();
-      if (fb && getAvatarById(fb)) return fb;
-      return AVATAR_CATALOG.length ? AVATAR_CATALOG[0].id : DEFAULT_AVATAR_ID;
-    }
+  function sanitizeAvatarId(id, fallback = DEFAULT_AVATAR_ID) {
+    const key = String(id ?? "").trim();
+    if (key && getAvatarById(key)) return key;
+    const fb = String(fallback ?? "").trim();
+    if (fb && getAvatarById(fb)) return fb;
+    return AVATAR_CATALOG.length ? AVATAR_CATALOG[0].id : DEFAULT_AVATAR_ID;
+  }
 
 
 
     /**
      * Creates a stable per-player id for future multiuser transport.
      */
-    function makePlayerId() {
-      try {
-        const bytes = new Uint8Array(8);
-        crypto.getRandomValues(bytes);
-        let out = "";
-        for (let i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, "0");
-          return out;
-      } catch {
-        return Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
-      }
+  function makePlayerId() {
+    try {
+      const bytes = new Uint8Array(8);
+      crypto.getRandomValues(bytes);
+      let out = "";
+      for (let i = 0; i < bytes.length; i++) out += bytes[i].toString(16).padStart(2, "0");
+        return out;
+    } catch {
+      return Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
     }
+  }
 
     /**
      * Normalizes a display name for UI and future networking.
      */
-    function sanitizePlayerName(name) {
-      const s = String(name ?? "").trim().replace(/\s+/g, " ");
-      if (!s) return "Anonymous";
-      return s.slice(0, 32);
-    }
+  function sanitizePlayerName(name) {
+    const s = String(name ?? "").trim().replace(/\s+/g, " ");
+    if (!s) return "Anonymous";
+    return s.slice(0, 32);
+  }
 
     /**
      * Generates a default local profile (anonymous by default).
      */
-    function createDefaultPlayerProfile() {
-      const id = makePlayerId();
-      return {
-        v: 1,
-        id,
-        name: "Anonymous",
-        color: "#22c55e",
-        avatarId: sanitizeAvatarId(DEFAULT_AVATAR_ID, DEFAULT_AVATAR_ID),
-        meta: { about: "" }
-      };
-    }
+  function createDefaultPlayerProfile() {
+    const id = makePlayerId();
+    return {
+      v: 1,
+      id,
+      name: "Anonymous",
+      color: "#22c55e",
+      avatarId: sanitizeAvatarId(DEFAULT_AVATAR_ID, DEFAULT_AVATAR_ID),
+      meta: { about: "" }
+    };
+  }
 
     /**
      * Loads the local player profile from storage, falling back to defaults.
      */
-    function loadPlayerProfile() {
-      try {
-        const raw = localStorage.getItem(PLAYER_PROFILE_STORAGE_KEY);
-        if (!raw) return createDefaultPlayerProfile();
+  function loadPlayerProfile() {
+    try {
+      const raw = localStorage.getItem(PLAYER_PROFILE_STORAGE_KEY);
+      if (!raw) return createDefaultPlayerProfile();
 
-        const json = JSON.parse(raw);
-        if (!json || typeof json !== "object") return createDefaultPlayerProfile();
+      const json = JSON.parse(raw);
+      if (!json || typeof json !== "object") return createDefaultPlayerProfile();
 
-        const p = createDefaultPlayerProfile();
-        p.id = typeof json.id === "string" && json.id.trim() ? json.id.trim() : p.id;
-        p.name = sanitizePlayerName(json.name);
-        p.color = typeof json.color === "string" && /^#([0-9a-fA-F]{6})$/.test(json.color) ? json.color : p.color;
-        p.avatarId = sanitizeAvatarId(json.avatarId, p.avatarId);
+      const p = createDefaultPlayerProfile();
+      p.id = typeof json.id === "string" && json.id.trim() ? json.id.trim() : p.id;
+      p.name = sanitizePlayerName(json.name);
+      p.color = typeof json.color === "string" && /^#([0-9a-fA-F]{6})$/.test(json.color) ? json.color : p.color;
+      p.avatarId = sanitizeAvatarId(json.avatarId, p.avatarId);
 
-        if (json.meta && typeof json.meta === "object") {
-          p.meta.about = typeof json.meta.about === "string" ? json.meta.about.slice(0, 256) : "";
-        }
-        return p;
-      } catch {
-        return createDefaultPlayerProfile();
+      if (json.meta && typeof json.meta === "object") {
+        p.meta.about = typeof json.meta.about === "string" ? json.meta.about.slice(0, 256) : "";
       }
+      return p;
+    } catch {
+      return createDefaultPlayerProfile();
     }
+  }
 
     /**
      * Persists the local player profile.
      */
-    function savePlayerProfile(profile) {
-      try {
-        localStorage.setItem(PLAYER_PROFILE_STORAGE_KEY, JSON.stringify(profile));
-      } catch {}
-    }
+  function savePlayerProfile(profile) {
+    try {
+      localStorage.setItem(PLAYER_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    } catch {}
+  }
 
 
 
@@ -1776,43 +1797,43 @@ button {
 
 
 
-    let playerProfile = loadPlayerProfile();
+  let playerProfile = loadPlayerProfile();
 
     /* Updates local player profile (validated), optionally persists, and applies it onto the avatar userData. */
-    function setPlayerProfile(next, { persist = true } = {}) {
-      const base = createDefaultPlayerProfile();
+  function setPlayerProfile(next, { persist = true } = {}) {
+    const base = createDefaultPlayerProfile();
 
-      base.id = typeof next?.id === "string" && next.id.trim() ? next.id.trim() : playerProfile.id;
-      base.name = sanitizePlayerName(next?.name);
-      base.color = typeof next?.color === "string" && /^#([0-9a-fA-F]{6})$/.test(next.color) ? next.color : playerProfile.color;
-      base.avatarId = sanitizeAvatarId(next?.avatarId, playerProfile.avatarId);
+    base.id = typeof next?.id === "string" && next.id.trim() ? next.id.trim() : playerProfile.id;
+    base.name = sanitizePlayerName(next?.name);
+    base.color = typeof next?.color === "string" && /^#([0-9a-fA-F]{6})$/.test(next.color) ? next.color : playerProfile.color;
+    base.avatarId = sanitizeAvatarId(next?.avatarId, playerProfile.avatarId);
 
-      if (next?.meta && typeof next.meta === "object") {
-        base.meta.about = typeof next.meta.about === "string" ? next.meta.about.slice(0, 256) : "";
-      } else {
-        base.meta.about = typeof playerProfile?.meta?.about === "string" ? playerProfile.meta.about : "";
-      }
-
-      playerProfile = base;
-      if (persist) savePlayerProfile(playerProfile);
-
-      applyLocalPlayerProfileToAvatar();
+    if (next?.meta && typeof next.meta === "object") {
+      base.meta.about = typeof next.meta.about === "string" ? next.meta.about.slice(0, 256) : "";
+    } else {
+      base.meta.about = typeof playerProfile?.meta?.about === "string" ? playerProfile.meta.about : "";
     }
+
+    playerProfile = base;
+    if (persist) savePlayerProfile(playerProfile);
+
+    applyLocalPlayerProfileToAvatar();
+  }
 
     /**
      * Applies local profile metadata onto the avatar object for future multiuser sync.
      */
-    function applyLocalPlayerProfileToAvatar() {
-      if (!avatar) return;
+  function applyLocalPlayerProfileToAvatar() {
+    if (!avatar) return;
 
-      avatar.userData.playerProfile = {
-        id: playerProfile.id,
-        name: playerProfile.name,
-        color: playerProfile.color,
-        avatarId: playerProfile.avatarId,
-        meta: { about: playerProfile.meta.about }
-      };
-    }
+    avatar.userData.playerProfile = {
+      id: playerProfile.id,
+      name: playerProfile.name,
+      color: playerProfile.color,
+      avatarId: playerProfile.avatarId,
+      meta: { about: playerProfile.meta.about }
+    };
+  }
 
 
 
@@ -1823,37 +1844,37 @@ button {
  * Builds a compact state packet suitable for sending over a websocket.
  * Not transmitted by default; this is a stable schema for future multiuser work.
  */
-    function buildLocalPlayerNetPacket() {
-      const pose = avatar
-      ? {
-        p: [avatar.position.x, avatar.position.y, avatar.position.z],
-        q: [avatar.quaternion.x, avatar.quaternion.y, avatar.quaternion.z, avatar.quaternion.w]
-      }
-      : null;
-
-      const driving =
-      vehicleDriveState &&
-      vehicleDriveState.enabled &&
-      vehicleDriveState.vehicle &&
-      vehicleDriveState.vehicle.userData &&
-      vehicleDriveState.vehicle.userData.vehicleId
-      ? String(vehicleDriveState.vehicle.userData.vehicleId)
-      : "";
-
-      return {
-        v: 1,
-        t: "player",
-        id: playerProfile.id,
-        profile: {
-          name: playerProfile.name,
-          color: playerProfile.color,
-          avatarId: playerProfile.avatarId,
-          meta: { about: playerProfile.meta.about }
-        },
-        pose,
-        driving
-      };
+  function buildLocalPlayerNetPacket() {
+    const pose = avatar
+    ? {
+      p: [avatar.position.x, avatar.position.y, avatar.position.z],
+      q: [avatar.quaternion.x, avatar.quaternion.y, avatar.quaternion.z, avatar.quaternion.w]
     }
+    : null;
+
+    const driving =
+    vehicleDriveState &&
+    vehicleDriveState.enabled &&
+    vehicleDriveState.vehicle &&
+    vehicleDriveState.vehicle.userData &&
+    vehicleDriveState.vehicle.userData.vehicleId
+    ? String(vehicleDriveState.vehicle.userData.vehicleId)
+    : "";
+
+    return {
+      v: 1,
+      t: "player",
+      id: playerProfile.id,
+      profile: {
+        name: playerProfile.name,
+        color: playerProfile.color,
+        avatarId: playerProfile.avatarId,
+        meta: { about: playerProfile.meta.about }
+      },
+      pose,
+      driving
+    };
+  }
 
 
 
@@ -1861,246 +1882,246 @@ button {
 
 
 
-    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
     /* Applies an axial dead-zone and rescales remaining range back to [-1..1]. */
-    function applyDeadZone(v, deadZone) {
-      const dz = Number.isFinite(deadZone) ? deadZone : 0;
-      if (dz <= 0) return v;
-      if (dz >= 1) return 0;
+  function applyDeadZone(v, deadZone) {
+    const dz = Number.isFinite(deadZone) ? deadZone : 0;
+    if (dz <= 0) return v;
+    if (dz >= 1) return 0;
 
-      const av = Math.abs(v);
-      if (av <= dz) return 0;
+    const av = Math.abs(v);
+    if (av <= dz) return 0;
 
-      const sign = v < 0 ? -1 : 1;
-      const scaled = (av - dz) / (1 - dz);
-      return sign * clamp(scaled, 0, 1);
-    }
+    const sign = v < 0 ? -1 : 1;
+    const scaled = (av - dz) / (1 - dz);
+    return sign * clamp(scaled, 0, 1);
+  }
 
 
 
     // Simple seedable RNG (LCG)
-    function makeSeededRandom(seed) {
-      let s = (seed | 0) || 1;
-      return function () {
-        s = (s * 1664525 + 1013904223) | 0;
-        return (s >>> 0) / 4294967296;
-      };
-    }
+  function makeSeededRandom(seed) {
+    let s = (seed | 0) || 1;
+    return function () {
+      s = (s * 1664525 + 1013904223) | 0;
+      return (s >>> 0) / 4294967296;
+    };
+  }
 
-    function nowStamp() {
+  function nowStamp() {
 
-      const d = new Date();
-      const pad = (n) => String(n).padStart(2, "0");
-      return (
-        d.getFullYear() +
-        pad(d.getMonth() + 1) +
-        pad(d.getDate()) +
-        "-" +
-        pad(d.getHours()) +
-        pad(d.getMinutes()) +
-        pad(d.getSeconds())
-        );
-    }
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return (
+      d.getFullYear() +
+      pad(d.getMonth() + 1) +
+      pad(d.getDate()) +
+      "-" +
+      pad(d.getHours()) +
+      pad(d.getMinutes()) +
+      pad(d.getSeconds())
+      );
+  }
 
-    function safeCloneSettings(src) {
-      const out = {};
-      for (const k of Object.keys(src)) {
-        const v = src[k];
-        if (typeof v === "number" || typeof v === "boolean" || typeof v === "string") {
-          out[k] = v;
-        }
+  function safeCloneSettings(src) {
+    const out = {};
+    for (const k of Object.keys(src)) {
+      const v = src[k];
+      if (typeof v === "number" || typeof v === "boolean" || typeof v === "string") {
+        out[k] = v;
       }
-      return out;
     }
+    return out;
+  }
 
-    function downloadJson(obj, filename) {
-      const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
+  function downloadJson(obj, filename) {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
 
     // localStorage (last used settings)
-    const STORAGE_LAST = "snow:lastSettings:v1";
+  const STORAGE_LAST = "snow:lastSettings:v1";
 
-    let persistTimer = 0;
-    let persistBlocked = false;
+  let persistTimer = 0;
+  let persistBlocked = false;
 
-    function saveLastNow(params) {
-      if (persistBlocked) return;
-      try {
-        const payload = {
-          v: 1,
-          savedAt: Date.now(),
-          settings: safeCloneSettings(params)
-        };
-        localStorage.setItem(STORAGE_LAST, JSON.stringify(payload));
-      } catch (e) {
-        console.warn("[snow] save last failed", e);
-      }
+  function saveLastNow(params) {
+    if (persistBlocked) return;
+    try {
+      const payload = {
+        v: 1,
+        savedAt: Date.now(),
+        settings: safeCloneSettings(params)
+      };
+      localStorage.setItem(STORAGE_LAST, JSON.stringify(payload));
+    } catch (e) {
+      console.warn("[snow] save last failed", e);
     }
+  }
 
-    function saveLastDebounced(params) {
-      if (persistBlocked) return;
-      if (persistTimer) clearTimeout(persistTimer);
-      persistTimer = setTimeout(() => {
-        persistTimer = 0;
-        saveLastNow(params);
-      }, 200);
-    }
+  function saveLastDebounced(params) {
+    if (persistBlocked) return;
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      persistTimer = 0;
+      saveLastNow(params);
+    }, 200);
+  }
 
     /* Loads last-used settings; before scene init it only patches params (no rebuild calls). */
-    function loadLastSettings(params) {
-      try {
-        const raw = localStorage.getItem(STORAGE_LAST);
-        if (!raw) return;
+  function loadLastSettings(params) {
+    try {
+      const raw = localStorage.getItem(STORAGE_LAST);
+      if (!raw) return;
 
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== "object" || !parsed.settings || typeof parsed.settings !== "object") return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== "object" || !parsed.settings || typeof parsed.settings !== "object") return;
 
         // If the scene is already ready, use the normal settings pipeline.
-        if (typeof scene !== "undefined" && scene) {
-          applySettings(parsed.settings, { rebuild: false, updateGui: false, persist: false });
-          return;
-        }
+      if (typeof scene !== "undefined" && scene) {
+        applySettings(parsed.settings, { rebuild: false, updateGui: false, persist: false });
+        return;
+      }
 
         // Early boot: copy only known primitive params (prevents calling rebuild* before scene exists).
-        const s = parsed.settings;
-        for (const k of Object.keys(s)) {
-          if (!Object.prototype.hasOwnProperty.call(params, k)) continue;
-          const v = s[k];
-          if (typeof v === "number" || typeof v === "boolean" || typeof v === "string") {
-            params[k] = v;
-          }
+      const s = parsed.settings;
+      for (const k of Object.keys(s)) {
+        if (!Object.prototype.hasOwnProperty.call(params, k)) continue;
+        const v = s[k];
+        if (typeof v === "number" || typeof v === "boolean" || typeof v === "string") {
+          params[k] = v;
         }
-      } catch (e) {
-        console.warn("[snow] load last failed", e);
       }
+    } catch (e) {
+      console.warn("[snow] load last failed", e);
     }
+  }
 
 
     // IndexedDB presets -------------------------------------------------------
 
-    const IDB_NAME = "snow-presets";
-    const IDB_STORE = "presets";
-    const IDB_VERSION = 1;
+  const IDB_NAME = "snow-presets";
+  const IDB_STORE = "presets";
+  const IDB_VERSION = 1;
 
-    function idbOpen() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open(IDB_NAME, IDB_VERSION);
-        req.onupgradeneeded = () => {
-          const db = req.result;
-          if (!db.objectStoreNames.contains(IDB_STORE)) {
-            db.createObjectStore(IDB_STORE, { keyPath: "name" });
-          }
-        };
-        req.onsuccess = () => resolve(req.result);
+  function idbOpen() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE, { keyPath: "name" });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbPutPreset(name, settings) {
+    const db = await idbOpen();
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, "readwrite");
+        tx.onerror = () => reject(tx.error);
+        tx.objectStore(IDB_STORE).put({ name, savedAt: Date.now(), settings });
+        tx.oncomplete = () => resolve();
+      });
+    } finally {
+      db.close();
+    }
+  }
+
+  async function idbGetPreset(name) {
+    const db = await idbOpen();
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, "readonly");
+        tx.onerror = () => reject(tx.error);
+        const req = tx.objectStore(IDB_STORE).get(name);
+        req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => reject(req.error);
       });
+    } finally {
+      db.close();
     }
+  }
 
-    async function idbPutPreset(name, settings) {
-      const db = await idbOpen();
-      try {
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction(IDB_STORE, "readwrite");
-          tx.onerror = () => reject(tx.error);
-          tx.objectStore(IDB_STORE).put({ name, savedAt: Date.now(), settings });
-          tx.oncomplete = () => resolve();
-        });
-      } finally {
-        db.close();
-      }
+  async function idbDeletePreset(name) {
+    const db = await idbOpen();
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, "readwrite");
+        tx.onerror = () => reject(tx.error);
+        tx.objectStore(IDB_STORE).delete(name);
+        tx.oncomplete = () => resolve();
+      });
+    } finally {
+      db.close();
     }
+  }
 
-    async function idbGetPreset(name) {
-      const db = await idbOpen();
-      try {
-        return await new Promise((resolve, reject) => {
-          const tx = db.transaction(IDB_STORE, "readonly");
-          tx.onerror = () => reject(tx.error);
-          const req = tx.objectStore(IDB_STORE).get(name);
-          req.onsuccess = () => resolve(req.result || null);
-          req.onerror = () => reject(req.error);
-        });
-      } finally {
-        db.close();
-      }
+  async function idbListPresetNames() {
+    const db = await idbOpen();
+    try {
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, "readonly");
+        tx.onerror = () => reject(tx.error);
+        const req = tx.objectStore(IDB_STORE).getAllKeys();
+        req.onsuccess = () => {
+          const list = (req.result || []).map(String).sort();
+          resolve(list);
+        };
+        req.onerror = () => reject(req.error);
+      });
+    } finally {
+      db.close();
     }
+  }
 
-    async function idbDeletePreset(name) {
-      const db = await idbOpen();
-      try {
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction(IDB_STORE, "readwrite");
-          tx.onerror = () => reject(tx.error);
-          tx.objectStore(IDB_STORE).delete(name);
-          tx.oncomplete = () => resolve();
-        });
-      } finally {
-        db.close();
-      }
-    }
-
-    async function idbListPresetNames() {
-      const db = await idbOpen();
-      try {
-        return await new Promise((resolve, reject) => {
-          const tx = db.transaction(IDB_STORE, "readonly");
-          tx.onerror = () => reject(tx.error);
-          const req = tx.objectStore(IDB_STORE).getAllKeys();
-          req.onsuccess = () => {
-            const list = (req.result || []).map(String).sort();
-            resolve(list);
-          };
-          req.onerror = () => reject(req.error);
-        });
-      } finally {
-        db.close();
-      }
-    }
-
-    function sanitizePresetName(s) {
-      const name = String(s ?? "").replace(/\.[a-z0-9]+$/i, "").trim();
-      if (!name) return "";
-      return name.replace(/\s+/g, " ").slice(0, 96);
-    }
+  function sanitizePresetName(s) {
+    const name = String(s ?? "").replace(/\.[a-z0-9]+$/i, "").trim();
+    if (!name) return "";
+    return name.replace(/\s+/g, " ").slice(0, 96);
+  }
 
     // File input for JSON import ---------------------------------------------
 
-    let importInput = null;
-    function ensureImportInput() {
-      if (importInput) return importInput;
-      importInput = document.createElement("input");
-      importInput.type = "file";
-      importInput.accept = "application/json,.json";
-      importInput.style.position = "fixed";
-      importInput.style.left = "-9999px";
-      importInput.style.top = "-9999px";
-      document.body.appendChild(importInput);
-      return importInput;
-    }
+  let importInput = null;
+  function ensureImportInput() {
+    if (importInput) return importInput;
+    importInput = document.createElement("input");
+    importInput.type = "file";
+    importInput.accept = "application/json,.json";
+    importInput.style.position = "fixed";
+    importInput.style.left = "-9999px";
+    importInput.style.top = "-9999px";
+    document.body.appendChild(importInput);
+    return importInput;
+  }
 
     // Parameters (includes gust/turbulence)
     // -------------------------------------------------------------------------
 
-    const DEFAULTS = {
+  const DEFAULTS = {
 
-      avatarId: DEFAULT_AVATAR_ID,
-      avatarMaxStepUp: 0.37,
-      avatarFallStart: 0.8,
+    avatarId: DEFAULT_AVATAR_ID,
+    avatarMaxStepUp: 0.37,
+    avatarFallStart: 0.8,
 
 
   // Performance
-      shadowsEnabled: true,
-      shadowsAutoUpdate: true,
+    shadowsEnabled: true,
+    shadowsAutoUpdate: true,
       shadowType: "PCFSoft",   // "PCFSoft" | "PCF" | "Basic"
       shadowMapSize: 1024,     // 256 | 512 | 1024 | 2048 | 4096
 
@@ -2791,7 +2812,9 @@ button {
             center: worldEditObbCenter.clone(),
             halfX: hx,
             halfZ: hz,
-            yaw: worldEditObbEuler.y
+            yaw: worldEditObbEuler.y,
+            yMin: worldEditObbBox.min.y,
+            yMax: worldEditObbBox.max.y
           });
         }
       }
@@ -2800,6 +2823,7 @@ button {
         tickVehicleProximity();
       }
     }
+
 
     /**
      * Enables/disables world editor mode. When disabled, selection is cleared and edit-only overlays close.
@@ -3034,9 +3058,12 @@ button {
         center: worldEditObbCenter.clone(),
         halfX: hx,
         halfZ: hz,
-        yaw: worldEditObbEuler.y
+        yaw: worldEditObbEuler.y,
+        yMin: worldEditObbBox.min.y,
+        yMax: worldEditObbBox.max.y
       };
     }
+
 
     /**
      * Removes a model instance from the scene and runtime maps by id.
@@ -3866,10 +3893,14 @@ button {
       exportWorldModelsJson() {
         exportWorldModelsJson();
       },
+      exportDefaultModelJson() {
+        exportDefaultModelJson();
+      },
       importWorldModelsJson() {
         importWorldModelsJson();
       }
     };
+
 
     let worldModelsConfig = null;
     let worldModelsConfigLoaded = false;
@@ -4465,6 +4496,24 @@ button {
         downloadJson(snapshot, "world_models.json");
       })();
     }
+
+    function exportDefaultModelJson() {
+      (async () => {
+        try {
+          const res = await fetch(WORLD_MODELS_URL, { cache: "no-store" });
+          if (res && res.ok) {
+            const json = await res.json();
+            downloadJson(json, "default_model.json");
+            return;
+          }
+        } catch (e) {}
+
+        downloadJson(MODEL_CONFIG, "default_model.json");
+      })();
+    }
+
+
+
 
 
     /**
@@ -5275,9 +5324,12 @@ button {
               center: obbTmpCenter.clone(),
               halfX: hx,
               halfZ: hz,
-              yaw: obbTmpEuler.y
+              yaw: obbTmpEuler.y,
+              yMin: obbTmpBox.min.y,
+              yMax: obbTmpBox.max.y
             };
           }
+
 
           (async () => {
             const config = await getWorldModelsConfig();
@@ -5446,10 +5498,16 @@ button {
      * Pushes the avatar out of penetration and removes velocity component into the obstacle for sliding.
      */
     const avatarCollision = {
-      radius: 0.35,
-      skin: 0.02,
-      iterations: 3
+      radius: 0.2,
+      skin: 0,
+      iterations: 3,
+
+      probeY: 1.05,
+      maxStep: 0.22,
+      maxSlideIters: 3,
+      broadphasePad: 0.9
     };
+
 
     const avatarColTmpPos = new THREE.Vector3();
     const avatarColN = new THREE.Vector3();
@@ -5515,9 +5573,6 @@ button {
 
 
 
-
-
-
     function resolveAvatarXZCollisions(pos) {
       const limX = Math.max(0.5, visualBounds.x - (avatarCollision.radius + 0.25));
       const limZ = Math.max(0.5, visualBounds.z - (avatarCollision.radius + 0.25));
@@ -5528,6 +5583,10 @@ button {
       const rA = avatarCollision.radius;
       const skin = avatarCollision.skin;
 
+      /* Ignores XZ push-out from colliders whose vertical span does not overlap the avatar body. */
+      const bodyMinY = pos.y - 0.05;
+      const bodyMaxY = pos.y + avatarCollision.probeY + 0.55;
+
       for (let iter = 0; iter < avatarCollision.iterations; iter++) {
         let pushed = false;
 
@@ -5537,6 +5596,14 @@ button {
           for (let c = 0; c < candidates.length; c++) {
             const b = colliderBounds[candidates[c]];
             if (!b) continue;
+
+            if (Number.isFinite(b.yMin) && Number.isFinite(b.yMax)) {
+              if (b.yMin > bodyMaxY || b.yMax < bodyMinY) continue;
+            } else if (b.center && Number.isFinite(b.center.y) && Number.isFinite(b.radius)) {
+              const minY = b.center.y - b.radius;
+              const maxY = b.center.y + b.radius;
+              if (minY > bodyMaxY || maxY < bodyMinY) continue;
+            }
 
             const sumR = rA + b.radius + skin;
             const dx = pos.x - b.center.x;
@@ -5570,13 +5637,17 @@ button {
             const obb = avatarModelColliderOBBs[i];
             if (!obb) continue;
 
+            if (Number.isFinite(obb.yMin) && Number.isFinite(obb.yMax)) {
+              if (obb.yMin > bodyMaxY || obb.yMax < bodyMinY) continue;
+            }
+
             const dxw = pos.x - obb.center.x;
             const dzw = pos.z - obb.center.z;
 
             const c = Math.cos(obb.yaw);
             const s = Math.sin(obb.yaw);
 
-        // world -> local
+            // world -> local
             const lx = dxw * c + dzw * s;
             const lz = -dxw * s + dzw * c;
 
@@ -5587,21 +5658,16 @@ button {
             const dzl = lz - cz;
 
             const d2 = dxl * dxl + dzl * dzl;
-            const sumR = rA + skin;
-
-            if (d2 >= sumR * sumR) continue;
+            if (d2 >= (rA + skin) * (rA + skin)) continue;
 
             const d = Math.sqrt(d2) || 1e-6;
-            const push = sumR - d;
+            const push = (rA + skin) - d;
 
             let nlx = dxl / d;
             let nlz = dzl / d;
 
-        // if inside (rare), choose shortest axis
             if (!Number.isFinite(nlx) || !Number.isFinite(nlz)) {
-              const px = obb.halfX - Math.abs(lx);
-              const pz = obb.halfZ - Math.abs(lz);
-              if (px < pz) {
+              if (Math.abs(lx) > Math.abs(lz)) {
                 nlx = lx >= 0 ? 1 : -1;
                 nlz = 0;
               } else {
@@ -5610,7 +5676,7 @@ button {
               }
             }
 
-        // local -> world normal
+            // local -> world normal
             const nx = nlx * c - nlz * s;
             const nz = nlx * s + nlz * c;
 
@@ -5627,12 +5693,20 @@ button {
           }
         }
 
+        if (!pushed) break;
+
         pos.x = clamp(pos.x, -limX, limX);
         pos.z = clamp(pos.z, -limZ, limZ);
-
-        if (!pushed) break;
       }
     }
+
+
+
+
+
+
+
+
 
 
 
@@ -6098,6 +6172,43 @@ button {
       avatarCurrentActionName = "jump";
     }
 
+
+    function getWorldSurfaceYBelow(x, z, maxY) {
+  /* Returns the highest traversable surface at XZ that is NOT above maxY. */
+      const snowY = getSnowSurfaceY(x, z);
+
+      if (!worldGroundMeshes || worldGroundMeshes.length === 0) return snowY;
+
+  // Keep matrices fresh when world-editing/transforming objects.
+      if (worldEditState && worldEditState.enabled) {
+        for (let i = 0; i < worldGroundMeshes.length; i++) {
+          const m = worldGroundMeshes[i];
+          if (m && m.matrixWorldNeedsUpdate) m.updateWorldMatrix(true, false);
+        }
+      }
+
+      const limitY = Number.isFinite(maxY) ? maxY : Infinity;
+
+      worldGroundRayOrigin.set(x, snowY + 1000.0, z);
+      worldGroundRaycaster.near = 0.0;
+      worldGroundRaycaster.far = 2000.0;
+      worldGroundRaycaster.set(worldGroundRayOrigin, worldGroundRayDir);
+
+      const hits = worldGroundRaycaster.intersectObjects(worldGroundMeshes, false);
+      if (!hits || hits.length === 0) return snowY;
+
+  // Ray hits are sorted nearest-first (highest surfaces first). Pick first hit that is not above maxY.
+      for (let i = 0; i < hits.length; i++) {
+        const y = hits[i] && hits[i].point ? hits[i].point.y : NaN;
+        if (!Number.isFinite(y)) continue;
+        if (y <= limitY + 1e-5) return y > snowY ? y : snowY;
+      }
+
+      return snowY;
+    }
+
+
+
     /**
      * Requests a jump if avatar is enabled, not mounted, and currently grounded.
      */
@@ -6111,7 +6222,14 @@ button {
       const isJetpack = (action === "jetpack") || (type === "jetpack");
 
       if (isJetpack) {
-        let groundY = getWorldSurfaceY(avatar.position.x, avatar.position.z);
+        const maxStepUp = Number.isFinite(params.avatarMaxStepUp) ? params.avatarMaxStepUp : 0.0;
+
+        let groundY = getWorldSurfaceYBelow(
+          avatar.position.x,
+          avatar.position.z,
+          avatar.position.y + maxStepUp + 1e-4
+          );
+
         if (!Number.isFinite(groundY)) groundY = avatarJumpState.groundY;
 
         avatarJumpState.groundY = groundY;
@@ -6138,6 +6256,7 @@ button {
 
 
 
+
     /**
      * Integrates vertical jump motion and resolves landing back to the current surface height.
      * Keeps groundY tracking the traversable surface so the avatar runs on terrain and lands correctly while moving.
@@ -6152,109 +6271,173 @@ button {
         return;
       }
 
-      const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
+      if (!avatarJumpState._lastGrounded) {
+        avatarJumpState._lastGrounded = { x: avatar.position.x, y: avatar.position.y, z: avatar.position.z };
+      }
+
+      const meta =
+      equipmentState.enabled && equipmentState.item && equipmentState.item.meta
+      ? equipmentState.item.meta
+      : null;
+
       const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
       const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
-      const isJetpack = (action === "jetpack") || (type === "jetpack");
+      const isJetpack = action === "jetpack" || type === "jetpack";
 
-      let groundY = getWorldSurfaceY(avatar.position.x, avatar.position.z);
+      const maxStepUp = Number.isFinite(params.avatarMaxStepUp) ? params.avatarMaxStepUp : 0.0;
+      const jetGroundEps = Number.isFinite(avatarJetpackConfig.groundEps) ? avatarJetpackConfig.groundEps : 0.06;
+      const landEps = 0.06;
+
+  // When grounded (not active), allow small step-ups. When airborne, never allow snapping upward.
+      const snapLimitY =
+      !avatarJumpState.active
+      ? (avatar.position.y + maxStepUp + 1e-4)
+      : (avatar.position.y + (isJetpack ? jetGroundEps : landEps));
+
+      let groundY = getWorldSurfaceYBelow(avatar.position.x, avatar.position.z, snapLimitY);
       if (!Number.isFinite(groundY)) groundY = avatarJumpState.groundY;
 
-      if (!isJetpack) {
-        if (!avatarJumpState.active) {
-          const fallStart = Number.isFinite(params.avatarFallStart) ? params.avatarFallStart : 0.0;
+  // Jetpack vertical movement (never snaps upward onto higher surfaces).
+      if (isJetpack) {
+        const keyUp = !!avatarKeys.jump;
+        const keyDown = !!avatarKeys.jetDown;
 
-          if (Number.isFinite(groundY) && fallStart > 0.0) {
-            const drop = avatar.position.y - groundY;
+        const wantsUp = keyUp || (joystickRightState && joystickRightState.active && joystickRightState.valueY < -0.18);
+        const wantsDown = keyDown || (joystickRightState && joystickRightState.active && joystickRightState.valueY > 0.18);
+        const hasThrust = wantsUp || wantsDown;
 
-            if (drop > fallStart) {
-              avatarJumpState.groundY = groundY;
-              avatarJumpState.vy = 0.0;
-              avatarJumpState.active = true;
-              avatarJumpState.grounded = false;
+    // Re-evaluate "onSurface" with a strict limit tied to current Y (prevents tower-top teleport).
+        let groundY2 = getWorldSurfaceYBelow(avatar.position.x, avatar.position.z, avatar.position.y + jetGroundEps);
+        if (!Number.isFinite(groundY2)) groundY2 = groundY;
 
-              if (avatarMixer && avatarActions && avatarActions.jump) {
-                if (avatarCurrentActionName !== "jump") playAvatarJumpAction();
-              }
-              return;
-            }
-          }
+        const onSurface =
+        Number.isFinite(groundY2) &&
+        (avatar.position.y <= groundY2 + jetGroundEps);
 
+        if (!avatarJumpState.active && !hasThrust && onSurface) {
           avatarJumpState.grounded = true;
           avatarJumpState.vy = 0.0;
-          avatarJumpState.groundY = groundY;
+          avatarJumpState.groundY = groundY2;
+          avatar.position.y = groundY2;
 
-          if (Number.isFinite(groundY)) {
-            avatar.position.y = groundY;
-          }
+          const p = avatarJumpState._lastGrounded;
+          p.x = avatar.position.x; p.y = avatar.position.y; p.z = avatar.position.z;
           return;
         }
 
-        avatarJumpState.groundY = groundY;
+        avatarJumpState.active = true;
+        avatarJumpState.grounded = false;
+        avatarJumpState.groundY = groundY2;
 
-        avatarJumpState.vy -= avatarJumpConfig.gravity * dt;
+        if (!Number.isFinite(avatarJumpState.vy)) avatarJumpState.vy = 0.0;
+
+        let ay = -(Number.isFinite(avatarJetpackConfig.gravity) ? avatarJetpackConfig.gravity : 0.0);
+        if (wantsUp) ay += (Number.isFinite(avatarJetpackConfig.thrustUp) ? avatarJetpackConfig.thrustUp : 0.0);
+        if (wantsDown) ay -= (Number.isFinite(avatarJetpackConfig.thrustDown) ? avatarJetpackConfig.thrustDown : 0.0);
+
+        avatarJumpState.vy += ay * dt;
+
+    // Jetpack damping (was using a missing config field -> NaN -> avatar disappears).
+        const drag = Number.isFinite(avatarJetpackConfig.drag) ? avatarJetpackConfig.drag : 0.0;
+        avatarJumpState.vy *= Math.exp(-drag * dt);
+
+        const maxUp = Number.isFinite(avatarJetpackConfig.maxUpSpeed) ? avatarJetpackConfig.maxUpSpeed : 999.0;
+        const maxDown = Number.isFinite(avatarJetpackConfig.maxDownSpeed) ? avatarJetpackConfig.maxDownSpeed : 999.0;
+        avatarJumpState.vy = Math.max(-maxDown, Math.min(maxUp, avatarJumpState.vy));
+
+        if (!Number.isFinite(avatarJumpState.vy)) avatarJumpState.vy = 0.0;
+
         avatar.position.y += avatarJumpState.vy * dt;
 
-        if (Number.isFinite(avatarJumpState.groundY) && avatar.position.y <= avatarJumpState.groundY) {
-          avatar.position.y = avatarJumpState.groundY;
+        if (!Number.isFinite(avatar.position.y)) {
+          avatar.position.y = Number.isFinite(groundY2) ? groundY2 : 0.0;
           avatarJumpState.vy = 0.0;
           avatarJumpState.active = false;
           avatarJumpState.grounded = true;
-        } else {
-          avatarJumpState.grounded = false;
-          if (avatarMixer && avatarActions && avatarActions.jump) {
-            if (avatarCurrentActionName !== "jump") playAvatarJumpAction();
+          return;
+        }
+
+    // Landing check uses "below current Y" so it cannot snap upward.
+        let landY = getWorldSurfaceYBelow(avatar.position.x, avatar.position.z, avatar.position.y + jetGroundEps);
+        if (!Number.isFinite(landY)) landY = avatarJumpState.groundY;
+
+        if (Number.isFinite(landY) && avatar.position.y < landY) {
+          avatar.position.y = landY;
+          avatarJumpState.vy = 0.0;
+          avatarJumpState.grounded = true;
+
+          if (!hasThrust) {
+            avatarJumpState.active = false;
+
+            const p = avatarJumpState._lastGrounded;
+            p.x = avatar.position.x; p.y = avatar.position.y; p.z = avatar.position.z;
           }
         }
+
         return;
       }
 
-      const keyUp = !!avatarKeys.jump;
-      const keyDown = !!avatarKeys.jetDown;
+  // Non-jetpack jump / fall.
+      if (!avatarJumpState.active) {
+        const fallStart = Number.isFinite(params.avatarFallStart) ? params.avatarFallStart : 0.0;
 
-      const wantsUp = keyUp || (joystickRightState && joystickRightState.active && joystickRightState.valueY < -0.18);
-      const wantsDown = keyDown || (joystickRightState && joystickRightState.active && joystickRightState.valueY > 0.18);
-      const hasThrust = wantsUp || wantsDown;
+        if (Number.isFinite(groundY) && fallStart > 0.0) {
+          const drop = avatar.position.y - groundY;
+          if (drop > fallStart) {
+            avatarJumpState.groundY = groundY;
+            avatarJumpState.vy = 0.0;
+            avatarJumpState.active = true;
+            avatarJumpState.grounded = false;
 
-      const onSurface =
-      Number.isFinite(groundY) &&
-      (avatar.position.y <= groundY + avatarJetpackConfig.groundEps);
+            if (avatarMixer && avatarActions && avatarActions.jump) {
+              if (avatarCurrentActionName !== "jump") playAvatarJumpAction();
+            }
+            return;
+          }
+        }
 
-      if (!avatarJumpState.active && !hasThrust && onSurface) {
         avatarJumpState.grounded = true;
         avatarJumpState.vy = 0.0;
         avatarJumpState.groundY = groundY;
 
-        if (Number.isFinite(groundY)) avatar.position.y = groundY;
+        if (Number.isFinite(groundY)) {
+          avatar.position.y = groundY;
+        }
+
+        const p = avatarJumpState._lastGrounded;
+        p.x = avatar.position.x; p.y = avatar.position.y; p.z = avatar.position.z;
         return;
       }
 
-      avatarJumpState.active = true;
-      avatarJumpState.grounded = false;
+  // Airborne integration.
       avatarJumpState.groundY = groundY;
 
+      avatarJumpState.vy -= avatarJumpConfig.gravity * dt;
       if (!Number.isFinite(avatarJumpState.vy)) avatarJumpState.vy = 0.0;
-
-      let ay = -avatarJetpackConfig.gravity;
-
-      if (wantsUp) ay += avatarJetpackConfig.thrustUp;
-      if (wantsDown) ay -= avatarJetpackConfig.thrustDown;
-
-      avatarJumpState.vy += ay * dt;
-      avatarJumpState.vy *= Math.exp(-avatarJetpackConfig.damp * dt);
 
       avatar.position.y += avatarJumpState.vy * dt;
 
-      if (Number.isFinite(groundY) && avatar.position.y < groundY) {
-        avatar.position.y = groundY;
+  // Landing check (no upward snap).
+      let landY = getWorldSurfaceYBelow(avatar.position.x, avatar.position.z, avatar.position.y + landEps);
+      if (!Number.isFinite(landY)) landY = avatarJumpState.groundY;
+
+      if (Number.isFinite(landY) && avatar.position.y <= landY) {
+        avatar.position.y = landY;
         avatarJumpState.vy = 0.0;
+        avatarJumpState.active = false;
         avatarJumpState.grounded = true;
 
-        if (!hasThrust) {
-          avatarJumpState.active = false;
-        }
+        const p = avatarJumpState._lastGrounded;
+        p.x = avatar.position.x; p.y = avatar.position.y; p.z = avatar.position.z;
+        return;
+      }
+
+      avatarJumpState.grounded = false;
+      if (avatarMixer && avatarActions && avatarActions.jump) {
+        if (avatarCurrentActionName !== "jump") playAvatarJumpAction();
       }
     }
+
 
 
 
@@ -6648,9 +6831,13 @@ button {
           }
 
           avatarSweepDir.copy(avatarAttemptVec).multiplyScalar(1 / attemptLen);
-          avatarSweepFrom.set(pos.x, pos.y + avatarCollision.probeY, pos.z);
+          const sweepY0 = pos.y + 0.25;
+          const sweepY1 = pos.y + avatarCollision.probeY;
+          const sweepY2 = pos.y + avatarCollision.probeY + 0.55;
 
-          avatarRaycaster.set(avatarSweepFrom, avatarSweepDir);
+          const sweepMinY = sweepY0;
+          const sweepMaxY = sweepY2;
+
           avatarRaycaster.far = attemptLen + avatarCollision.radius + avatarCollision.skin;
 
           let bestHit = null;
@@ -6659,6 +6846,14 @@ button {
           for (const cb of colliderBounds) {
             const obj = cb && cb.obj;
             if (!obj || !obj.isMesh) continue;
+
+            if (Number.isFinite(cb.yMin) && Number.isFinite(cb.yMax)) {
+              if (cb.yMin > (sweepMaxY + avatarCollision.skin) || cb.yMax < (sweepMinY - avatarCollision.skin)) continue;
+            } else if (cb.center && Number.isFinite(cb.center.y) && Number.isFinite(cb.radius)) {
+              const minY = cb.center.y - cb.radius;
+              const maxY = cb.center.y + cb.radius;
+              if (minY > (sweepMaxY + avatarCollision.skin) || maxY < (sweepMinY - avatarCollision.skin)) continue;
+            }
 
             obj.updateWorldMatrix(true, false);
 
@@ -6670,13 +6865,28 @@ button {
             const r = rBase + avatarCollision.radius + attemptLen + avatarCollision.broadphasePad;
             if (dx * dx + dz * dz > r * r) continue;
 
-            const hits = avatarRaycaster.intersectObject(obj, false);
-            if (!hits || hits.length === 0) continue;
+            let localHit = null;
+            let localDist = Infinity;
 
-            const h = hits[0];
-            if (h.distance < bestDist) {
-              bestDist = h.distance;
-              bestHit = h;
+            for (let sy = 0; sy < 3; sy++) {
+              const y = sy === 0 ? sweepY0 : (sy === 1 ? sweepY1 : sweepY2);
+              avatarSweepFrom.set(pos.x, y, pos.z);
+              avatarRaycaster.set(avatarSweepFrom, avatarSweepDir);
+              const hits = avatarRaycaster.intersectObject(obj, false);
+              if (!hits || hits.length === 0) continue;
+
+              const h = hits[0];
+              if (h.distance < localDist) {
+                localDist = h.distance;
+                localHit = h;
+              }
+            }
+
+            if (!localHit) continue;
+
+            if (localDist < bestDist) {
+              bestDist = localDist;
+              bestHit = localHit;
             }
           }
 
@@ -6734,11 +6944,10 @@ button {
           avatarAttemptVec.copy(avatarSweepVec);
         }
 
-        if (!resolvedThisStep) {
-          break;
-        }
+        if (!resolvedThisStep) break;
 
-        remainingLen -= stepLen;
+        remainingLen = Math.max(0, remainingLen - traveled);
+        avatarSweepVec.set(moveX, 0, moveZ);
         if (remainingLen <= 1e-6) break;
       }
 
@@ -6747,26 +6956,28 @@ button {
 
 
 
-    /**
+/**
      * Returns true when stepping onto the surface at (x,z) would require rising
      * more than params.avatarMaxStepUp above prevGroundY.
      */
     function isAvatarStepUpBlocked(prevGroundY, x, z) {
       const maxStepUp = Number.isFinite(params.avatarMaxStepUp) ? params.avatarMaxStepUp : 0.0;
-      if (!(maxStepUp > 0.0)) return false;
+      if (!Number.isFinite(maxStepUp) || maxStepUp < 0) return false;
       if (!Number.isFinite(prevGroundY)) return false;
 
       const nextY = getWorldSurfaceY(x, z);
       if (!Number.isFinite(nextY)) return false;
 
-      return (nextY - prevGroundY) > maxStepUp;
+      return (nextY - prevGroundY) > (maxStepUp + 1e-4);
     }
-
-
-
-    /* Updates avatar horizontal movement + yaw + gait switching from keyboard/left joystick inputs. */
+/* Updates avatar horizontal movement + yaw + gait switching from keyboard/left joystick inputs. */
     function updateAvatarFromInputs(dt) {
       if (!avatar || !avatarState.enabled) return;
+
+      const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
+      const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
+      const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
+      const isJetpack = (action === "jetpack") || (type === "jetpack");
 
       let forwardAmount = 0;
       let strafeAmount = 0;
@@ -6824,10 +7035,6 @@ button {
           avatarMoveDir.set(0, 0, 0);
         }
 
-        const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
-        const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
-        const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
-        const isJetpack = (action === "jetpack") || (type === "jetpack");
         const jetpackFlying = isJetpack && !!avatarJumpState.active && !avatarJumpState.grounded;
 
         let baseSpeed = wantsRun ? AVATAR_RUN_SPEED : AVATAR_WALK_SPEED;
@@ -6861,11 +7068,6 @@ button {
       const prevX = avatar.position.x;
       const prevZ = avatar.position.z;
 
-      const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
-      const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
-      const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
-      const isJetpack = (action === "jetpack") || (type === "jetpack");
-
       const maxStepUp = Number.isFinite(params.avatarMaxStepUp) ? params.avatarMaxStepUp : 0.0;
       const stepCheckActive =
       (maxStepUp > 0.0) &&
@@ -6884,14 +7086,16 @@ button {
         avatarTmpMove.y = 0;
 
         if (stepCheckActive && avatarTmpMove.lengthSq() > 1e-14) {
-          avatarTmpVec.set(prevX + avatarTmpMove.x, avatar.position.y, prevZ + avatarTmpMove.z);
+          avatarTmpVec.set(prevX, avatar.position.y, prevZ);
+          moveAvatarXZWithCollisions(avatarTmpVec, avatarTmpMove.x, avatarTmpMove.z);
           resolveAvatarXZCollisions(avatarTmpVec);
 
           if (isAvatarStepUpBlocked(prevGroundY, avatarTmpVec.x, avatarTmpVec.z)) {
             let moved = false;
 
             if (Math.abs(avatarTmpMove.x) > 1e-12) {
-              avatarTmpVec.set(prevX + avatarTmpMove.x, avatar.position.y, prevZ);
+              avatarTmpVec.set(prevX, avatar.position.y, prevZ);
+              moveAvatarXZWithCollisions(avatarTmpVec, avatarTmpMove.x, 0);
               resolveAvatarXZCollisions(avatarTmpVec);
 
               if (!isAvatarStepUpBlocked(prevGroundY, avatarTmpVec.x, avatarTmpVec.z)) {
@@ -6902,7 +7106,8 @@ button {
             }
 
             if (!moved && Math.abs(avatarTmpMove.z) > 1e-12) {
-              avatarTmpVec.set(prevX, avatar.position.y, prevZ + avatarTmpMove.z);
+              avatarTmpVec.set(prevX, avatar.position.y, prevZ);
+              moveAvatarXZWithCollisions(avatarTmpVec, 0, avatarTmpMove.z);
               resolveAvatarXZCollisions(avatarTmpVec);
 
               if (!isAvatarStepUpBlocked(prevGroundY, avatarTmpVec.x, avatarTmpVec.z)) {
@@ -6922,8 +7127,57 @@ button {
             avatar.position.z = avatarTmpVec.z;
           }
         } else {
-          avatar.position.add(avatarTmpMove);
-          resolveAvatarXZCollisions(avatar.position);
+          avatarTmpVec.set(prevX, avatar.position.y, prevZ);
+          moveAvatarXZWithCollisions(avatarTmpVec, avatarTmpMove.x, avatarTmpMove.z);
+          resolveAvatarXZCollisions(avatarTmpVec);
+
+          const airborne = !!avatarJumpState.active && !avatarJumpState.grounded;
+          if (airborne) {
+            const airEps = 0.06;
+            const nextY = getWorldSurfaceY(avatarTmpVec.x, avatarTmpVec.z);
+
+            if (Number.isFinite(nextY) && nextY > (avatar.position.y + airEps)) {
+              let moved = false;
+
+              if (Math.abs(avatarTmpMove.x) > 1e-12) {
+                avatarTmpVec.set(prevX, avatar.position.y, prevZ);
+                moveAvatarXZWithCollisions(avatarTmpVec, avatarTmpMove.x, 0);
+                resolveAvatarXZCollisions(avatarTmpVec);
+
+                const nxY = getWorldSurfaceY(avatarTmpVec.x, avatarTmpVec.z);
+                if (!(Number.isFinite(nxY) && nxY > (avatar.position.y + airEps))) {
+                  avatar.position.x = avatarTmpVec.x;
+                  avatar.position.z = avatarTmpVec.z;
+                  moved = true;
+                }
+              }
+
+              if (!moved && Math.abs(avatarTmpMove.z) > 1e-12) {
+                avatarTmpVec.set(prevX, avatar.position.y, prevZ);
+                moveAvatarXZWithCollisions(avatarTmpVec, 0, avatarTmpMove.z);
+                resolveAvatarXZCollisions(avatarTmpVec);
+
+                const nzY = getWorldSurfaceY(avatarTmpVec.x, avatarTmpVec.z);
+                if (!(Number.isFinite(nzY) && nzY > (avatar.position.y + airEps))) {
+                  avatar.position.x = avatarTmpVec.x;
+                  avatar.position.z = avatarTmpVec.z;
+                  moved = true;
+                }
+              }
+
+              if (!moved) {
+                avatar.position.x = prevX;
+                avatar.position.z = prevZ;
+                resolveAvatarXZCollisions(avatar.position);
+              }
+            } else {
+              avatar.position.x = avatarTmpVec.x;
+              avatar.position.z = avatarTmpVec.z;
+            }
+          } else {
+            avatar.position.x = avatarTmpVec.x;
+            avatar.position.z = avatarTmpVec.z;
+          }
         }
 
         if (avatarState.viewMode === "third") {
@@ -6942,13 +7196,8 @@ button {
       const dz = avatar.position.z - prevZ;
       const actualSpeed = dt > 0 ? (Math.sqrt(dx * dx + dz * dz) / dt) : 0;
 
-      const airborne = !!avatarJumpState.active && !avatarJumpState.grounded;
-      if (airborne) {
-        const meta = (equipmentState.enabled && equipmentState.item && equipmentState.item.meta) ? equipmentState.item.meta : null;
-        const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
-        const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
-        const isJetpack = (action === "jetpack") || (type === "jetpack");
-
+      const airborneNow = !!avatarJumpState.active && !avatarJumpState.grounded;
+      if (airborneNow) {
         if (isJetpack) {
           switchAvatarAction("idle");
         } else {
@@ -6971,10 +7220,6 @@ button {
       updateAvatarClipSpeed(actualSpeed);
       stampSnowFromAvatar(actualSpeed);
     }
-
-
-
-
 
 
 
@@ -7304,10 +7549,16 @@ button {
         if (avatar) avatarJumpState.groundY = avatar.position.y;
       }
 
+      if (typeof window.__avatarLevelHelpersTick === "function") {
+        window.__avatarLevelHelpersTick();
+      }
+
       if (avatarMixer) {
         avatarMixer.update(dt);
       }
     }
+
+
 
 
 
@@ -7612,7 +7863,7 @@ button {
 
 
 
-/* Minimap UI: renders a centered crop in the top-left and a full-world overlay map. */
+    /* Minimap UI: renders a centered crop in the top-left and a full-world overlay map. */
     const minimapState = {
       miniBtn: null,
       miniCanvas: null,
@@ -7621,11 +7872,13 @@ button {
       overlayCanvas: null,
       overlayCtx: null,
       open: false,
-  mode: 0, /* 0=small, 1=medium, 2=overlay */
+      mode: 0, /* 0=small, 1=medium, 2=overlay */
       viewHalfWorld: 140,
       staticPoints: [],
+      groundRects: [],
       lastDrawMs: 0
     };
+
 
 /* Applies the current minimap mode to DOM state and accessibility labels. */
     function applyMinimapModeToUI() {
@@ -7746,7 +7999,38 @@ button {
         pts.push({ x, z, kind });
       }
       minimapState.staticPoints = pts;
+
+      const rectsByKey = new Map();
+      const box = new THREE.Box3();
+
+      if (Array.isArray(worldGroundMeshes) && worldGroundMeshes.length) {
+        for (let i = 0; i < worldGroundMeshes.length; i++) {
+          const mesh = worldGroundMeshes[i];
+          if (!mesh) continue;
+
+          let root = mesh;
+          while (root && root.parent && !(root.userData && root.userData.worldEditId)) root = root.parent;
+
+          const key = (root && root.userData && root.userData.worldEditId) ? String(root.userData.worldEditId) : (root ? root.uuid : "");
+          if (!key || rectsByKey.has(key)) continue;
+
+          root.updateWorldMatrix(true, true);
+          box.setFromObject(root);
+
+          if (!Number.isFinite(box.min.x) || !Number.isFinite(box.max.x) || !Number.isFinite(box.min.z) || !Number.isFinite(box.max.z)) continue;
+
+          rectsByKey.set(key, {
+            minX: box.min.x,
+            maxX: box.max.x,
+            minZ: box.min.z,
+            maxZ: box.max.z
+          });
+        }
+      }
+
+      minimapState.groundRects = Array.from(rectsByKey.values());
     }
+
 
     function drawMinimapFrame(force) {
       if (!minimapState.miniCtx || !minimapState.miniCanvas) return;
@@ -7805,6 +8089,28 @@ button {
 
       drawWorldBoundsDashed(ctx, scale, -focusX, -focusZ);
 
+      if (minimapState.groundRects && minimapState.groundRects.length) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.22)";
+        ctx.lineWidth = 1;
+
+        const cullX = w * 0.6;
+        const cullZ = h * 0.6;
+
+        for (const r of minimapState.groundRects) {
+          const x0 = (r.minX - focusX) * scale;
+          const x1 = (r.maxX - focusX) * scale;
+          const z0 = (r.minZ - focusZ) * scale;
+          const z1 = (r.maxZ - focusZ) * scale;
+
+          if (x1 < -cullX || x0 > cullX || z1 < -cullZ || z0 > cullZ) continue;
+
+          ctx.strokeRect(x0, z0, (x1 - x0), (z1 - z0));
+        }
+
+        ctx.restore();
+      }
+
       for (const p of minimapState.staticPoints) {
         const x = (p.x - focusX) * scale;
         const z = (p.z - focusZ) * scale;
@@ -7831,6 +8137,7 @@ button {
       ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
       ctx.restore();
     }
+
 
 
     function drawWorldCenterCross(ctx, x, z) {
@@ -7887,6 +8194,22 @@ button {
 
       drawWorldBoundsDashed(ctx, scale, 0, 0);
 
+      if (minimapState.groundRects && minimapState.groundRects.length) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.22)";
+        ctx.lineWidth = 1;
+
+        for (const r of minimapState.groundRects) {
+          const x0 = r.minX * scale;
+          const x1 = r.maxX * scale;
+          const z0 = r.minZ * scale;
+          const z1 = r.maxZ * scale;
+          ctx.strokeRect(x0, z0, (x1 - x0), (z1 - z0));
+        }
+
+        ctx.restore();
+      }
+
       for (const p of minimapState.staticPoints) {
         const x = p.x * scale;
         const z = p.z * scale;
@@ -7906,6 +8229,7 @@ button {
 
       ctx.restore();
     }
+
 
 
     function drawWorldBoundsDashed(ctx, scale, offsetX, offsetZ) {
@@ -10996,6 +11320,10 @@ function setupWorldEditObjectGui(folder) {
 }
 
 
+
+
+
+
 /**
  * Adds avatar locomotion limits (step-up + ledge-fall start) controls to lil-gui.
  * Max step up blocks stepping onto ledges higher than the threshold while grounded.
@@ -11004,18 +11332,307 @@ function setupWorldEditObjectGui(folder) {
 function setupAvatarStepGui(folder) {
   if (!folder) return;
 
-  const stepFolder = folder.addFolder("Step");
+  const state = (window.__avatarLevelHelpersState ||= {
+    enabled: false,
+    baseY: 0,
+    group: null,
+    tiles: [],
+    meshes: null
+  });
 
-  trackController(
-    stepFolder.add(params, "avatarMaxStepUp", 0.0, 3.0, 0.01).name("Max step up").listen()
+  // Helper area controls (only width + height).
+  if (typeof params.avatarHelpersWidth !== "number") params.avatarHelpersWidth = 10;   // tiles left/right
+  if (typeof params.avatarHelpersHeight !== "number") params.avatarHelpersHeight = 12; // tiles forward/back
+
+  // Per-value helper toggles (no master toggle).
+  if (typeof params.avatarHelperShowBase !== "boolean") params.avatarHelperShowBase = false;
+  if (typeof params.avatarHelperShowMaxStepUp !== "boolean") params.avatarHelperShowMaxStepUp = false;
+  if (typeof params.avatarHelperShowFallStart !== "boolean") params.avatarHelperShowFallStart = false;
+
+  // Jump helper toggles are per-slider, but both control the same "Max height" plane.
+  if (typeof params.avatarHelperShowMaxHeightFromVelocity !== "boolean") params.avatarHelperShowMaxHeightFromVelocity = false;
+  if (typeof params.avatarHelperShowMaxHeightFromGravity !== "boolean") params.avatarHelperShowMaxHeightFromGravity = false;
+
+  // Jump tuning uses: maxHeight ≈ v^2 / (2g)
+  const jumpUi = { maxHeight: 0.0 };
+
+  function computeJumpMaxHeight() {
+    const v = Number.isFinite(avatarJumpConfig.initialVelocity) ? avatarJumpConfig.initialVelocity : 0.0;
+    const g = Number.isFinite(avatarJumpConfig.gravity) ? Math.max(1e-6, avatarJumpConfig.gravity) : 1e-6;
+    return (v * v) / (2.0 * g);
+  }
+
+  function recomputeJumpMaxHeight() {
+    jumpUi.maxHeight = Number(computeJumpMaxHeight().toFixed(3));
+  }
+
+  function wantMaxHeightHelper() {
+    return !!(params.avatarHelperShowMaxHeightFromVelocity || params.avatarHelperShowMaxHeightFromGravity);
+  }
+
+  function anyHelperVisible() {
+    return !!(
+      params.avatarHelperShowBase ||
+      params.avatarHelperShowMaxStepUp ||
+      params.avatarHelperShowFallStart ||
+      wantMaxHeightHelper()
+      );
+  }
+
+  function clampInt(v, lo, hi) {
+    v = (v | 0);
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+  }
+
+  function desiredInstanceCount() {
+    const w = clampInt(params.avatarHelpersWidth, 1, 60);
+    const h = clampInt(params.avatarHelpersHeight, 1, 60);
+    return (w * 2 + 1) * (h * 2 + 1);
+  }
+
+  function buildTiles() {
+    state.tiles.length = 0;
+
+    const w = clampInt(params.avatarHelpersWidth, 1, 60);
+    const h = clampInt(params.avatarHelpersHeight, 1, 60);
+
+    for (let z = -h; z <= h; z++) {
+      for (let x = -w; x <= w; x++) {
+        state.tiles.push({ x, z });
+      }
+    }
+  }
+
+  function disposeLevelHelpers() {
+    if (!state.group) return;
+
+    if (state.meshes) {
+      const list = [state.meshes.base, state.meshes.maxStepUp, state.meshes.fallStart, state.meshes.maxHeight].filter(Boolean);
+      for (let i = 0; i < list.length; i++) {
+        const m = list[i];
+        if (m.geometry) m.geometry.dispose();
+        if (m.material) m.material.dispose();
+      }
+    }
+
+    if (state.group.parent) state.group.parent.remove(state.group);
+
+    state.enabled = false;
+    state.group = null;
+    state.meshes = null;
+    state.tiles.length = 0;
+    window.__avatarLevelHelpersTick = null;
+  }
+
+  // Depth-tested transparent planes so avatar shading is not tinted "on top".
+  function makeInstancedPlane(hex, count) {
+    const geo = new THREE.PlaneGeometry(1, 1);
+    geo.rotateX(-Math.PI / 2);
+
+    const mat = new THREE.MeshBasicMaterial({
+      color: hex,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      depthTest: true,
+      depthWrite: false,
+      fog: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    });
+
+    mat.toneMapped = false;
+
+    const mesh = new THREE.InstancedMesh(geo, mat, count);
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 10;
+
+    if (mesh.instanceMatrix && mesh.instanceMatrix.setUsage) {
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    }
+
+    return mesh;
+  }
+
+  function updateVisibilityFromParams() {
+    if (!state.meshes) return;
+
+    if (state.meshes.base) state.meshes.base.visible = !!params.avatarHelperShowBase;
+    if (state.meshes.maxStepUp) state.meshes.maxStepUp.visible = !!params.avatarHelperShowMaxStepUp;
+    if (state.meshes.fallStart) state.meshes.fallStart.visible = !!params.avatarHelperShowFallStart;
+    if (state.meshes.maxHeight) state.meshes.maxHeight.visible = wantMaxHeightHelper();
+  }
+
+  function updateHelpersNow() {
+    if (!anyHelperVisible()) return;
+    if (!avatar || !state.group || !state.meshes) return;
+
+    updateVisibilityFromParams();
+
+    // Base follows the avatar's current ground level (so walking onto higher terrain updates helpers).
+    const groundedY =
+    (typeof avatarJumpState !== "undefined" && avatarJumpState && Number.isFinite(avatarJumpState.groundY))
+    ? avatarJumpState.groundY
+    : (Number.isFinite(avatar.position.y) ? avatar.position.y : state.baseY);
+
+    if (Number.isFinite(groundedY)) state.baseY = groundedY;
+
+    const baseY = state.baseY;
+    const stepY = baseY + (Number.isFinite(params.avatarMaxStepUp) ? params.avatarMaxStepUp : 0.0);
+    const fallY = baseY - (Number.isFinite(params.avatarFallStart) ? params.avatarFallStart : 0.0);
+    const jumpY = baseY + computeJumpMaxHeight();
+
+    // Helpers are axis-aligned in world-space (no rotation with avatar).
+    state.group.position.set(avatar.position.x, 0, avatar.position.z);
+    state.group.rotation.set(0, 0, 0);
+
+    const eps = 0.05;
+
+    const setLevel = (inst, y) => {
+      const m = new THREE.Matrix4();
+      for (let i = 0; i < state.tiles.length; i++) {
+        const t = state.tiles[i];
+        m.makeTranslation(t.x, y + eps, t.z);
+        inst.setMatrixAt(i, m);
+      }
+      inst.instanceMatrix.needsUpdate = true;
+    };
+
+    if (state.meshes.base && state.meshes.base.visible) setLevel(state.meshes.base, baseY);
+    if (state.meshes.maxStepUp && state.meshes.maxStepUp.visible) setLevel(state.meshes.maxStepUp, stepY);
+    if (state.meshes.maxHeight && state.meshes.maxHeight.visible) setLevel(state.meshes.maxHeight, jumpY);
+    if (state.meshes.fallStart && state.meshes.fallStart.visible) setLevel(state.meshes.fallStart, fallY);
+  }
+
+  function ensureLevelHelpers() {
+    if (!anyHelperVisible()) {
+      disposeLevelHelpers();
+      return;
+    }
+
+    if (!avatar || !scene) return;
+
+    const wantCount = desiredInstanceCount();
+    const haveCount = state.meshes?.base?.count || 0;
+
+    if (state.group && haveCount && wantCount !== haveCount) {
+      disposeLevelHelpers();
+    }
+
+    if (!state.group) {
+      state.enabled = true;
+
+      const grounded =
+      (typeof avatarJumpState !== "undefined" && avatarJumpState && Number.isFinite(avatarJumpState.groundY))
+      ? avatarJumpState.groundY
+      : (Number.isFinite(avatar.position.y) ? avatar.position.y : 0.0);
+
+      state.baseY = grounded;
+
+      buildTiles();
+      const count = state.tiles.length;
+
+      state.group = new THREE.Group();
+      state.group.name = "AvatarLevelHelpers";
+      scene.add(state.group);
+
+      state.meshes = {
+        base: makeInstancedPlane(0x00ff00, count),       // Base level (start)
+        maxStepUp: makeInstancedPlane(0xffff00, count),  // Max step up
+        maxHeight: makeInstancedPlane(0x00aaff, count),  // Max height (jump)
+        fallStart: makeInstancedPlane(0xff3355, count)   // Fall start
+      };
+
+      state.group.add(state.meshes.base);
+      state.group.add(state.meshes.maxStepUp);
+      state.group.add(state.meshes.maxHeight);
+      state.group.add(state.meshes.fallStart);
+
+      window.__avatarLevelHelpersTick = updateHelpersNow;
+    }
+
+    updateHelpersNow();
+  }
+
+  function wireCtrl(ctrl, onChange) {
+    if (typeof guiControllers !== "undefined" && guiControllers && guiControllers.push) {
+      guiControllers.push(ctrl);
+    }
+    ctrl.onChange(() => {
+      if (typeof onChange === "function") onChange();
+      if (typeof saveLastDebounced === "function") saveLastDebounced(params);
+    });
+    return ctrl;
+  }
+
+  recomputeJumpMaxHeight();
+
+  wireCtrl(
+    folder.add(params, "avatarHelperShowBase").name("Base level — Show helper").listen(),
+    () => ensureLevelHelpers()
     );
 
-  trackController(
-    stepFolder.add(params, "avatarFallStart", 0.0, 3.0, 0.01).name("Fall start").listen()
+  wireCtrl(
+    folder.add(params, "avatarMaxStepUp", 0.0, 3.0, 0.01).name("Max step up").listen(),
+    () => ensureLevelHelpers()
+    );
+  wireCtrl(
+    folder.add(params, "avatarHelperShowMaxStepUp").name("Show helper").listen(),
+    () => ensureLevelHelpers()
     );
 
-  stepFolder.close();
+  wireCtrl(
+    folder.add(params, "avatarFallStart", 0.0, 3.0, 0.01).name("Fall start").listen(),
+    () => ensureLevelHelpers()
+    );
+  wireCtrl(
+    folder.add(params, "avatarHelperShowFallStart").name("Show helper").listen(),
+    () => ensureLevelHelpers()
+    );
+
+  wireCtrl(
+    folder.add(avatarJumpConfig, "initialVelocity", 0.5, 15.0, 0.05).name("Jump velocity").listen(),
+    () => {
+      recomputeJumpMaxHeight();
+      ensureLevelHelpers();
+    }
+    );
+  wireCtrl(
+    folder.add(params, "avatarHelperShowMaxHeightFromVelocity").name("Show helper").listen(),
+    () => ensureLevelHelpers()
+    );
+
+  wireCtrl(
+    folder.add(avatarJumpConfig, "gravity", 1.0, 30.0, 0.1).name("Jump gravity").listen(),
+    () => {
+      recomputeJumpMaxHeight();
+      ensureLevelHelpers();
+    }
+    );
+  wireCtrl(
+    folder.add(params, "avatarHelperShowMaxHeightFromGravity").name("Show helper").listen(),
+    () => ensureLevelHelpers()
+    );
+
+  const maxHeightCtrl = folder.add(jumpUi, "maxHeight").name("Max height (m)").listen();
+  if (typeof maxHeightCtrl.disable === "function") maxHeightCtrl.disable();
+
+  wireCtrl(
+    folder.add(params, "avatarHelpersWidth", 1, 60, 1).name("Helpers width").listen(),
+    () => ensureLevelHelpers()
+    );
+  wireCtrl(
+    folder.add(params, "avatarHelpersHeight", 1, 60, 1).name("Helpers height").listen(),
+    () => ensureLevelHelpers()
+    );
+
+  ensureLevelHelpers();
 }
+
+
 
 
 
@@ -12207,52 +12824,62 @@ const tmpMatrix = new THREE.Matrix4();
 const tmpDir = new THREE.Vector3();
 
 
+
+
+
+
 // Rock builder ------------------------------------------------------------
 // Builds a deterministic scattered rock field (annulus distribution) and updates collision bounds.
+// Rock builder ------------------------------------------------------------
+
+// Rock builder ------------------------------------------------------------
 
 function rebuildRocks() {
   if (!scene) return;
 
-  /* Removes old rocks from scene/colliders and disposes per-rock cloned materials. */
-  for (const r of rocks) {
-    if (!r) continue;
-    if (r.material && r.material !== rockMat && typeof r.material.dispose === "function") {
-      r.material.dispose();
+  /* Builds a deterministic scattered rock field (50% buried by default) and refreshes collision/minimap data. */
+
+  // Remove old rocks from scene & collider lists
+  if (Array.isArray(rocks) && rocks.length) {
+    for (const r of rocks) {
+      if (!r) continue;
+      if (r.parent) r.parent.remove(r);
+
+      if (r.material && r.material !== rockMat && typeof r.material.dispose === "function") {
+        r.material.dispose();
+      }
     }
-    if (r.parent === scene) scene.remove(r);
   }
   rocks.length = 0;
 
-  colliderObjects = colliderObjects.filter((obj) => !obj.__isRock);
+  colliderObjects = colliderObjects.filter((obj) => !obj || !obj.__isRock);
 
-  const lerp1 = (a, b, t) => a + (b - a) * t;
-  const smooth01 = (t) => t * t * (3 - 2 * t);
-
-  const hash2i = (ix, iy, seed) => {
-    let h = (ix | 0) * 374761393 + (iy | 0) * 668265263 + (seed | 0) * 1442695041;
-    h = (h ^ (h >>> 13)) | 0;
-    h = Math.imul(h, 1274126177);
-    h = (h ^ (h >>> 16)) | 0;
-    return ((h >>> 0) / 4294967295);
+  // 2D value noise + FBM helpers (deterministic, cheap)
+  const hash2 = (x, y, seed) => {
+    const n = (x * 374761393 + y * 668265263 + seed * 1442695040888963407) | 0;
+    let t = n ^ (n >>> 13);
+    t = (t * 1274126177) | 0;
+    return ((t ^ (t >>> 16)) >>> 0) / 4294967295;
   };
 
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const smooth = (t) => t * t * (3 - 2 * t);
+
   const valueNoise2 = (x, y, seed) => {
-    const xi = Math.floor(x);
-    const yi = Math.floor(y);
-    const xf = x - xi;
-    const yf = y - yi;
+    const xi = Math.floor(x), yi = Math.floor(y);
+    const xf = x - xi, yf = y - yi;
 
-    const u = smooth01(xf);
-    const v = smooth01(yf);
+    const v00 = hash2(xi, yi, seed);
+    const v10 = hash2(xi + 1, yi, seed);
+    const v01 = hash2(xi, yi + 1, seed);
+    const v11 = hash2(xi + 1, yi + 1, seed);
 
-    const a = hash2i(xi, yi, seed);
-    const b = hash2i(xi + 1, yi, seed);
-    const c = hash2i(xi, yi + 1, seed);
-    const d = hash2i(xi + 1, yi + 1, seed);
+    const u = smooth(xf);
+    const v = smooth(yf);
 
-    const ab = lerp1(a, b, u);
-    const cd = lerp1(c, d, u);
-    return lerp1(ab, cd, v);
+    const a = lerp(v00, v10, u);
+    const b = lerp(v01, v11, u);
+    return lerp(a, b, v) * 2.0 - 1.0;
   };
 
   const fbm2 = (x, y, seed, octaves, lacunarity, gain) => {
@@ -12262,8 +12889,7 @@ function rebuildRocks() {
     let norm = 0.0;
 
     for (let o = 0; o < octaves; o++) {
-      const n = valueNoise2(x * freq, y * freq, seed + o * 1013);
-      sum += amp * (n * 2.0 - 1.0);
+      sum += amp * valueNoise2(x * freq, y * freq, seed + o * 1013);
       norm += amp;
       amp *= gain;
       freq *= lacunarity;
@@ -12329,97 +12955,91 @@ if (rockVariantKey !== variantKey) {
       tmpN.copy(tmpV).normalize();
 
       const n0 = fbm3Approx(tmpV.x, tmpV.y, tmpV.z, seed, noiseOct, noiseLac, noiseGain, noiseFreq);
+      const n1 = 1.0 - Math.abs(n0);
+      const n = n0 * (1.0 - ridgeBlend) + n1 * ridgeBlend;
 
-      const rid = 1.0 - Math.abs(n0);
-      const rid2 = (rid * rid - 0.5) * 2.0;
-
-      const n = lerp1(n0, rid2, ridgeBlend);
       tmpV.addScaledVector(tmpN, n * noiseAmp);
-
       pos.setXYZ(i, tmpV.x, tmpV.y, tmpV.z);
     }
 
+    pos.needsUpdate = true;
     geo.computeVertexNormals();
     geo.computeBoundingBox();
 
-    let midY = 0.0;
-    if (geo.boundingBox) {
-      midY = (geo.boundingBox.min.y + geo.boundingBox.max.y) * 0.5;
-    }
+    const bb = geo.boundingBox;
+    const midY = bb ? (bb.min.y + bb.max.y) * 0.5 : 0.0;
 
     rockVariantGeos.push(geo);
     rockVariantMidY.push(midY);
   }
 
   rockVariantKey = variantKey;
-
-  rockGeo = rockVariantGeos[0] || rockGeo;
-  rockGeoMidY = rockVariantMidY[0] || 0.0;
 }
 
-const rng = makeSeededRandom((params.rockSeed * 1000003) | 0);
+const count = clamp((params.rockCount | 0), 0, 20000);
+if (count <= 0) {
+  colliderBounds = buildColliderBounds(colliderObjects);
+  rebuildAvatarCollisionGrid();
+  refreshMinimapStaticPoints();
+  drawMinimapFrame(true);
+  return;
+}
 
-const count = clamp(params.rockCount | 0, 0, 800);
-const maxR = clamp(params.rockRadius, 1.0, HALF_GROUND - 1.0);
-const minR = clamp(params.rockInnerRadius, 0.0, Math.max(maxR - 1.0, 0.0));
-const minS = Math.max(0.01, params.rockMinScale);
-const maxS = Math.max(minS, params.rockMaxScale);
-const jitter = clamp(params.rockJitter, 0.0, 3.0);
+const radius = clamp(params.rockRadius, 0.0, 5000.0);
+const innerR = clamp(params.rockInnerRadius, 0.0, radius);
+const minS = clamp(params.rockMinScale, 0.01, 100.0);
+const maxS = clamp(params.rockMaxScale, minS, 200.0);
+const jitter = clamp(params.rockJitter, 0.0, 25.0);
 
-const flatten = clamp(params.rockFlatten, 0.0, 1.0);
+const flatten = clamp(params.rockFlatten, 0.0, 0.85);
 const aniso = clamp(params.rockAnisotropy, 0.0, 1.0);
-const embed = clamp(params.rockEmbed, 0.0, 2.0);
+const embed = clamp(params.rockEmbed, 0.0, 10.0);
 const colorVar = clamp(params.rockColorVar, 0.0, 1.0);
 
+const rng = makeSeededRandom((params.rockSeed | 0) ^ 0x9e3779b9);
+
 for (let i = 0; i < count; i++) {
-  const t = rng();
-  const rBase = Math.sqrt(t);
-  const r = minR + (maxR - minR) * rBase;
+  const ang = rng() * Math.PI * 2.0;
+  const rr = innerR * innerR + rng() * (radius * radius - innerR * innerR);
+  const r = Math.sqrt(Math.max(0.0, rr));
 
-  let ang = rng() * Math.PI * 2.0;
-  ang += (rng() - 0.5) * jitter * 0.4;
+  const px = Math.cos(ang) * r + (rng() * 2.0 - 1.0) * jitter;
+  const pz = Math.sin(ang) * r + (rng() * 2.0 - 1.0) * jitter;
 
-  let x = Math.cos(ang) * r;
-  let z = Math.sin(ang) * r;
+  const groundY = sampleSnowHeight(px, pz);
+  if (!Number.isFinite(groundY)) continue;
 
-  x += (rng() - 0.5) * jitter;
-  z += (rng() - 0.5) * jitter;
-
-  const vIdx = (variantCount <= 1) ? 0 : ((rng() * variantCount) | 0);
-  const geo = rockVariantGeos[vIdx] || rockGeo;
-  const midY = (rockVariantMidY[vIdx] != null) ? rockVariantMidY[vIdx] : rockGeoMidY;
+  const vIdx = Math.floor(rng() * variantCount) % variantCount;
+  const geo = rockVariantGeos[vIdx];
 
   let mat = rockMat;
   if (colorVar > 0.0001) {
     mat = rockMat.clone();
-    const k = 1.0 + (rng() - 0.5) * 2.0 * colorVar;
-    if (mat.color) mat.color.multiplyScalar(clamp(k, 0.2, 2.0));
-
-    mat.roughness = clamp(baseRough + (rng() - 0.5) * 2.0 * colorVar * 0.25, 0.0, 1.0);
-    mat.metalness = clamp(baseMetal + (rng() - 0.5) * 2.0 * colorVar * 0.20, 0.0, 1.0);
+    const dv = (rng() * 2.0 - 1.0) * colorVar;
+    if (mat.color) mat.color.offsetHSL(0.0, 0.0, dv);
   }
 
-  const rock = new THREE.Mesh(geo, mat);
-
   const s = minS + (maxS - minS) * rng();
-  const sx = 1.0 + (rng() - 0.5) * 2.0 * aniso * 0.45;
-  const sz = 1.0 + (rng() - 0.5) * 2.0 * aniso * 0.45;
-  const sy = 1.0 - rng() * flatten;
+  const sy = Math.max(0.15, 1.0 - flatten * (0.35 + 0.65 * rng()));
+
+  const k = (rng() * 2.0 - 1.0) * (0.65 * aniso);
+  const sx = Math.max(0.25, 1.0 + k);
+  const sz = Math.max(0.25, 1.0 - k);
+
+  const rock = new THREE.Mesh(geo, mat);
+  rock.__isRock = true;
 
   rock.scale.set(s * sx, s * sy, s * sz);
 
-  const groundY = sampleSnowHeight(x, z);
-  rock.position.set(x, groundY - midY * (s * sy) - embed * s, z);
+    // Ground passes through the rock's vertical mid (50% buried), with optional extra embed.
+  const midY = (rockVariantMidY[vIdx] || 0.0) * rock.scale.y;
+  rock.position.set(px, groundY - midY - embed, pz);
 
   rock.rotation.set(
+    (rng() * 2.0 - 1.0) * 0.25,
     rng() * Math.PI * 2.0,
-    rng() * Math.PI * 2.0,
-    rng() * Math.PI * 2.0
+    (rng() * 2.0 - 1.0) * 0.25
     );
-
-  rock.castShadow = true;
-  rock.receiveShadow = true;
-  rock.__isRock = true;
 
   scene.add(rock);
   rocks.push(rock);
@@ -12428,14 +13048,18 @@ for (let i = 0; i < count; i++) {
 
 colliderBounds = buildColliderBounds(colliderObjects);
 rebuildAvatarCollisionGrid();
+refreshMinimapStaticPoints();
+drawMinimapFrame(true);
 }
 
 
 
 
 
-    // Forest builder ----------------------------------------------------------
 
+
+
+    // Forest builder ----------------------------------------------------------
 function rebuildForest() {
   if (!scene) return;
 
@@ -12464,11 +13088,7 @@ function rebuildForest() {
 
   const count = clamp(params.forestCount | 0, 0, 4000);
   const maxR = clamp(params.forestRadius, 1.0, HALF_GROUND - 1.0);
-  const minR = clamp(
-    params.forestInnerRadius,
-    0.0,
-    Math.max(maxR - 1.0, 0.0)
-    );
+  const minR = clamp(params.forestInnerRadius, 0.0, Math.max(maxR - 1.0, 0.0));
   const minS = Math.max(0.2, params.forestMinScale);
   const maxS = Math.max(minS, params.forestMaxScale);
   const jitter = clamp(params.forestJitter, 0.0, 3.0);
@@ -12484,15 +13104,16 @@ function rebuildForest() {
     let x = Math.cos(ang) * r;
     let z = Math.sin(ang) * r;
 
-    x += (rng() - 0.5) * jitter;
-    z += (rng() - 0.5) * jitter;
+    x += (rng() - 0.5) * jitter * 0.4;
+    z += (rng() - 0.5) * jitter * 0.4;
 
     const tree = new THREE.Mesh(forestConeGeo, forestConeMat);
 
     const scale = minS + (maxS - minS) * rng();
     tree.scale.set(scale, scale, scale);
 
-    const y = 1.65 * scale;
+    const groundY = sampleSnowHeight(x, z);
+    const y = groundY + 1.65 * scale;
     tree.position.set(x, y, z);
 
     tree.rotation.y = rng() * Math.PI * 2.0;
@@ -12507,7 +13128,10 @@ function rebuildForest() {
 
   colliderBounds = buildColliderBounds(colliderObjects);
   rebuildAvatarCollisionGrid();
+  refreshMinimapStaticPoints();
+  drawMinimapFrame(true);
 }
+
 
 
 
@@ -14735,6 +15359,13 @@ function buildColliderBounds(objs) {
       const bs = obj.geometry.boundingSphere;
       if (!bs) continue;
 
+      if (!obj.geometry.boundingBox) obj.geometry.computeBoundingBox();
+      if (obj.geometry.boundingBox) {
+        box.copy(obj.geometry.boundingBox).applyMatrix4(obj.matrixWorld);
+      } else {
+        box.setFromObject(obj);
+      }
+
       boundCenter.copy(bs.center);
       obj.localToWorld(boundCenter);
 
@@ -14764,7 +15395,9 @@ function buildColliderBounds(objs) {
     out.push({
       obj,
       center: boundCenter.clone(),
-      radius: Number.isFinite(radius) ? radius : bs.radius
+      radius: Number.isFinite(radius) ? radius : bs.radius,
+      yMin: Number.isFinite(box.min.y) ? box.min.y : (boundCenter.y - (Number.isFinite(radius) ? radius : bs.radius)),
+      yMax: Number.isFinite(box.max.y) ? box.max.y : (boundCenter.y + (Number.isFinite(radius) ? radius : bs.radius))
     });
 
     continue;
@@ -14785,12 +15418,16 @@ function buildColliderBounds(objs) {
   out.push({
     obj,
     center: center.clone(),
-    radius: Number.isFinite(radius) ? radius : 0.0
+    radius: Number.isFinite(radius) ? radius : 0.0,
+    yMin: Number.isFinite(box.min.y) ? box.min.y : (center.y - (Number.isFinite(radius) ? radius : 0.0)),
+    yMax: Number.isFinite(box.max.y) ? box.max.y : (center.y + (Number.isFinite(radius) ? radius : 0.0))
   });
 }
 
 return out;
 }
+
+
 
 
 
@@ -16881,8 +17518,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         worldModels.add(worldModelsIoState, "source").name("Config source").listen();
         worldModels.add(worldModelsIoState, "openWorlds").name("Worlds...");
         worldModels.add(worldModelsIoState, "exportWorldModelsJson").name("Export world");
+        worldModels.add(worldModelsIoState, "exportDefaultModelJson").name("Export default_model.json");
         worldModels.add(worldModelsIoState, "importWorldModelsJson").name("Import world");
         worldModels.close();
+
 
 
 
@@ -17920,12 +18559,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         }
       }
 
-
-
-
-      /**
-       * Unified key handler.
-       */
+/**
+ * Unified key handler.
+ */
       function onKeyDown(event) {
         const tag = event.target && event.target.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA") return;
@@ -17949,6 +18585,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         if (isWorldSave) {
           event.preventDefault();
           if (!event.repeat) saveActiveWorld();
+          return;
+        }
+
+  // Ctrl/Cmd + E toggles world edit mode (E alone stays for interact).
+        if (event.code === "KeyE" && (event.metaKey || event.ctrlKey)) {
+          if (event.repeat) return;
+          event.preventDefault();
+          setWorldEditEnabled(!worldEditState.enabled);
           return;
         }
 
@@ -17989,7 +18633,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
               transformControls.setMode("translate");
               return;
 
-            case "KeyE":
+            case "KeyT":
               event.preventDefault();
               transformControls.setMode("rotate");
               return;
@@ -18057,36 +18701,39 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
-        if (event.code === "KeyE") {
+  // E toggles vehicle enter/exit; also equips nearby items when on foot.
+        if (event.code === "KeyE" && !event.metaKey && !event.ctrlKey) {
+          if (event.repeat) return;
           event.preventDefault();
 
+          if (!avatarState.enabled) return;
+
+    // If currently driving, E exits.
           if (vehicleDriveState.enabled) {
             exitVehicle();
             return;
           }
 
+          const near = vehiclePromptState.nearby;
+          if (!near) return;
+
+          if (near.kind === "equipment") {
+            if (!equipmentState.enabled) equipItem(near);
+            return;
+          }
+
+          enterVehicle(near);
+          return;
+        }
+
+  // O exits vehicle or unequips item (kept as an explicit exit).
+        if (event.code === "KeyO") {
+          event.preventDefault();
+
           if (equipmentState.enabled) {
             unequipItem();
             return;
           }
-
-          const near = vehiclePromptState.nearby;
-
-          if (near && avatarState.enabled) {
-            if (near.kind === "equipment") {
-              equipItem(near);
-              return;
-            }
-
-            enterVehicle(near);
-            return;
-          }
-
-          return;
-        }
-
-        if (event.code === "KeyO") {
-          event.preventDefault();
 
           if (vehicleDriveState.enabled) {
             exitVehicle();
@@ -18169,6 +18816,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           break;
         }
       }
+
+
 
 
       function onKeyUp(event) {

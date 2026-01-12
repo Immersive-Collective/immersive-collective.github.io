@@ -175,3 +175,47 @@ Nearby checks:
 * `O`: exit vehicle (when driving). 
 * The prompt panel also has click handlers for enter/exit/close.
 
+
+
+
+
+### Two independent “collision” systems are running
+
+#### 1) Horizontal collision (XZ) against obstacles (trees/rocks/cars)
+
+* The avatar is treated as a **circle in XZ** (radius `avatarCollision.radius`) with a small buffer `skin`. 
+* Each frame, horizontal intent is computed in `updateAvatarFromInputs(dt)` and then the avatar is moved in XZ and **pushed out of overlaps** by `resolveAvatarXZCollisions(pos)`. 
+* `resolveAvatarXZCollisions` does:
+
+  * **Clamp to playable bounds** (so you can’t leave the snow area). 
+  * **Broadphase** via a spatial hash grid built from `colliderBounds` (sphere bounds for “forest/rocks + stick meshes”). 
+  * For each overlapping collider sphere: pushes the avatar out, and removes the component of `avatarVelocity` going *into* the obstacle (so it slides). 
+  * Also resolves overlaps against **OBB colliders** (cars etc.) in `avatarModelColliderOBBs`, again pushing out and removing into-normal velocity.
+
+So: **XZ obstacle collision is “overlap then push-out”** (not true swept collision), which is why corner pop/tunneling can happen on fast movement or large `dt` spikes.
+
+#### 2) Vertical “ground / terrain” collision (Y) via sampled surface height
+
+* Vertical collision is not done with the obstacle colliders above. It uses a separate “what is the ground under (x,z)?” query: `getWorldSurfaceY(x,z)`. 
+* `getWorldSurfaceY` returns:
+
+  * The snow/terrain height (`getSnowSurfaceY` → `sampleSnowHeight` etc.), **plus**
+  * The highest hit from a **downward raycast** against `worldGroundMeshes` (instances flagged `ground:true`). 
+
+So: avatar Y is “snapped / landed” onto the **highest traversable surface** at the current XZ.
+
+### How jumping + landing works
+
+* Jump starts in `requestAvatarJump()` by setting `avatarJumpState.vy` and marking `active=true`, `grounded=false`. 
+* Each frame `updateAvatarJump(dt)`:
+
+  * Recomputes `groundY = getWorldSurfaceY(avatar.position.x, avatar.position.z)` (so moving while airborne changes the target landing height).
+  * If not jumping, it keeps the avatar grounded and **sets `avatar.position.y = groundY`**.
+  * If jumping, it integrates `vy` with gravity, updates `avatar.position.y`, and **lands when `y <= groundY`**, snapping to `groundY` and clearing the jump state. 
+
+### Important implication (common cause of “jumping feels wrong on objects”)
+
+To “land on top” of an object, that object must be included in `worldGroundMeshes` (i.e., be an instance mesh flagged `ground:true`), because **landing is driven by `getWorldSurfaceY`**, not by the XZ obstacle colliders. 
+
+If you point to one example object where landing/jumping is wrong (tree? rock? car roof? custom model), it’s possible to say immediately which list it’s in (`colliderBounds` vs `worldGroundMeshes`) and why the avatar either lands correctly or falls through/bumps.
+

@@ -297,8 +297,8 @@
         "stick": false,
         "collide": true,
         "vehicle": {
-          "type": "Small Heli 1",
-          "description": "Small Heli 1",
+          "type": "helicopter",
+          "description": "This is just a helicopter",
           "seatLocal": [
             0,
             0.8,
@@ -427,6 +427,56 @@
     ]
   },
   {
+    "name": "par2",
+    "url": "models/buildings/tests/par2.glb",
+    "instances": [
+      {
+        "id": "par2",
+        "position": [
+          -2.4313654023636317,
+          0.11452559768580128,
+          7.310209823815242
+        ],
+        "rotation": [
+          3.141592653589793,
+          -1.4635359498478704,
+          3.141592653589793
+        ],
+        "scale": 1,
+        "ground": true,
+        "stick": false,
+        "collide": false
+      }
+    ]
+  },
+
+
+  {
+    "name": "par3",
+    "url": "models/buildings/tests/par3.glb",
+    "instances": [
+      {
+        "id": "par3",
+        "position": [
+          -2.4313654023636317,
+          0.11452559768580128,
+          7.310209823815242
+        ],
+        "rotation": [
+          3.141592653589793,
+          -1.4635359498478704,
+          3.141592653589793
+        ],
+        "scale": 1,
+        "ground": true,
+        "stick": false,
+        "collide": false
+      }
+    ]
+  },
+
+
+    {
     "name": "test",
     "url": "models/buildings/tests/par1.glb",
     "instances": [
@@ -434,6 +484,31 @@
         "id": "par1",
         "position": [
           -2.4313654023636317,
+          0.11452559768580128,
+          7.310209823815242
+        ],
+        "rotation": [
+          3.141592653589793,
+          -1.4635359498478704,
+          3.141592653589793
+        ],
+        "scale": 1,
+        "ground": true,
+        "stick": false,
+        "collide": false
+      }
+    ]
+  },
+
+
+  {
+    "name": "test2",
+    "url": "models/buildings/tests/parcours.glb",
+    "instances": [
+      {
+        "id": "par2",
+        "position": [
+          19.04200012684312,
           0.11452559768580128,
           7.310209823815242
         ],
