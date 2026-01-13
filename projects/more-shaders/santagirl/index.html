@@ -1063,7 +1063,7 @@ button {
 @media (max-width: 520px) {
   .avatar-picker {
     grid-template-columns: 44px 1fr 44px;
-    gap: 10px;
+    gap: 1px;
   }
 
   .avatar-picker__nav {
@@ -1244,6 +1244,162 @@ button {
   }
 }
 
+.snapshots-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16px + env(safe-area-inset-top))
+  calc(16px + env(safe-area-inset-right))
+  calc(16px + env(safe-area-inset-bottom))
+  calc(16px + env(safe-area-inset-left));
+  background: rgba(0,0,0,0.45);
+  z-index: 65;
+  pointer-events: auto;
+  backdrop-filter: blur(10px);
+}
+
+.snapshots-overlay.is-open {
+  display: flex;
+}
+
+.snapshots-overlay__panel {
+  width: min(96vw, 760px);
+  height: min(90vh, 860px);
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(12,12,12,0.65);
+  box-shadow: 0 18px 60px rgba(0,0,0,0.55);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.snapshots-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+
+.snapshots-overlay__title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.92);
+}
+
+.snapshots-overlay__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.snapshots-overlay__world {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.86);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snapshots-overlay__hint {
+  font-size: 12px;
+  color: rgba(255,255,255,0.62);
+  white-space: nowrap;
+}
+
+.snapshots-list {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.snapshot-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  align-items: center;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.22);
+  padding: 10px;
+  color: rgba(255,255,255,0.92);
+  cursor: pointer;
+  text-align: left;
+}
+
+.snapshot-item:hover {
+  border-color: rgba(255,255,255,0.20);
+  background: rgba(0,0,0,0.28);
+}
+
+.snapshot-item:active {
+  transform: translateY(1px);
+}
+
+.snapshot-item__thumb {
+  width: 160px;
+  height: 90px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+}
+
+.snapshot-item__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.snapshot-item__world {
+  font-size: 13px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snapshot-item__time {
+  font-size: 12px;
+  color: rgba(255,255,255,0.66);
+}
+
+.snapshots-empty {
+  display: none;
+  padding: 18px 12px 22px;
+  text-align: center;
+  color: rgba(255,255,255,0.66);
+  font-size: 13px;
+}
+
+.snapshots-empty.is-open {
+  display: block;
+}
+
+@media (max-width: 520px) {
+  .snapshots-overlay__panel { width: 96vw; height: 86vh; border-radius: 18px; }
+  .snapshot-item { grid-template-columns: 120px 1fr; }
+  .snapshot-item__thumb { width: 120px; height: 68px; border-radius: 10px; }
+}
+
+
+
 
 
 </style>
@@ -1386,6 +1542,25 @@ button {
     <div class="kbd-help__note">Toggle with Cmd+/ (Mac) or Ctrl+/ (Windows/Linux).</div>
   </div>
 </div>
+
+<div id="snapshotsOverlay" class="snapshots-overlay" aria-hidden="true">
+  <div class="snapshots-overlay__panel" role="dialog" aria-modal="true" aria-label="Snapshots">
+    <div class="snapshots-overlay__header">
+      <div class="snapshots-overlay__title">Snapshots</div>
+      <button id="snapshotsOverlayClose" class="avatar-btn" type="button">Close</button>
+    </div>
+
+    <div class="snapshots-overlay__meta">
+      <div id="snapshotsOverlayWorld" class="snapshots-overlay__world"></div>
+      <div class="snapshots-overlay__hint">F5 Save · F6 Load latest · F7 Toggle</div>
+    </div>
+
+    <div id="snapshotsList" class="snapshots-list" role="list"></div>
+    <div id="snapshotsEmpty" class="snapshots-empty" aria-hidden="true">No snapshots yet.</div>
+  </div>
+</div>
+
+
 
 
 
@@ -2005,6 +2180,492 @@ button {
       console.warn("[snow] load last failed", e);
     }
   }
+
+
+
+
+
+
+  // localStorage (quick save state + snapshot list)
+  const QUICK_STATE_STORAGE_KEY = "snow:quickState:v1";
+  const SNAPSHOTS_STORAGE_KEY = "snow:snapshots:v1";
+  const SNAPSHOTS_MAX = 20;
+
+  let quickStateCache = null;
+
+  const snapshotsOverlayState = {
+    wired: false,
+    open: false,
+    overlayEl: null,
+    closeBtn: null,
+    worldEl: null,
+    listEl: null,
+    emptyEl: null
+  };
+
+  /* Builds a per-player + per-world storage key (isolates snapshots by user and current world). */
+  function makeScopedStorageKey(prefix) {
+    const pid = playerProfile && typeof playerProfile.id === "string" && playerProfile.id.trim() ? playerProfile.id.trim() : "anon";
+    const wid = typeof getActiveWorldId === "function" ? (getActiveWorldId() || "") : "";
+    const w = wid && String(wid).trim() ? String(wid).trim() : "default";
+    return `${prefix}:${pid}:${w}`;
+  }
+
+  /* Formats a snapshot timestamp for list display. */
+  function formatSnapshotTime(ms) {
+    const t = Number(ms) || 0;
+    const d = new Date(t || Date.now());
+    try {
+      return d.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+    } catch {
+      return d.toString();
+    }
+  }
+
+  /* Returns the current world title used in UI. */
+  function getCurrentWorldTitle() {
+    const t = (typeof worldUiState !== "undefined" && worldUiState && typeof worldUiState.title === "string") ? worldUiState.title : "";
+    const s = String(t || "").trim();
+    return s ? s : "Default";
+  }
+
+  /* Captures a serializable snapshot of avatar + camera pose for quick retry. */
+  function buildQuickStateSnapshot() {
+    const snap = {
+      v: 1,
+      savedAt: Date.now(),
+      avatar: null,
+      camera: null,
+      meta: {
+        avatarEnabled: !!(avatarState && avatarState.enabled),
+        avatarViewMode: avatarState && typeof avatarState.viewMode === "string" ? avatarState.viewMode : "",
+        avatarChase: !!(avatarChaseCamState && avatarChaseCamState.enabled),
+        vehicleDriving: !!(vehicleDriveState && vehicleDriveState.enabled),
+        vehicleChase: !!(vehicleChaseCamState && vehicleChaseCamState.enabled)
+      }
+    };
+
+    if (avatar) {
+      snap.avatar = {
+        p: [avatar.position.x, avatar.position.y, avatar.position.z],
+        q: [avatar.quaternion.x, avatar.quaternion.y, avatar.quaternion.z, avatar.quaternion.w]
+      };
+    }
+
+    if (camera) {
+      const target = controls && controls.target ? controls.target : null;
+      snap.camera = {
+        p: [camera.position.x, camera.position.y, camera.position.z],
+        q: [camera.quaternion.x, camera.quaternion.y, camera.quaternion.z, camera.quaternion.w],
+        t: target ? [target.x, target.y, target.z] : null
+      };
+    }
+
+    return snap;
+  }
+
+  /* Persists the last quick snapshot to localStorage and caches it in memory (scoped by user+world, with legacy fallback). */
+  function saveQuickStateSnapshot() {
+    const snap = buildQuickStateSnapshot();
+    quickStateCache = snap;
+
+    const scopedKey = makeScopedStorageKey(QUICK_STATE_STORAGE_KEY);
+    try {
+      localStorage.setItem(scopedKey, JSON.stringify(snap));
+    } catch (e) {
+      try {
+        localStorage.setItem(QUICK_STATE_STORAGE_KEY, JSON.stringify(snap));
+      } catch (e2) {
+        console.warn("[snow] quick save failed", e2);
+      }
+    }
+
+    return snap;
+  }
+
+  /* Loads the last quick snapshot from localStorage (returns null when missing/invalid). */
+  function loadQuickStateSnapshot() {
+    if (quickStateCache && quickStateCache.v === 1) return quickStateCache;
+
+    const scopedKey = makeScopedStorageKey(QUICK_STATE_STORAGE_KEY);
+    const tryLoad = (k) => {
+      try {
+        const raw = localStorage.getItem(k);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || parsed.v !== 1) return null;
+        return parsed;
+      } catch {
+        return null;
+      }
+    };
+
+    const scoped = tryLoad(scopedKey);
+    if (scoped) {
+      quickStateCache = scoped;
+      return scoped;
+    }
+
+    const legacy = tryLoad(QUICK_STATE_STORAGE_KEY);
+    if (legacy) {
+      quickStateCache = legacy;
+      return legacy;
+    }
+
+    return null;
+  }
+
+  /* Applies a quick snapshot to avatar + camera and resets follow smoothing to prevent jumps. */
+  /* Applies a quick snapshot to avatar + camera and resets follow smoothing to prevent jumps. */
+  function applyQuickStateSnapshot(snap) {
+    if (!snap || snap.v !== 1) return false;
+
+    if (avatar && snap.avatar && Array.isArray(snap.avatar.p) && snap.avatar.p.length === 3) {
+      const p = snap.avatar.p;
+      const q = snap.avatar.q;
+
+      if (Number.isFinite(p[0]) && Number.isFinite(p[1]) && Number.isFinite(p[2])) {
+        avatar.position.set(p[0], p[1], p[2]);
+      }
+
+      if (Array.isArray(q) && q.length === 4 && q.every((n) => Number.isFinite(n))) {
+        const x = q[0], y = q[1], z = q[2], w = q[3];
+
+        const sinyCosp = 2 * (w * y + x * z);
+        const cosyCosp = 1 - 2 * (y * y + z * z);
+        const yaw = Math.atan2(sinyCosp, cosyCosp);
+
+        if (Number.isFinite(yaw)) {
+          avatar.rotation.set(0, yaw, 0);
+        } else {
+          avatar.quaternion.set(x, y, z, w).normalize();
+        }
+      }
+
+      if (typeof avatarVelocity !== "undefined" && avatarVelocity) avatarVelocity.set(0, 0, 0);
+      if (typeof avatarMoveDir !== "undefined" && avatarMoveDir) avatarMoveDir.set(0, 0, 0);
+
+      if (typeof avatarJumpState !== "undefined" && avatarJumpState) {
+        avatarJumpState.active = false;
+        avatarJumpState.grounded = true;
+        avatarJumpState.vy = 0.0;
+        avatarJumpState.groundY = avatar.position.y;
+        if (avatarJumpState._lastGrounded) {
+          const lg = avatarJumpState._lastGrounded;
+          lg.x = avatar.position.x; lg.y = avatar.position.y; lg.z = avatar.position.z;
+        }
+      }
+
+      if (typeof avatarKeys !== "undefined" && avatarKeys) {
+        avatarKeys.forward = false;
+        avatarKeys.back = false;
+        avatarKeys.left = false;
+        avatarKeys.right = false;
+        avatarKeys.run = false;
+        avatarKeys.jump = false;
+        avatarKeys.jetDown = false;
+      }
+
+      if (typeof avatarState !== "undefined" && avatarState) {
+        avatarState.moveX = 0;
+        avatarState.moveZ = 0;
+      }
+
+      if (typeof recomputeAvatarMoveFromKeys === "function") recomputeAvatarMoveFromKeys();
+      if (typeof resetJoystick === "function") resetJoystick();
+      if (typeof resetRightJoystick === "function") resetRightJoystick();
+
+      if (typeof avatarState !== "undefined" && avatarState && avatarState.enabled && avatar && controls) {
+        if (typeof avatarHasLastPos !== "undefined") avatarHasLastPos = true;
+
+        if (typeof avatarLastWorldPos !== "undefined" && avatarLastWorldPos) {
+          avatarLastWorldPos.set(avatar.position.x, avatar.position.y, avatar.position.z);
+        }
+
+        if (typeof avatarCameraYFollowState !== "undefined" && avatarCameraYFollowState) {
+          avatarCameraYFollowState.has = true;
+          avatarCameraYFollowState.y = avatar.position.y;
+        }
+
+        if (typeof avatarCameraYFollowFirstState !== "undefined" && avatarCameraYFollowFirstState) {
+          avatarCameraYFollowFirstState.has = true;
+          const headY =
+          typeof avatarViewConfig !== "undefined" && avatarViewConfig && Number.isFinite(avatarViewConfig.firstPersonHeight)
+          ? (avatar.position.y + avatarViewConfig.firstPersonHeight)
+          : avatar.position.y;
+          avatarCameraYFollowFirstState.y = headY;
+        }
+      }
+    }
+
+    if (camera && snap.camera && Array.isArray(snap.camera.p) && snap.camera.p.length === 3) {
+      const p = snap.camera.p;
+      const q = snap.camera.q;
+      const t = snap.camera.t;
+
+      if (Number.isFinite(p[0]) && Number.isFinite(p[1]) && Number.isFinite(p[2])) {
+        camera.position.set(p[0], p[1], p[2]);
+      }
+
+      if (Array.isArray(q) && q.length === 4 && q.every((n) => Number.isFinite(n))) {
+        camera.quaternion.set(q[0], q[1], q[2], q[3]).normalize();
+      }
+
+      if (controls && controls.target && Array.isArray(t) && t.length === 3) {
+        if (Number.isFinite(t[0]) && Number.isFinite(t[1]) && Number.isFinite(t[2])) {
+          controls.target.set(t[0], t[1], t[2]);
+        }
+      }
+
+      if (controls) controls.update();
+    }
+
+    return true;
+  }
+
+
+
+
+
+  /* Loads the snapshot list for current user+world. */
+  function loadSnapshotsList() {
+    const key = makeScopedStorageKey(SNAPSHOTS_STORAGE_KEY);
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((it) => it && typeof it === "object" && it.v === 1 && typeof it.id === "string");
+    } catch {
+      return [];
+    }
+  }
+
+  /* Persists the snapshot list for current user+world (best-effort under quota). */
+  function saveSnapshotsList(list) {
+    const key = makeScopedStorageKey(SNAPSHOTS_STORAGE_KEY);
+    const arr = Array.isArray(list) ? list.slice(0, SNAPSHOTS_MAX) : [];
+
+    try {
+      localStorage.setItem(key, JSON.stringify(arr));
+      return true;
+    } catch (e) {
+      try {
+        const trimmed = arr.slice(0, Math.max(0, Math.min(8, arr.length)));
+        localStorage.setItem(key, JSON.stringify(trimmed));
+        return true;
+      } catch (e2) {
+        try {
+          const noThumb = arr.slice(0, Math.max(0, Math.min(10, arr.length))).map((it) => {
+            const out = Object.assign({}, it);
+            out.thumb = "";
+            return out;
+          });
+          localStorage.setItem(key, JSON.stringify(noThumb));
+          return true;
+        } catch (e3) {
+          console.warn("[snow] snapshots persist failed", e3);
+          return false;
+        }
+      }
+    }
+  }
+
+  /* Creates and appends a new snapshot entry (thumbnail + pose) into the per-world list. */
+  function addSnapshotEntry() {
+    const state = saveQuickStateSnapshot();
+    const thumb = (typeof captureWorldThumbnail === "function") ? (captureWorldThumbnail() || "") : "";
+
+    const entry = {
+      v: 1,
+      id: `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`,
+      savedAt: Date.now(),
+      worldTitle: getCurrentWorldTitle(),
+      thumb: typeof thumb === "string" ? thumb : "",
+      state
+    };
+
+    const list = loadSnapshotsList();
+    list.unshift(entry);
+    const dedup = [];
+    const seen = new Set();
+    for (let i = 0; i < list.length && dedup.length < SNAPSHOTS_MAX; i++) {
+      const it = list[i];
+      if (!it || typeof it !== "object" || typeof it.id !== "string") continue;
+      if (seen.has(it.id)) continue;
+      seen.add(it.id);
+      dedup.push(it);
+    }
+
+    saveSnapshotsList(dedup);
+
+    if (snapshotsOverlayState.open) {
+      renderSnapshotsOverlayList(dedup);
+      refreshSnapshotsOverlayMeta();
+    }
+
+    return entry;
+  }
+
+  /* Ensures snapshots overlay DOM is wired once. */
+  function ensureSnapshotsOverlayWired() {
+    if (snapshotsOverlayState.wired) return;
+
+    snapshotsOverlayState.overlayEl = document.getElementById("snapshotsOverlay");
+    snapshotsOverlayState.closeBtn = document.getElementById("snapshotsOverlayClose");
+    snapshotsOverlayState.worldEl = document.getElementById("snapshotsOverlayWorld");
+    snapshotsOverlayState.listEl = document.getElementById("snapshotsList");
+    snapshotsOverlayState.emptyEl = document.getElementById("snapshotsEmpty");
+
+    if (snapshotsOverlayState.closeBtn) {
+      snapshotsOverlayState.closeBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        setSnapshotsOverlayOpen(false);
+      });
+    }
+
+    if (snapshotsOverlayState.overlayEl) {
+      snapshotsOverlayState.overlayEl.addEventListener("click", (e) => {
+        if (e.target === snapshotsOverlayState.overlayEl) setSnapshotsOverlayOpen(false);
+      }, { passive: true });
+    }
+
+    snapshotsOverlayState.wired = true;
+  }
+
+  /* Updates the overlay world label. */
+  function refreshSnapshotsOverlayMeta() {
+    if (!snapshotsOverlayState.worldEl) return;
+    snapshotsOverlayState.worldEl.textContent = getCurrentWorldTitle();
+  }
+
+  /* Renders the snapshot list as clickable items that load that snapshot. */
+  function renderSnapshotsOverlayList(items) {
+    const listEl = snapshotsOverlayState.listEl;
+    const emptyEl = snapshotsOverlayState.emptyEl;
+    if (!listEl || !emptyEl) return;
+
+    const list = Array.isArray(items) ? items : [];
+    listEl.innerHTML = "";
+
+    if (!list.length) {
+      emptyEl.classList.add("is-open");
+      emptyEl.setAttribute("aria-hidden", "false");
+      return;
+    }
+
+    emptyEl.classList.remove("is-open");
+    emptyEl.setAttribute("aria-hidden", "true");
+
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i];
+      if (!it || typeof it !== "object") continue;
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "snapshot-item";
+      btn.setAttribute("role", "listitem");
+
+      const img = document.createElement("img");
+      img.className = "snapshot-item__thumb";
+      img.alt = "";
+      img.decoding = "async";
+      img.loading = "lazy";
+      img.src = (typeof it.thumb === "string" && it.thumb) ? it.thumb : "";
+      img.onerror = () => {
+        img.onerror = null;
+        img.src = "";
+      };
+
+      const meta = document.createElement("div");
+      meta.className = "snapshot-item__meta";
+
+      const world = document.createElement("div");
+      world.className = "snapshot-item__world";
+      world.textContent = (typeof it.worldTitle === "string" && it.worldTitle.trim()) ? it.worldTitle.trim() : getCurrentWorldTitle();
+
+      const time = document.createElement("div");
+      time.className = "snapshot-item__time";
+      time.textContent = formatSnapshotTime(it.savedAt);
+
+      meta.appendChild(world);
+      meta.appendChild(time);
+
+      btn.appendChild(img);
+      btn.appendChild(meta);
+
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const snap = it && it.state ? it.state : null;
+        const ok = applyQuickStateSnapshot(snap);
+        if (typeof showActionToast === "function") showActionToast(ok ? "Snapshot loaded" : "Snapshot load failed");
+        if (ok) setSnapshotsOverlayOpen(false);
+      });
+
+      listEl.appendChild(btn);
+    }
+  }
+
+  /* Shows/hides the snapshots overlay and refreshes its contents. */
+  function setSnapshotsOverlayOpen(open) {
+    ensureSnapshotsOverlayWired();
+    snapshotsOverlayState.open = !!open;
+
+    const el = snapshotsOverlayState.overlayEl;
+    if (!el) return;
+
+    el.classList.toggle("is-open", snapshotsOverlayState.open);
+    el.setAttribute("aria-hidden", snapshotsOverlayState.open ? "false" : "true");
+
+    if (snapshotsOverlayState.open) {
+      refreshSnapshotsOverlayMeta();
+      const list = loadSnapshotsList();
+      renderSnapshotsOverlayList(list);
+      if (snapshotsOverlayState.closeBtn) snapshotsOverlayState.closeBtn.focus({ preventScroll: true });
+    }
+  }
+
+  /* Toggles the snapshots overlay open/closed. */
+  function toggleSnapshotsOverlay() {
+    setSnapshotsOverlayOpen(!snapshotsOverlayState.open);
+  }
+
+  /* Returns the latest snapshot entry, or null when none exist. */
+  function getLatestSnapshotEntry() {
+    const list = loadSnapshotsList();
+    return list.length ? list[0] : null;
+  }
+
+  /* Saves the current avatar + camera pose as a new snapshot (also updates quick state). */
+  function quickSave() {
+    addSnapshotEntry();
+    if (typeof showActionToast === "function") showActionToast("Snapshot saved");
+  }
+
+  /* Loads the latest snapshot; falls back to legacy quick-save state when list is empty. */
+  function quickReload() {
+    const latest = getLatestSnapshotEntry();
+    const snap = latest && latest.state ? latest.state : loadQuickStateSnapshot();
+
+    if (!snap) {
+      if (typeof showActionToast === "function") showActionToast("No snapshots");
+      return;
+    }
+
+    const ok = applyQuickStateSnapshot(snap);
+    if (typeof showActionToast === "function") showActionToast(ok ? "Snapshot loaded" : "Snapshot load failed");
+  }
+
+
+
+
 
 
     // IndexedDB presets -------------------------------------------------------
@@ -4497,19 +5158,27 @@ button {
       })();
     }
 
-    function exportDefaultModelJson() {
-      (async () => {
-        try {
-          const res = await fetch(WORLD_MODELS_URL, { cache: "no-store" });
-          if (res && res.ok) {
-            const json = await res.json();
-            downloadJson(json, "default_model.json");
-            return;
-          }
-        } catch (e) {}
+    // function exportDefaultModelJson() {
+    //   (async () => {
+    //     try {
+    //       const res = await fetch(WORLD_MODELS_URL, { cache: "no-store" });
+    //       if (res && res.ok) {
+    //         const json = await res.json();
+    //         downloadJson(json, "default_model.json");
+    //         return;
+    //       }
+    //     } catch (e) {}
 
-        downloadJson(MODEL_CONFIG, "default_model.json");
-      })();
+    //     downloadJson(MODEL_CONFIG, "default_model.json");
+    //   })();
+    // }
+    function exportDefaultModelJson() {
+      const snapshot = snapshotWorldModelsConfig();
+
+      const title = (typeof getCurrentWorldTitle === "function") ? getCurrentWorldTitle() : "models";
+      const safe = (typeof sanitizeWorldFilename === "function") ? sanitizeWorldFilename(title || "models") : "models";
+
+      downloadJson(snapshot, `${safe}.models.json`);
     }
 
 
@@ -6466,10 +7135,10 @@ button {
 
 
 
-/**
- * Loads (or swaps) the current avatar GLB, preserving transform/visibility.
- * Avatar selection is driven by params.avatarId so it is saveable/loadable with worlds.
- */
+    /**
+     * Loads (or swaps) the current avatar GLB, preserving transform/visibility.
+     * Preserves yaw derived from quaternion to avoid 180° Euler ambiguity after avatar swaps/snapshots.
+     */
     function loadAvatar(url = getSelectedAvatarUrl()) {
       const nextUrl = String(url ?? "").trim();
       if (!nextUrl || !gltfLoader || !scene) return;
@@ -6479,13 +7148,18 @@ button {
       const prevAvatar = avatar || null;
       const keepVisible = prevAvatar ? !!prevAvatar.visible : true;
 
-
+      const yawFromQuat = (quat) => {
+        const qx = quat.x, qy = quat.y, qz = quat.z, qw = quat.w;
+        const sinyCosp = 2 * (qw * qy + qx * qz);
+        const cosyCosp = 1 - 2 * (qy * qy + qz * qz);
+        const yaw = Math.atan2(sinyCosp, cosyCosp);
+        return Number.isFinite(yaw) ? yaw : 0.0;
+      };
 
       if (prevAvatar) {
         avatarSwapPos.copy(prevAvatar.position);
 
-        // Preserve only yaw so different avatar rigs/orientations don't inherit pitch/roll artifacts.
-        avatarSwapYaw = prevAvatar.rotation.y;
+        avatarSwapYaw = yawFromQuat(prevAvatar.quaternion);
         avatarSwapQuat.setFromAxisAngle(avatarSwapUpAxis, avatarSwapYaw);
 
         avatarSwapScale.copy(prevAvatar.scale);
@@ -6497,7 +7171,6 @@ button {
 
         avatarSwapScale.set(1, 1, 1);
       }
-
 
       const prevActionName = avatarCurrentActionName || "idle";
       const token = ++avatarSwapToken;
@@ -6518,7 +7191,7 @@ button {
           });
 
           nextAvatar.position.copy(avatarSwapPos);
-          nextAvatar.quaternion.copy(avatarSwapQuat);
+          nextAvatar.rotation.set(0, avatarSwapYaw, 0);
           nextAvatar.scale.copy(avatarSwapScale);
           nextAvatar.visible = keepVisible;
 
@@ -6589,6 +7262,7 @@ button {
         }
         );
     }
+
 
 
 
@@ -6970,6 +7644,9 @@ button {
 
       return (nextY - prevGroundY) > (maxStepUp + 1e-4);
     }
+
+
+
 /* Updates avatar horizontal movement + yaw + gait switching from keyboard/left joystick inputs. */
     function updateAvatarFromInputs(dt) {
       if (!avatar || !avatarState.enabled) return;
@@ -17517,12 +18194,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const worldModels = gui.addFolder("World Models");
         worldModels.add(worldModelsIoState, "source").name("Config source").listen();
         worldModels.add(worldModelsIoState, "openWorlds").name("Worlds...");
-        worldModels.add(worldModelsIoState, "exportWorldModelsJson").name("Export world");
-        worldModels.add(worldModelsIoState, "exportDefaultModelJson").name("Export default_model.json");
+        worldModels.add(worldModelsIoState, "exportWorldModelsJson").name("Export World");
+        worldModels.add(worldModelsIoState, "exportDefaultModelJson").name("Export Models");
         worldModels.add(worldModelsIoState, "importWorldModelsJson").name("Import world");
         worldModels.close();
-
-
 
 
 
@@ -18082,9 +18757,32 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
       /* Builds the catalog shown in the edit-only object picker (uses currently available templates). */
+      /* Builds the catalog shown in the edit-only object picker (uses currently available templates). */
       function getWorldObjectCatalog() {
         const base = worldModelsConfig || MODEL_CONFIG;
         const out = [];
+
+        const findModelUrlByName = (name) => {
+          const n = String(name || "");
+          if (!n) return "";
+
+          const fromBase = (Array.isArray(base) ? base : []).find((e) => e && String(e.name) === n) || null;
+          const u0 = fromBase && typeof fromBase.url === "string" ? fromBase.url.trim() : "";
+          if (u0) return u0;
+
+          const fromDefaults = (Array.isArray(MODEL_CONFIG) ? MODEL_CONFIG : []).find((e) => e && String(e.name) === n) || null;
+          const u1 = fromDefaults && typeof fromDefaults.url === "string" ? fromDefaults.url.trim() : "";
+          return u1 || "";
+        };
+
+        const modelUrlToThumb = (url) => {
+          const raw = String(url || "").trim();
+          if (!raw) return DEFAULT_ITEM_THUMB;
+
+          const clean = raw.split("#")[0].split("?")[0];
+          const png = clean.replace(/\.(glb|gltf)$/i, ".png");
+          return png && png !== clean ? png : DEFAULT_ITEM_THUMB;
+        };
 
         for (const entry of base) {
           if (!entry || !entry.name) continue;
@@ -18093,15 +18791,19 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           const template = modelTemplates[name] || null;
           if (!template) continue;
 
+          const url = findModelUrlByName(name);
+          const thumb = modelUrlToThumb(url);
+
           out.push({
             name,
             desc: "Add to scene",
-            thumb: DEFAULT_ITEM_THUMB
+            thumb
           });
         }
 
         return out;
       }
+
 
       /* Wires the world-object picker overlay once and keeps open/close state consistent. */
       function ensureWorldObjectPickerOverlayWired() {
@@ -18252,9 +18954,32 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         if (!Array.isArray(entry.instances)) entry.instances = [];
 
         const srcEntry = (Array.isArray(MODEL_CONFIG) ? MODEL_CONFIG : []).find((e) => e && String(e.name) === name) || null;
-        const baseInst = srcEntry && Array.isArray(srcEntry.instances) && srcEntry.instances.length ? srcEntry.instances[0] : null;
 
-        const instCfg = baseInst ? JSON.parse(JSON.stringify(baseInst)) : {
+        const pickBaseInstance = (fromCfg) => {
+          if (!fromCfg || !Array.isArray(fromCfg.instances) || !fromCfg.instances.length) return null;
+
+          for (let i = 0; i < fromCfg.instances.length; i++) {
+            const it = fromCfg.instances[i];
+            if (!it || typeof it !== "object") continue;
+            if (it.vehicle || it.equipment) return it;
+          }
+
+          for (let i = 0; i < fromCfg.instances.length; i++) {
+            const it = fromCfg.instances[i];
+            if (!it || typeof it !== "object") continue;
+            if (it.collide || it.stick || it.ground) return it;
+          }
+
+          return fromCfg.instances[0] || null;
+        };
+
+        const baseFromModelDefaults = pickBaseInstance(srcEntry);
+        const baseFromWorld = baseFromModelDefaults ? null : pickBaseInstance(entry);
+        const baseInst = baseFromModelDefaults || baseFromWorld;
+
+        const instCfg = baseInst
+        ? JSON.parse(JSON.stringify(baseInst))
+        : {
           id: "",
           position: [0, 0, 0],
           rotation: [0, 0, 0],
@@ -18278,6 +19003,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         instCfg.position[0] = dropPos.x;
         instCfg.position[1] = dropPos.y;
         instCfg.position[2] = dropPos.z;
+
         instCfg.rotation[1] = yawRef.value;
 
         entry.instances.push(instCfg);
@@ -18299,6 +19025,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         updateAvatarButtons();
         showActionToast("Added");
       }
+
+
 
 
 
@@ -18559,6 +19287,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         }
       }
 
+
+
+
+
+
 /**
  * Unified key handler.
  */
@@ -18581,6 +19314,58 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+        if (typeof snapshotsOverlayState !== "undefined" && snapshotsOverlayState && snapshotsOverlayState.open) {
+          if (event.code === "Escape") {
+            event.preventDefault();
+            setSnapshotsOverlayOpen(false);
+            return;
+          }
+
+          if (event.code === "F7") {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!event.repeat) toggleSnapshotsOverlay();
+            return;
+          }
+
+          if (event.code === "F5") {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!event.repeat) quickSave();
+            return;
+          }
+
+          if (event.code === "F6") {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!event.repeat) quickReload();
+            return;
+          }
+
+          return;
+        }
+
+        if (event.code === "F7") {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!event.repeat) toggleSnapshotsOverlay();
+          return;
+        }
+
+        if (event.code === "F5") {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!event.repeat) quickSave();
+          return;
+        }
+
+        if (event.code === "F6") {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!event.repeat) quickReload();
+          return;
+        }
+
         const isWorldSave = event.code === "KeyS" && (event.metaKey || event.ctrlKey);
         if (isWorldSave) {
           event.preventDefault();
@@ -18588,7 +19373,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
-  // Ctrl/Cmd + E toggles world edit mode (E alone stays for interact).
         if (event.code === "KeyE" && (event.metaKey || event.ctrlKey)) {
           if (event.repeat) return;
           event.preventDefault();
@@ -18701,16 +19485,22 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
-  // E toggles vehicle enter/exit; also equips nearby items when on foot.
+  // E toggles vehicle enter/exit; also toggles equip/unequip for nearby equipment when on foot.
         if (event.code === "KeyE" && !event.metaKey && !event.ctrlKey) {
           if (event.repeat) return;
           event.preventDefault();
 
           if (!avatarState.enabled) return;
 
-    // If currently driving, E exits.
+          /* If currently driving, E exits. */
           if (vehicleDriveState.enabled) {
             exitVehicle();
+            return;
+          }
+
+          /* If currently equipped, E unequips (same key toggle behavior as vehicles). */
+          if (equipmentState.enabled) {
+            unequipItem();
             return;
           }
 
@@ -18718,7 +19508,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           if (!near) return;
 
           if (near.kind === "equipment") {
-            if (!equipmentState.enabled) equipItem(near);
+            equipItem(near);
             return;
           }
 
@@ -18726,7 +19516,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
-  // O exits vehicle or unequips item (kept as an explicit exit).
+
         if (event.code === "KeyO") {
           event.preventDefault();
 
@@ -18816,6 +19606,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           break;
         }
       }
+
 
 
 
