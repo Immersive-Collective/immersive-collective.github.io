@@ -1,4 +1,4 @@
-Yes. The file is a self-contained **single-page Three.js/WebGL “world” app**: an interactive snow/terrain scene with **UI overlays**, **avatar + camera modes**, **vehicles**, **world editing (transform gizmo + undo/redo)**, **presets/import-export**, **minimap**, and optional **WebXR (VR)** support. 
+A single-page Three.js/WebGL winter “world” app: snow + drifting terrain simulation, a playable avatar with camera modes, and objects that can be mounted as vehicles. It also includes a lightweight “worlds” layer (save/load via IndexedDB), an in-scene editor (TransformControls + undo/redo), and UI overlays (minimap, prompts, keyboard help, profile). 
 
 ## Purpose (what it does)
 
@@ -218,4 +218,45 @@ So: avatar Y is “snapped / landed” onto the **highest traversable surface** 
 To “land on top” of an object, that object must be included in `worldGroundMeshes` (i.e., be an instance mesh flagged `ground:true`), because **landing is driven by `getWorldSurfaceY`**, not by the XZ obstacle colliders. 
 
 If you point to one example object where landing/jumping is wrong (tree? rock? car roof? custom model), it’s possible to say immediately which list it’s in (`colliderBounds` vs `worldGroundMeshes`) and why the avatar either lands correctly or falls through/bumps.
+
+
+
+
+### Why Composer was a bad assumption for your case (WebXR default)
+
+* **WebXR renders to an XR-controlled framebuffer** (often multiview / special swapchain). Classic post chains (`EffectComposer` + offscreen render targets) are **not guaranteed XR-safe** and commonly end up **disabled in XR** or require **XR-specific handling**.
+* In a WebXR-default app, the safest baseline is:
+
+  * `renderer.xr.enabled = true`
+  * `renderer.setAnimationLoop(loop)`
+  * Render directly to the XR framebuffer (no composer in the critical path)
+
+### Correct mental model for “PP” in a WebXR-default app
+
+* **XR path (default):** keep it “native renderer” (toneMapping, exposure, fog, lights, materials). If extra effects are needed, use **XR-compatible** approaches (very selective; often custom single-pass shader or renderer-level options).
+* **Non-XR path (fallback / desktop preview):** optional post stack can exist, but must never define core visuals.
+
+### What “decent understanding” looks like for your app (overview)
+
+* **Avatar**: joystick/keys → camera-relative movement on XZ, yaw rules depend on camera mode, vertical grounding uses surface sampling/raycast set.
+* **Vehicles**: objects have `vehicle` metadata; entering sets drive state; driving integrates speed/steer and resolves XZ collisions; exiting restores avatar.
+* **Snow / Gusts / Drifts**: GPU snowfall visuals + gust volumes; gusts also affect drift heightfield; drift surface feeds grounding and placement.
+* **Collision**: XZ push-out against collider set + Y grounding against drift + “ground meshes” raycast set; “standable” requires being in the ground-ray set.
+* **JSON-loaded profiles/presets**: app behavior is driven by preset JSON (rendering, environment, avatar/vehicle tunings), so docs must describe “systems + which JSON keys control them.”
+
+### Next concrete doc change (no code)
+
+If the goal is “enhance PP”, the docs should define **PP = XR-safe renderer look controls**, not composer stacks.
+
+Say which doc to update first:
+
+* `README-OVERVIEW.md` (system overview), or
+* `KB.md` (how-to / tuning keys), or
+* both (overview + key reference)
+
+And “pp” here should be treated as:
+
+* tone mapping / exposure / fog / sky / bloom-like *material* tricks (XR-safe),
+* not EffectComposer chains.
+
 

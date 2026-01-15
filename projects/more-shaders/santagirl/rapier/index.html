@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rapier3D + Three.js – Avatar Parkour (Orbit) + Fixed Turn Keys</title>
+
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0f14; }
+    canvas { display: block; }
+    #hud {
+      position: fixed; left: 10px; top: 10px; z-index: 10;
+      padding: 10px 12px; border-radius: 12px;
+      background: rgba(20,26,36,0.75); border: 1px solid rgba(255,255,255,0.08);
+      color: #e8eef6;
+      font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      white-space: pre; user-select: none;
+    }
+    #help {
+      position: fixed; right: 10px; top: 10px; z-index: 10;
+      max-width: 520px;
+      padding: 12px 12px; border-radius: 12px;
+      background: rgba(20,26,36,0.75); border: 1px solid rgba(255,255,255,0.08);
+      color: #e8eef6;
+      font: 13px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      user-select: none;
+    }
+    #help b { font-weight: 700; }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div id="hud"></div>
+  <div id="help">
+    <b>Controls</b><br/>
+    Orbit Camera: <b>LMB</b> rotate, <b>MMB</b> pan, <b>Wheel</b> zoom<br/>
+    Move: <b>WASD</b> or <b>Arrow Up/Down</b><br/>
+    Turn: <b>Arrow Left/Right</b> rotate avatar (camera orbit does not)<br/>
+    Run: <b>Shift</b> &nbsp; Jump: <b>Space</b>
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+    import * as RAPIER from "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/rapier.mjs";
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x0b0f14, 14, 140);
+
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.05, 600);
+    camera.position.set(6, 5, 10);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.target.set(0, 1.2, 0);
+
+    scene.add(new THREE.HemisphereLight(0xbad7ff, 0x0b0f14, 0.95));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.05);
+    dirLight.position.set(12, 18, 10);
+    scene.add(dirLight);
+
+    const grid = new THREE.GridHelper(200, 200, 0x294055, 0x203243);
+    grid.position.y = 0;
+    grid.material.transparent = true;
+    grid.material.opacity = 0.35;
+    scene.add(grid);
+
+    const keys = new Set();
+    addEventListener("keydown", (e) => {
+      if (e.code === "Space" || e.code.startsWith("Arrow")) e.preventDefault();
+      keys.add(e.code);
+    }, { passive: false });
+    addEventListener("keyup", (e) => keys.delete(e.code));
+
+    await RAPIER.init();
+    const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+    world.integrationParameters.numSolverIterations = 10;
+    world.integrationParameters.numAdditionalFrictionIterations = 3;
+
+    const hud = document.getElementById("hud");
+
+    function addStaticBox(pos, halfExtents, color = 0x9ad0ff) {
+      const body = world.createRigidBody(
+        RAPIER.RigidBodyDesc.fixed().setTranslation(pos.x, pos.y, pos.z)
+        );
+      world.createCollider(
+        RAPIER.ColliderDesc.cuboid(halfExtents.x, halfExtents.y, halfExtents.z)
+        .setFriction(1.2)
+        .setRestitution(0.05),
+        body
+        );
+
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(halfExtents.x * 2, halfExtents.y * 2, halfExtents.z * 2),
+        new THREE.MeshStandardMaterial({ color, roughness: 0.85, metalness: 0.0 })
+        );
+      mesh.position.copy(pos);
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+      return body;
+    }
+
+    // ground
+    addStaticBox(new THREE.Vector3(0, -0.5, 0), new THREE.Vector3(90, 0.5, 90), 0x2a3546);
+
+    // bridge + steps
+    addStaticBox(new THREE.Vector3(-1.6, 0.9, -2.0), new THREE.Vector3(0.25, 0.9, 0.25), 0x7fb7ff);
+    addStaticBox(new THREE.Vector3( 1.6, 0.9, -2.0), new THREE.Vector3(0.25, 0.9, 0.25), 0x7fb7ff);
+    addStaticBox(new THREE.Vector3(0.0, 2.0, -2.0), new THREE.Vector3(2.2, 0.15, 0.7), 0xa6e3ff);
+
+    addStaticBox(new THREE.Vector3(-3.0, 0.4, -0.8), new THREE.Vector3(0.7, 0.4, 0.7), 0x9ad0ff);
+    addStaticBox(new THREE.Vector3(-2.2, 0.8, -1.4), new THREE.Vector3(0.6, 0.8, 0.6), 0x9ad0ff);
+    addStaticBox(new THREE.Vector3(-1.2, 1.2, -1.7), new THREE.Vector3(0.5, 1.2, 0.5), 0x9ad0ff);
+    addStaticBox(new THREE.Vector3(-0.2, 1.6, -1.9), new THREE.Vector3(0.45, 1.6, 0.45), 0x9ad0ff);
+
+    addStaticBox(new THREE.Vector3(2.6, 1.2, -1.8), new THREE.Vector3(0.6, 1.2, 0.6), 0x9ad0ff);
+    addStaticBox(new THREE.Vector3(3.6, 0.8, -1.2), new THREE.Vector3(0.7, 0.8, 0.7), 0x9ad0ff);
+    addStaticBox(new THREE.Vector3(4.6, 0.4, -0.6), new THREE.Vector3(0.8, 0.4, 0.8), 0x9ad0ff);
+
+    // ---------- Avatar ----------
+    let avatar = null, mixer = null, actions = {}, current = null;
+    let isJumping = false;
+
+    /* helper to list all the actions animations */
+    function listAnimationClips(animations) {
+      console.log("Animation clips:", (animations || []).map(a => a.name));
+    }
+
+    function findAnim(animations, includes) {
+      const inc = (includes || []).map(s => String(s).toLowerCase());
+      return (animations || []).find(a => inc.some(k => String(a.name).toLowerCase().includes(k))) || null;
+    }
+
+    /* crossfade between looping actions; does not stop other clips */
+    function fadeTo(next, duration = 0.12) {
+      if (!next || next === current) return;
+      next.enabled = true;
+      next.paused = false;
+      next.reset().fadeIn(duration).play();
+      if (current) current.fadeOut(duration);
+      current = next;
+    }
+
+    function playJumpOnce() {
+      /* plays jump once and keeps it until landing resets animation selection */
+      if (!actions.jump || isJumping) return;
+      isJumping = true;
+
+      actions.jump.enabled = true;
+      actions.jump.paused = false;
+      actions.jump.reset();
+      actions.jump.setLoop(THREE.LoopOnce, 1);
+      actions.jump.clampWhenFinished = true;
+
+      if (current && current !== actions.jump) current.fadeOut(0.06);
+      actions.jump.fadeIn(0.06).play();
+      current = actions.jump;
+    }
+
+    async function loadAvatar() {
+      const loader = new GLTFLoader();
+      const draco = new DRACOLoader();
+      draco.setDecoderPath("https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/libs/draco/");
+      draco.setDecoderConfig({ type: "wasm" });
+      loader.setDRACOLoader(draco);
+      return new Promise((resolve, reject) => loader.load("models/avatar/avatar.glb", resolve, undefined, reject));
+    }
+
+    const gltf = await loadAvatar();
+    avatar = gltf.scene;
+    avatar.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    scene.add(avatar);
+
+    mixer = new THREE.AnimationMixer(avatar);
+    const anims = gltf.animations || [];
+    listAnimationClips(anims);
+
+    actions.idle = mixer.clipAction(findAnim(anims, ["idle"]) || anims[0]);
+    actions.walk = mixer.clipAction(findAnim(anims, ["walk"]) || anims[0]);
+    actions.run  = mixer.clipAction(findAnim(anims, ["run"])  || anims[0]);
+    actions.jump = findAnim(anims, ["jump"]) ? mixer.clipAction(findAnim(anims, ["jump"])) : null;
+
+    actions.idle.enabled = true; actions.idle.setLoop(THREE.LoopRepeat, Infinity); actions.idle.play();
+    actions.walk.enabled = true; actions.walk.setLoop(THREE.LoopRepeat, Infinity); actions.walk.play();
+    actions.run.enabled  = true; actions.run.setLoop(THREE.LoopRepeat, Infinity);  actions.run.play();
+
+    actions.idle.setEffectiveWeight(1);
+    actions.walk.setEffectiveWeight(0);
+    actions.run.setEffectiveWeight(0);
+
+    if (actions.jump) {
+      actions.jump.enabled = true;
+      actions.jump.setEffectiveWeight(0);
+      actions.jump.stop();
+      actions.jump.clampWhenFinished = true;
+    }
+
+    current = actions.idle;
+
+    // ---------- Player physics ----------
+    const player = {
+      radius: 0.35,
+      halfHeight: 0.55,
+      moveSpeed: 2.6,
+      runSpeed: 4.2,
+      jumpImpulse: 5.2,
+      grounded: false,
+      jumpLatch: false,
+      yaw: Math.PI,
+      turnSpeed: 3
+    };
+
+    const startPos = new THREE.Vector3(-6, 1.8, 4);
+    avatar.position.copy(startPos);
+
+    const playerBody = world.createRigidBody(
+      RAPIER.RigidBodyDesc.dynamic()
+      .setTranslation(startPos.x, startPos.y, startPos.z)
+      .setCcdEnabled(true)
+      .setLinearDamping(0.12)
+      .setAngularDamping(2.0)
+      );
+    playerBody.lockRotations(true, true);
+
+    world.createCollider(
+      RAPIER.ColliderDesc.capsule(player.halfHeight, player.radius)
+      .setFriction(1.2)
+      .setRestitution(0.0)
+      .setDensity(1.7),
+      playerBody
+      );
+
+    function raycastGround() {
+      /* grounded test using a short downward ray from body center */
+      const p = playerBody.translation();
+      const ray = new RAPIER.Ray({ x: p.x, y: p.y, z: p.z }, { x: 0, y: -1, z: 0 });
+
+      const snap = 0.12;
+      const maxToi = player.halfHeight + player.radius + snap;
+
+      const hit = world.castRay(ray, maxToi, true);
+      return !!hit && hit.toi <= maxToi;
+    }
+
+    const fwd = new THREE.Vector3();
+    const rgt = new THREE.Vector3();
+    const wish = new THREE.Vector3();
+
+    let prevSpace = false;
+    let wasGrounded = false;
+
+    function updatePlayer(dt) {
+      player.grounded = raycastGround();
+
+      if (player.grounded && !wasGrounded) {
+        player.jumpLatch = false;
+        isJumping = false;
+      }
+      wasGrounded = player.grounded;
+
+      // FIX: invert turning so ArrowLeft turns left, ArrowRight turns right
+      const turnL = keys.has("ArrowLeft") ? 1 : 0;
+      const turnR = keys.has("ArrowRight") ? 1 : 0;
+      const turn = (turnL - turnR); // <-- swapped
+      if (turn !== 0) player.yaw += turn * player.turnSpeed * dt;
+
+      fwd.set(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.yaw);
+      rgt.set(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), player.yaw);
+
+      const forwardInput =
+      ((keys.has("KeyW") || keys.has("ArrowUp")) ? 1 : 0) -
+      ((keys.has("KeyS") || keys.has("ArrowDown")) ? 1 : 0);
+
+      const strafeInput =
+      (keys.has("KeyD") ? 1 : 0) -
+      (keys.has("KeyA") ? 1 : 0);
+
+      wish.set(0, 0, 0);
+
+      // movement inverted (as requested previously)
+      if (forwardInput) wish.addScaledVector(fwd, -forwardInput);
+      if (strafeInput)  wish.addScaledVector(rgt, -strafeInput);
+
+      if (wish.lengthSq() > 0) wish.normalize();
+
+      const running = keys.has("ShiftLeft") || keys.has("ShiftRight");
+      const targetSpeed = running ? player.runSpeed : player.moveSpeed;
+
+      const v = playerBody.linvel();
+      const curXZ = new THREE.Vector2(v.x, v.z);
+      const desired = new THREE.Vector2(wish.x * targetSpeed, wish.z * targetSpeed);
+      const dv = desired.sub(curXZ);
+
+      const accel = player.grounded ? 32 : 12;
+      const impulse = new THREE.Vector3(dv.x, 0, dv.y).multiplyScalar(accel * dt);
+      playerBody.applyImpulse({ x: impulse.x, y: 0, z: impulse.z }, true);
+
+      // jump
+      const wantJump = keys.has("Space");
+      const jumpPressed = wantJump && !prevSpace;
+      prevSpace = wantJump;
+
+      // impulse can be only added if there is a ground/landed under the avatar
+      if (jumpPressed && player.grounded && !player.jumpLatch) {
+        player.jumpLatch = true;
+        playerBody.applyImpulse({ x: 0, y: player.jumpImpulse, z: 0 }, true);
+        playJumpOnce();
+      }
+
+      // sync
+      const t = playerBody.translation();
+      avatar.position.set(t.x, t.y - (player.halfHeight + player.radius), t.z);
+      avatar.rotation.set(0, player.yaw, 0);
+
+      // anim
+      const speed = Math.hypot(playerBody.linvel().x, playerBody.linvel().z);
+
+      if (!isJumping) {
+        if (speed > 0.2) {
+          if (running && actions.run) fadeTo(actions.run, 0.12);
+          else if (actions.walk) fadeTo(actions.walk, 0.12);
+          else fadeTo(actions.idle, 0.18);
+        } else {
+          fadeTo(actions.idle, 0.18);
+        }
+      }
+
+      /* keep weights consistent for pre-played loops */
+      actions.idle.setEffectiveWeight(current === actions.idle ? 1 : 0);
+      actions.walk.setEffectiveWeight(current === actions.walk ? 1 : 0);
+      actions.run.setEffectiveWeight(current === actions.run ? 1 : 0);
+      if (actions.jump) actions.jump.setEffectiveWeight(current === actions.jump ? 1 : 0);
+    }
+
+    const target = new THREE.Vector3();
+    function updateOrbitTarget(dt) {
+      const t = playerBody.translation();
+      target.set(t.x, t.y + 1.1, t.z);
+      controls.target.lerp(target, 1.0 - Math.pow(0.001, dt));
+      controls.update();
+    }
+
+    const clock = new THREE.Clock();
+    const fixedDt = 1 / 60;
+    let acc = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const dt = Math.min(clock.getDelta(), 0.033);
+
+      acc += dt;
+      while (acc >= fixedDt) { world.step(); acc -= fixedDt; }
+
+      updatePlayer(dt);
+      updateOrbitTarget(dt);
+      mixer?.update(dt);
+
+      const v = playerBody.linvel();
+      hud.textContent =
+    `yaw: ${(player.yaw * 57.2958).toFixed(1)} deg\n` +
+  `grounded: ${player.grounded}\n` +
+`jumpLatch: ${player.jumpLatch}\n` +
+`vel: ${v.x.toFixed(2)}, ${v.y.toFixed(2)}, ${v.z.toFixed(2)}\n` +
+`fps≈ ${(1 / dt).toFixed(0)}`;
+
+renderer.render(scene, camera);
+}
+
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>

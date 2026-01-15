@@ -16,15 +16,27 @@
           3.141592653589793
         ],
         "scale": [
-          4.783309058300265,
-          4.176300682097472,
-          5.714255301322367
+          1,
+          1,
+          1
         ],
-        "stick": true,
-        "collide": false
+        "stick": false,
+        "collide": false,
+
+        "meta": {
+          "kind": "food",
+          "name": "Ginger Bread",
+          "description": "Sweet snack",
+          "caloriesKcal": 250,
+          "weightKg": 0.2,
+          "size": "small",
+          "requiresBackpack": false
+        }
+
       }
     ]
   },
+
   {
     "name": "plane",
     "url": "models/vehicles/flying/plane1-1.glb",
@@ -507,6 +519,7 @@
       }
     ]
   },
+
   {
     "name": "par3",
     "url": "models/buildings/tests/par3.glb",
@@ -530,6 +543,51 @@
       }
     ]
   },
+
+{
+  "name": "gym1",
+  "url": "models/buildings/tests/gym1.glb",
+  "instances": [
+    {
+      "id": "gym1_1",
+      "position": [4.694959559047657, 0.09979077751996268, 9.146625485606378],
+      "rotation": [3.141592653589793, -1.4635359498478704, 3.141592653589793],
+      "scale": 1,
+      "ground": true,
+      "stick": false,
+      "collide": false
+    }
+  ]
+},
+{
+  "name": "dor",
+  "url": "models/buildings/tests/dor.glb",
+  "instances": [
+    {
+      "id": "dor_1",
+      "position": [4.694959559047657, 0.09979077751996268, 9.146625485606378],
+      "rotation": [3.141592653589793, -1.4635359498478704, 3.141592653589793],
+      "scale": 1,
+      "collisionMode": "none",
+      "portal": true,
+      "ground": false,
+      "stick": false,
+      "collide": false,
+      "meta": {
+        "kind": "door",
+        "action": "toggle",
+        "targetId": "gym1_1"
+      }
+    }
+  ]
+},
+
+
+
+
+
+
+
   {
     "name": "test",
     "url": "models/buildings/tests/par1.glb",

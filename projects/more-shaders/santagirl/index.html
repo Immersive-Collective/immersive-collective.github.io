@@ -1399,6 +1399,66 @@ button {
 }
 
 
+.hud-tile {
+  position: fixed;
+  left: calc(12px + env(safe-area-inset-left));
+  top: calc(12px + env(safe-area-inset-top) + var(--minimap-size, 160px) + 10px);
+  width: var(--minimap-size, 160px);
+  min-height: 64px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.35);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.30);
+  backdrop-filter: blur(10px);
+  padding: 10px 12px;
+  z-index: 22;
+  pointer-events: none;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  color: rgba(255,255,255,0.92);
+}
+
+.hud-tile__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hud-tile__label {
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.hud-tile__value {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.hud-tile__value_sm {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+
+.hud-tile__meta {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+.hud-tile__bar { margin-top: 6px; }
+.hud-tile__bar-top { display:flex; gap:6px; align-items:center; font-size: 12px; opacity: 0.9; }
+.hud-tile__bar-track { height: 6px; border-radius: 6px; overflow: hidden; background: rgba(255,255,255,0.15); margin-top: 4px; }
+.hud-tile__bar-fill { height: 100%; background: rgba(34,197,94,0.95); }
+.hud-tile__bar-sep { opacity: 0.6; }
+
+
 
 
 
@@ -1436,6 +1496,56 @@ button {
   <button id="miniMap" class="minimap" type="button" aria-label="Open map">
     <canvas id="miniMapCanvas" class="minimap__canvas"></canvas>
   </button>
+
+  
+
+  <div id="hudTile" class="hud-tile" aria-hidden="false">
+    <div class="hud-tile__row">
+      <span class="hud-tile__label">ALT</span>
+      <span id="hudAltValue" class="hud-tile__value">0.0m</span>
+    </div>
+
+    <div class="hud-tile__row">
+      <span class="hud-tile__label">DIST</span>
+      <span id="hudDistValue" class="hud-tile__value">0m</span>
+    </div>
+
+    <div class="hud-tile__row">
+      <span class="hud-tile__label">TIME</span>
+      <span id="hudTimeValue" class="hud-tile__value">0:00</span>
+    </div>
+
+    <div class="hud-tile__row">
+      <span class="hud-tile__label">STEPS</span>
+      <span id="hudStepsValue" class="hud-tile__value">0</span>
+    </div>
+
+    <div class="hud-tile__row">
+      <span class="hud-tile__label">ENERGY</span>
+      <span id="hudKcalValue" class="hud-tile__value_sm">0kcal (0kJ)</span>
+    </div>
+
+    <div class="hud-tile__bar">
+      <div class="hud-tile__bar-top">
+        <span class="hud-tile__label">HEALTH</span>
+        <span id="hudHealthValue" class="hud-tile__bar-value">100%</span>
+        <span class="hud-tile__bar-sep">•</span>
+        <span class="hud-tile__bar-label">LIVES</span>
+        <span id="hudLivesValue" class="hud-tile__bar-value">3</span>
+      </div>
+      <div class="hud-tile__bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+        <div id="hudHealthFill" class="hud-tile__bar-fill" style="width:100%"></div>
+      </div>
+    </div>
+
+    <div id="hudProfileMeta" class="hud-tile__meta">Anonymous • 0 badges</div>
+  </div>
+
+
+
+
+
+
 
   <div id="mapOverlay" class="map-overlay" aria-hidden="true">
     <div class="map-overlay__panel" role="dialog" aria-modal="true" aria-label="Map">
@@ -1916,9 +2026,9 @@ button {
     return s.slice(0, 32);
   }
 
-    /**
-     * Generates a default local profile (anonymous by default).
-     */
+  /**
+   * Generates a default local profile (anonymous by default).
+   */
   function createDefaultPlayerProfile() {
     const id = makePlayerId();
     return {
@@ -1927,9 +2037,32 @@ button {
       name: "Anonymous",
       color: "#22c55e",
       avatarId: sanitizeAvatarId(DEFAULT_AVATAR_ID, DEFAULT_AVATAR_ID),
-      meta: { about: "" }
+      meta: { about: "" },
+
+      stats: {
+        v: 1,
+
+        // Bio + progression
+        health: 100,
+        damage: 0,
+        lives: 3,
+        powers: [],
+        badges: [],
+
+        // Totals (across all worlds)
+        steps: 0,
+        distWalkM: 0,
+        distVehicleM: 0,
+
+        // Internal accumulator for converting walk distance -> steps
+        __stepCarryM: 0,
+
+        // Per-world rollups keyed by worldUiState.id
+        worlds: {}
+      }
     };
   }
+
 
     /**
      * Loads the local player profile from storage, falling back to defaults.
@@ -1951,11 +2084,34 @@ button {
       if (json.meta && typeof json.meta === "object") {
         p.meta.about = typeof json.meta.about === "string" ? json.meta.about.slice(0, 256) : "";
       }
+
+      if (json.stats && typeof json.stats === "object") {
+        const s = json.stats;
+
+        p.stats.health = Number.isFinite(+s.health) ? Math.max(0, Math.min(1000, +s.health)) : p.stats.health;
+        p.stats.damage = Number.isFinite(+s.damage) ? Math.max(0, Math.min(1000, +s.damage)) : p.stats.damage;
+        p.stats.lives = Number.isFinite(+s.lives) ? Math.max(0, Math.min(99, Math.floor(+s.lives))) : p.stats.lives;
+
+        p.stats.steps = Number.isFinite(+s.steps) ? Math.max(0, Math.floor(+s.steps)) : p.stats.steps;
+        p.stats.distWalkM = Number.isFinite(+s.distWalkM) ? Math.max(0, +s.distWalkM) : p.stats.distWalkM;
+        p.stats.distVehicleM = Number.isFinite(+s.distVehicleM) ? Math.max(0, +s.distVehicleM) : p.stats.distVehicleM;
+
+        p.stats.__stepCarryM = Number.isFinite(+s.__stepCarryM) ? Math.max(0, +s.__stepCarryM) : p.stats.__stepCarryM;
+
+        p.stats.powers = Array.isArray(s.powers) ? s.powers.filter((x) => typeof x === "string").slice(0, 64) : p.stats.powers;
+        p.stats.badges = Array.isArray(s.badges) ? s.badges.filter((x) => typeof x === "string").slice(0, 128) : p.stats.badges;
+
+        if (s.worlds && typeof s.worlds === "object") {
+          p.stats.worlds = s.worlds;
+        }
+      }
+
       return p;
     } catch {
       return createDefaultPlayerProfile();
     }
   }
+
 
     /**
      * Persists the local player profile.
@@ -1967,6 +2123,329 @@ button {
   }
 
 
+  const PLAYER_VITALS_STORAGE_KEY = "snow:playerVitals:v1";
+
+  /* Creates the default vitals model used by stamina/energy/health systems. */
+  function createDefaultPlayerVitals() {
+    return {
+      v: 1,
+      stamina: 1,        // 0..1 (fatigue buffer)
+      energyKcal: 0,     // stored energy; food adds here first
+      lastDeathMs: 0
+    };
+  }
+
+  /* Loads persisted vitals, falling back to defaults. */
+  function loadPlayerVitals() {
+    try {
+      const raw = localStorage.getItem(PLAYER_VITALS_STORAGE_KEY);
+      if (!raw) return createDefaultPlayerVitals();
+      const json = JSON.parse(raw);
+      if (!json || typeof json !== "object") return createDefaultPlayerVitals();
+
+      const v = createDefaultPlayerVitals();
+      v.stamina = Number.isFinite(+json.stamina) ? Math.max(0, Math.min(1, +json.stamina)) : v.stamina;
+      v.energyKcal = Number.isFinite(+json.energyKcal) ? Math.max(0, +json.energyKcal) : v.energyKcal;
+      v.lastDeathMs = Number.isFinite(+json.lastDeathMs) ? Math.max(0, +json.lastDeathMs) : v.lastDeathMs;
+      return v;
+    } catch {
+      return createDefaultPlayerVitals();
+    }
+  }
+
+  /* Persists vitals to localStorage. */
+  function savePlayerVitals() {
+    try {
+      localStorage.setItem(PLAYER_VITALS_STORAGE_KEY, JSON.stringify(playerVitals));
+    } catch {}
+  }
+
+  let playerVitals = loadPlayerVitals();
+
+
+
+
+
+
+/* HUD variables and helpers */
+
+
+  let hudTileEl = null;
+  let hudAltValueEl = null;
+  let hudProfileMetaEl = null;
+  let hudTileNextUpdateMs = 0;
+
+
+  let hudDistValueEl = null;
+  let hudTimeValueEl = null;
+  let hudStepsValueEl = null;
+  let hudEnergyValueEl = null;
+
+    /* Session */
+
+  let sessionStartMs = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+  let sessionDistM = 0;
+
+  let sessionSteps = 0;
+  let sessionEnergyKcal = 0;
+
+  let sessionPrevX = null;
+  let sessionPrevZ = null;
+  let sessionPrevVehX = null;
+  let sessionPrevVehZ = null;
+
+  let sessionPrevJumpActive = false;
+
+
+/* HUD tile runtime state (wiring + session timers). */
+  const hudTileState = {
+    wired: false,
+    sessionStartSeconds: 0,
+    __warnedExhausted: false,
+    __lastBurnKcal: 0
+  };
+
+
+/* Formats meters into m/km for HUD display. */
+  function formatDistanceMeters(m) {
+    const v = Number.isFinite(m) ? Math.max(0, m) : 0;
+    if (v >= 1000) return `${(v / 1000).toFixed(2)}km`;
+    return `${Math.round(v)}m`;
+  }
+
+
+  let hudHealthValueEl = null;
+  let hudLivesValueEl = null;
+  let hudHealthFillEl = null;
+
+/* Wires the HUD tile elements once so updateHudTile() can push values every frame. */
+  function ensureHudTileWired() {
+    if (hudTileState.wired) return;
+
+    hudTileEl = document.getElementById("hudTile");
+
+    hudAltValueEl = document.getElementById("hudAltValue");
+    hudDistValueEl = document.getElementById("hudDistValue");
+    hudTimeValueEl = document.getElementById("hudTimeValue");
+
+    hudStepsValueEl = document.getElementById("hudStepsValue");
+
+  /* NOTE: HTML uses hudKcalValue for the energy line. */
+    hudEnergyValueEl = document.getElementById("hudKcalValue");
+
+    hudProfileMetaEl = document.getElementById("hudProfileMeta");
+
+    hudHealthValueEl = document.getElementById("hudHealthValue");
+    hudLivesValueEl = document.getElementById("hudLivesValue");
+    hudHealthFillEl = document.getElementById("hudHealthFill");
+
+    hudTileState.wired = true;
+  }
+
+
+
+/* Updates HUD tile values (ALT/DIST/TIME/STEPS/ENERGY + profile meta + health). */
+  function updateHudTile() {
+    ensureHudTileWired();
+    if (!hudTileEl) return;
+
+    const nowMs = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    if (nowMs < hudTileNextUpdateMs) return;
+    hudTileNextUpdateMs = nowMs + 120;
+
+    const nowS = nowMs * 0.001;
+
+  /* Session timer */
+    if (!hudTileState.sessionStartSeconds) hudTileState.sessionStartSeconds = nowS;
+    const sessionSeconds = Math.max(0, nowS - hudTileState.sessionStartSeconds);
+
+    /* ALT: avatar altitude above original ground baseline (y=0). */
+    let alt = 0.0;
+    if (avatar && avatar.position) {
+      alt = Number.isFinite(avatar.position.y) ? avatar.position.y : 0.0;
+    }
+
+
+  /* Session distance (walk or vehicle) */
+    const driving = !!(vehicleDriveState && vehicleDriveState.enabled && vehicleDriveState.vehicle);
+    if (driving) {
+      const vWrap = vehicleDriveState.vehicle;
+      const vObj = (vWrap && vWrap.object) ? vWrap.object : null;
+
+      if (vObj) {
+        const vx = vObj.position.x;
+        const vz = vObj.position.z;
+
+        if (sessionPrevVehX !== null && sessionPrevVehZ !== null) {
+          const d = Math.hypot(vx - sessionPrevVehX, vz - sessionPrevVehZ);
+          if (Number.isFinite(d) && d > 1e-6) sessionDistM += d;
+        }
+
+        sessionPrevVehX = vx;
+        sessionPrevVehZ = vz;
+      }
+
+      sessionPrevX = null;
+      sessionPrevZ = null;
+    } else {
+      if (avatar) {
+        const ax = avatar.position.x;
+        const az = avatar.position.z;
+
+        if (sessionPrevX !== null && sessionPrevZ !== null) {
+          const d = Math.hypot(ax - sessionPrevX, az - sessionPrevZ);
+          if (Number.isFinite(d) && d > 1e-6) sessionDistM += d;
+        }
+
+        sessionPrevX = ax;
+        sessionPrevZ = az;
+      }
+
+      sessionPrevVehX = null;
+      sessionPrevVehZ = null;
+    }
+
+  /* Steps from distance */
+    const stepLen = Number.isFinite(params.avatarStepLengthM) ? Math.max(0.2, params.avatarStepLengthM) : 0.78;
+    const estSteps = Math.max(0, Math.floor(sessionDistM / stepLen));
+
+    if (estSteps > sessionSteps) {
+      const deltaSteps = estSteps - sessionSteps;
+      sessionSteps = estSteps;
+
+    /* KCAL burn from steps */
+      const kcalPerStep = Number.isFinite(params.kcalPerStep) ? Math.max(0, params.kcalPerStep) : 0.05;
+      sessionEnergyKcal += deltaSteps * kcalPerStep;
+    }
+
+  /* KCAL burn from jumps (rising edge) */
+    const jumpActive = !!(avatarJumpState && avatarJumpState.active);
+    if (jumpActive && !sessionPrevJumpActive) {
+      const kcalPerJump = Number.isFinite(params.kcalPerJump) ? Math.max(0, params.kcalPerJump) : 0.2;
+      sessionEnergyKcal += kcalPerJump;
+    }
+    sessionPrevJumpActive = jumpActive;
+
+  /* TIME formatting */
+    const mins = Math.floor(sessionSeconds / 60);
+    const secs = Math.floor(sessionSeconds - mins * 60);
+    const timeText = `${mins}:${String(secs).padStart(2, "0")}`;
+
+  /* Intake shown as +kcal (set by pickupConsume) */
+    if (typeof window.__sessionEnergyIntakeKcal !== "number") window.__sessionEnergyIntakeKcal = 0;
+    const intakeKcal = window.__sessionEnergyIntakeKcal;
+
+  /* DIST / STEPS / ENERGY (session accumulators) */
+    const distM = Number.isFinite(sessionDistM) ? Math.max(0, sessionDistM) : 0;
+    const steps = Number.isFinite(sessionSteps) ? Math.max(0, sessionSteps | 0) : 0;
+
+    const burnedKcal = Number.isFinite(sessionEnergyKcal) ? Math.max(0, sessionEnergyKcal) : 0;
+    const burnedKJ = burnedKcal * 4.184;
+
+    if (hudAltValueEl) hudAltValueEl.textContent = `${alt.toFixed(1)}m`;
+    if (hudDistValueEl) hudDistValueEl.textContent = formatDistanceMeters(distM);
+    if (hudTimeValueEl) hudTimeValueEl.textContent = timeText;
+    if (hudStepsValueEl) hudStepsValueEl.textContent = `${steps}`;
+
+    if (hudEnergyValueEl) {
+      const burnTxt = `${burnedKcal.toFixed(0)}kcal`;
+      const kjTxt = `${burnedKJ.toFixed(0)}kJ`;
+      const inTxt = intakeKcal > 0 ? ` +${intakeKcal.toFixed(0)}kcal` : "";
+      hudEnergyValueEl.textContent = `${burnTxt} (${kjTxt})${inTxt}`;
+    }
+
+  /* Profile meta */
+    let healthPct = 100;
+    let lives = 3;
+
+    if (typeof playerProfile !== "undefined" && playerProfile) {
+      const nm = (typeof playerProfile.name === "string" && playerProfile.name.trim()) ? playerProfile.name.trim() : "Anonymous";
+      const badges =
+      (playerProfile && playerProfile.stats && Array.isArray(playerProfile.stats.badges)) ? playerProfile.stats.badges.length :
+      (playerProfile && Array.isArray(playerProfile.badges)) ? playerProfile.badges.length :
+      0;
+
+      if (hudProfileMetaEl) hudProfileMetaEl.textContent = `${nm} • ${Math.max(0, badges | 0)} badges`;
+
+      if (playerProfile.stats) {
+        const h = Number.isFinite(+playerProfile.stats.health) ? +playerProfile.stats.health : 100;
+        healthPct = Math.max(0, Math.min(100, h));
+        lives = Number.isFinite(+playerProfile.stats.lives) ? Math.max(0, Math.floor(+playerProfile.stats.lives)) : lives;
+      }
+    }
+
+  /* Energy -> stamina -> health drain (pipeline-ready) */
+    if (typeof playerVitals !== "undefined" && playerVitals) {
+      if (typeof hudTileState.__lastBurnKcal !== "number") hudTileState.__lastBurnKcal = burnedKcal;
+
+      const deltaBurn = burnedKcal - hudTileState.__lastBurnKcal;
+      hudTileState.__lastBurnKcal = burnedKcal;
+
+      if (Number.isFinite(deltaBurn) && deltaBurn > 0) {
+        playerVitals.energyKcal = Number.isFinite(playerVitals.energyKcal) ? playerVitals.energyKcal : 0;
+        playerVitals.stamina = Number.isFinite(playerVitals.stamina) ? playerVitals.stamina : 1;
+
+        if (playerVitals.energyKcal > 0) {
+          playerVitals.energyKcal = Math.max(0, playerVitals.energyKcal - deltaBurn);
+        } else {
+          playerVitals.stamina = Math.max(0, playerVitals.stamina - (deltaBurn / 1400));
+        }
+
+        if (playerVitals.stamina <= 0.10 && !hudTileState.__warnedExhausted) {
+          hudTileState.__warnedExhausted = true;
+          if (typeof showActionToast === "function") showActionToast("EXHAUSTED • find food or rest");
+        }
+
+        if (playerVitals.stamina <= 0.001 && playerProfile && playerProfile.stats) {
+          const drain = (deltaBurn / 10);
+          const nextH = Math.max(0, (Number.isFinite(+playerProfile.stats.health) ? +playerProfile.stats.health : 100) - drain);
+          playerProfile.stats.health = nextH;
+
+          if (nextH <= 0) {
+            const nowMs2 = Date.now();
+            const since = nowMs2 - (Number.isFinite(playerVitals.lastDeathMs) ? playerVitals.lastDeathMs : 0);
+
+            if (since > 1200) {
+              playerVitals.lastDeathMs = nowMs2;
+
+              const curLives = Number.isFinite(+playerProfile.stats.lives) ? Math.max(0, Math.floor(+playerProfile.stats.lives)) : 0;
+              playerProfile.stats.lives = Math.max(0, curLives - 1);
+
+              playerProfile.stats.health = 100;
+              playerVitals.stamina = 1;
+              playerVitals.energyKcal = 0;
+
+              if (typeof showActionToast === "function") {
+                if (playerProfile.stats.lives > 0) showActionToast(`DEAD • respawned (${playerProfile.stats.lives} lives left)`);
+                else showActionToast("DEAD • no lives left");
+              }
+
+              savePlayerProfile(playerProfile);
+              savePlayerVitals();
+            }
+          } else {
+            savePlayerProfile(playerProfile);
+          }
+        }
+
+        savePlayerVitals();
+      }
+    }
+
+  /* Health UI */
+    if (hudHealthValueEl) hudHealthValueEl.textContent = `${Math.round(healthPct)}%`;
+    if (hudLivesValueEl) hudLivesValueEl.textContent = `${lives}`;
+
+    if (hudHealthFillEl) {
+      const w = `${Math.max(0, Math.min(100, healthPct))}%`;
+      hudHealthFillEl.style.width = w;
+      const track = hudHealthFillEl.parentElement;
+      if (track && track.setAttribute) track.setAttribute("aria-valuenow", `${Math.round(Math.max(0, Math.min(100, healthPct)))}`);
+    }
+  }
+
+
+
 
 
 
@@ -1975,6 +2454,7 @@ button {
   let playerProfile = loadPlayerProfile();
 
     /* Updates local player profile (validated), optionally persists, and applies it onto the avatar userData. */
+/* Applies user edits onto the persisted profile without wiping accumulated stats. */
   function setPlayerProfile(next, { persist = true } = {}) {
     const base = createDefaultPlayerProfile();
 
@@ -1989,11 +2469,21 @@ button {
       base.meta.about = typeof playerProfile?.meta?.about === "string" ? playerProfile.meta.about : "";
     }
 
+  // Preserve stats unless caller explicitly supplies stats
+    if (next?.stats && typeof next.stats === "object") {
+      base.stats = next.stats;
+    } else if (playerProfile?.stats && typeof playerProfile.stats === "object") {
+      base.stats = playerProfile.stats;
+    }
+
     playerProfile = base;
     if (persist) savePlayerProfile(playerProfile);
 
     applyLocalPlayerProfileToAvatar();
   }
+
+
+
 
     /**
      * Applies local profile metadata onto the avatar object for future multiuser sync.
@@ -2778,6 +3268,10 @@ button {
     avatarId: DEFAULT_AVATAR_ID,
     avatarMaxStepUp: 0.37,
     avatarFallStart: 0.8,
+
+  // Energy burn
+    kcalPerStep: 0.05,
+    kcalPerJump: 0.2,  
 
 
   // Performance
@@ -3697,8 +4191,10 @@ button {
 
     /**
      * Builds an OBB record for a model root (used by avatar collisions).
+     * For ground-platform colliders, limits the vertical span to the top band so overhead decks
+     * don't behave like full-height walls (allows passing under bridges).
      */
-    function buildWorldEditOBBForRoot(root, id) {
+    function buildWorldEditOBBForRoot(root, id, instCfg) {
       root.updateWorldMatrix(true, true);
 
       worldEditObbBox.setFromObject(root);
@@ -3713,6 +4209,14 @@ button {
       const hx = Math.max(0.10, (worldEditObbSize.x * 0.5) * 0.48);
       const hz = Math.max(0.10, (worldEditObbSize.z * 0.5) * 0.48);
 
+      let yMin = worldEditObbBox.min.y;
+      const yMax = worldEditObbBox.max.y;
+
+      if (instCfg && instCfg.ground) {
+        const band = Math.max(0.18, avatarCollision.maxStep + 0.08);
+        yMin = Math.min(yMax, yMax - band);
+      }
+
       return {
         id: id || "",
         object: root,
@@ -3720,10 +4224,13 @@ button {
         halfX: hx,
         halfZ: hz,
         yaw: worldEditObbEuler.y,
-        yMin: worldEditObbBox.min.y,
-        yMax: worldEditObbBox.max.y
+        yMin,
+        yMax
       };
     }
+
+
+
 
 
     /**
@@ -3744,8 +4251,14 @@ button {
       delete modelInstances[key];
     }
 
+
+
     /**
      * Rebuilds runtime caches for world models without touching non-model colliders (forest/rocks/etc).
+     */
+    /**
+     * Rebuilds runtime caches for world models without touching non-model colliders (forest/rocks/etc).
+     * Ground meshes are used for surface height only; they must not become XZ blocking walls.
      */
     function rebuildWorldModelsRuntimeCaches() {
       vehicleInteractables.length = 0;
@@ -3758,6 +4271,8 @@ button {
       avatarModelColliderOBBs.length = 0;
 
       colliderObjects = colliderObjects.filter((obj) => !(obj && obj.userData && obj.userData.worldModelStick));
+
+      worldGroundMeshes.length = 0;
 
       worldEditSelectableRoots.clear();
       clearWorldEditSelection();
@@ -3782,13 +4297,23 @@ button {
 
           registerWorldEditRoot(inst, instCfg);
 
+          const isGround = !!instCfg.ground;
+          const isStick = !!instCfg.stick;
+
           inst.traverse((obj) => {
             if (!obj.isMesh) return;
             obj.castShadow = true;
             obj.receiveShadow = true;
 
-            if (instCfg.stick) {
+            if (isGround) {
+              obj.userData.worldModelGroundPlatform = true;
+              if (!obj.name && id) obj.name = `ground:${id}`;
+              worldGroundMeshes.push(obj);
+            }
+
+            if (isStick && !isGround) {
               obj.userData.worldModelStick = true;
+              if (!obj.name && id) obj.name = `stick:${id}`;
               colliderObjects.push(obj);
             }
           });
@@ -3797,9 +4322,8 @@ button {
             registerVehicleInstance(inst, instCfg);
           }
 
-          if (instCfg.equipment) {
-            registerEquipmentInstance(inst, instCfg);
-          }
+
+
 
           if (instCfg.collide) {
             avatarModelColliderObjects.push(inst);
@@ -3812,12 +4336,20 @@ button {
       if (colliderObjects.length) {
         colliderBounds = buildColliderBounds(colliderObjects);
         rebuildAvatarCollisionGrid();
+      } else {
+        colliderBounds = [];
+        rebuildAvatarCollisionGrid();
       }
 
       if (vehiclePromptState && vehiclePromptState.open) {
         tickVehicleProximity();
       }
     }
+
+
+
+
+
 
 
     /**
@@ -6033,6 +6565,7 @@ button {
                     });
 
                     inst.traverse((obj) => {
+                      /* Classifies model meshes for ground sampling vs XZ blocking collisions. */
                       if (!obj.isMesh) return;
 
                       obj.castShadow = true;
@@ -6043,9 +6576,22 @@ button {
                         applyAlphaCutoutShadows(obj, 0.5);
                       }
 
-                      if (instCfg.stick) colliderObjects.push(obj);
-                      if (instCfg.ground) worldGroundMeshes.push(obj);
+                      const isGround = !!instCfg.ground;
+                      const isStick = !!instCfg.stick;
+
+                      if (isGround) {
+                        obj.userData.worldModelGroundPlatform = true;
+                        if (!obj.name && instCfg.id) obj.name = `ground:${instCfg.id}`;
+                        worldGroundMeshes.push(obj);
+                      }
+
+                      if (isStick && !isGround) {
+                        obj.userData.worldModelStick = true;
+                        if (!obj.name && instCfg.id) obj.name = `stick:${instCfg.id}`;
+                        colliderObjects.push(obj);
+                      }
                     });
+
 
                     scene.add(inst);
 
@@ -6059,9 +6605,10 @@ button {
                       registerVehicleInstance(inst, instCfg);
                     }
 
-                    if (instCfg.equipment) {
+                    if (instCfg.equipment || (instCfg.meta && (instCfg.meta.kind === "food" || instCfg.meta.kind === "pickup"))) {
                       registerEquipmentInstance(inst, instCfg);
                     }
+
 
                     if (instCfg.collide) {
                       avatarModelColliderObjects.push(inst);
@@ -6177,6 +6724,45 @@ button {
       broadphasePad: 0.9
     };
 
+    const avatarCollisionDebug = {
+      enabled: false,
+      lastLogMs: 0,
+      minIntervalMs: 160
+    };
+
+    /* Loads persisted collision debug state once on startup. */
+    (function initAvatarCollisionDebug() {
+      try {
+        avatarCollisionDebug.enabled = localStorage.getItem("snow:debugCollisions") === "1";
+      } catch {
+        avatarCollisionDebug.enabled = false;
+      }
+    })();
+
+    /* Enables/disables collision debug and persists it. */
+    function setAvatarCollisionDebugEnabled(enabled) {
+      avatarCollisionDebug.enabled = !!enabled;
+      try {
+        localStorage.setItem("snow:debugCollisions", avatarCollisionDebug.enabled ? "1" : "0");
+      } catch {}
+    }
+
+    /* Reads current collision debug flag (no polling, toggled via F8). */
+    function isAvatarCollisionDebugEnabled() {
+      return !!avatarCollisionDebug.enabled;
+    }
+
+    /* Throttled collision logger to identify which collider causes push-out. */
+    function logAvatarCollision(kind, payload) {
+      if (!avatarCollisionDebug.enabled) return;
+      const nowMs = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+      if ((nowMs - avatarCollisionDebug.lastLogMs) < avatarCollisionDebug.minIntervalMs) return;
+      avatarCollisionDebug.lastLogMs = nowMs;
+      console.log("[snow][collision]", kind, payload);
+    }
+
+
+
 
     const avatarColTmpPos = new THREE.Vector3();
     const avatarColN = new THREE.Vector3();
@@ -6239,7 +6825,111 @@ button {
       return col.get(iz) || null;
     }
 
+    /* Returns the highest blocking collider top-Y at the avatar XZ (null when none). */
+    function getAvatarBlockingSurfaceInfo(pos) {
+      if (!pos) return null;
 
+      const rA = avatarCollision.radius;
+      const skin = avatarCollision.skin;
+
+      const bodyMinY = pos.y - 0.05;
+      const bodyMaxY = pos.y + avatarCollision.probeY + 0.55;
+
+      const rrSphere = (b) => (rA + b.radius + skin);
+      const rrObb = (rA + skin);
+
+      let best = null;
+      let bestTop = -Infinity;
+
+      const candidates = getAvatarCollisionCandidatesXZ(pos);
+      if (candidates && candidates.length) {
+        for (let c = 0; c < candidates.length; c++) {
+          const idx = candidates[c];
+          const b = colliderBounds[idx];
+          if (!b || !b.center) continue;
+
+          let cyMin = null;
+          let cyMax = null;
+
+          if (Number.isFinite(b.yMin) && Number.isFinite(b.yMax)) {
+            cyMin = b.yMin;
+            cyMax = b.yMax;
+          } else if (Number.isFinite(b.center.y) && Number.isFinite(b.radius)) {
+            cyMin = b.center.y - b.radius;
+            cyMax = b.center.y + b.radius;
+          }
+
+          if (cyMin != null && cyMax != null) {
+            if (cyMin > bodyMaxY || cyMax < bodyMinY) continue;
+          }
+
+          const sumR = rrSphere(b);
+          const dx = pos.x - b.center.x;
+          const dz = pos.z - b.center.z;
+          const d2 = dx * dx + dz * dz;
+          if (d2 >= sumR * sumR) continue;
+
+          const topY = (cyMax != null) ? cyMax : b.center.y;
+          if (topY > bestTop) {
+            bestTop = topY;
+            best = {
+              kind: "sphere",
+              topY,
+              bottomY: (cyMin != null) ? cyMin : b.center.y,
+              index: idx,
+              name: (b.obj && b.obj.name) ? b.obj.name : "",
+              parentName: (b.obj && b.obj.parent && b.obj.parent.name) ? b.obj.parent.name : ""
+            };
+          }
+        }
+      }
+
+      if (avatarModelColliderOBBs && avatarModelColliderOBBs.length) {
+        for (let i = 0; i < avatarModelColliderOBBs.length; i++) {
+          const obb = avatarModelColliderOBBs[i];
+          if (!obb) continue;
+
+          if (Number.isFinite(obb.yMin) && Number.isFinite(obb.yMax)) {
+            if (obb.yMin > bodyMaxY || obb.yMax < bodyMinY) continue;
+          }
+
+          const dxw = pos.x - obb.center.x;
+          const dzw = pos.z - obb.center.z;
+
+          const c = Math.cos(obb.yaw);
+          const s = Math.sin(obb.yaw);
+
+          const lx = dxw * c + dzw * s;
+          const lz = -dxw * s + dzw * c;
+
+          const cx = clamp(lx, -obb.halfX, obb.halfX);
+          const cz = clamp(lz, -obb.halfZ, obb.halfZ);
+
+          const dxl = lx - cx;
+          const dzl = lz - cz;
+
+          const d2 = dxl * dxl + dzl * dzl;
+          if (d2 >= rrObb * rrObb) continue;
+
+          const topY = Number.isFinite(obb.yMax) ? obb.yMax : obb.center.y;
+          if (topY > bestTop) {
+            bestTop = topY;
+            best = {
+              kind: "obb",
+              topY,
+              bottomY: Number.isFinite(obb.yMin) ? obb.yMin : obb.center.y,
+              index: i,
+              id: obb.id || "",
+              name: (obb.object && obb.object.name) ? obb.object.name : ""
+            };
+          }
+        }
+      }
+
+      return best;
+    }
+
+    
 
 
     function resolveAvatarXZCollisions(pos) {
@@ -6252,26 +6942,41 @@ button {
       const rA = avatarCollision.radius;
       const skin = avatarCollision.skin;
 
-      /* Ignores XZ push-out from colliders whose vertical span does not overlap the avatar body. */
       const bodyMinY = pos.y - 0.05;
       const bodyMaxY = pos.y + avatarCollision.probeY + 0.55;
+
+      const yOverlapEps = 0.02;
+      const pushEps = 1e-4;
+
+      const dbg = (typeof isAvatarCollisionDebugEnabled === "function") ? isAvatarCollisionDebugEnabled() : false;
 
       for (let iter = 0; iter < avatarCollision.iterations; iter++) {
         let pushed = false;
 
-        // --- sphere bounds (forest/rocks + any stick meshes), grid-broadened ---
+    // --- sphere bounds (forest/rocks + stick meshes), grid-broadened ---
         const candidates = getAvatarCollisionCandidatesXZ(pos);
         if (candidates && candidates.length) {
           for (let c = 0; c < candidates.length; c++) {
-            const b = colliderBounds[candidates[c]];
-            if (!b) continue;
+            const idx = candidates[c];
+            const b = colliderBounds[idx];
+            if (!b || !b.center) continue;
+
+            if (b.isGroundPlatform) continue;
+
+            let cyMin = null;
+            let cyMax = null;
 
             if (Number.isFinite(b.yMin) && Number.isFinite(b.yMax)) {
-              if (b.yMin > bodyMaxY || b.yMax < bodyMinY) continue;
-            } else if (b.center && Number.isFinite(b.center.y) && Number.isFinite(b.radius)) {
-              const minY = b.center.y - b.radius;
-              const maxY = b.center.y + b.radius;
-              if (minY > bodyMaxY || maxY < bodyMinY) continue;
+              cyMin = b.yMin;
+              cyMax = b.yMax;
+            } else if (Number.isFinite(b.center.y) && Number.isFinite(b.radius)) {
+              cyMin = b.center.y - b.radius;
+              cyMax = b.center.y + b.radius;
+            }
+
+            if (cyMin != null && cyMax != null) {
+              const overlapDepth = Math.min(bodyMaxY, cyMax) - Math.max(bodyMinY, cyMin);
+              if (overlapDepth <= yOverlapEps) continue;
             }
 
             const sumR = rA + b.radius + skin;
@@ -6283,6 +6988,7 @@ button {
 
             const d = Math.sqrt(d2) || 1e-6;
             const push = sumR - d;
+            if (push <= pushEps) continue;
 
             const nx = dx / d;
             const nz = dz / d;
@@ -6296,18 +7002,41 @@ button {
               avatarVelocity.z -= velDot * nz;
             }
 
+            if (dbg && typeof logAvatarCollision === "function") {
+              const overlapDepth = (cyMin != null && cyMax != null)
+              ? (Math.min(bodyMaxY, cyMax) - Math.max(bodyMinY, cyMin))
+              : null;
+
+              logAvatarCollision("sphere_push", {
+                iter,
+                avatar: { x: pos.x, y: pos.y, z: pos.z },
+                bodyY: { min: bodyMinY, max: bodyMaxY },
+                colliderIndex: idx,
+                collider: {
+                  yMin: cyMin,
+                  yMax: cyMax,
+                  overlapDepth,
+                  radius: b.radius,
+                  objName: b.obj && b.obj.name ? b.obj.name : "",
+                  parentName: b.obj && b.obj.parent && b.obj.parent.name ? b.obj.parent.name : ""
+                },
+                push: { nx, nz, amount: push }
+              });
+            }
+
             pushed = true;
           }
         }
 
-        // --- OBB bounds (cars etc), built once at load-time ---
+    // --- OBB bounds (explicit collide:true) ---
         if (avatarModelColliderOBBs && avatarModelColliderOBBs.length) {
           for (let i = 0; i < avatarModelColliderOBBs.length; i++) {
             const obb = avatarModelColliderOBBs[i];
             if (!obb) continue;
 
             if (Number.isFinite(obb.yMin) && Number.isFinite(obb.yMax)) {
-              if (obb.yMin > bodyMaxY || obb.yMax < bodyMinY) continue;
+              const overlapDepth = Math.min(bodyMaxY, obb.yMax) - Math.max(bodyMinY, obb.yMin);
+              if (overlapDepth <= yOverlapEps) continue;
             }
 
             const dxw = pos.x - obb.center.x;
@@ -6316,7 +7045,6 @@ button {
             const c = Math.cos(obb.yaw);
             const s = Math.sin(obb.yaw);
 
-            // world -> local
             const lx = dxw * c + dzw * s;
             const lz = -dxw * s + dzw * c;
 
@@ -6327,10 +7055,12 @@ button {
             const dzl = lz - cz;
 
             const d2 = dxl * dxl + dzl * dzl;
-            if (d2 >= (rA + skin) * (rA + skin)) continue;
+            const rr = (rA + skin);
+            if (d2 >= rr * rr) continue;
 
             const d = Math.sqrt(d2) || 1e-6;
-            const push = (rA + skin) - d;
+            const push = rr - d;
+            if (push <= pushEps) continue;
 
             let nlx = dxl / d;
             let nlz = dzl / d;
@@ -6345,7 +7075,6 @@ button {
               }
             }
 
-            // local -> world normal
             const nx = nlx * c - nlz * s;
             const nz = nlx * s + nlz * c;
 
@@ -6358,6 +7087,31 @@ button {
               avatarVelocity.z -= velDot * nz;
             }
 
+            if (dbg && typeof logAvatarCollision === "function") {
+              const overlapDepth =
+              (Number.isFinite(obb.yMin) && Number.isFinite(obb.yMax))
+              ? (Math.min(bodyMaxY, obb.yMax) - Math.max(bodyMinY, obb.yMin))
+              : null;
+
+              logAvatarCollision("obb_push", {
+                iter,
+                avatar: { x: pos.x, y: pos.y, z: pos.z },
+                bodyY: { min: bodyMinY, max: bodyMaxY },
+                colliderIndex: i,
+                collider: {
+                  id: obb.id || "",
+                  objName: obb.object && obb.object.name ? obb.object.name : "",
+                  yMin: Number.isFinite(obb.yMin) ? obb.yMin : null,
+                  yMax: Number.isFinite(obb.yMax) ? obb.yMax : null,
+                  overlapDepth,
+                  halfX: obb.halfX,
+                  halfZ: obb.halfZ,
+                  yaw: obb.yaw
+                },
+                push: { nx, nz, amount: push }
+              });
+            }
+
             pushed = true;
           }
         }
@@ -6368,9 +7122,6 @@ button {
         pos.z = clamp(pos.z, -limZ, limZ);
       }
     }
-
-
-
 
 
 
@@ -8202,8 +8953,52 @@ button {
 
 
 
-
     function tickAvatar(dt) {
+      const worldId = (typeof worldUiState !== "undefined" && worldUiState && typeof worldUiState.id === "string")
+      ? worldUiState.id
+      : "";
+
+      const ensureWorldBucket = () => {
+        if (!playerProfile || !playerProfile.stats) return null;
+        if (!playerProfile.stats.worlds || typeof playerProfile.stats.worlds !== "object") playerProfile.stats.worlds = {};
+        if (!worldId) return null;
+
+        let b = playerProfile.stats.worlds[worldId];
+        if (!b || typeof b !== "object") {
+          b = {
+            v: 1,
+            steps: 0,
+            distWalkM: 0,
+            distVehicleM: 0,
+            actions: {
+              worldLoads: 0,
+              saves: 0,
+              vehicleEnters: 0,
+              vehicleExits: 0
+            }
+          };
+          playerProfile.stats.worlds[worldId] = b;
+        }
+        if (!b.actions || typeof b.actions !== "object") {
+          b.actions = { worldLoads: 0, saves: 0, vehicleEnters: 0, vehicleExits: 0 };
+        }
+        return b;
+      };
+
+      const worldBucket = ensureWorldBucket();
+
+  // Snapshot positions BEFORE movement (for stats)
+      const prevAx = avatar ? avatar.position.x : 0;
+      const prevAy = avatar ? avatar.position.y : 0;
+      const prevAz = avatar ? avatar.position.z : 0;
+
+      const vWrapBefore = (vehicleDriveState && vehicleDriveState.enabled) ? vehicleDriveState.vehicle : null;
+      const vObjBefore = (vWrapBefore && vWrapBefore.object) ? vWrapBefore.object : null;
+
+      const prevVx = vObjBefore ? vObjBefore.position.x : 0;
+      const prevVy = vObjBefore ? vObjBefore.position.y : 0;
+      const prevVz = vObjBefore ? vObjBefore.position.z : 0;
+
       if (avatarState.enabled) {
         if (vehicleDriveState.enabled) {
           tickVehicle(dt);
@@ -8226,6 +9021,54 @@ button {
         if (avatar) avatarJumpState.groundY = avatar.position.y;
       }
 
+  // Snapshot positions AFTER movement (for stats)
+      const vWrapAfter = (vehicleDriveState && vehicleDriveState.enabled) ? vehicleDriveState.vehicle : null;
+      const vObjAfter = (vWrapAfter && vWrapAfter.object) ? vWrapAfter.object : null;
+
+      if (playerProfile && playerProfile.stats) {
+    // Vehicle distance (only when actually driving and we have a vehicle object)
+        if (vObjAfter) {
+          const vx = vObjAfter.position.x;
+          const vy = vObjAfter.position.y;
+          const vz = vObjAfter.position.z;
+
+          const dVeh = Math.hypot(vx - prevVx, vy - prevVy, vz - prevVz);
+          if (Number.isFinite(dVeh) && dVeh > 1e-6) {
+            playerProfile.stats.distVehicleM = (playerProfile.stats.distVehicleM || 0) + dVeh;
+            if (worldBucket) worldBucket.distVehicleM = (worldBucket.distVehicleM || 0) + dVeh;
+          }
+        } else {
+      // Walk distance + steps (only when not driving)
+          const ax = avatar ? avatar.position.x : prevAx;
+          const az = avatar ? avatar.position.z : prevAz;
+
+          const dWalk = Math.hypot(ax - prevAx, az - prevAz);
+          if (Number.isFinite(dWalk) && dWalk > 1e-6) {
+            playerProfile.stats.distWalkM = (playerProfile.stats.distWalkM || 0) + dWalk;
+            if (worldBucket) worldBucket.distWalkM = (worldBucket.distWalkM || 0) + dWalk;
+
+            const stepLen = Number.isFinite(params.avatarStepLengthM) ? Math.max(0.2, params.avatarStepLengthM) : 0.78;
+            playerProfile.stats.__stepCarryM = (playerProfile.stats.__stepCarryM || 0) + dWalk;
+
+            const newSteps = Math.floor(playerProfile.stats.__stepCarryM / stepLen);
+            if (newSteps > 0) {
+              playerProfile.stats.steps = (playerProfile.stats.steps || 0) + newSteps;
+              playerProfile.stats.__stepCarryM -= newSteps * stepLen;
+
+              if (worldBucket) worldBucket.steps = (worldBucket.steps || 0) + newSteps;
+            }
+          }
+        }
+
+    // Persist only when meaningful motion occurred
+        const moved =
+        (vObjAfter && Math.hypot(vObjAfter.position.x - prevVx, vObjAfter.position.z - prevVz) > 0.01) ||
+        (!vObjAfter && avatar && Math.hypot(avatar.position.x - prevAx, avatar.position.z - prevAz) > 0.01);
+
+        if (moved) savePlayerProfile(playerProfile);
+      }
+
+  // Keep original per-frame helpers + animation mixer update
       if (typeof window.__avatarLevelHelpersTick === "function") {
         window.__avatarLevelHelpersTick();
       }
@@ -8234,7 +9077,6 @@ button {
         avatarMixer.update(dt);
       }
     }
-
 
 
 
@@ -8400,10 +9242,17 @@ button {
         });
       }
 
+
       if (vehicleEnterBtn) {
         vehicleEnterBtn.addEventListener("click", () => {
+
           const near = vehiclePromptState.nearby;
           if (!near) return;
+
+          if (near.kind === "pickup") {
+            pickupTake(near);
+            return;
+          }
 
           if (near.kind === "equipment") {
             if (!equipmentState.enabled) equipItem(near);
@@ -8411,12 +9260,21 @@ button {
           }
 
           if (!vehicleDriveState.enabled) enterVehicle(near);
+
         });
       }
 
+
       if (vehicleExitBtn) {
         vehicleExitBtn.addEventListener("click", () => {
+
+
           const near = vehiclePromptState.nearby;
+
+          if (near && near.kind === "pickup") {
+            pickupConsume(near);
+            return;
+          }
 
           if (near && near.kind === "equipment") {
             if (equipmentState.enabled) unequipItem();
@@ -8424,6 +9282,9 @@ button {
           }
 
           if (vehicleDriveState.enabled) exitVehicle();
+
+
+
         });
       }
 
@@ -10594,73 +11455,94 @@ function updateVehicleQuickActionButton() {
   btn.setAttribute("aria-hidden", "false");
 }
 
+
+
 /**
  * Shows/hides the vehicle prompt panel and refreshes the current selection.
  */
-function setVehiclePrompt(open, v) {
-  vehiclePromptState.open = !!open;
-  vehiclePromptState.nearby = open ? (v || null) : null;
-
+/**
+ * Shows/hides the vehicle prompt panel and refreshes the current selection.
+ */
+function setVehiclePrompt(open, near) {
+  /* Shows the interaction prompt for the current nearby target and configures actions based on kind. */
   const panel = document.getElementById("vehiclePrompt");
-  const title = document.getElementById("vehiclePromptTitle");
-  const desc = document.getElementById("vehiclePromptDesc");
+  const titleEl = document.getElementById("vehiclePromptTitle");
+  const descEl = document.getElementById("vehiclePromptDesc");
   const enterBtn = document.getElementById("vehicleEnterBtn");
   const exitBtn = document.getElementById("vehicleExitBtn");
 
-  if (!panel || !title || !desc || !enterBtn || !exitBtn) return;
+  vehiclePromptState.open = !!open;
+  vehiclePromptState.nearby = open ? (near || null) : null;
+
+  if (!panel || !titleEl || !descEl || !enterBtn || !exitBtn) return;
 
   if (uiHidden || !vehiclePromptState.open || !vehiclePromptState.nearby) {
     panel.style.display = "none";
     panel.setAttribute("aria-hidden", "true");
-    title.textContent = "";
-    desc.textContent = "";
+    titleEl.textContent = "";
+    descEl.textContent = "";
     enterBtn.style.display = "none";
     exitBtn.style.display = "none";
     updateVehicleQuickActionButton();
     return;
   }
 
-  const near = vehiclePromptState.nearby;
-  const isEquipment = near && near.kind === "equipment";
-  const meta = (near && near.meta) || {};
+  const n = vehiclePromptState.nearby;
+  const kind = String(n.kind || "vehicle");
+  const meta = (n.meta && typeof n.meta === "object") ? n.meta : {};
 
-  if (isEquipment) {
-    syncEquipmentTuningSelection();
+  let title = "Interact";
+  let desc = "";
+  let enterLabel = "";
+  let exitLabel = "";
+  let showEnter = true;
+  let showExit = false;
+
+  if (kind === "vehicle") {
+    title = String(meta.type || "Vehicle");
+    desc = String(meta.description || "");
+    enterLabel = "Get in/on";
+    exitLabel = "Exit";
+    showEnter = !vehicleDriveState.enabled;
+    showExit = !!vehicleDriveState.enabled;
+  } else if (kind === "equipment") {
+    title = String(meta.type || "Item");
+    desc = String(meta.description || "");
+    enterLabel = "Equip";
+    exitLabel = "Unequip";
+    showEnter = !equipmentState.enabled;
+    showExit = !!equipmentState.enabled;
+  } else if (kind === "pickup") {
+    const isFood = String(meta.kind || "").toLowerCase() === "food";
+    title = String(meta.name || meta.title || "Pickup");
+    desc = String(meta.description || "");
+    enterLabel = "Take";
+    exitLabel = isFood ? "Consume" : "";
+    showEnter = true;
+    showExit = !!isFood;
   } else {
-    syncVehicleTuningSelection();
+    title = String(meta.type || "Interact");
+    desc = String(meta.description || "");
+    enterLabel = "Use";
+    exitLabel = "";
+    showEnter = true;
+    showExit = false;
   }
 
-  title.textContent = meta.type || (isEquipment ? "Item" : "Vehicle");
-  desc.textContent = meta.description || "";
+  titleEl.textContent = title;
+  descEl.textContent = desc;
 
-  if (isEquipment) {
-    enterBtn.textContent = "Equip";
-    exitBtn.textContent = "Unequip";
+  enterBtn.textContent = enterLabel;
+  exitBtn.textContent = exitLabel;
 
-    if (equipmentState.enabled) {
-      enterBtn.style.display = "none";
-      exitBtn.style.display = "";
-    } else {
-      enterBtn.style.display = "";
-      exitBtn.style.display = "none";
-    }
-  } else {
-    enterBtn.textContent = "Get in/on";
-    exitBtn.textContent = "Exit";
-
-    if (vehicleDriveState.enabled) {
-      enterBtn.style.display = "none";
-      exitBtn.style.display = "";
-    } else {
-      enterBtn.style.display = "";
-      exitBtn.style.display = "none";
-    }
-  }
+  enterBtn.style.display = showEnter ? "" : "none";
+  exitBtn.style.display = showExit ? "" : "none";
 
   panel.style.display = "block";
   panel.setAttribute("aria-hidden", "false");
   updateVehicleQuickActionButton();
 }
+
 
 
 
@@ -11107,9 +11989,21 @@ function registerVehicleInstance(inst, instCfg) {
 /**
  * Registers an equipment instance for proximity interaction and avatar attachment.
  */
+/**
+ * Registers an equipment instance for proximity interaction and avatar attachment.
+ */
 function registerEquipmentInstance(inst, instCfg) {
   /* Registers equipment instance for proximity interaction and avatar attachment using bounds center for stable pickup distance. */
-  if (!instCfg || !instCfg.equipment || !inst) return;
+  if (!instCfg || !inst) return;
+
+  const metaEquip = (instCfg.equipment && typeof instCfg.equipment === "object") ? instCfg.equipment : null;
+  const metaWorld = (instCfg.meta && typeof instCfg.meta === "object") ? instCfg.meta : null;
+
+  const metaKind = metaWorld && typeof metaWorld.kind === "string" ? String(metaWorld.kind) : "";
+  const isPickup = (metaKind === "food" || metaKind === "pickup");
+  const isEquipment = !!metaEquip;
+
+  if (!isEquipment && !isPickup) return;
 
   inst.updateWorldMatrix(true, true);
   equipmentTmpBox.setFromObject(inst);
@@ -11120,23 +12014,24 @@ function registerEquipmentInstance(inst, instCfg) {
   equipmentTmpBox.getSize(equipmentTmpSize);
 
   const radius = Math.max(0.25, 0.5 * Math.max(equipmentTmpSize.x, equipmentTmpSize.z));
-  const meta = instCfg.equipment && typeof instCfg.equipment === "object" ? instCfg.equipment : {};
-
   const localCenter = inst.worldToLocal(equipmentTmpCenter.clone());
 
   const e = {
     id: instCfg.id || "",
-    kind: "equipment",
+    kind: isEquipment ? "equipment" : "pickup",
     object: inst,
-    meta,
+    meta: isEquipment ? metaEquip : metaWorld,
     radius,
     localCenter
   };
 
   equipmentInteractables.push(e);
-  inst.userData.equipmentMeta = meta;
+
+  inst.userData.equipmentMeta = e.meta;
   inst.userData.equipmentLocalCenter = localCenter;
+  inst.userData.equipmentKind = e.kind;
 }
+
 
 
 /**
@@ -11211,6 +12106,8 @@ function findNearbyVehicle() {
 }
 
 
+
+
 /**
  * Enters vehicle mode: locks controls to the vehicle and seats the avatar.
  * Vehicle chase camera is enabled on entry so camera always follows while driving.
@@ -11261,8 +12158,16 @@ function enterVehicle(v) {
     lastInteractionTime = performance.now() * 0.001;
   }
 
+  if (typeof showActionToast === "function") {
+    const desc = (v.meta && typeof v.meta.description === "string" && v.meta.description.trim())
+    ? v.meta.description.trim()
+    : String(v.meta.type || "Vehicle");
+    showActionToast(`ENTER • ${desc}`);
+  }
+
   resetJoystick();
 }
+
 
 
 
@@ -11332,8 +12237,15 @@ function exitVehicle() {
 
   setVehiclePrompt(false, null);
   updateVehicleOutlineFor(null);
+
+  if (typeof showActionToast === "function") showActionToast("EXIT • vehicle");
+
   resetJoystick();
 }
+
+
+
+
 
 
 /**
@@ -13731,8 +14643,28 @@ drawMinimapFrame(true);
 
 
 
+/* Snaps existing forest tree Y positions back onto the current snow/terrain surface and refreshes colliders/minimap. */
+function snapForestToTerrain() {
+  if (!cones || !cones.length) return;
 
+  for (const tree of cones) {
+    if (!tree) continue;
 
+    const x = tree.position.x;
+    const z = tree.position.z;
+
+    const groundY = sampleSnowHeight(x, z);
+    if (!Number.isFinite(groundY)) continue;
+
+    const scale = (tree.scale && Number.isFinite(tree.scale.y)) ? tree.scale.y : 1.0;
+    tree.position.y = groundY + 1.65 * scale;
+  }
+
+  colliderBounds = buildColliderBounds(colliderObjects);
+  rebuildAvatarCollisionGrid();
+  refreshMinimapStaticPoints();
+  drawMinimapFrame(true);
+}
 
 
 
@@ -14491,7 +15423,10 @@ function _terrainHeightAt(x, z) {
 function rebuildTerrainBase() {
   if (!params.snowEnabled || !snowSurface || !driftGeo || !driftHeights) return;
   initSnowCover();
+
   applyHeightsToGeometry();
+  snapForestToTerrain();
+
   driftGeo.computeVertexNormals();
   driftGeo.attributes.normal.needsUpdate = true;
 }
@@ -16031,6 +16966,8 @@ function buildColliderBounds(objs) {
 
     obj.updateWorldMatrix(true, false);
 
+    const isGroundPlatform = !!(obj.userData && obj.userData.worldModelGroundPlatform);
+
     if (obj.isMesh && obj.geometry) {
       if (!obj.geometry.boundingSphere) obj.geometry.computeBoundingSphere();
       const bs = obj.geometry.boundingSphere;
@@ -16071,6 +17008,7 @@ function buildColliderBounds(objs) {
 
     out.push({
       obj,
+      isGroundPlatform,
       center: boundCenter.clone(),
       radius: Number.isFinite(radius) ? radius : bs.radius,
       yMin: Number.isFinite(box.min.y) ? box.min.y : (boundCenter.y - (Number.isFinite(radius) ? radius : bs.radius)),
@@ -16094,6 +17032,7 @@ function buildColliderBounds(objs) {
 
   out.push({
     obj,
+    isGroundPlatform,
     center: center.clone(),
     radius: Number.isFinite(radius) ? radius : 0.0,
     yMin: Number.isFinite(box.min.y) ? box.min.y : (center.y - (Number.isFinite(radius) ? radius : 0.0)),
@@ -16103,6 +17042,7 @@ function buildColliderBounds(objs) {
 
 return out;
 }
+
 
 
 
@@ -18378,6 +19318,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         tickAvatar(dtAvatar);
 
+        updateHudTile((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+
         const fogFocus = getMinimapFocus();
         updateEdgeFadeFog(fogFocus.x, fogFocus.z);        
 
@@ -18658,6 +19600,103 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         return out;
       }
+
+
+
+      /* Adds a world pickup to inventory and removes it from the scene in a reversible-friendly way. */
+      function pickupTake(near) {
+        if (!near || !near.object) return;
+
+        const meta = (near.meta && typeof near.meta === "object") ? near.meta : {};
+        const requiresBackpack = !!meta.requiresBackpack || meta.size === "bulky";
+
+        const hasBackpack =
+        !!(equipmentState && equipmentState.enabled && equipmentState.item && equipmentState.item.meta) &&
+        String(equipmentState.item.meta.type || "").toLowerCase().includes("backpack");
+
+        if (requiresBackpack && !hasBackpack) {
+          if (typeof showActionToast === "function") showActionToast("Requires backpack");
+          console.warn("[pickup] requires backpack:", near.id || "(no-id)");
+          return;
+        }
+
+        const entry = {
+          id: near.id || "",
+          kind: String(meta.kind || "pickup"),
+          name: String(meta.name || meta.title || near.id || "Item"),
+          desc: String(meta.description || ""),
+          caloriesKcal: Number.isFinite(meta.caloriesKcal) ? meta.caloriesKcal : 0,
+          weightKg: Number.isFinite(meta.weightKg) ? meta.weightKg : 0,
+          ts: Date.now()
+        };
+
+        if (typeof loadPlayerInventory === "function" && typeof savePlayerInventory === "function") {
+          const inv = loadPlayerInventory();
+          if (inv && Array.isArray(inv.items)) {
+            inv.items.push(entry);
+            savePlayerInventory(inv);
+          }
+        }
+
+        if (typeof showActionToast === "function") showActionToast(`TAKEN • ${entry.name}`);
+
+        if (near.object.parent) near.object.parent.remove(near.object);
+
+        for (let i = equipmentInteractables.length - 1; i >= 0; i--) {
+          const e = equipmentInteractables[i];
+          if (e && e.object === near.object) equipmentInteractables.splice(i, 1);
+        }
+
+        if (vehiclePromptState && vehiclePromptState.open) setVehiclePrompt(false, null);
+
+        if (inventoryPickerState && inventoryPickerState.open) {
+          if (typeof renderInventoryPickerList === "function") renderInventoryPickerList();
+        }
+      }
+
+
+
+
+
+
+    /* Consumes a food pickup in-world and applies calories into player stamina/health pipeline. */
+      function pickupConsume(near) {
+        if (!near || !near.object) return;
+
+        const meta = (near.meta && typeof near.meta === "object") ? near.meta : {};
+        const kcal = Number.isFinite(meta.caloriesKcal) ? Math.max(0, meta.caloriesKcal) : 0;
+
+        if (typeof window.__sessionEnergyIntakeKcal !== "number") window.__sessionEnergyIntakeKcal = 0;
+        window.__sessionEnergyIntakeKcal += kcal;
+
+        if (typeof playerVitals !== "undefined" && playerVitals) {
+          const curEnergy = Number.isFinite(playerVitals.energyKcal) ? playerVitals.energyKcal : 0;
+          const curStamina = Number.isFinite(playerVitals.stamina) ? playerVitals.stamina : 1;
+
+          playerVitals.energyKcal = Math.max(0, curEnergy + kcal);
+          playerVitals.stamina = Math.min(1, curStamina + (kcal / 1200));
+
+          if (typeof savePlayerVitals === "function") savePlayerVitals();
+        }
+
+        const nm = String(meta.name || meta.title || near.id || "Food");
+        if (typeof showActionToast === "function") showActionToast(`CONSUMED • ${nm} +${(kcal | 0)}kcal`);
+
+        if (near.object.parent) near.object.parent.remove(near.object);
+
+        for (let i = equipmentInteractables.length - 1; i >= 0; i--) {
+          const e = equipmentInteractables[i];
+          if (e && e.object === near.object) equipmentInteractables.splice(i, 1);
+        }
+
+        if (vehiclePromptState && vehiclePromptState.open) setVehiclePrompt(false, null);
+        if (typeof updateHudTile === "function") updateHudTile();
+      }
+
+
+
+
+
 
       /* Wires the inventory overlay UI once and keeps open/close state consistent. */
       function ensureInventoryPickerOverlayWired() {
@@ -19314,6 +20353,19 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+        if (event.code === "F8") {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!event.repeat) {
+            const next = !isAvatarCollisionDebugEnabled();
+            setAvatarCollisionDebugEnabled(next);
+            if (typeof showActionToast === "function") showActionToast(next ? "Collision debug ON" : "Collision debug OFF");
+            console.log("[snow][collision] debug", next ? "ON" : "OFF");
+          }
+          return;
+        }
+
+
         if (typeof snapshotsOverlayState !== "undefined" && snapshotsOverlayState && snapshotsOverlayState.open) {
           if (event.code === "Escape") {
             event.preventDefault();
@@ -19485,20 +20537,17 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
-  // E toggles vehicle enter/exit; also toggles equip/unequip for nearby equipment when on foot.
         if (event.code === "KeyE" && !event.metaKey && !event.ctrlKey) {
           if (event.repeat) return;
           event.preventDefault();
 
           if (!avatarState.enabled) return;
 
-          /* If currently driving, E exits. */
           if (vehicleDriveState.enabled) {
             exitVehicle();
             return;
           }
 
-          /* If currently equipped, E unequips (same key toggle behavior as vehicles). */
           if (equipmentState.enabled) {
             unequipItem();
             return;
@@ -19515,7 +20564,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           enterVehicle(near);
           return;
         }
-
 
         if (event.code === "KeyO") {
           event.preventDefault();
