@@ -15,14 +15,9 @@
           -0.37223696863923605,
           3.141592653589793
         ],
-        "scale": [
-          1,
-          1,
-          1
-        ],
+        "scale": 1,
         "stick": false,
         "collide": false,
-
         "meta": {
           "kind": "food",
           "name": "Ginger Bread",
@@ -32,11 +27,9 @@
           "size": "small",
           "requiresBackpack": false
         }
-
       }
     ]
   },
-
   {
     "name": "plane",
     "url": "models/vehicles/flying/plane1-1.glb",
@@ -519,7 +512,6 @@
       }
     ]
   },
-
   {
     "name": "par3",
     "url": "models/buildings/tests/par3.glb",
@@ -543,45 +535,29 @@
       }
     ]
   },
-
-{
-  "name": "gym1",
-  "url": "models/buildings/tests/gym1c.glb",
-  "instances": [
-    {
-      "id": "gym1_1",
-      "position": [4.694959559047657, 0.09979077751996268, 9.146625485606378],
-      "rotation": [3.141592653589793, -1.4635359498478704, 3.141592653589793],
-      "scale": 1,
-      "ground": true,
-      "stick": false,
-      "collide": false
-    }
-  ]
-},
-{
-  "name": "dor",
-  "url": "models/buildings/tests/dor.glb",
-  "instances": [
-    {
-      "id": "dor_1",
-      "position": [4.694959559047657, 0.09979077751996268, 9.146625485606378],
-      "rotation": [3.141592653589793, -1.4635359498478704, 3.141592653589793],
-      "scale": 1,
-      "collisionMode": "none",
-      "portal": true,
-      "ground": false,
-      "stick": false,
-      "collide": false,
-      "meta": {
-        "kind": "door",
-        "action": "toggle",
-        "targetId": "gym1_1"
+  {
+    "name": "gym1o",
+    "url": "models/buildings/tests/gym1o.glb",
+    "instances": [
+      {
+        "id": "gym1_1o",
+        "position": [
+          4.694959559047657,
+          0.09979077751996268,
+          9.146625485606378
+        ],
+        "rotation": [
+          3.141592653589793,
+          -1.4635359498478704,
+          3.141592653589793
+        ],
+        "scale": 1,
+        "ground": true,
+        "stick": false,
+        "collide": false
       }
-    }
-  ]
-},
-
+    ]
+  },
 
 
   {
@@ -652,8 +628,6 @@
       }
     ]
   },
-
-
   {
     "name": "jetpack",
     "url": "models/vehicles/jetpacks/jetpack.glb",
@@ -695,8 +669,6 @@
       }
     ]
   },
-
-
   {
     "name": "backpack",
     "url": "models/backpacks/backpack1.glb",
@@ -738,23 +710,21 @@
       }
     ]
   },
-
-
-    {
+  {
     "name": "snowcar",
     "url": "models/vehicles/snowcar.glb",
     "instances": [
       {
         "id": "car2",
         "position": [
-          86.69797708731532,
-          0.19,
-          31.367264451350245
+          -8.853128096038596,
+          -0.01753732038906497,
+          -16.146082033671828
         ],
         "rotation": [
-          0,
-          0.23082649268928565,
-          0
+          3.141592653589793,
+          -0.850190555681674,
+          3.141592653589793
         ],
         "scale": 1,
         "stick": false,
@@ -807,12 +777,4 @@
       }
     ]
   }
-
-
-
-
-
-
-
-
 ]

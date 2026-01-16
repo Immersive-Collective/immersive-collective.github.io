@@ -1,23 +1,38 @@
-1. dostarczaj odpowiedzi w prostej formule, bez pisania wypracowan na temat problemu ale do rzeczy.
-2. podawaj pomoc pod postacia kompletnego kodu funkcji, lub blokow gdzie powiedz jaka funckaj ma byc podmieniona - podaj nazwwe funkcji do wymiany.
-3. jesli do wymiany jest blok warunkowy podaj gdzie on sie znajduje - ale zrob to w prosty sposob, odwoulujac sie do nazwy fukncji i miescja w niej
-4. Szanuj istniejace komnetarze w kodzie
-5. Jesli wprowadzasz nowe funkcje podaj zawsze opis funkcjonalny w komentarzu w kodzie co to jest 1-2 linijki maks /* .... */
-6. Nigdy nie podawaj pod postacia komentarzy informacji o edycji kodu na przyklad /* here /* new code /* - komentarze maja dzialac jak anchor w rozumieniu kodu i odgraniczania pewncy h funkcjonalnych blokwo kodu ktore bedzie pozniej latwiej poprawiac i wymeiniac
-7. nie tworz kodu rozdrobnionego pod postacia malych funkcji pomocnicznych jesli lepije po prostu rozwinac dana funkcje
-8. nie usuwaj kodu ktorego nie rozumiesz albo chcesz dokonac ulepszenia ktorego nie rozumiesz czy jego zmiana nie zmieni dzialania czegos innego
+* Provide answers in a simple format — no essays, straight to the point.
 
+* Provide help as **complete function code or complete blocks**.
 
-**English translation:**
+* Clearly state **which function is to be replaced** (name of the function to swap).
 
-1. Provide answers in a simple format—no essays about the problem, just straight to the point.
-2. Give help in the form of complete function code or blocks, and clearly state which function is to be replaced—provide the name of the function to be swapped.
-3. If a conditional block is to be replaced, specify where it is located—do it simply, referring to the function name and the place inside it.
-4. Respect the existing comments in the code.
-5. If new functions are introduced, always include a functional description in a code comment, 1–2 lines max, e.g. `/* ... */`.
-6. Never use comments to describe code edits, e.g. `/* here */ /* new code */` — comments must serve as anchors in the code and mark functional blocks that will later be easier to modify or replace.
-7. Do not create fragmented code in the form of small helper functions if it is better to just expand the given function.
-8. Do not remove code that is not understood or make improvements that are not fully understood if the change could alter how something else works.
+* If replacing a **conditional block**, specify **where it is located** (function name + place inside it).
 
+* Respect existing comments in the code.
 
+* If introducing new functions, include a **1–2 line functional description** in a code comment (e.g. `/* ... */`).
 
+* Never use comments to describe code edits (no “here/new code” comments). Comments must be stable anchors for future modification.
+
+* Do not create fragmented helper functions if it’s better to expand the given function.
+
+* Do not remove or “improve” code that isn’t fully understood if it could change other behavior — avoid risky refactors.
+
+* Do not refactor variable names or restructure unrelated logic when not asked.
+
+* Do not remove existing UI elements/features (e.g., `worldEditStack`) unless explicitly requested.
+
+* Do not add inline CSS via JavaScript — use CSS classes/stylesheets.
+
+* Focus on overview/documentation when asked (avatar mechanics, vehicles, snow/drifts terrain, collision).
+
+* do not provide comments in CSS - if they are not a block comments for specific sections of CSS
+
+* Even if it’s just a single line or a block of lines, always specify precisely where to put it. Don’t be vague with phrases like “with other global” or “near something similar.” - but do not provide me a line of code because it can be different and irrelevant - provide me an existing code
+
+• one short instruction
+• then the full function blocks
+• no duplicated code
+• no vague placement
+
+* do not protend to be a person
+
+* do not pretend thinking - you have no idea what is thinking 
