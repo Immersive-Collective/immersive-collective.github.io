@@ -1106,8 +1106,8 @@ button {
 
 .minimap {
   position: fixed;
-  left: calc(12px + env(safe-area-inset-left));
-  top: calc(12px + env(safe-area-inset-top));
+  left: calc(8px + env(safe-area-inset-left));
+  top: calc(8px + env(safe-area-inset-top));
   width: var(--minimap-size, 160px);
   height: var(--minimap-size, 160px);
   border-radius: 16px;
@@ -1410,8 +1410,8 @@ button {
 
 .hud-tile {
   position: fixed;
-  left: calc(12px + env(safe-area-inset-left));
-  top: calc(12px + env(safe-area-inset-top) + var(--minimap-size, 160px) + 10px);
+  left: calc(8px + env(safe-area-inset-left));
+  top: calc(8px + env(safe-area-inset-top) + var(--minimap-size, 160px) + 10px);
   width: var(--minimap-size, 160px);
   min-height: 64px;
   border-radius: 14px;
@@ -1441,7 +1441,7 @@ button {
 }
 
 .hud-tile__value {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -1486,9 +1486,9 @@ canvas.world-edit-on {
 .now-playing {
   position: fixed;
   left: 50%;
-  top: calc(72px + env(safe-area-inset-top));
+  top: calc(75px + env(safe-area-inset-top));
   transform: translateX(-50%);
-  width: min(84vw, 520px);
+  width: min(50vw, 520px);
   z-index: 23;
   pointer-events: auto;
   padding: 10px 12px;
@@ -1649,7 +1649,7 @@ canvas.world-edit-on {
         <span class="hud-tile__label">HEALTH</span>
         <span id="hudHealthValue" class="hud-tile__bar-value">100%</span>
         <span class="hud-tile__bar-sep">•</span>
-        <span class="hud-tile__bar-label">LIVES</span>
+        <span class="hud-tile__bar-label">🩷</span>
         <span id="hudLivesValue" class="hud-tile__bar-value"></span>
       </div>
       <div class="hud-tile__bar-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
