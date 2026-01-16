@@ -3,7 +3,8 @@
 !projects/more-shaders/snow/audio/**
 !projects/more-shaders/santagirl/audio/
 !projects/more-shaders/santagirl/audio/**
-
+!projects/more-shaders/santagirl/audio/playlists/
+!projects/more-shaders/santagirl/audio/playlists/**
 
 
 archive/
