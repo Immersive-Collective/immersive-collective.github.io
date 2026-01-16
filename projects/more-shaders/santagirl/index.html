@@ -1483,6 +1483,81 @@ canvas.world-edit-on {
 }
 
 
+.now-playing {
+  position: fixed;
+  left: 50%;
+  top: calc(72px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  width: min(84vw, 520px);
+  z-index: 23;
+  pointer-events: auto;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgb(0 0 0 / 28%);
+  backdrop-filter: blur(10px);
+  color: rgba(255,255,255,0.92);
+}
+
+.now-playing[aria-hidden="true"] {
+  display: none;
+}
+
+.now-playing__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.now-playing__title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70%;
+}
+
+.now-playing__time {
+  font-size: 12px;
+  opacity: 0.9;
+  flex: 0 0 auto;
+}
+
+.now-playing__seek {
+  width: 100%;
+  margin: 0 0 8px 0;
+}
+
+.now-playing__controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.now-playing__btn {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.92);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.now-playing__btn--primary {
+  background: rgba(255,255,255,0.18);
+}
+
+
+.now-playing.now-playing--disabled {
+  opacity: 0.65;
+  filter: grayscale(0.2);
+}
 
 
 
@@ -1517,6 +1592,25 @@ canvas.world-edit-on {
   -->  
 
   <div id="worldName" class="world-name" aria-hidden="true" aria-live="polite"></div>
+
+
+  <div id="nowPlaying" class="now-playing" aria-hidden="true">
+    <div class="now-playing__row">
+      <div id="nowPlayingTitle" class="now-playing__title">—</div>
+      <div id="nowPlayingTime" class="now-playing__time">0:00 / 0:00</div>
+    </div>
+
+    <input id="nowPlayingSeek" class="now-playing__seek" type="range" min="0" max="1" step="0.001" value="0" aria-label="Seek" />
+
+    <div class="now-playing__controls">
+      <button id="nowPlayingPrev" class="now-playing__btn" type="button">Prev</button>
+      <button id="nowPlayingPlay" class="now-playing__btn now-playing__btn--primary" type="button">Play</button>
+      <button id="nowPlayingNext" class="now-playing__btn" type="button">Next</button>
+    </div>
+  </div>
+
+
+
 
   <button id="miniMap" class="minimap" type="button" aria-label="Open map">
     <canvas id="miniMapCanvas" class="minimap__canvas"></canvas>
@@ -2234,6 +2328,18 @@ canvas.world-edit-on {
     __warnedExhausted: false,
     __lastBurnKcal: 0
   };
+
+
+  function formatClock(seconds) {
+    const s = Number(seconds);
+    if (!Number.isFinite(s) || s <= 0) return "0:00";
+
+    const total = Math.floor(s);
+    const m = Math.floor(total / 60);
+    const r = total - m * 60;
+
+    return `${m}:${String(r).padStart(2, "0")}`;
+  }
 
 
 /* Formats meters into m/km for HUD display. */
@@ -3792,6 +3898,501 @@ canvas.world-edit-on {
     // Minimal WebAudio: background mp3 + simple gust FX
     // -------------------------------------------------------------------------
 
+// -------------------------------------------------------------------------
+// Music Player (playlist folders + JSON)
+// -------------------------------------------------------------------------
+
+    const PLAYLISTS_SET_URL = "./audio/playlists_set.json";
+    const PLAYLISTS_BASE_URL = "./audio/playlists";
+
+    let musicElement = null;
+    let musicElementSource = null;
+
+    let musicState = {
+      playlists: [],
+      playlistOrder: [],
+      playlistId: "starter",
+      playlistFolder: "starter",
+
+      tracks: [],
+      trackIndex: 0,
+
+      isPlaying: false,
+      loopPlaylist: true,
+      followPlaylistsOrder: false,
+
+      uiWired: false,
+      ui: {
+        root: null,
+        title: null,
+        time: null,
+        seek: null,
+        btnPlay: null,
+        btnPrev: null,
+        btnNext: null
+      },
+      _seeking: false,
+      _lastUiTs: 0
+    };
+
+/* Loads playlists_set.json once and normalizes it into musicState.playlists + order. */
+    async function loadPlaylistsSetOnce() {
+      if (musicState.playlists && musicState.playlists.length) return;
+
+      const res = await fetch(PLAYLISTS_SET_URL, { cache: "no-cache" });
+      const json = await res.json();
+
+      let list = [];
+      let order = [];
+
+      if (Array.isArray(json)) {
+        list = json;
+      } else if (json && typeof json === "object") {
+        if (Array.isArray(json.playlists)) list = json.playlists;
+        if (Array.isArray(json.order)) order = json.order;
+      }
+
+      list = (list || []).filter(Boolean).map((p) => {
+        const id = String(p.id || p.folder || "").trim();
+        const folder = String(p.folder || p.id || "").trim();
+        return {
+          id: id || folder,
+          folder: folder || id,
+          title: String(p.title || id || folder || "").trim(),
+          thumbnail: String(p.thumbnail || "").trim(),
+          albumMeta: (p.albumMeta && typeof p.albumMeta === "object") ? p.albumMeta : null,
+          order: Number.isFinite(Number(p.order)) ? Number(p.order) : null
+        };
+      }).filter((p) => p.id && p.folder);
+
+      if (!order.length) {
+        order = list
+        .slice()
+        .sort((a, b) => {
+          const ao = Number.isFinite(a.order) ? a.order : 1e9;
+          const bo = Number.isFinite(b.order) ? b.order : 1e9;
+          if (ao !== bo) return ao - bo;
+          return a.id.localeCompare(b.id);
+        })
+        .map((p) => p.id);
+      }
+
+      musicState.playlists = list;
+      musicState.playlistOrder = order;
+
+      if (!musicState.playlists.some((p) => p.id === musicState.playlistId)) {
+        musicState.playlistId = (musicState.playlistOrder[0] || (musicState.playlists[0] && musicState.playlists[0].id) || "starter");
+      }
+
+      const pl = musicState.playlists.find((p) => p.id === musicState.playlistId);
+      if (pl) musicState.playlistFolder = pl.folder;
+    }
+
+/* Loads trackList.json (or tracks.json fallback) for the current playlist folder. */
+    async function loadTracksForCurrentPlaylist() {
+      const folder = String(musicState.playlistFolder || "starter").trim() || "starter";
+      const urlA = `${PLAYLISTS_BASE_URL}/${folder}/trackList.json`;
+      const urlB = `${PLAYLISTS_BASE_URL}/${folder}/tracks.json`;
+
+      let json = null;
+      try {
+        const resA = await fetch(urlA, { cache: "no-cache" });
+        json = await resA.json();
+      } catch (_) {
+        const resB = await fetch(urlB, { cache: "no-cache" });
+        json = await resB.json();
+      }
+
+      let tracks = [];
+      if (Array.isArray(json)) tracks = json;
+      else if (json && typeof json === "object" && Array.isArray(json.tracks)) tracks = json.tracks;
+
+      tracks = (tracks || []).filter(Boolean).map((t, idx) => {
+        const file = String(t.file || t.src || "").trim();
+        return {
+          file,
+          title: String(t.title || `Track ${idx + 1}`).trim(),
+          artist: String(t.artist || "").trim(),
+          duration: Number.isFinite(Number(t.duration)) ? Number(t.duration) : null,
+          trackNumber: Number.isFinite(Number(t.trackNumber)) ? Number(t.trackNumber) : (idx + 1)
+        };
+      }).filter((t) => t.file);
+
+      musicState.tracks = tracks;
+      if (musicState.trackIndex < 0) musicState.trackIndex = 0;
+      if (musicState.trackIndex >= tracks.length) musicState.trackIndex = 0;
+    }
+
+/* Creates the HTMLAudioElement once and wires it to the shared AudioContext master gain. */
+    function ensureMusicElement() {
+      if (musicElement) return musicElement;
+
+      if (!audioListener || !audioCtx || !audioMaster) initAudio();
+      if (!audioCtx || !audioMaster) return null;
+
+      musicElement = document.createElement("audio");
+      musicElement.preload = "metadata";
+      musicElement.crossOrigin = "anonymous";
+      musicElement.loop = false;
+
+      musicElement.addEventListener("ended", () => {
+        handleMusicTrackEnded();
+      });
+
+      musicElementSource = audioCtx.createMediaElementSource(musicElement);
+      musicElementSource.connect(musicGain);
+
+      return musicElement;
+    }
+
+/* Updates the DOM strip and keeps it in sync with current playback. */
+    function updateNowPlayingUi(tsMs) {
+      if (!musicState.uiWired) ensureNowPlayingUiWired();
+      if (!musicState.uiWired) return;
+
+      const ts = Number(tsMs || 0);
+      if (ts && (ts - musicState._lastUiTs) < 60) return;
+      musicState._lastUiTs = ts;
+
+      const hasPlaylist = !!(musicState.tracks && musicState.tracks.length);
+      const track = hasPlaylist ? musicState.tracks[musicState.trackIndex] : null;
+
+      const root = musicState.ui.root;
+      if (!root) return;
+
+      const enabled = !!(params && params.musicEnabled);
+
+  // Always show the strip; disable controls when Music is OFF.
+      root.setAttribute("aria-hidden", "false");
+      root.classList.toggle("now-playing--disabled", !enabled);
+
+      const titleEl = musicState.ui.title;
+      const timeEl = musicState.ui.time;
+      const seekEl = musicState.ui.seek;
+      const btnPlay = musicState.ui.btnPlay;
+      const btnPrev = musicState.ui.btnPrev;
+      const btnNext = musicState.ui.btnNext;
+
+      const el = musicElement;
+      const cur = (el && Number.isFinite(el.currentTime)) ? el.currentTime : 0;
+      const dur = (el && Number.isFinite(el.duration)) ? el.duration : (track && Number.isFinite(track.duration) ? track.duration : 0);
+
+      if (titleEl) {
+        if (!enabled) {
+          titleEl.textContent = "Music: OFF";
+        } else if (track) {
+          titleEl.textContent = track.artist ? `${track.title} — ${track.artist}` : track.title;
+        } else {
+          titleEl.textContent = "Loading playlist…";
+        }
+      }
+
+      if (timeEl) {
+        if (!enabled) timeEl.textContent = "0:00 / 0:00";
+        else timeEl.textContent = `${formatClock(cur)} / ${formatClock(dur)}`;
+      }
+
+      if (seekEl) {
+        seekEl.disabled = !enabled || !track;
+        if (!musicState._seeking) {
+          const frac = (enabled && dur > 0.0001) ? clamp(cur / dur, 0.0, 1.0) : 0.0;
+          seekEl.value = String(frac);
+        }
+      }
+
+      if (btnPlay) {
+        btnPlay.disabled = !enabled || !track;
+        btnPlay.textContent = musicState.isPlaying ? "Pause" : "Play";
+      }
+
+      if (btnPrev) btnPrev.disabled = !enabled || !track;
+      if (btnNext) btnNext.disabled = !enabled || !track;
+    }
+
+
+
+
+/* Wires the Now Playing DOM strip once (buttons, seek). */
+    function ensureNowPlayingUiWired() {
+      if (musicState.uiWired) return;
+
+      const root = document.getElementById("nowPlaying");
+      const title = document.getElementById("nowPlayingTitle");
+      const time = document.getElementById("nowPlayingTime");
+      const seek = document.getElementById("nowPlayingSeek");
+      const btnPlay = document.getElementById("nowPlayingPlay");
+      const btnPrev = document.getElementById("nowPlayingPrev");
+      const btnNext = document.getElementById("nowPlayingNext");
+
+      if (!root || !seek || !btnPlay || !btnPrev || !btnNext) return;
+
+      musicState.ui.root = root;
+      musicState.ui.title = title;
+      musicState.ui.time = time;
+      musicState.ui.seek = seek;
+      musicState.ui.btnPlay = btnPlay;
+      musicState.ui.btnPrev = btnPrev;
+      musicState.ui.btnNext = btnNext;
+
+      seek.addEventListener("input", () => {
+        musicState._seeking = true;
+        updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+      });
+
+      seek.addEventListener("change", () => {
+        const el = musicElement;
+        if (!el) { musicState._seeking = false; return; }
+
+        const dur = Number.isFinite(el.duration) ? el.duration : 0;
+        const frac = clamp(Number(seek.value || 0), 0.0, 1.0);
+        if (dur > 0.0001) el.currentTime = frac * dur;
+
+        musicState._seeking = false;
+        updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+      });
+
+      btnPlay.addEventListener("click", async () => {
+        if (musicState.isPlaying) {
+          musicPause();
+        } else {
+          await musicPlay();
+        }
+      });
+
+      btnPrev.addEventListener("click", async () => {
+        await musicPrev();
+      });
+
+      btnNext.addEventListener("click", async () => {
+        await musicNext();
+      });
+
+      musicState.uiWired = true;
+    }
+
+/* Selects a playlist by id and loads its trackList.json. */
+    async function musicSelectPlaylistById(id, { keepPlaying = false } = {}) {
+      await loadPlaylistsSetOnce();
+
+      const pid = String(id || "").trim();
+      const pl = musicState.playlists.find((p) => p.id === pid) || musicState.playlists[0];
+      if (!pl) return;
+
+      musicState.playlistId = pl.id;
+      musicState.playlistFolder = pl.folder;
+
+      await loadTracksForCurrentPlaylist();
+
+      musicState.trackIndex = clamp(musicState.trackIndex | 0, 0, Math.max(0, musicState.tracks.length - 1));
+      await musicLoadCurrentTrack({ autoplay: keepPlaying && musicState.isPlaying });
+
+      updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+    }
+
+/* Loads the current track into the element (does not restart on volume changes). */
+    async function musicLoadCurrentTrack({ autoplay = false } = {}) {
+      const el = ensureMusicElement();
+      if (!el) return;
+
+      const tracks = musicState.tracks || [];
+      if (!tracks.length) return;
+
+      const idx = clamp(musicState.trackIndex | 0, 0, tracks.length - 1);
+      musicState.trackIndex = idx;
+
+      const folder = String(musicState.playlistFolder || "starter").trim() || "starter";
+      const t = tracks[idx];
+      const url = `${PLAYLISTS_BASE_URL}/${folder}/${t.file}`;
+
+      const wasPlaying = musicState.isPlaying;
+      musicState.isPlaying = false;
+
+      el.pause();
+      el.src = url;
+      el.load();
+
+      if (autoplay || wasPlaying) {
+        await musicPlay();
+      } else {
+        updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+      }
+    }
+
+    async function musicPlay() {
+      if (!params || !params.musicEnabled) return;
+
+      if (!audioListener || !audioCtx || !audioMaster) initAudio();
+      if (!audioCtx) return;
+
+      await ensureAudioResumed();
+
+      await loadPlaylistsSetOnce();
+      if (!musicState.tracks || !musicState.tracks.length) {
+        await musicSelectPlaylistById(musicState.playlistId || "starter", { keepPlaying: false });
+      }
+
+      const el = ensureMusicElement();
+      if (!el) return;
+
+      const tracks = musicState.tracks || [];
+      if (!tracks.length) return;
+
+      if (!el.src) {
+        await musicLoadCurrentTrack({ autoplay: false });
+      }
+
+      try {
+        await el.play();
+        musicState.isPlaying = true;
+      } catch (_) {
+        musicState.isPlaying = false;
+      }
+
+      updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+    }
+
+    function musicPause() {
+      if (!musicElement) return;
+      musicElement.pause();
+      musicState.isPlaying = false;
+      updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+    }
+
+    async function musicNext() {
+      if (!musicState.tracks || !musicState.tracks.length) return;
+
+      const wasPlaying = musicState.isPlaying;
+
+      musicState.trackIndex++;
+      if (musicState.trackIndex >= musicState.tracks.length) {
+        if (musicState.loopPlaylist) {
+          musicState.trackIndex = 0;
+        } else if (musicState.followPlaylistsOrder) {
+          await musicAdvancePlaylist(+1);
+          return;
+        } else {
+          musicState.trackIndex = musicState.tracks.length - 1;
+          musicPause();
+          return;
+        }
+      }
+
+      await musicLoadCurrentTrack({ autoplay: wasPlaying });
+    }
+
+    async function musicPrev() {
+      if (!musicState.tracks || !musicState.tracks.length) return;
+
+      const el = musicElement;
+      const cur = (el && Number.isFinite(el.currentTime)) ? el.currentTime : 0;
+
+      const wasPlaying = musicState.isPlaying;
+
+      if (cur > 2.0) {
+        if (el) el.currentTime = 0;
+        updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+        return;
+      }
+
+      musicState.trackIndex--;
+      if (musicState.trackIndex < 0) {
+        if (musicState.loopPlaylist) {
+          musicState.trackIndex = musicState.tracks.length - 1;
+        } else if (musicState.followPlaylistsOrder) {
+          await musicAdvancePlaylist(-1);
+          return;
+        } else {
+          musicState.trackIndex = 0;
+          updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+          return;
+        }
+      }
+
+      await musicLoadCurrentTrack({ autoplay: wasPlaying });
+    }
+
+    async function musicAdvancePlaylist(dir) {
+      await loadPlaylistsSetOnce();
+      const order = musicState.playlistOrder || [];
+      if (!order.length) return;
+
+      const idx = Math.max(0, order.indexOf(musicState.playlistId));
+      let next = idx + (dir >= 0 ? 1 : -1);
+
+      if (next >= order.length) next = 0;
+      if (next < 0) next = order.length - 1;
+
+      const wasPlaying = musicState.isPlaying;
+      await musicSelectPlaylistById(order[next], { keepPlaying: wasPlaying });
+    }
+
+/* On track end: advance within playlist, loop, or follow playlists_set.json order. */
+    function handleMusicTrackEnded() {
+      if (!musicState.isPlaying) return;
+      musicNext().catch(() => {});
+    }
+
+/* Applies music enable/volume from params WITHOUT reloading the track. */
+    function applyMusicFromParams() {
+      const wantEnabled = !!(params && params.musicEnabled);
+      const vol = clamp(
+        Number(params && params.musicVolume != null ? params.musicVolume : 0.35),
+        0.0,
+        1.0
+        );
+
+      if (!audioListener || !audioCtx || !audioMaster) initAudio();
+      if (!audioCtx || !musicGain) return;
+
+      const now = audioCtx.currentTime;
+      const target = wantEnabled ? clamp(vol, 0.0, 1.0) : 0.0;
+
+      musicGain.gain.cancelScheduledValues(now);
+      musicGain.gain.setValueAtTime(musicGain.gain.value, now);
+      musicGain.gain.linearRampToValueAtTime(target, now + 0.12);
+
+      if (!wantEnabled) {
+        musicPause();
+      }
+
+      ensureNowPlayingUiWired();
+      updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+    }
+
+/* AudioContext + master graph stays the same. */
+    function initAudio() {
+      if (audioListener) return;
+      if (!camera) return;
+
+      audioListener = new THREE.AudioListener();
+      camera.add(audioListener);
+
+      audioCtx = audioListener.context;
+
+      audioMaster = audioCtx.createGain();
+      audioMaster.gain.value = 1.0;
+      audioMaster.connect(audioCtx.destination);
+
+      musicGain = audioCtx.createGain();
+      musicGain.gain.value = 0.0;
+      musicGain.connect(audioMaster);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     let audioListener = null;
     let audioCtx = null;
     let audioMaster = null;
@@ -4002,27 +4603,27 @@ canvas.world-edit-on {
 
 
 
-      // Put your mp3 here
-  const MUSIC_URL = "./audio/9.mp3";
-  const MUSIC_MAX_GAIN = 0.35;
+  //     // Put your mp3 here
+  // const MUSIC_URL = "./audio/9.mp3";
+  // const MUSIC_MAX_GAIN = 0.35;
 
-  function initAudio() {
-    if (audioListener) return;
-    if (!camera) return;
+  // function initAudio() {
+  //   if (audioListener) return;
+  //   if (!camera) return;
 
-    audioListener = new THREE.AudioListener();
-    camera.add(audioListener);
+  //   audioListener = new THREE.AudioListener();
+  //   camera.add(audioListener);
 
-    audioCtx = audioListener.context;
+  //   audioCtx = audioListener.context;
 
-    audioMaster = audioCtx.createGain();
-    audioMaster.gain.value = 1.0;
-    audioMaster.connect(audioCtx.destination);
+  //   audioMaster = audioCtx.createGain();
+  //   audioMaster.gain.value = 1.0;
+  //   audioMaster.connect(audioCtx.destination);
 
-    musicGain = audioCtx.createGain();
-    musicGain.gain.value = 0.0;
-    musicGain.connect(audioMaster);
-  }
+  //   musicGain = audioCtx.createGain();
+  //   musicGain.gain.value = 0.0;
+  //   musicGain.connect(audioMaster);
+  // }
 
 
 
@@ -4201,37 +4802,37 @@ canvas.world-edit-on {
   }
 
 
-    /* Applies mp3 music enable/volume from params WITHOUT restarting playback. */
-  function applyMusicFromParams() {
-    const wantEnabled = !!(params && params.musicEnabled);
-    const vol = clamp(
-      Number(params && params.musicVolume != null ? params.musicVolume : 0.35),
-      0.0,
-      1.0
-      );
+  //   /* Applies mp3 music enable/volume from params WITHOUT restarting playback. */
+  // function applyMusicFromParams() {
+  //   const wantEnabled = !!(params && params.musicEnabled);
+  //   const vol = clamp(
+  //     Number(params && params.musicVolume != null ? params.musicVolume : 0.35),
+  //     0.0,
+  //     1.0
+  //     );
 
-    if (!audioListener || !audioCtx || !audioMaster) initAudio();
-    if (!audioCtx || !musicGain) return;
+  //   if (!audioListener || !audioCtx || !audioMaster) initAudio();
+  //   if (!audioCtx || !musicGain) return;
 
-      // Smooth gain change (no restart)
-    const now = audioCtx.currentTime;
-    const target = wantEnabled ? clamp(vol, 0.0, MUSIC_MAX_GAIN) : 0.0;
+  //     // Smooth gain change (no restart)
+  //   const now = audioCtx.currentTime;
+  //   const target = wantEnabled ? clamp(vol, 0.0, MUSIC_MAX_GAIN) : 0.0;
 
-    musicGain.gain.cancelScheduledValues(now);
-    musicGain.gain.setValueAtTime(musicGain.gain.value, now);
-    musicGain.gain.linearRampToValueAtTime(target, now + 0.15);
+  //   musicGain.gain.cancelScheduledValues(now);
+  //   musicGain.gain.setValueAtTime(musicGain.gain.value, now);
+  //   musicGain.gain.linearRampToValueAtTime(target, now + 0.15);
 
-      // Start/stop ONLY on state transitions / missing source
-    if (wantEnabled) {
-      if (!musicSource) {
-        startMusic().catch(() => {});
-      }
-    } else {
-      if (musicSource) stopMusic();
-    }
+  //     // Start/stop ONLY on state transitions / missing source
+  //   if (wantEnabled) {
+  //     if (!musicSource) {
+  //       startMusic().catch(() => {});
+  //     }
+  //   } else {
+  //     if (musicSource) stopMusic();
+  //   }
 
-    musicEnabled = wantEnabled;
-  }
+  //   musicEnabled = wantEnabled;
+  // }
 
 
 
@@ -19011,10 +19612,81 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     const audioFolder = gui.addFolder("Audio");
 
-    audioFolder.add(params, "musicEnabled").name("Music").onChange(() => {
+    audioFolder.add(params, "musicEnabled").name("Music").onChange(async () => {
+      applyMusicFromParams();
+      if (params.musicEnabled) {
+        await loadPlaylistsSetOnce().catch(() => {});
+        await musicSelectPlaylistById(musicState.playlistId || "starter", { keepPlaying: false }).catch(() => {});
+      }
+      saveLastDebounced(params);
+    });
+
+    audioFolder.add(params, "musicVolume", 0.0, 1.0, 0.01).name("Music volume").onChange(() => {
       applyMusicFromParams();
       saveLastDebounced(params);
     });
+
+    const musicFolder = audioFolder.addFolder("Music Player");
+
+    const musicGuiState = {
+      playlist: "starter",
+      loopPlaylist: true,
+      followPlaylistsOrder: false,
+      play: async () => { await musicPlay(); },
+      pause: () => { musicPause(); },
+      prev: async () => { await musicPrev(); },
+      next: async () => { await musicNext(); },
+      reloadLists: async () => {
+        musicState.playlists = [];
+        musicState.playlistOrder = [];
+        await loadPlaylistsSetOnce();
+        const ids = (musicState.playlistOrder && musicState.playlistOrder.length)
+        ? musicState.playlistOrder.slice()
+        : (musicState.playlists || []).map((p) => p.id);
+
+        if (musicPlaylistCtrl) musicPlaylistCtrl.options(ids);
+        musicGuiState.playlist = musicState.playlistId || "starter";
+      }
+    };
+
+    let musicPlaylistCtrl = null;
+
+    (async () => {
+      await loadPlaylistsSetOnce().catch(() => {});
+      const ids = (musicState.playlistOrder && musicState.playlistOrder.length)
+      ? musicState.playlistOrder.slice()
+      : (musicState.playlists || []).map((p) => p.id);
+
+      if (!ids.length) ids.push("starter");
+
+      musicGuiState.playlist = musicState.playlistId || "starter";
+
+      musicPlaylistCtrl = musicFolder.add(musicGuiState, "playlist", ids).name("Playlist");
+      musicPlaylistCtrl.onChange(async (v) => {
+        musicGuiState.playlist = String(v || "starter");
+        await musicSelectPlaylistById(musicGuiState.playlist, { keepPlaying: musicState.isPlaying }).catch(() => {});
+        saveLastDebounced(params);
+      });
+    })();
+
+    musicFolder.add(musicGuiState, "loopPlaylist").name("Loop playlist").onChange((v) => {
+      musicState.loopPlaylist = !!v;
+      saveLastDebounced(params);
+    });
+
+    musicFolder.add(musicGuiState, "followPlaylistsOrder").name("Follow playlist order").onChange((v) => {
+      musicState.followPlaylistsOrder = !!v;
+      saveLastDebounced(params);
+    });
+
+    musicFolder.add(musicGuiState, "play").name("Play");
+    musicFolder.add(musicGuiState, "pause").name("Pause");
+    musicFolder.add(musicGuiState, "prev").name("Prev");
+    musicFolder.add(musicGuiState, "next").name("Next");
+    musicFolder.add(musicGuiState, "reloadLists").name("Reload JSON");
+
+    musicFolder.close();
+
 
     audioFolder.add(params, "musicVolume", 0.0, 1.0, 0.01).name("Music volume").onChange(() => {
       applyMusicFromParams();
@@ -20259,144 +20931,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
-      // function animate() {
-      //   const rawDt = clamp(
-      //     clock.getDelta(),
-      //     0.0,
-      //     Math.max(0.001, params.dtMax)
-      //     );
-
-      //   const timeScale = clamp(params.timeScale, 0.05, 5.0);
-
-      //   const dtSim = params.paused ? 0.0 : rawDt * timeScale;
-      //   const dtAvatar = params.paused ? 0.0 : rawDt;
-
-      //   if (!params.paused) simTime += dtSim;
-      //   const t = simTime;
-
-      //   const wA =
-      //   Math.sin(t * params.windSpeed) * 0.48 +
-      //   Math.sin(t * (params.windSpeed * 2.4)) * 0.16;
-      //   const wB =
-      //   Math.cos(t * (params.windSpeed * 0.92)) * 0.44 +
-      //   Math.sin(t * (params.windSpeed * 2.1)) * 0.14;
-      //   const baseWindX = wA * params.windStrength;
-      //   const baseWindZ = wB * params.windStrength;
-
-      //   if (!params.paused) {
-      //     spawnGusts(dtSim);
-      //     for (let i = 0; i < gusts.length; i++) {
-      //       gusts[i].step(dtSim);
-      //     }
-      //   }
-
-      //   for (let i = 0; i < GUST_MAX; i++) {
-      //     const g = gusts[i];
-      //     const fade = g.active ? g.fade : 0.0;
-
-      //     gustPosRad[i * 3 + 0] = g.x;
-      //     gustPosRad[i * 3 + 1] = g.z;
-      //     gustPosRad[i * 3 + 2] = g.radius;
-
-      //     gustParams[i * 3 + 0] = g.strength * fade;
-      //     gustParams[i * 3 + 1] = g.swirl * fade;
-      //     gustParams[i * 3 + 2] = g.updraft * fade;
-      //   }
-
-      //   if (params.snowEnabled && snowMat) {
-      //     snowMat.uniforms.uTime.value = t;
-      //     snowMat.uniforms.uWind.value.set(baseWindX, baseWindZ);
-      //     snowMat.uniforms.uFallSpeed.value = params.fallSpeed;
-      //     snowMat.uniforms.uFallJitter.value = params.fallJitter;
-      //     snowMat.uniforms.uFlakeSize.value = params.flakeSize;
-      //     snowMat.uniforms.uFlakeSizeJitter.value = params.flakeSizeJitter;
-      //   }
-
-      //   if (!params.paused) {
-      //     if (driftHeights) {
-      //       applyGustScour(baseWindX, baseWindZ);
-
-      //       if (frame % clamp(params.obstacleShapeInterval | 0, 1, 600) === 0) {
-      //         shapeDriftsAroundObstacles(baseWindX, baseWindZ);
-      //       }
-      //       evolveDrifts(baseWindX, baseWindZ);
-
-      //       const writeEvery = clamp(params.driftWriteInterval | 0, 1, 120);
-      //       const normalEvery = clamp(params.normalUpdateInterval | 0, 1, 240);
-
-      //       const shouldWrite = forceDriftWrite || (frame % writeEvery === 0);
-      //       if (shouldWrite) {
-      //         applyHeightsToGeometry();
-      //         forceDriftWrite = false;
-      //       }
-
-      //       if (driftGeo && (forceDriftNormals || (frame % normalEvery === 0))) {
-      //         driftGeo.computeVertexNormals();
-      //         driftGeo.attributes.normal.needsUpdate = true;
-      //         forceDriftNormals = false;
-
-      //         updateWetTrails(dtAvatar);
-      //       }
-      //     }
-
-      //     updateSettlers(dtSim, baseWindX, baseWindZ);
-      //     updateSnowman(dtSim);
-      //     updateClouds(dtSim);
-
-      //     updateDust(dtSim);
-      //     updateRain(dtSim);
-      //     updateGrass(dtSim, baseWindX, baseWindZ);
-      //   }
-
-      //   tickAvatar(dtAvatar);
-
-      //   updateHudTile((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
-
-      //   const fogFocus = getMinimapFocus();
-      //   updateEdgeFadeFog(fogFocus.x, fogFocus.z);        
-
-      //   const inXR = renderer.xr.isPresenting;
-
-      //   if (!inXR && controls) {
-      //     if (avatarState.enabled) {
-      //       controls.autoRotate = false;
-      //       controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
-
-      //       if (vehicleDriveState.enabled && vehicleChaseCamState.enabled) {
-      //         updateVehicleChaseCamera(dtAvatar);
-      //       } else if (!vehicleDriveState.enabled && avatarChaseCamState.enabled && avatarState.viewMode === "third") {
-      //         updateAvatarChaseCamera(dtAvatar);
-      //       } else {
-      //         if (!joystickState.active) {
-      //           controls.update();
-      //         }
-
-      //         updateAvatarCamera(dtAvatar);
-      //       }
-      //     } else {
-      //       const nowSeconds = performance.now() * 0.001;
-      //       const idleSeconds = nowSeconds - lastInteractionTime;
-
-      //       const shouldAutoRotate =
-      //       autoRotateEnabled &&
-      //       idleSeconds >= AUTO_ROTATE_IDLE_SECONDS;
-
-      //       controls.autoRotate = shouldAutoRotate;
-      //       controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
-
-      //       controls.update();
-      //     }
-      //   }
-
-      //   applyShadowSettingsFromParams(false);
-      //   renderer.render(scene, camera);
-
-      //   drawMinimapFrame(false);
-
-      //   frame++;
-
-      // }
-
 
 
 
@@ -20507,6 +21041,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     tickAvatar(dtAvatar);
 
     updateHudTile((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+    
+    updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
+
+
+
 
     const fogFocus = getMinimapFocus();
     updateEdgeFadeFog(fogFocus.x, fogFocus.z);

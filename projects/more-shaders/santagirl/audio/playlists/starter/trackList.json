@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "playlistId": "starter",
+  "title": "Starter Playlist",
+  "artist": "Various Artists",
+  "description": "Default ambient music for the world",
+  "tracks": [
+    { "file": "1.mp3",  "title": "Track 01", "artist": "Various Artists", "trackNumber": 1 },
+    { "file": "2.mp3",  "title": "Track 02", "artist": "Various Artists", "trackNumber": 2 },
+    { "file": "3.mp3",  "title": "Track 03", "artist": "Various Artists", "trackNumber": 3 },
+    { "file": "4.mp3",  "title": "Track 04", "artist": "Various Artists", "trackNumber": 4 },
+    { "file": "5.mp3",  "title": "Track 05", "artist": "Various Artists", "trackNumber": 5 },
+    { "file": "6.mp3",  "title": "Track 06", "artist": "Various Artists", "trackNumber": 6 },
+    { "file": "7.mp3",  "title": "Track 07", "artist": "Various Artists", "trackNumber": 7 },
+    { "file": "8.mp3",  "title": "Track 08", "artist": "Various Artists", "trackNumber": 8 },
+    { "file": "9.mp3",  "title": "Track 09", "artist": "Various Artists", "trackNumber": 9 },
+    { "file": "10.mp3", "title": "Track 10", "artist": "Various Artists", "trackNumber": 10 },
+    { "file": "11.mp3", "title": "Track 11", "artist": "Various Artists", "trackNumber": 11 },
+    { "file": "12.mp3", "title": "Track 12", "artist": "Various Artists", "trackNumber": 12 },
+    { "file": "13.mp3", "title": "Track 13", "artist": "Various Artists", "trackNumber": 13 },
+    { "file": "14.mp3", "title": "Track 14", "artist": "Various Artists", "trackNumber": 14 },
+    { "file": "15.mp3", "title": "Track 15", "artist": "Various Artists", "trackNumber": 15 },
+    { "file": "16.mp3", "title": "Track 16", "artist": "Various Artists", "trackNumber": 16 },
+    { "file": "17.mp3", "title": "Track 17", "artist": "Various Artists", "trackNumber": 17 }
+  ]
+}

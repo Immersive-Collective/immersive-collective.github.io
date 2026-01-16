@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "playlists": [
+    {
+      "id": "starter",
+      "folder": "starter",
+      "title": "Starter Playlist",
+      "artist": "Various Artists",
+      "description": "Default ambient music for the world",
+      "thumbnail": "cover.png",
+      "order": 0,
+      "loop": true
+    }
+  ]
+}
