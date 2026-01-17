@@ -91,7 +91,26 @@
     "reverbMix": 0.08,
     "irSeconds": 1.2
   },
-  
+
+  "steps2": {
+    "kind": "noise",
+    "oscType": "square",
+    "freq": 20,
+    "freqEnd": 115,
+    "noise": 1,
+    "gain": 0.6,
+    "attack": 0.23,
+    "decay": 0.104,
+    "release": 0.306,
+    "duration": 0.24,
+    "filterType": "notch",
+    "filterFreq": 5430,
+    "filterQ": 0.01,
+    "pan": 0,
+    "reverbMix": 0.01,
+    "irSeconds": 0.2
+  },
+
    "land3": {
     "kind": "mix",
     "oscType": "sine",

@@ -7,9 +7,29 @@
       "title": "Starter Playlist",
       "artist": "Various Artists",
       "description": "Default ambient music for the world",
-      "thumbnail": "cover.png",
+      "thumbnail": "starter.png",
       "order": 0,
-      "loop": true
-    }
+      "loop": false
+    },
+    {
+      "id": "triphop",
+      "folder": "trip",
+      "title": "Trip Songs",
+      "artist": "Airtists",
+      "description": "Music for the trip",
+      "thumbnail": "trip.png",
+      "order": 0,
+      "loop": false
+    },
+    {
+      "id": "amb",
+      "folder": "amb",
+      "title": "Amb Songs",
+      "artist": "Amb Airtists",
+      "description": "Music for the amb",
+      "thumbnail": "amb.png",
+      "order": 0,
+      "loop": false
+    }    
   ]
 }
