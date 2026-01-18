@@ -319,7 +319,7 @@ button {
 .vehicle-quick-action {
   position: fixed;
   left: 50%;
-  bottom: 76px;
+  bottom: 10px;
   transform: translateX(-50%);
   z-index: 55;
   pointer-events: auto;
@@ -1847,6 +1847,7 @@ canvas.world-edit-on {
 
 
   <div class="avatar-ui avatar-ui--text" data-layout="text">
+
     <button id="avatarToggle" class="avatar-btn border-stick-b" type="button" aria-label="Avatar">
       <img class="avatar-btn__icon" src="assets/images/icons/white/human.svg" alt="" aria-hidden="true">
       <span class="avatar-btn__text">Avatar: OFF</span>
@@ -1886,10 +1887,8 @@ canvas.world-edit-on {
       <img class="avatar-btn__icon" src="assets/images/icons/white/change.svg" alt="" aria-hidden="true">
       <span class="avatar-btn__text">UI: TEXT</span>
     </button>
+
   </div>
-
-
-
 
 
 
@@ -1956,7 +1955,7 @@ canvas.world-edit-on {
       <div class="kbd-help__row"><span class="kbd">E</span><span class="kbd-help__text">Interact: enter nearest vehicle / equip nearby item</span></div>
       <div class="kbd-help__row"><span class="kbd">O</span><span class="kbd-help__text">Exit vehicle / unequip item</span></div>
 
-      <div class="kbd-help__row"><span class="kbd kbd--wide">Ctrl/Cmd+E</span><span class="kbd-help__text">Toggle Edit World mode</span></div>
+      <div class="kbd-help__row"><span class="kbd">N</span><span class="kbd-help__text">Toggle Edit World mode</span></div>
       <div class="kbd-help__row"><span class="kbd">W</span><span class="kbd-help__text">Edit mode: Translate</span></div>
       <div class="kbd-help__row"><span class="kbd">T</span><span class="kbd-help__text">Edit mode: Rotate</span></div>
       <div class="kbd-help__row"><span class="kbd">R</span><span class="kbd-help__text">Edit mode: Scale</span></div>
@@ -1973,6 +1972,12 @@ canvas.world-edit-on {
     <div class="kbd-help__note">Toggle with Cmd+/ (Mac) or Ctrl+/ (Windows/Linux).</div>
   </div>
 </div>
+
+
+
+
+
+
 
 <div id="snapshotsOverlay" class="snapshots-overlay" aria-hidden="true">
   <div class="snapshots-overlay__panel" role="dialog" aria-modal="true" aria-label="Snapshots">
@@ -5475,90 +5480,107 @@ canvas.world-edit-on {
      * Ground meshes are used for surface height only; they must not become XZ blocking walls.
      */
     function rebuildWorldModelsRuntimeCaches() {
-      vehicleInteractables.length = 0;
-      equipmentInteractables.length = 0;
-      setVehiclePrompt(false, null);
-      updateVehicleOutlineFor(null);
-
+      worldGroundMeshes.length = 0;
+      colliderObjects.length = 0;
       avatarModelColliderObjects.length = 0;
-      avatarModelColliderBounds.length = 0;
       avatarModelColliderOBBs.length = 0;
 
-      colliderObjects = colliderObjects.filter((obj) => !(obj && obj.userData && obj.userData.worldModelStick));
+  // Rebuild runtime-only lists by walking current config + runtimeObject refs.
+      for (let i = 0; i < worldModelsConfig.length; i++) {
+        const entry = worldModelsConfig[i];
+        if (!entry || !entry.instances) continue;
 
-      worldGroundMeshes.length = 0;
+        for (let j = 0; j < entry.instances.length; j++) {
+          const instCfg = entry.instances[j];
+          if (!instCfg) continue;
 
-      worldEditSelectableRoots.clear();
-      clearWorldEditSelection();
-
-      const base = worldModelsConfig || MODEL_CONFIG;
-
-      for (const entry of base) {
-        if (!entry || !Array.isArray(entry.instances)) continue;
-
-        for (const instCfg of entry.instances) {
-          if (!instCfg || typeof instCfg !== "object") continue;
-
-          const id = instCfg.id != null ? String(instCfg.id) : "";
-          const inst = (instCfg.runtimeObject || (id ? modelInstances[id] : null)) || null;
+          const inst = instCfg.runtimeObject || null;
           if (!inst) continue;
 
-          Object.defineProperty(instCfg, "runtimeObject", {
-            value: inst,
-            enumerable: false,
-            configurable: true
-          });
+      // Ensure world matrices are fresh for raycasts/OBB
+          inst.updateWorldMatrix(true, true);
 
-          registerWorldEditRoot(inst, instCfg);
-
-          const isGround = !!instCfg.ground;
-          const isStick = !!instCfg.stick;
-
+      // Traverse for ground + stick colliders
           inst.traverse((obj) => {
-            if (!obj.isMesh) return;
-            obj.castShadow = true;
-            obj.receiveShadow = true;
+            if (!obj || !obj.isMesh) return;
+
+            const isGround = !!instCfg.ground;
+            const isStick = !!instCfg.stick;
 
             if (isGround) {
               obj.userData.worldModelGroundPlatform = true;
-              if (!obj.name && id) obj.name = `ground:${id}`;
+              if (!obj.name && instCfg.id) obj.name = `ground:${instCfg.id}`;
               worldGroundMeshes.push(obj);
             }
 
             if (isStick && !isGround) {
               obj.userData.worldModelStick = true;
-              if (!obj.name && id) obj.name = `stick:${id}`;
+              if (!obj.name && instCfg.id) obj.name = `stick:${instCfg.id}`;
               colliderObjects.push(obj);
             }
           });
 
+      // Vehicle interactables (enter/exit prompt)
           if (instCfg.vehicle) {
             registerVehicleInstance(inst, instCfg);
           }
 
+      // Equipment + pickups + food interactables (equip / take / consume prompt)
+          if (
+            instCfg.equipment ||
+            (instCfg.meta && (instCfg.meta.kind === "food" || instCfg.meta.kind === "pickup"))
+            ) {
+            registerEquipmentInstance(inst, instCfg);
+        }
 
+      // Avatar collision OBBs (things you collide with)
+        if (instCfg.collide) {
+          avatarModelColliderObjects.push(inst);
 
+        // Local helper (kept inside to avoid new globals)
+          const tmpBox = new THREE.Box3();
+          const tmpCenter = new THREE.Vector3();
+          const tmpSize = new THREE.Vector3();
+          const tmpQuat = new THREE.Quaternion();
+          const tmpEuler = new THREE.Euler(0, 0, 0, "YXZ");
 
-          if (instCfg.collide) {
-            avatarModelColliderObjects.push(inst);
-            const obb = buildWorldEditOBBForRoot(inst, id);
-            if (obb) avatarModelColliderOBBs.push(obb);
-          }
+          tmpBox.setFromObject(inst);
+          if (
+            Number.isFinite(tmpBox.min.x) &&
+            Number.isFinite(tmpBox.max.x)
+            ) {
+            tmpBox.getCenter(tmpCenter);
+          tmpBox.getSize(tmpSize);
+
+          inst.getWorldQuaternion(tmpQuat);
+          tmpEuler.setFromQuaternion(tmpQuat);
+
+          const hx = Math.max(0.10, (tmpSize.x * 0.5) * 0.48);
+          const hz = Math.max(0.10, (tmpSize.z * 0.5) * 0.48);
+
+          avatarModelColliderOBBs.push({
+            id: instCfg.id || "",
+            object: inst,
+            center: tmpCenter.clone(),
+            halfX: hx,
+            halfZ: hz,
+            yaw: tmpEuler.y,
+            yMin: tmpBox.min.y,
+            yMax: tmpBox.max.y
+          });
         }
       }
-
-      if (colliderObjects.length) {
-        colliderBounds = buildColliderBounds(colliderObjects);
-        rebuildAvatarCollisionGrid();
-      } else {
-        colliderBounds = [];
-        rebuildAvatarCollisionGrid();
-      }
-
-      if (vehiclePromptState && vehiclePromptState.open) {
-        tickVehicleProximity();
-      }
     }
+  }
+
+  if (colliderObjects.length) {
+    colliderBounds = buildColliderBounds(colliderObjects);
+    rebuildAvatarCollisionGrid();
+  }
+
+  avatarModelColliderBounds = [];
+}
+
 
 
 
@@ -5569,199 +5591,199 @@ canvas.world-edit-on {
     /**
      * Applies a full world-models snapshot to the scene (adds/removes instances by id and updates transforms).
      */
-    function applyWorldModelsSnapshot(snapshot) {
-      const normalized = normalizeWorldModelsConfig(snapshot);
-      if (!normalized) return;
+function applyWorldModelsSnapshot(snapshot) {
+  const normalized = normalizeWorldModelsConfig(snapshot);
+  if (!normalized) return;
 
-      worldEditHistory.applying = true;
+  worldEditHistory.applying = true;
 
-      try {
-        const desiredIds = new Set();
-        const desiredById = new Map();
+  try {
+    const desiredIds = new Set();
+    const desiredById = new Map();
 
-        for (const entry of normalized) {
-          if (!entry || !Array.isArray(entry.instances)) continue;
+    for (const entry of normalized) {
+      if (!entry || !Array.isArray(entry.instances)) continue;
 
-          for (const instCfg of entry.instances) {
-            if (!instCfg || typeof instCfg !== "object") continue;
+      for (const instCfg of entry.instances) {
+        if (!instCfg || typeof instCfg !== "object") continue;
 
-            const id = instCfg.id != null ? String(instCfg.id) : "";
-            if (!id) continue;
+        const id = instCfg.id != null ? String(instCfg.id) : "";
+        if (!id) continue;
 
-            desiredIds.add(id);
-            desiredById.set(id, { entryName: entry.name, instCfg });
-          }
-        }
-
-        for (const id in modelInstances) {
-          if (!desiredIds.has(String(id))) {
-            removeWorldModelInstanceById(id);
-          }
-        }
-
-        for (const [id, rec] of desiredById.entries()) {
-          let inst = modelInstances[id] || null;
-
-          if (!inst) {
-            const template = modelTemplates[rec.entryName] || null;
-            if (!template) continue;
-
-            inst = template.clone(true);
-            scene.add(inst);
-            modelInstances[id] = inst;
-          }
-
-          applyInstCfgTransformToInstance(inst, rec.instCfg);
-        }
-
-        worldModelsConfig = normalized;
-        worldModelsConfigLoaded = true;
-
-        for (const entry of worldModelsConfig) {
-          if (!entry || !Array.isArray(entry.instances)) continue;
-
-          for (const instCfg of entry.instances) {
-            if (!instCfg || typeof instCfg !== "object") continue;
-            const id = instCfg.id != null ? String(instCfg.id) : "";
-            const inst = id ? (modelInstances[id] || null) : null;
-            if (!inst) continue;
-
-            Object.defineProperty(instCfg, "runtimeObject", {
-              value: inst,
-              enumerable: false,
-              configurable: true
-            });
-          }
-        }
-
-        rebuildWorldModelsRuntimeCaches();
-      } finally {
-        worldEditHistory.applying = false;
+        desiredIds.add(id);
+        desiredById.set(id, { entryName: entry.name, instCfg });
       }
     }
+
+    for (const id in modelInstances) {
+      if (!desiredIds.has(String(id))) {
+        removeWorldModelInstanceById(id);
+      }
+    }
+
+    for (const [id, rec] of desiredById.entries()) {
+      let inst = modelInstances[id] || null;
+
+      if (!inst) {
+        const template = modelTemplates[rec.entryName] || null;
+        if (!template) continue;
+
+        inst = template.clone(true);
+        scene.add(inst);
+        modelInstances[id] = inst;
+      }
+
+      applyInstCfgTransformToInstance(inst, rec.instCfg);
+    }
+
+    worldModelsConfig = normalized;
+    worldModelsConfigLoaded = true;
+
+    for (const entry of worldModelsConfig) {
+      if (!entry || !Array.isArray(entry.instances)) continue;
+
+      for (const instCfg of entry.instances) {
+        if (!instCfg || typeof instCfg !== "object") continue;
+        const id = instCfg.id != null ? String(instCfg.id) : "";
+        const inst = id ? (modelInstances[id] || null) : null;
+        if (!inst) continue;
+
+        Object.defineProperty(instCfg, "runtimeObject", {
+          value: inst,
+          enumerable: false,
+          configurable: true
+        });
+      }
+    }
+
+    rebuildWorldModelsRuntimeCaches();
+  } finally {
+    worldEditHistory.applying = false;
+  }
+}
 
     /**
      * Performs an undo (restores previous snapshot). Redo receives the current snapshot.
      */
-    function worldEditUndo() {
-      if (!worldEditHistory.undo.length) return;
+function worldEditUndo() {
+  if (!worldEditHistory.undo.length) return;
 
-      ensureEditableWorldModelsConfig();
+  ensureEditableWorldModelsConfig();
 
-      const current = snapshotWorldModelsConfig();
-      const prev = worldEditHistory.undo.pop();
+  const current = snapshotWorldModelsConfig();
+  const prev = worldEditHistory.undo.pop();
 
-      worldEditHistory.redo.push(current);
-      if (worldEditHistory.redo.length > worldEditHistory.limit) {
-        worldEditHistory.redo.shift();
-      }
+  worldEditHistory.redo.push(current);
+  if (worldEditHistory.redo.length > worldEditHistory.limit) {
+    worldEditHistory.redo.shift();
+  }
 
-      applyWorldModelsSnapshot(prev);
-      updateAvatarButtons();
-      showActionToast("Undo");
-    }
+  applyWorldModelsSnapshot(prev);
+  updateAvatarButtons();
+  showActionToast("Undo");
+}
 
 
     /**
      * Performs a redo (restores next snapshot). Undo receives the current snapshot.
      */
-    function worldEditRedo() {
-      if (!worldEditHistory.redo.length) return;
+function worldEditRedo() {
+  if (!worldEditHistory.redo.length) return;
 
-      ensureEditableWorldModelsConfig();
+  ensureEditableWorldModelsConfig();
 
-      const current = snapshotWorldModelsConfig();
-      const next = worldEditHistory.redo.pop();
+  const current = snapshotWorldModelsConfig();
+  const next = worldEditHistory.redo.pop();
 
-      worldEditHistory.undo.push(current);
-      if (worldEditHistory.undo.length > worldEditHistory.limit) {
-        worldEditHistory.undo.shift();
-      }
+  worldEditHistory.undo.push(current);
+  if (worldEditHistory.undo.length > worldEditHistory.limit) {
+    worldEditHistory.undo.shift();
+  }
 
-      applyWorldModelsSnapshot(next);
-      updateAvatarButtons();
-      showActionToast("Redo");
-    }
+  applyWorldModelsSnapshot(next);
+  updateAvatarButtons();
+  showActionToast("Redo");
+}
 
 
     /**
      * Duplicates the selected model instance (Shift+D).
      */
-    function duplicateSelectedWorldModel() {
-      if (!worldEditState.enabled || !worldEditState.selected) return;
+function duplicateSelectedWorldModel() {
+  if (!worldEditState.enabled || !worldEditState.selected) return;
 
-      ensureEditableWorldModelsConfig();
+  ensureEditableWorldModelsConfig();
 
-      const found = findWorldEditConfigForRoot(worldEditState.selected);
-      if (!found) return;
+  const found = findWorldEditConfigForRoot(worldEditState.selected);
+  if (!found) return;
 
-      pushWorldEditUndoSnapshot();
+  pushWorldEditUndoSnapshot();
 
-      const srcRoot = worldEditState.selected;
-      const srcCfg = found.instCfg;
+  const srcRoot = worldEditState.selected;
+  const srcCfg = found.instCfg;
 
-      const dupCfg = JSON.parse(JSON.stringify(srcCfg));
-      dupCfg.id = makeUniqueWorldModelId(srcCfg.id || found.entry.name);
+  const dupCfg = JSON.parse(JSON.stringify(srcCfg));
+  dupCfg.id = makeUniqueWorldModelId(srcCfg.id || found.entry.name);
 
-      syncInstanceTransformToInstCfg(srcRoot, dupCfg);
+  syncInstanceTransformToInstCfg(srcRoot, dupCfg);
 
-      if (!Array.isArray(dupCfg.position)) dupCfg.position = [0, 0, 0];
-      if (dupCfg.position.length < 3) dupCfg.position = [dupCfg.position[0] || 0, dupCfg.position[1] || 0, dupCfg.position[2] || 0];
+  if (!Array.isArray(dupCfg.position)) dupCfg.position = [0, 0, 0];
+  if (dupCfg.position.length < 3) dupCfg.position = [dupCfg.position[0] || 0, dupCfg.position[1] || 0, dupCfg.position[2] || 0];
 
-      dupCfg.position[0] += 1.0;
-      dupCfg.position[2] += 1.0;
+  dupCfg.position[0] += 1.0;
+  dupCfg.position[2] += 1.0;
 
-      found.entry.instances.splice(found.instIndex + 1, 0, dupCfg);
+  found.entry.instances.splice(found.instIndex + 1, 0, dupCfg);
 
-      const template = modelTemplates[found.entry.name] || null;
-      if (!template) return;
+  const template = modelTemplates[found.entry.name] || null;
+  if (!template) return;
 
-      const inst = template.clone(true);
-      applyInstCfgTransformToInstance(inst, dupCfg);
+  const inst = template.clone(true);
+  applyInstCfgTransformToInstance(inst, dupCfg);
 
-      Object.defineProperty(dupCfg, "runtimeObject", {
-        value: inst,
-        enumerable: false,
-        configurable: true
-      });
+  Object.defineProperty(dupCfg, "runtimeObject", {
+    value: inst,
+    enumerable: false,
+    configurable: true
+  });
 
-      scene.add(inst);
-      modelInstances[dupCfg.id] = inst;
+  scene.add(inst);
+  modelInstances[dupCfg.id] = inst;
 
-      rebuildWorldModelsRuntimeCaches();
-      selectWorldEditRoot(inst);
-      updateAvatarButtons();
-      showActionToast("Cloned");
-    }
+  rebuildWorldModelsRuntimeCaches();
+  selectWorldEditRoot(inst);
+  updateAvatarButtons();
+  showActionToast("Cloned");
+}
 
 
     /**
      * Deletes the selected model instance (X).
      */
-    function deleteSelectedWorldModel() {
-      if (!worldEditState.enabled || !worldEditState.selected) return;
+function deleteSelectedWorldModel() {
+  if (!worldEditState.enabled || !worldEditState.selected) return;
 
-      ensureEditableWorldModelsConfig();
+  ensureEditableWorldModelsConfig();
 
-      const found = findWorldEditConfigForRoot(worldEditState.selected);
-      if (!found) return;
+  const found = findWorldEditConfigForRoot(worldEditState.selected);
+  if (!found) return;
 
-      pushWorldEditUndoSnapshot();
+  pushWorldEditUndoSnapshot();
 
-      const root = worldEditState.selected;
-      const id = found.instCfg.id != null ? String(found.instCfg.id) : "";
+  const root = worldEditState.selected;
+  const id = found.instCfg.id != null ? String(found.instCfg.id) : "";
 
-      clearWorldEditSelection();
+  clearWorldEditSelection();
 
-      if (root.parent) root.parent.remove(root);
-      if (id && modelInstances[id] === root) delete modelInstances[id];
+  if (root.parent) root.parent.remove(root);
+  if (id && modelInstances[id] === root) delete modelInstances[id];
 
-      found.entry.instances.splice(found.instIndex, 1);
+  found.entry.instances.splice(found.instIndex, 1);
 
-      rebuildWorldModelsRuntimeCaches();
-      updateAvatarButtons();
-      showActionToast("Deleted");
-    }
+  rebuildWorldModelsRuntimeCaches();
+  updateAvatarButtons();
+  showActionToast("Deleted");
+}
 
 
 
@@ -5770,56 +5792,56 @@ canvas.world-edit-on {
     /**
      * Handles canvas pointer picking for world editor selection.
      */
-    function onWorldEditPointerDown(event) {
-      if (!worldEditState.enabled) return;
-      if (!renderer || !camera || !transformControls) return;
-      if (event.button !== 0) return;
-      if (transformControls.dragging) return;
+function onWorldEditPointerDown(event) {
+  if (!worldEditState.enabled) return;
+  if (!renderer || !camera || !transformControls) return;
+  if (event.button !== 0) return;
+  if (transformControls.dragging) return;
 
-      const rect = renderer.domElement.getBoundingClientRect();
-      const nx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      const ny = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
+  const rect = renderer.domElement.getBoundingClientRect();
+  const nx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  const ny = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
 
-      worldEditPointerNDC.set(nx, ny);
-      worldEditRaycaster.setFromCamera(worldEditPointerNDC, camera);
+  worldEditPointerNDC.set(nx, ny);
+  worldEditRaycaster.setFromCamera(worldEditPointerNDC, camera);
 
-      const roots = Array.from(worldEditSelectableRoots);
-      if (!roots.length) return;
+  const roots = Array.from(worldEditSelectableRoots);
+  if (!roots.length) return;
 
-      const hits = worldEditRaycaster.intersectObjects(roots, true);
+  const hits = worldEditRaycaster.intersectObjects(roots, true);
 
-      let pickedRoot = null;
+  let pickedRoot = null;
 
-      for (const h of hits) {
-        let obj = h.object;
-        if (!obj) continue;
+  for (const h of hits) {
+    let obj = h.object;
+    if (!obj) continue;
 
-        if (transformControlsHelper && isDescendantOf(obj, transformControlsHelper)) continue;
+    if (transformControlsHelper && isDescendantOf(obj, transformControlsHelper)) continue;
 
-        while (obj && !worldEditSelectableRoots.has(obj)) {
-          obj = obj.parent;
-        }
-
-        if (obj && worldEditSelectableRoots.has(obj)) {
-          pickedRoot = obj;
-          break;
-        }
-      }
-
-      if (!pickedRoot) {
-        clearWorldEditSelection();
-        return;
-      }
-
-      selectWorldEditRoot(pickedRoot);
+    while (obj && !worldEditSelectableRoots.has(obj)) {
+      obj = obj.parent;
     }
+
+    if (obj && worldEditSelectableRoots.has(obj)) {
+      pickedRoot = obj;
+      break;
+    }
+  }
+
+  if (!pickedRoot) {
+    clearWorldEditSelection();
+    return;
+  }
+
+  selectWorldEditRoot(pickedRoot);
+}
 
 
 
 
     // Per-instance `stick: true` means “snow can stick to this model”.
 
-    const MODEL_CONFIG = [
+const MODEL_CONFIG = [
 
       // {
       //   name: "ginger bread",
@@ -6273,98 +6295,98 @@ canvas.world-edit-on {
       // }
 
 
-    ];
+];
 
 
 
 
 
 
-    const WORLD_MODELS_URL = "models/Default.models.json";
+const WORLD_MODELS_URL = "models/Default.models.json";
 
-    const WORLD_MODELS_OVERRIDE_KEY = "snow:worldModelsOverride:v1";
+const WORLD_MODELS_OVERRIDE_KEY = "snow:worldModelsOverride:v1";
 
-    const WORLDS_DB_NAME = "snow-worlds";
-    const WORLDS_DB_VERSION = 1;
-    const WORLDS_STORE = "worlds";
-    const ACTIVE_WORLD_ID_KEY = "snow:activeWorldId:v1";
-    const PENDING_WORLD_THUMB_ID_KEY = "snow:pendingWorldThumbId:v1";
-    const WORLD_PICKER_SUPPRESS_ONCE_KEY = "snow:worldPickerSuppressOnce:v1";
-
-
-    const worldModelsIoState = {
-      source: "defaults",
-      openWorlds() {
-        openWorldPickerOverlay();
-      },
-      exportWorldModelsJson() {
-        exportWorldModelsJson();
-      },
-      exportDefaultModelJson() {
-        exportDefaultModelJson();
-      },
-      importWorldModelsJson() {
-        importWorldModelsJson();
-      }
-    };
+const WORLDS_DB_NAME = "snow-worlds";
+const WORLDS_DB_VERSION = 1;
+const WORLDS_STORE = "worlds";
+const ACTIVE_WORLD_ID_KEY = "snow:activeWorldId:v1";
+const PENDING_WORLD_THUMB_ID_KEY = "snow:pendingWorldThumbId:v1";
+const WORLD_PICKER_SUPPRESS_ONCE_KEY = "snow:worldPickerSuppressOnce:v1";
 
 
-    let worldModelsConfig = null;
-    let worldModelsConfigLoaded = false;
+const worldModelsIoState = {
+  source: "defaults",
+  openWorlds() {
+    openWorldPickerOverlay();
+  },
+  exportWorldModelsJson() {
+    exportWorldModelsJson();
+  },
+  exportDefaultModelJson() {
+    exportDefaultModelJson();
+  },
+  importWorldModelsJson() {
+    importWorldModelsJson();
+  }
+};
 
-    const worldPickerState = { open: false, wired: false, editId: "" };
+
+let worldModelsConfig = null;
+let worldModelsConfigLoaded = false;
+
+const worldPickerState = { open: false, wired: false, editId: "" };
 
 
-    const worldUiState = { id: "", title: "Default" };
-    let worldNameEl = null;
+const worldUiState = { id: "", title: "Default" };
+let worldNameEl = null;
 
     /**
      * Updates the top-center world title label.
      */
-    function setWorldNameLabel(title) {
-      const t = String(title || "").trim() || "Default";
-      worldUiState.title = t;
+function setWorldNameLabel(title) {
+  const t = String(title || "").trim() || "Default";
+  worldUiState.title = t;
 
-      if (!worldNameEl) return;
+  if (!worldNameEl) return;
 
-      const isEdit = !!(worldEditState && worldEditState.enabled);
-      worldNameEl.classList.toggle("is-edit", isEdit);
+  const isEdit = !!(worldEditState && worldEditState.enabled);
+  worldNameEl.classList.toggle("is-edit", isEdit);
 
-      worldNameEl.textContent = isEdit ? (`EDIT: ${t}`) : t;
-      worldNameEl.setAttribute("aria-hidden", t ? "false" : "true");
-    }
+  worldNameEl.textContent = isEdit ? (`EDIT: ${t}`) : t;
+  worldNameEl.setAttribute("aria-hidden", t ? "false" : "true");
+}
 
 
     /**
      * Sets the active world identity for UI display.
      */
-    function setActiveWorldUi(id, title) {
-      worldUiState.id = String(id || "").trim();
-      setWorldNameLabel(title);
-    }    
+function setActiveWorldUi(id, title) {
+  worldUiState.id = String(id || "").trim();
+  setWorldNameLabel(title);
+}    
 
-    let worldPickerEl = null;
-    let worldPickerCloseBtn = null;
+let worldPickerEl = null;
+let worldPickerCloseBtn = null;
 
-    let worldPickerListEl = null;
-    let worldPickerListLocalEl = null;
-    let worldPickerListPrivateEl = null;
-    let worldPickerListGlobalEl = null;
+let worldPickerListEl = null;
+let worldPickerListLocalEl = null;
+let worldPickerListPrivateEl = null;
+let worldPickerListGlobalEl = null;
 
-    let worldPickerLocalMetaEl = null;
-    let worldPickerPrivateMetaEl = null;
-    let worldPickerGlobalMetaEl = null;
+let worldPickerLocalMetaEl = null;
+let worldPickerPrivateMetaEl = null;
+let worldPickerGlobalMetaEl = null;
 
-    let worldTitleInputEl = null;
-    let worldDescInputEl = null;
-    let worldSaveBtnEl = null;
-    let worldImportBtnEl = null;
+let worldTitleInputEl = null;
+let worldDescInputEl = null;
+let worldSaveBtnEl = null;
+let worldImportBtnEl = null;
 
-    const worldPickerCloudState = {
-      privateWorlds: [],
-      globalWorlds: [],
-      lastError: ""
-    };
+const worldPickerCloudState = {
+  privateWorlds: [],
+  globalWorlds: [],
+  lastError: ""
+};
 
 
     /**
@@ -6378,88 +6400,88 @@ canvas.world-edit-on {
      * Also restores missing instance-level equipment metadata from MODEL_CONFIG templates (backwards compatibility).
      * Returns null when the payload is unusable.
      */
-    function normalizeWorldModelsConfig(raw) {
-      if (!Array.isArray(raw)) return null;
+function normalizeWorldModelsConfig(raw) {
+  if (!Array.isArray(raw)) return null;
 
-      const out = [];
+  const out = [];
 
-      const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
-      const deepClonePlain = (v) => JSON.parse(JSON.stringify(v));
+  const hasOwn = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
+  const deepClonePlain = (v) => JSON.parse(JSON.stringify(v));
 
-      const templateByName = new Map();
-      if (Array.isArray(MODEL_CONFIG)) {
-        for (const t of MODEL_CONFIG) {
-          if (!t || typeof t !== "object") continue;
-          if (typeof t.name !== "string" || !t.name) continue;
-          templateByName.set(t.name, t);
-        }
-      }
-
-      for (let i = 0; i < raw.length; i++) {
-        const e = raw[i];
-        if (!e || typeof e !== "object") continue;
-
-        const name = typeof e.name === "string" ? e.name : "";
-        const url = typeof e.url === "string" ? e.url : "";
-        const instances = Array.isArray(e.instances) ? e.instances : [];
-
-        if (!name || !url) continue;
-
-        const cleanInstances = [];
-
-        const tmplEntry = templateByName.get(name) || null;
-        const tmplInst =
-        tmplEntry && Array.isArray(tmplEntry.instances) && tmplEntry.instances.length
-        ? tmplEntry.instances[0]
-        : null;
-
-        for (let k = 0; k < instances.length; k++) {
-          const inst = instances[k];
-          if (!inst || typeof inst !== "object") continue;
-
-          const p = Array.isArray(inst.position) && inst.position.length === 3 ? inst.position : [0, 0, 0];
-          const r = Array.isArray(inst.rotation) && inst.rotation.length === 3 ? inst.rotation : [0, 0, 0];
-
-          let s = inst.scale;
-          if (Array.isArray(s)) {
-            if (s.length !== 3) s = 1.0;
-          } else if (!Number.isFinite(s)) {
-            s = 1.0;
-          }
-
-          const copy = { ...inst };
-
-          copy.position = [
-            Number.isFinite(p[0]) ? p[0] : 0,
-            Number.isFinite(p[1]) ? p[1] : 0,
-            Number.isFinite(p[2]) ? p[2] : 0
-          ];
-
-          copy.rotation = [
-            Number.isFinite(r[0]) ? r[0] : 0,
-            Number.isFinite(r[1]) ? r[1] : 0,
-            Number.isFinite(r[2]) ? r[2] : 0
-          ];
-
-          copy.scale = s;
-
-          if (tmplInst && tmplInst.equipment && !hasOwn(copy, "equipment")) {
-            copy.equipment = deepClonePlain(tmplInst.equipment);
-          }
-
-          cleanInstances.push(copy);
-        }
-
-        const entryCopy = { ...e };
-        entryCopy.name = name;
-        entryCopy.url = url;
-        entryCopy.instances = cleanInstances;
-
-        out.push(entryCopy);
-      }
-
-      return out.length ? out : null;
+  const templateByName = new Map();
+  if (Array.isArray(MODEL_CONFIG)) {
+    for (const t of MODEL_CONFIG) {
+      if (!t || typeof t !== "object") continue;
+      if (typeof t.name !== "string" || !t.name) continue;
+      templateByName.set(t.name, t);
     }
+  }
+
+  for (let i = 0; i < raw.length; i++) {
+    const e = raw[i];
+    if (!e || typeof e !== "object") continue;
+
+    const name = typeof e.name === "string" ? e.name : "";
+    const url = typeof e.url === "string" ? e.url : "";
+    const instances = Array.isArray(e.instances) ? e.instances : [];
+
+    if (!name || !url) continue;
+
+    const cleanInstances = [];
+
+    const tmplEntry = templateByName.get(name) || null;
+    const tmplInst =
+    tmplEntry && Array.isArray(tmplEntry.instances) && tmplEntry.instances.length
+    ? tmplEntry.instances[0]
+    : null;
+
+    for (let k = 0; k < instances.length; k++) {
+      const inst = instances[k];
+      if (!inst || typeof inst !== "object") continue;
+
+      const p = Array.isArray(inst.position) && inst.position.length === 3 ? inst.position : [0, 0, 0];
+      const r = Array.isArray(inst.rotation) && inst.rotation.length === 3 ? inst.rotation : [0, 0, 0];
+
+      let s = inst.scale;
+      if (Array.isArray(s)) {
+        if (s.length !== 3) s = 1.0;
+      } else if (!Number.isFinite(s)) {
+        s = 1.0;
+      }
+
+      const copy = { ...inst };
+
+      copy.position = [
+        Number.isFinite(p[0]) ? p[0] : 0,
+        Number.isFinite(p[1]) ? p[1] : 0,
+        Number.isFinite(p[2]) ? p[2] : 0
+      ];
+
+      copy.rotation = [
+        Number.isFinite(r[0]) ? r[0] : 0,
+        Number.isFinite(r[1]) ? r[1] : 0,
+        Number.isFinite(r[2]) ? r[2] : 0
+      ];
+
+      copy.scale = s;
+
+      if (tmplInst && tmplInst.equipment && !hasOwn(copy, "equipment")) {
+        copy.equipment = deepClonePlain(tmplInst.equipment);
+      }
+
+      cleanInstances.push(copy);
+    }
+
+    const entryCopy = { ...e };
+    entryCopy.name = name;
+    entryCopy.url = url;
+    entryCopy.instances = cleanInstances;
+
+    out.push(entryCopy);
+  }
+
+  return out.length ? out : null;
+}
 
 
 
@@ -6468,183 +6490,183 @@ canvas.world-edit-on {
     /**
      * Opens IndexedDB (worlds) and returns a live IDBDatabase instance.
      */
-    function openWorldDb() {
-      return new Promise((resolve, reject) => {
-        if (!("indexedDB" in window)) {
-          reject(new Error("IndexedDB not available"));
-          return;
-        }
-
-        const req = indexedDB.open(WORLDS_DB_NAME, WORLDS_DB_VERSION);
-
-        req.onupgradeneeded = () => {
-          const db = req.result;
-          if (!db.objectStoreNames.contains(WORLDS_STORE)) {
-            db.createObjectStore(WORLDS_STORE, { keyPath: "id" });
-          }
-        };
-
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error || new Error("IndexedDB open failed"));
-      });
+function openWorldDb() {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) {
+      reject(new Error("IndexedDB not available"));
+      return;
     }
 
-    function idbTx(db, mode) {
-      return db.transaction(WORLDS_STORE, mode).objectStore(WORLDS_STORE);
-    }
+    const req = indexedDB.open(WORLDS_DB_NAME, WORLDS_DB_VERSION);
+
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(WORLDS_STORE)) {
+        db.createObjectStore(WORLDS_STORE, { keyPath: "id" });
+      }
+    };
+
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error("IndexedDB open failed"));
+  });
+}
+
+function idbTx(db, mode) {
+  return db.transaction(WORLDS_STORE, mode).objectStore(WORLDS_STORE);
+}
 
     /**
      * Reads all stored worlds, sorted by updatedAt descending.
      */
-    async function idbGetAllWorlds() {
-      const db = await openWorldDb();
-      return await new Promise((resolve, reject) => {
-        const store = idbTx(db, "readonly");
-        const req = store.getAll();
-        req.onsuccess = () => {
-          const arr = Array.isArray(req.result) ? req.result : [];
-          arr.sort((a, b) => (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0));
-          resolve(arr);
-        };
-        req.onerror = () => reject(req.error || new Error("getAll failed"));
-      });
-    }
+async function idbGetAllWorlds() {
+  const db = await openWorldDb();
+  return await new Promise((resolve, reject) => {
+    const store = idbTx(db, "readonly");
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const arr = Array.isArray(req.result) ? req.result : [];
+      arr.sort((a, b) => (Number(b.updatedAt) || 0) - (Number(a.updatedAt) || 0));
+      resolve(arr);
+    };
+    req.onerror = () => reject(req.error || new Error("getAll failed"));
+  });
+}
 
     /**
      * Reads a single world by id.
      */
-    async function idbGetWorld(id) {
-      const db = await openWorldDb();
-      return await new Promise((resolve, reject) => {
-        const store = idbTx(db, "readonly");
-        const req = store.get(String(id));
-        req.onsuccess = () => resolve(req.result || null);
-        req.onerror = () => reject(req.error || new Error("get failed"));
-      });
-    }
+async function idbGetWorld(id) {
+  const db = await openWorldDb();
+  return await new Promise((resolve, reject) => {
+    const store = idbTx(db, "readonly");
+    const req = store.get(String(id));
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error || new Error("get failed"));
+  });
+}
 
     /**
      * Writes a world record.
      */
-    async function idbPutWorld(world) {
-      const db = await openWorldDb();
-      return await new Promise((resolve, reject) => {
-        const store = idbTx(db, "readwrite");
-        const req = store.put(world);
-        req.onsuccess = () => resolve(true);
-        req.onerror = () => reject(req.error || new Error("put failed"));
-      });
-    }
+async function idbPutWorld(world) {
+  const db = await openWorldDb();
+  return await new Promise((resolve, reject) => {
+    const store = idbTx(db, "readwrite");
+    const req = store.put(world);
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error || new Error("put failed"));
+  });
+}
 
     /**
      * Deletes a world by id.
      */
-    async function idbDeleteWorld(id) {
-      const db = await openWorldDb();
-      return await new Promise((resolve, reject) => {
-        const store = idbTx(db, "readwrite");
-        const req = store.delete(String(id));
-        req.onsuccess = () => resolve(true);
-        req.onerror = () => reject(req.error || new Error("delete failed"));
-      });
+async function idbDeleteWorld(id) {
+  const db = await openWorldDb();
+  return await new Promise((resolve, reject) => {
+    const store = idbTx(db, "readwrite");
+    const req = store.delete(String(id));
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => reject(req.error || new Error("delete failed"));
+  });
+}
+
+function getActiveWorldId() {
+  try {
+    const v = localStorage.getItem(ACTIVE_WORLD_ID_KEY);
+    return v && String(v).trim() ? String(v) : "";
+  } catch (e) {
+    return "";
+  }
+}
+
+function setActiveWorldId(id) {
+  try {
+    const v = id && String(id).trim() ? String(id) : "";
+    if (!v) localStorage.removeItem(ACTIVE_WORLD_ID_KEY);
+    else localStorage.setItem(ACTIVE_WORLD_ID_KEY, v);
+  } catch (e) {}
+}
+
+function makeWorldId() {
+  try {
+    if (crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  } catch (e) {}
+  return `w_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function sanitizeWorldFilename(name) {
+  const base = String(name || "world").trim() || "world";
+  return base
+  .replace(/[\/\\?%*:|"<>]/g, "-")
+  .replace(/\s+/g, " ")
+  .trim()
+  .slice(0, 64);
+}
+
+function captureWorldThumbnail() {
+  try {
+    if (!renderer || !renderer.domElement) return "";
+
+    const canvas = renderer.domElement;
+    const w = canvas.width | 0;
+    const h = canvas.height | 0;
+    if (w < 2 || h < 2) return "";
+
+    const cam =
+    (typeof activeCamera !== "undefined" && activeCamera) ? activeCamera :
+    (typeof camera !== "undefined" && camera) ? camera :
+    null;
+
+    if (typeof scene !== "undefined" && scene && cam) {
+      renderer.render(scene, cam);
     }
 
-    function getActiveWorldId() {
-      try {
-        const v = localStorage.getItem(ACTIVE_WORLD_ID_KEY);
-        return v && String(v).trim() ? String(v) : "";
-      } catch (e) {
-        return "";
-      }
+    const gl = renderer.getContext();
+    if (!gl || typeof gl.readPixels !== "function") {
+      return canvas.toDataURL("image/jpeg", 0.72);
     }
 
-    function setActiveWorldId(id) {
-      try {
-        const v = id && String(id).trim() ? String(id) : "";
-        if (!v) localStorage.removeItem(ACTIVE_WORLD_ID_KEY);
-        else localStorage.setItem(ACTIVE_WORLD_ID_KEY, v);
-      } catch (e) {}
+    const pixels = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+    const flipped = new Uint8ClampedArray(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const srcRow = (h - 1 - y) * w * 4;
+      const dstRow = y * w * 4;
+      flipped.set(pixels.subarray(srcRow, srcRow + w * 4), dstRow);
     }
 
-    function makeWorldId() {
-      try {
-        if (crypto && typeof crypto.randomUUID === "function") return crypto.randomUUID();
-      } catch (e) {}
-      return `w_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-    }
+    const full = document.createElement("canvas");
+    full.width = w;
+    full.height = h;
 
-    function sanitizeWorldFilename(name) {
-      const base = String(name || "world").trim() || "world";
-      return base
-      .replace(/[\/\\?%*:|"<>]/g, "-")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 64);
-    }
+    const ctx = full.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return canvas.toDataURL("image/jpeg", 0.72);
 
-    function captureWorldThumbnail() {
-      try {
-        if (!renderer || !renderer.domElement) return "";
+    ctx.putImageData(new ImageData(flipped, w, h), 0, 0);
 
-        const canvas = renderer.domElement;
-        const w = canvas.width | 0;
-        const h = canvas.height | 0;
-        if (w < 2 || h < 2) return "";
+    const maxW = 512;
+    const scale = Math.min(1, maxW / w);
+    const tw = Math.max(1, Math.floor(w * scale));
+    const th = Math.max(1, Math.floor(h * scale));
 
-        const cam =
-        (typeof activeCamera !== "undefined" && activeCamera) ? activeCamera :
-        (typeof camera !== "undefined" && camera) ? camera :
-        null;
+    const thumb = document.createElement("canvas");
+    thumb.width = tw;
+    thumb.height = th;
 
-        if (typeof scene !== "undefined" && scene && cam) {
-          renderer.render(scene, cam);
-        }
+    const tctx = thumb.getContext("2d");
+    if (!tctx) return full.toDataURL("image/jpeg", 0.72);
 
-        const gl = renderer.getContext();
-        if (!gl || typeof gl.readPixels !== "function") {
-          return canvas.toDataURL("image/jpeg", 0.72);
-        }
-
-        const pixels = new Uint8Array(w * h * 4);
-        gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-        const flipped = new Uint8ClampedArray(w * h * 4);
-        for (let y = 0; y < h; y++) {
-          const srcRow = (h - 1 - y) * w * 4;
-          const dstRow = y * w * 4;
-          flipped.set(pixels.subarray(srcRow, srcRow + w * 4), dstRow);
-        }
-
-        const full = document.createElement("canvas");
-        full.width = w;
-        full.height = h;
-
-        const ctx = full.getContext("2d", { willReadFrequently: true });
-        if (!ctx) return canvas.toDataURL("image/jpeg", 0.72);
-
-        ctx.putImageData(new ImageData(flipped, w, h), 0, 0);
-
-        const maxW = 512;
-        const scale = Math.min(1, maxW / w);
-        const tw = Math.max(1, Math.floor(w * scale));
-        const th = Math.max(1, Math.floor(h * scale));
-
-        const thumb = document.createElement("canvas");
-        thumb.width = tw;
-        thumb.height = th;
-
-        const tctx = thumb.getContext("2d");
-        if (!tctx) return full.toDataURL("image/jpeg", 0.72);
-
-        tctx.drawImage(full, 0, 0, tw, th);
-        return thumb.toDataURL("image/jpeg", 0.72);
-      } catch (e) {
-        try {
-          if (renderer && renderer.domElement) return renderer.domElement.toDataURL("image/jpeg", 0.72);
-        } catch (e2) {}
-        return "";
-      }
-    }
+    tctx.drawImage(full, 0, 0, tw, th);
+    return thumb.toDataURL("image/jpeg", 0.72);
+  } catch (e) {
+    try {
+      if (renderer && renderer.domElement) return renderer.domElement.toDataURL("image/jpeg", 0.72);
+    } catch (e2) {}
+    return "";
+  }
+}
 
 
 
@@ -6653,86 +6675,86 @@ canvas.world-edit-on {
      * Saves current scene model transforms into the active IndexedDB world record.
      * If there is no active world, creates one and sets it active (no reload).
      */
-    async function saveActiveWorld() {
+async function saveActiveWorld() {
+  try {
+    const snapshot = snapshotWorldModelsConfig();
+    const normalized = normalizeWorldModelsConfig(snapshot);
+    if (!normalized) return;
+
+    const now = Date.now();
+    const thumb = captureWorldThumbnail();
+    const settings = safeCloneSettings(params);
+
+    let activeId = getActiveWorldId();
+    let rec = null;
+
+    if (activeId) {
       try {
-        const snapshot = snapshotWorldModelsConfig();
-        const normalized = normalizeWorldModelsConfig(snapshot);
-        if (!normalized) return;
-
-        const now = Date.now();
-        const thumb = captureWorldThumbnail();
-        const settings = safeCloneSettings(params);
-
-        let activeId = getActiveWorldId();
-        let rec = null;
-
-        if (activeId) {
-          try {
-            rec = await idbGetWorld(activeId);
-          } catch (e) {
-            rec = null;
-          }
-        }
-
-        if (rec) {
-          rec.models = normalized;
-          rec.settings = settings;
-          if (thumb) rec.thumbnail = thumb;
-          rec.updatedAt = now;
-          await idbPutWorld(rec);
-          setActiveWorldUi(rec.id, rec.title);
-        } else {
-          const created = buildWorldRecord({
-            id: makeWorldId(),
-            title: worldUiState.title && worldUiState.title !== "Default" ? worldUiState.title : "Untitled",
-            description: "",
-            models: normalized,
-            settings,
-            thumbnail: thumb,
-            meta: {},
-            createdAt: now,
-            updatedAt: now
-          });
-
-          await idbPutWorld(created);
-          setActiveWorldId(created.id);
-          setActiveWorldUi(created.id, created.title);
-        }
-
-        if (worldPickerState.open && worldPickerListEl) {
-          try {
-            const worlds = await idbGetAllWorlds();
-            renderWorldPickerList(worlds);
-          } catch (e) {}
-        }
-
-        showActionToast("World saved");
+        rec = await idbGetWorld(activeId);
       } catch (e) {
-        console.warn("[worlds] saveActiveWorld failed", e);
+        rec = null;
       }
     }
 
+    if (rec) {
+      rec.models = normalized;
+      rec.settings = settings;
+      if (thumb) rec.thumbnail = thumb;
+      rec.updatedAt = now;
+      await idbPutWorld(rec);
+      setActiveWorldUi(rec.id, rec.title);
+    } else {
+      const created = buildWorldRecord({
+        id: makeWorldId(),
+        title: worldUiState.title && worldUiState.title !== "Default" ? worldUiState.title : "Untitled",
+        description: "",
+        models: normalized,
+        settings,
+        thumbnail: thumb,
+        meta: {},
+        createdAt: now,
+        updatedAt: now
+      });
 
-
-
-    function buildWorldRecord({ id, title, description, models, settings, thumbnail, meta, createdAt, updatedAt }) {
-      const cleanSettings =
-      settings && typeof settings === "object" ? safeCloneSettings(settings) : {};
-
-      return {
-        v: 1,
-        kind: "snow-world",
-        id: String(id || makeWorldId()),
-        title: String(title || "Untitled").trim() || "Untitled",
-        description: String(description || "").trim(),
-        createdAt: Number(createdAt) || Date.now(),
-        updatedAt: Number(updatedAt) || Date.now(),
-        thumbnail: typeof thumbnail === "string" ? thumbnail : "",
-        meta: meta && typeof meta === "object" ? meta : {},
-        settings: cleanSettings,
-        models
-      };
+      await idbPutWorld(created);
+      setActiveWorldId(created.id);
+      setActiveWorldUi(created.id, created.title);
     }
+
+    if (worldPickerState.open && worldPickerListEl) {
+      try {
+        const worlds = await idbGetAllWorlds();
+        renderWorldPickerList(worlds);
+      } catch (e) {}
+    }
+
+    showActionToast("World saved");
+  } catch (e) {
+    console.warn("[worlds] saveActiveWorld failed", e);
+  }
+}
+
+
+
+
+function buildWorldRecord({ id, title, description, models, settings, thumbnail, meta, createdAt, updatedAt }) {
+  const cleanSettings =
+  settings && typeof settings === "object" ? safeCloneSettings(settings) : {};
+
+  return {
+    v: 1,
+    kind: "snow-world",
+    id: String(id || makeWorldId()),
+    title: String(title || "Untitled").trim() || "Untitled",
+    description: String(description || "").trim(),
+    createdAt: Number(createdAt) || Date.now(),
+    updatedAt: Number(updatedAt) || Date.now(),
+    thumbnail: typeof thumbnail === "string" ? thumbnail : "",
+    meta: meta && typeof meta === "object" ? meta : {},
+    settings: cleanSettings,
+    models
+  };
+}
 
 
 
@@ -6744,70 +6766,70 @@ canvas.world-edit-on {
      * 3) worlds/default_model.json (if present)
      * 4) baked MODEL_CONFIG
      */
-    async function getWorldModelsConfig() {
-      if (worldModelsConfigLoaded) return worldModelsConfig || MODEL_CONFIG;
+async function getWorldModelsConfig() {
+  if (worldModelsConfigLoaded) return worldModelsConfig || MODEL_CONFIG;
 
-      worldModelsConfigLoaded = true;
+  worldModelsConfigLoaded = true;
+  worldModelsConfig = null;
+  worldModelsIoState.source = "defaults";
+  setActiveWorldUi("", "Default");
+
+  const activeId = getActiveWorldId();
+
+  if (activeId) {
+    try {
+      const rec = await idbGetWorld(activeId);
+      const normalized = rec && rec.models ? normalizeWorldModelsConfig(rec.models) : null;
+      if (normalized) {
+        worldModelsConfig = normalized;
+        worldModelsIoState.source = `idb:${rec && rec.title ? rec.title : activeId}`;
+        setActiveWorldUi(rec && rec.id ? rec.id : activeId, rec && rec.title ? rec.title : "Untitled");
+        return worldModelsConfig;
+      }
+    } catch (e) {
       worldModelsConfig = null;
       worldModelsIoState.source = "defaults";
       setActiveWorldUi("", "Default");
-
-      const activeId = getActiveWorldId();
-
-      if (activeId) {
-        try {
-          const rec = await idbGetWorld(activeId);
-          const normalized = rec && rec.models ? normalizeWorldModelsConfig(rec.models) : null;
-          if (normalized) {
-            worldModelsConfig = normalized;
-            worldModelsIoState.source = `idb:${rec && rec.title ? rec.title : activeId}`;
-            setActiveWorldUi(rec && rec.id ? rec.id : activeId, rec && rec.title ? rec.title : "Untitled");
-            return worldModelsConfig;
-          }
-        } catch (e) {
-          worldModelsConfig = null;
-          worldModelsIoState.source = "defaults";
-          setActiveWorldUi("", "Default");
-        }
-      }
-
-      try {
-        const raw = localStorage.getItem(WORLD_MODELS_OVERRIDE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const normalized = normalizeWorldModelsConfig(parsed);
-          if (normalized) {
-            worldModelsConfig = normalized;
-            worldModelsIoState.source = "imported";
-            setActiveWorldUi("", "Imported");
-            return worldModelsConfig;
-          }
-        }
-      } catch (e) {
-        worldModelsConfig = null;
-        worldModelsIoState.source = "defaults";
-        setActiveWorldUi("", "Default");
-      }
-
-      try {
-        const res = await fetch(WORLD_MODELS_URL, { cache: "no-store" });
-        if (res && res.ok) {
-          const json = await res.json();
-          const normalized = normalizeWorldModelsConfig(json);
-          if (normalized) {
-            worldModelsConfig = normalized;
-            worldModelsIoState.source = WORLD_MODELS_URL;
-            setActiveWorldUi("", "Default");
-          }
-        }
-      } catch (e) {
-        worldModelsConfig = null;
-        worldModelsIoState.source = "defaults";
-        setActiveWorldUi("", "Default");
-      }
-
-      return worldModelsConfig || MODEL_CONFIG;
     }
+  }
+
+  try {
+    const raw = localStorage.getItem(WORLD_MODELS_OVERRIDE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const normalized = normalizeWorldModelsConfig(parsed);
+      if (normalized) {
+        worldModelsConfig = normalized;
+        worldModelsIoState.source = "imported";
+        setActiveWorldUi("", "Imported");
+        return worldModelsConfig;
+      }
+    }
+  } catch (e) {
+    worldModelsConfig = null;
+    worldModelsIoState.source = "defaults";
+    setActiveWorldUi("", "Default");
+  }
+
+  try {
+    const res = await fetch(WORLD_MODELS_URL, { cache: "no-store" });
+    if (res && res.ok) {
+      const json = await res.json();
+      const normalized = normalizeWorldModelsConfig(json);
+      if (normalized) {
+        worldModelsConfig = normalized;
+        worldModelsIoState.source = WORLD_MODELS_URL;
+        setActiveWorldUi("", "Default");
+      }
+    }
+  } catch (e) {
+    worldModelsConfig = null;
+    worldModelsIoState.source = "defaults";
+    setActiveWorldUi("", "Default");
+  }
+
+  return worldModelsConfig || MODEL_CONFIG;
+}
 
 
 
@@ -6818,67 +6840,67 @@ canvas.world-edit-on {
      * - Accepts either a raw MODEL_CONFIG array OR a { kind:"snow-world", ... , models:[...] } record.
      * Stores the result in IndexedDB and sets it active, then refreshes the page.
      */
-    function importWorldModelsJson() {
-      const input = ensureImportInput();
-      input.value = "";
+function importWorldModelsJson() {
+  const input = ensureImportInput();
+  input.value = "";
 
-      input.onchange = async () => {
-        const file = input.files && input.files[0];
-        input.value = "";
-        if (!file) return;
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    input.value = "";
+    if (!file) return;
 
-        try {
-          const text = await file.text();
-          const json = JSON.parse(text);
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
 
-          const isWorldRecord = json && typeof json === "object" && json.kind === "snow-world" && json.models;
-          const modelsPayload = isWorldRecord ? json.models : json;
+      const isWorldRecord = json && typeof json === "object" && json.kind === "snow-world" && json.models;
+      const modelsPayload = isWorldRecord ? json.models : json;
 
-          const normalized = normalizeWorldModelsConfig(modelsPayload);
-          if (!normalized) return;
+      const normalized = normalizeWorldModelsConfig(modelsPayload);
+      if (!normalized) return;
 
-          const importedSettings =
-          isWorldRecord && json.settings && typeof json.settings === "object" ? json.settings : null;
+      const importedSettings =
+      isWorldRecord && json.settings && typeof json.settings === "object" ? json.settings : null;
 
-          const now = Date.now();
-          const baseTitle = isWorldRecord && typeof json.title === "string" ? json.title : file.name.replace(/\.[^.]+$/, "");
-          const baseDesc = isWorldRecord && typeof json.description === "string" ? json.description : "";
+      const now = Date.now();
+      const baseTitle = isWorldRecord && typeof json.title === "string" ? json.title : file.name.replace(/\.[^.]+$/, "");
+      const baseDesc = isWorldRecord && typeof json.description === "string" ? json.description : "";
 
-          const id = isWorldRecord && typeof json.id === "string" && json.id.trim() ? json.id.trim() : makeWorldId();
+      const id = isWorldRecord && typeof json.id === "string" && json.id.trim() ? json.id.trim() : makeWorldId();
 
-          const rec = buildWorldRecord({
-            id,
-            title: baseTitle,
-            description: baseDesc,
-            models: normalized,
-            settings: importedSettings ? Object.assign({}, DEFAULTS, importedSettings) : {},
-            thumbnail: isWorldRecord && typeof json.thumbnail === "string" ? json.thumbnail : "",
-            meta: isWorldRecord && json.meta && typeof json.meta === "object" ? json.meta : { importedFrom: file.name },
-            createdAt: isWorldRecord && Number.isFinite(json.createdAt) ? json.createdAt : now,
-            updatedAt: now
-          });
+      const rec = buildWorldRecord({
+        id,
+        title: baseTitle,
+        description: baseDesc,
+        models: normalized,
+        settings: importedSettings ? Object.assign({}, DEFAULTS, importedSettings) : {},
+        thumbnail: isWorldRecord && typeof json.thumbnail === "string" ? json.thumbnail : "",
+        meta: isWorldRecord && json.meta && typeof json.meta === "object" ? json.meta : { importedFrom: file.name },
+        createdAt: isWorldRecord && Number.isFinite(json.createdAt) ? json.createdAt : now,
+        updatedAt: now
+      });
 
-          await idbPutWorld(rec);
-          setActiveWorldId(rec.id);
+      await idbPutWorld(rec);
+      setActiveWorldId(rec.id);
 
-          if (!rec.thumbnail) {
-            localStorage.setItem(PENDING_WORLD_THUMB_ID_KEY, rec.id);
-          } else {
-            localStorage.removeItem(PENDING_WORLD_THUMB_ID_KEY);
-          }
+      if (!rec.thumbnail) {
+        localStorage.setItem(PENDING_WORLD_THUMB_ID_KEY, rec.id);
+      } else {
+        localStorage.removeItem(PENDING_WORLD_THUMB_ID_KEY);
+      }
 
-          try {
-            sessionStorage.setItem(WORLD_PICKER_SUPPRESS_ONCE_KEY, "1");
-          } catch (e) {}
+      try {
+        sessionStorage.setItem(WORLD_PICKER_SUPPRESS_ONCE_KEY, "1");
+      } catch (e) {}
 
-          location.reload();
-        } catch (e) {
-          console.warn("[worlds] import failed", e);
-        }
-      };
-
-      input.click();
+      location.reload();
+    } catch (e) {
+      console.warn("[worlds] import failed", e);
     }
+  };
+
+  input.click();
+}
 
 
 
@@ -6889,24 +6911,24 @@ canvas.world-edit-on {
      * - Active IndexedDB world (full record with metadata + thumbnail), or
      * - Fallback snapshot as world_models.json if no active world record exists.
      */
-    function exportWorldModelsJson() {
-      (async () => {
-        const activeId = getActiveWorldId();
-        if (activeId) {
-          try {
-            const rec = await idbGetWorld(activeId);
-            if (rec) {
-              const name = sanitizeWorldFilename(rec.title || "world");
-              downloadJson(rec, `${name}.world.json`);
-              return;
-            }
-          } catch (e) {}
+function exportWorldModelsJson() {
+  (async () => {
+    const activeId = getActiveWorldId();
+    if (activeId) {
+      try {
+        const rec = await idbGetWorld(activeId);
+        if (rec) {
+          const name = sanitizeWorldFilename(rec.title || "world");
+          downloadJson(rec, `${name}.world.json`);
+          return;
         }
-
-        const snapshot = snapshotWorldModelsConfig();
-        downloadJson(snapshot, "world_models.json");
-      })();
+      } catch (e) {}
     }
+
+    const snapshot = snapshotWorldModelsConfig();
+    downloadJson(snapshot, "world_models.json");
+  })();
+}
 
     // function exportDefaultModelJson() {
     //   (async () => {
@@ -6922,14 +6944,14 @@ canvas.world-edit-on {
     //     downloadJson(MODEL_CONFIG, "default_model.json");
     //   })();
     // }
-    function exportDefaultModelJson() {
-      const snapshot = snapshotWorldModelsConfig();
+function exportDefaultModelJson() {
+  const snapshot = snapshotWorldModelsConfig();
 
-      const title = (typeof getCurrentWorldTitle === "function") ? getCurrentWorldTitle() : "models";
-      const safe = (typeof sanitizeWorldFilename === "function") ? sanitizeWorldFilename(title || "models") : "models";
+  const title = (typeof getCurrentWorldTitle === "function") ? getCurrentWorldTitle() : "models";
+  const safe = (typeof sanitizeWorldFilename === "function") ? sanitizeWorldFilename(title || "models") : "models";
 
-      downloadJson(snapshot, `${safe}.models.json`);
-    }
+  downloadJson(snapshot, `${safe}.models.json`);
+}
 
 
 
@@ -6941,60 +6963,60 @@ canvas.world-edit-on {
      * - When enabled, endpoints are expected to return JSON.
      * - List endpoints return { worlds:[...] } or a raw [...] array.
      */
-    const CLOUD_WORLDS_API = {
-      enabled: false,
-      baseUrl: "/api/worlds"
-    };
+const CLOUD_WORLDS_API = {
+  enabled: false,
+  baseUrl: "/api/worlds"
+};
 
-    function normalizeCloudWorldListPayload(json) {
-      if (Array.isArray(json)) return json;
-      if (json && typeof json === "object" && Array.isArray(json.worlds)) return json.worlds;
-      return [];
-    }
+function normalizeCloudWorldListPayload(json) {
+  if (Array.isArray(json)) return json;
+  if (json && typeof json === "object" && Array.isArray(json.worlds)) return json.worlds;
+  return [];
+}
 
-    async function cloudListWorlds(scope) {
-      if (!CLOUD_WORLDS_API.enabled) return [];
-      const s = scope === "private" ? "private" : "global";
+async function cloudListWorlds(scope) {
+  if (!CLOUD_WORLDS_API.enabled) return [];
+  const s = scope === "private" ? "private" : "global";
 
-      const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`Cloud list failed: ${res.status}`);
-      const json = await res.json();
-      return normalizeCloudWorldListPayload(json);
-    }
+  const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Cloud list failed: ${res.status}`);
+  const json = await res.json();
+  return normalizeCloudWorldListPayload(json);
+}
 
-    async function cloudGetWorld(scope, id) {
-      if (!CLOUD_WORLDS_API.enabled) throw new Error("Cloud API disabled");
-      const s = scope === "private" ? "private" : "global";
-      const safeId = encodeURIComponent(String(id || "").trim());
+async function cloudGetWorld(scope, id) {
+  if (!CLOUD_WORLDS_API.enabled) throw new Error("Cloud API disabled");
+  const s = scope === "private" ? "private" : "global";
+  const safeId = encodeURIComponent(String(id || "").trim());
 
-      const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}/${safeId}`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`Cloud get failed: ${res.status}`);
-      return await res.json();
-    }
+  const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}/${safeId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Cloud get failed: ${res.status}`);
+  return await res.json();
+}
 
-    async function cloudSaveWorld(scope, worldRecord) {
-      if (!CLOUD_WORLDS_API.enabled) throw new Error("Cloud API disabled");
-      const s = scope === "private" ? "private" : "global";
+async function cloudSaveWorld(scope, worldRecord) {
+  if (!CLOUD_WORLDS_API.enabled) throw new Error("Cloud API disabled");
+  const s = scope === "private" ? "private" : "global";
 
-      const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(worldRecord || {})
-      });
+  const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(worldRecord || {})
+  });
 
-      if (!res.ok) throw new Error(`Cloud save failed: ${res.status}`);
-      return await res.json();
-    }
+  if (!res.ok) throw new Error(`Cloud save failed: ${res.status}`);
+  return await res.json();
+}
 
-    async function cloudDeleteWorld(scope, id) {
-      if (!CLOUD_WORLDS_API.enabled) throw new Error("Cloud API disabled");
-      const s = scope === "private" ? "private" : "global";
-      const safeId = encodeURIComponent(String(id || "").trim());
+async function cloudDeleteWorld(scope, id) {
+  if (!CLOUD_WORLDS_API.enabled) throw new Error("Cloud API disabled");
+  const s = scope === "private" ? "private" : "global";
+  const safeId = encodeURIComponent(String(id || "").trim());
 
-      const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}/${safeId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`Cloud delete failed: ${res.status}`);
-      return true;
-    }
+  const res = await fetch(`${CLOUD_WORLDS_API.baseUrl}/${s}/${safeId}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Cloud delete failed: ${res.status}`);
+  return true;
+}
 
 
 
@@ -7003,404 +7025,404 @@ canvas.world-edit-on {
     /**
      * Builds an exportable MODEL_CONFIG snapshot using current scene transforms (when instances exist).
      */
-    function snapshotWorldModelsConfig() {
-      const base = worldModelsConfig || MODEL_CONFIG;
-      const out = JSON.parse(JSON.stringify(base));
+function snapshotWorldModelsConfig() {
+  const base = worldModelsConfig || MODEL_CONFIG;
+  const out = JSON.parse(JSON.stringify(base));
 
-      const eps = 1e-6;
+  const eps = 1e-6;
 
-      for (let i = 0; i < out.length; i++) {
-        const outEntry = out[i];
-        const baseEntry = base[i];
+  for (let i = 0; i < out.length; i++) {
+    const outEntry = out[i];
+    const baseEntry = base[i];
 
-        if (!outEntry || !baseEntry) continue;
-        if (!Array.isArray(outEntry.instances) || !Array.isArray(baseEntry.instances)) continue;
+    if (!outEntry || !baseEntry) continue;
+    if (!Array.isArray(outEntry.instances) || !Array.isArray(baseEntry.instances)) continue;
 
-        const n = Math.min(outEntry.instances.length, baseEntry.instances.length);
+    const n = Math.min(outEntry.instances.length, baseEntry.instances.length);
 
-        for (let k = 0; k < n; k++) {
-          const outInstCfg = outEntry.instances[k];
-          const baseInstCfg = baseEntry.instances[k];
-          if (!outInstCfg || !baseInstCfg) continue;
+    for (let k = 0; k < n; k++) {
+      const outInstCfg = outEntry.instances[k];
+      const baseInstCfg = baseEntry.instances[k];
+      if (!outInstCfg || !baseInstCfg) continue;
 
-          const inst =
-          baseInstCfg.runtimeObject ||
-          (baseInstCfg.id ? modelInstances[String(baseInstCfg.id)] : null);
+      const inst =
+      baseInstCfg.runtimeObject ||
+      (baseInstCfg.id ? modelInstances[String(baseInstCfg.id)] : null);
 
-          if (!inst) continue;
+      if (!inst) continue;
 
-          const isEquipped = (
-            equipmentState.enabled &&
-            equipmentState.item &&
-            equipmentState.item.object === inst
-            );
+      const isEquipped = (
+        equipmentState.enabled &&
+        equipmentState.item &&
+        equipmentState.item.object === inst
+        );
 
-          let px, py, pz;
-          let rx, ry, rz;
-          let sx, sy, sz;
+      let px, py, pz;
+      let rx, ry, rz;
+      let sx, sy, sz;
 
-          if (isEquipped) {
-            px = equipmentState.originalPosition.x;
-            py = equipmentState.originalPosition.y;
-            pz = equipmentState.originalPosition.z;
+      if (isEquipped) {
+        px = equipmentState.originalPosition.x;
+        py = equipmentState.originalPosition.y;
+        pz = equipmentState.originalPosition.z;
 
-            equipmentTmpEuler.setFromQuaternion(
-              equipmentState.originalQuaternion,
-              (inst.rotation && inst.rotation.order) ? inst.rotation.order : "XYZ"
-              );
+        equipmentTmpEuler.setFromQuaternion(
+          equipmentState.originalQuaternion,
+          (inst.rotation && inst.rotation.order) ? inst.rotation.order : "XYZ"
+          );
 
-            rx = equipmentTmpEuler.x;
-            ry = equipmentTmpEuler.y;
-            rz = equipmentTmpEuler.z;
+        rx = equipmentTmpEuler.x;
+        ry = equipmentTmpEuler.y;
+        rz = equipmentTmpEuler.z;
 
-            sx = equipmentState.originalScale.x;
-            sy = equipmentState.originalScale.y;
-            sz = equipmentState.originalScale.z;
-          } else {
-            px = inst.position.x;
-            py = inst.position.y;
-            pz = inst.position.z;
+        sx = equipmentState.originalScale.x;
+        sy = equipmentState.originalScale.y;
+        sz = equipmentState.originalScale.z;
+      } else {
+        px = inst.position.x;
+        py = inst.position.y;
+        pz = inst.position.z;
 
-            rx = inst.rotation.x;
-            ry = inst.rotation.y;
-            rz = inst.rotation.z;
+        rx = inst.rotation.x;
+        ry = inst.rotation.y;
+        rz = inst.rotation.z;
 
-            sx = inst.scale.x;
-            sy = inst.scale.y;
-            sz = inst.scale.z;
-          }
-
-          outInstCfg.position = [px, py, pz];
-          outInstCfg.rotation = [rx, ry, rz];
-
-          const uniform = Math.abs(sx - sy) < eps && Math.abs(sx - sz) < eps;
-          outInstCfg.scale = uniform ? sx : [sx, sy, sz];
-        }
+        sx = inst.scale.x;
+        sy = inst.scale.y;
+        sz = inst.scale.z;
       }
 
-      return out;
+      outInstCfg.position = [px, py, pz];
+      outInstCfg.rotation = [rx, ry, rz];
+
+      const uniform = Math.abs(sx - sy) < eps && Math.abs(sx - sz) < eps;
+      outInstCfg.scale = uniform ? sx : [sx, sy, sz];
     }
+  }
+
+  return out;
+}
 
 
 
     /**
      * Shows or hides the worlds overlay.
      */
-    function setWorldPickerOpen(open) {
-      worldPickerState.open = !!open;
+function setWorldPickerOpen(open) {
+  worldPickerState.open = !!open;
 
-      if (!worldPickerEl) return;
+  if (!worldPickerEl) return;
 
-      if (!worldPickerState.open) {
-        worldPickerState.editId = "";
-        worldPickerEl.classList.remove("is-editing");
-      }
+  if (!worldPickerState.open) {
+    worldPickerState.editId = "";
+    worldPickerEl.classList.remove("is-editing");
+  }
 
-      worldPickerEl.classList.toggle("is-open", worldPickerState.open);
-      worldPickerEl.setAttribute("aria-hidden", worldPickerState.open ? "false" : "true");
+  worldPickerEl.classList.toggle("is-open", worldPickerState.open);
+  worldPickerEl.setAttribute("aria-hidden", worldPickerState.open ? "false" : "true");
 
-      if (worldPickerState.open && worldPickerCloseBtn) {
-        worldPickerCloseBtn.focus({ preventScroll: true });
-      }
-    }
+  if (worldPickerState.open && worldPickerCloseBtn) {
+    worldPickerCloseBtn.focus({ preventScroll: true });
+  }
+}
 
 
 
 /**
  * Renders the worlds list cards into the overlay.
  */
-    function renderWorldPickerList(worlds) {
-      if (!worldPickerListLocalEl || !worldPickerListPrivateEl || !worldPickerListGlobalEl) return;
+function renderWorldPickerList(worlds) {
+  if (!worldPickerListLocalEl || !worldPickerListPrivateEl || !worldPickerListGlobalEl) return;
 
-      const local = Array.isArray(worlds) ? worlds : [];
-      const priv = Array.isArray(worldPickerCloudState.privateWorlds) ? worldPickerCloudState.privateWorlds : [];
-      const glob = Array.isArray(worldPickerCloudState.globalWorlds) ? worldPickerCloudState.globalWorlds : [];
+  const local = Array.isArray(worlds) ? worlds : [];
+  const priv = Array.isArray(worldPickerCloudState.privateWorlds) ? worldPickerCloudState.privateWorlds : [];
+  const glob = Array.isArray(worldPickerCloudState.globalWorlds) ? worldPickerCloudState.globalWorlds : [];
 
-      renderLocalWorldCards(local);
-      renderCloudWorldCards(worldPickerListPrivateEl, priv, "private");
-      renderCloudWorldCards(worldPickerListGlobalEl, glob, "global");
+  renderLocalWorldCards(local);
+  renderCloudWorldCards(worldPickerListPrivateEl, priv, "private");
+  renderCloudWorldCards(worldPickerListGlobalEl, glob, "global");
 
-      if (worldPickerLocalMetaEl) worldPickerLocalMetaEl.textContent = `${local.length} saved`;
-      if (worldPickerPrivateMetaEl) {
-        worldPickerPrivateMetaEl.textContent = CLOUD_WORLDS_API.enabled ? `${priv.length} available` : "API disabled";
-      }
-      if (worldPickerGlobalMetaEl) {
-        worldPickerGlobalMetaEl.textContent = CLOUD_WORLDS_API.enabled ? `${glob.length} available` : "API disabled";
-      }
-    }
+  if (worldPickerLocalMetaEl) worldPickerLocalMetaEl.textContent = `${local.length} saved`;
+  if (worldPickerPrivateMetaEl) {
+    worldPickerPrivateMetaEl.textContent = CLOUD_WORLDS_API.enabled ? `${priv.length} available` : "API disabled";
+  }
+  if (worldPickerGlobalMetaEl) {
+    worldPickerGlobalMetaEl.textContent = CLOUD_WORLDS_API.enabled ? `${glob.length} available` : "API disabled";
+  }
+}
 
-    function renderEmptyMessage(listEl, text) {
-      listEl.innerHTML = "";
-      const msg = document.createElement("div");
-      msg.className = "world-picker__empty";
-      msg.textContent = text;
-      listEl.appendChild(msg);
-    }
+function renderEmptyMessage(listEl, text) {
+  listEl.innerHTML = "";
+  const msg = document.createElement("div");
+  msg.className = "world-picker__empty";
+  msg.textContent = text;
+  listEl.appendChild(msg);
+}
 
-    function renderLocalWorldCards(worlds) {
-      if (!worldPickerListLocalEl) return;
+function renderLocalWorldCards(worlds) {
+  if (!worldPickerListLocalEl) return;
 
-      const activeId = getActiveWorldId();
-      worldPickerListLocalEl.innerHTML = "";
+  const activeId = getActiveWorldId();
+  worldPickerListLocalEl.innerHTML = "";
 
-      if (!worlds.length) {
-        renderEmptyMessage(worldPickerListLocalEl, "No local worlds saved.");
-        return;
-      }
+  if (!worlds.length) {
+    renderEmptyMessage(worldPickerListLocalEl, "No local worlds saved.");
+    return;
+  }
 
-      for (let i = 0; i < worlds.length; i++) {
-        const w = worlds[i];
-        if (!w || typeof w !== "object") continue;
+  for (let i = 0; i < worlds.length; i++) {
+    const w = worlds[i];
+    if (!w || typeof w !== "object") continue;
 
-        const id = String(w.id || "");
-        if (!id) continue;
+    const id = String(w.id || "");
+    if (!id) continue;
 
-        const card = document.createElement("div");
-        card.className = "world-card" + (activeId && id === activeId ? " is-active" : "");
+    const card = document.createElement("div");
+    card.className = "world-card" + (activeId && id === activeId ? " is-active" : "");
 
-        const thumb = document.createElement("img");
-        thumb.className = "world-card__thumb";
-        thumb.alt = "";
-        thumb.loading = "lazy";
-        thumb.decoding = "async";
-        thumb.src = typeof w.thumbnail === "string" && w.thumbnail
-        ? w.thumbnail
-        : "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
+    const thumb = document.createElement("img");
+    thumb.className = "world-card__thumb";
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    thumb.decoding = "async";
+    thumb.src = typeof w.thumbnail === "string" && w.thumbnail
+    ? w.thumbnail
+    : "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
 
-        const body = document.createElement("div");
-        body.className = "world-card__body";
+    const body = document.createElement("div");
+    body.className = "world-card__body";
 
-        const titleRow = document.createElement("div");
-        titleRow.className = "world-card__titleRow";
+    const titleRow = document.createElement("div");
+    titleRow.className = "world-card__titleRow";
 
-        const title = document.createElement("div");
-        title.className = "world-card__title";
-        title.textContent = String(w.title || "Untitled");
+    const title = document.createElement("div");
+    title.className = "world-card__title";
+    title.textContent = String(w.title || "Untitled");
 
-        const meta = document.createElement("div");
-        meta.className = "world-card__meta";
-        const count = w.models && Array.isArray(w.models) ? w.models.length : 0;
-        meta.textContent = `${count} models`;
+    const meta = document.createElement("div");
+    meta.className = "world-card__meta";
+    const count = w.models && Array.isArray(w.models) ? w.models.length : 0;
+    meta.textContent = `${count} models`;
 
-        const desc = document.createElement("div");
-        desc.className = "world-card__desc";
-        desc.textContent = String(w.description || "");
+    const desc = document.createElement("div");
+    desc.className = "world-card__desc";
+    desc.textContent = String(w.description || "");
 
-        const actions = document.createElement("div");
-        actions.className = "world-card__actions";
+    const actions = document.createElement("div");
+    actions.className = "world-card__actions";
 
-        const loadBtn = document.createElement("button");
-        loadBtn.className = "avatar-btn";
-        loadBtn.type = "button";
-        loadBtn.textContent = "Load";
-        loadBtn.addEventListener("click", () => {
-          setActiveWorldId(id);
-          try {
-            sessionStorage.setItem(WORLD_PICKER_SUPPRESS_ONCE_KEY, "1");
-          } catch (e) {}
-          location.reload();
+    const loadBtn = document.createElement("button");
+    loadBtn.className = "avatar-btn";
+    loadBtn.type = "button";
+    loadBtn.textContent = "Load";
+    loadBtn.addEventListener("click", () => {
+      setActiveWorldId(id);
+      try {
+        sessionStorage.setItem(WORLD_PICKER_SUPPRESS_ONCE_KEY, "1");
+      } catch (e) {}
+      location.reload();
+    });
+
+    const cloneBtn = document.createElement("button");
+    cloneBtn.className = "avatar-btn";
+    cloneBtn.type = "button";
+    cloneBtn.textContent = "Clone";
+    cloneBtn.addEventListener("click", async () => {
+      try {
+        const now = Date.now();
+        const newId = makeWorldId();
+
+        const cloned = buildWorldRecord({
+          id: newId,
+          title: String(w.title || "Untitled") + " (Copy)",
+          description: String(w.description || ""),
+          models: JSON.parse(JSON.stringify(w.models || [])),
+          settings: w.settings ? JSON.parse(JSON.stringify(w.settings)) : safeCloneSettings(params),
+          thumbnail: typeof w.thumbnail === "string" ? w.thumbnail : "",
+          meta: {},
+          createdAt: now,
+          updatedAt: now
         });
 
-        const cloneBtn = document.createElement("button");
-        cloneBtn.className = "avatar-btn";
-        cloneBtn.type = "button";
-        cloneBtn.textContent = "Clone";
-        cloneBtn.addEventListener("click", async () => {
-          try {
-            const now = Date.now();
-            const newId = makeWorldId();
+        await idbPutWorld(cloned);
 
-            const cloned = buildWorldRecord({
-              id: newId,
-              title: String(w.title || "Untitled") + " (Copy)",
-              description: String(w.description || ""),
-              models: JSON.parse(JSON.stringify(w.models || [])),
-              settings: w.settings ? JSON.parse(JSON.stringify(w.settings)) : safeCloneSettings(params),
-              thumbnail: typeof w.thumbnail === "string" ? w.thumbnail : "",
-              meta: {},
-              createdAt: now,
-              updatedAt: now
-            });
+        const updated = await idbGetAllWorlds();
+        renderWorldPickerList(updated);
 
-            await idbPutWorld(cloned);
-
-            const updated = await idbGetAllWorlds();
-            renderWorldPickerList(updated);
-
-            showActionToast("World cloned");
-          } catch (e) {
-            console.warn("[worlds] clone failed", e);
-          }
-        });
-
-        const editBtn = document.createElement("button");
-        editBtn.className = "avatar-btn";
-        editBtn.type = "button";
-        editBtn.textContent = "Edit";
-        editBtn.addEventListener("click", () => {
-          worldPickerState.editId = id;
-          if (worldPickerEl) worldPickerEl.classList.add("is-editing");
-
-          if (worldTitleInputEl) worldTitleInputEl.value = String(w.title || "");
-          if (worldDescInputEl) worldDescInputEl.value = String(w.description || "");
-
-          try {
-            worldTitleInputEl && worldTitleInputEl.focus({ preventScroll: true });
-          } catch (e) {}
-        });
-
-        const exportBtn = document.createElement("button");
-        exportBtn.className = "avatar-btn";
-        exportBtn.type = "button";
-        exportBtn.textContent = "Export";
-        exportBtn.addEventListener("click", () => {
-          const name = sanitizeWorldFilename(w.title || "world");
-          downloadJson(w, `${name}.world.json`);
-          showActionToast("World exported");
-        });
-
-        const delBtn = document.createElement("button");
-        delBtn.className = "avatar-btn";
-        delBtn.type = "button";
-        delBtn.textContent = "Delete";
-        delBtn.addEventListener("click", async () => {
-          const ok = confirm(`Delete "${String(w.title || "Untitled")}"?`);
-          if (!ok) return;
-
-          try {
-            await idbDeleteWorld(id);
-
-            const active = getActiveWorldId();
-            if (active && active === id) {
-              setActiveWorldId("");
-            }
-
-            const updated = await idbGetAllWorlds();
-            renderWorldPickerList(updated);
-
-            showActionToast("World deleted");
-          } catch (e) {
-            console.warn("[worlds] delete failed", e);
-          }
-        });
-
-        actions.appendChild(loadBtn);
-        actions.appendChild(cloneBtn);
-        actions.appendChild(editBtn);
-        actions.appendChild(exportBtn);
-        actions.appendChild(delBtn);
-
-        titleRow.appendChild(title);
-        titleRow.appendChild(meta);
-
-        body.appendChild(titleRow);
-        body.appendChild(desc);
-        body.appendChild(actions);
-
-        card.appendChild(thumb);
-        card.appendChild(body);
-
-        worldPickerListLocalEl.appendChild(card);
+        showActionToast("World cloned");
+      } catch (e) {
+        console.warn("[worlds] clone failed", e);
       }
-    }
+    });
 
-    function renderCloudWorldCards(listEl, worlds, scope) {
-      if (!listEl) return;
+    const editBtn = document.createElement("button");
+    editBtn.className = "avatar-btn";
+    editBtn.type = "button";
+    editBtn.textContent = "Edit";
+    editBtn.addEventListener("click", () => {
+      worldPickerState.editId = id;
+      if (worldPickerEl) worldPickerEl.classList.add("is-editing");
 
-      listEl.innerHTML = "";
+      if (worldTitleInputEl) worldTitleInputEl.value = String(w.title || "");
+      if (worldDescInputEl) worldDescInputEl.value = String(w.description || "");
 
-      if (!CLOUD_WORLDS_API.enabled) {
-        renderEmptyMessage(listEl, "Cloud API not enabled.");
-        return;
+      try {
+        worldTitleInputEl && worldTitleInputEl.focus({ preventScroll: true });
+      } catch (e) {}
+    });
+
+    const exportBtn = document.createElement("button");
+    exportBtn.className = "avatar-btn";
+    exportBtn.type = "button";
+    exportBtn.textContent = "Export";
+    exportBtn.addEventListener("click", () => {
+      const name = sanitizeWorldFilename(w.title || "world");
+      downloadJson(w, `${name}.world.json`);
+      showActionToast("World exported");
+    });
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "avatar-btn";
+    delBtn.type = "button";
+    delBtn.textContent = "Delete";
+    delBtn.addEventListener("click", async () => {
+      const ok = confirm(`Delete "${String(w.title || "Untitled")}"?`);
+      if (!ok) return;
+
+      try {
+        await idbDeleteWorld(id);
+
+        const active = getActiveWorldId();
+        if (active && active === id) {
+          setActiveWorldId("");
+        }
+
+        const updated = await idbGetAllWorlds();
+        renderWorldPickerList(updated);
+
+        showActionToast("World deleted");
+      } catch (e) {
+        console.warn("[worlds] delete failed", e);
       }
+    });
 
-      if (!worlds.length) {
-        renderEmptyMessage(listEl, "No worlds available.");
-        return;
+    actions.appendChild(loadBtn);
+    actions.appendChild(cloneBtn);
+    actions.appendChild(editBtn);
+    actions.appendChild(exportBtn);
+    actions.appendChild(delBtn);
+
+    titleRow.appendChild(title);
+    titleRow.appendChild(meta);
+
+    body.appendChild(titleRow);
+    body.appendChild(desc);
+    body.appendChild(actions);
+
+    card.appendChild(thumb);
+    card.appendChild(body);
+
+    worldPickerListLocalEl.appendChild(card);
+  }
+}
+
+function renderCloudWorldCards(listEl, worlds, scope) {
+  if (!listEl) return;
+
+  listEl.innerHTML = "";
+
+  if (!CLOUD_WORLDS_API.enabled) {
+    renderEmptyMessage(listEl, "Cloud API not enabled.");
+    return;
+  }
+
+  if (!worlds.length) {
+    renderEmptyMessage(listEl, "No worlds available.");
+    return;
+  }
+
+  for (let i = 0; i < worlds.length; i++) {
+    const w = worlds[i];
+    if (!w || typeof w !== "object") continue;
+
+    const id = String(w.id || "");
+    if (!id) continue;
+
+    const card = document.createElement("div");
+    card.className = "world-card";
+
+    const thumb = document.createElement("img");
+    thumb.className = "world-card__thumb";
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    thumb.decoding = "async";
+    thumb.src = typeof w.thumbnail === "string" && w.thumbnail
+    ? w.thumbnail
+    : "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
+
+    const body = document.createElement("div");
+    body.className = "world-card__body";
+
+    const titleRow = document.createElement("div");
+    titleRow.className = "world-card__titleRow";
+
+    const title = document.createElement("div");
+    title.className = "world-card__title";
+    title.textContent = String(w.title || "Untitled");
+
+    const meta = document.createElement("div");
+    meta.className = "world-card__meta";
+    meta.textContent = scope === "private" ? "private" : "global";
+
+    const desc = document.createElement("div");
+    desc.className = "world-card__desc";
+    desc.textContent = String(w.description || "");
+
+    const actions = document.createElement("div");
+    actions.className = "world-card__actions";
+
+    const loadBtn = document.createElement("button");
+    loadBtn.className = "avatar-btn";
+    loadBtn.type = "button";
+    loadBtn.textContent = "Load";
+    loadBtn.addEventListener("click", async () => {
+      try {
+        const rec = await cloudGetWorld(scope, id);
+        if (!rec || typeof rec !== "object") return;
+
+        const now = Date.now();
+        if (!rec.createdAt) rec.createdAt = now;
+        rec.updatedAt = now;
+
+        await idbPutWorld(rec);
+        setActiveWorldId(String(rec.id || id));
+
+        try {
+          sessionStorage.setItem(WORLD_PICKER_SUPPRESS_ONCE_KEY, "1");
+        } catch (e) {}
+
+        location.reload();
+      } catch (e) {
+        console.warn("[worlds] cloud load failed", e);
+        showActionToast("Cloud load failed");
       }
+    });
 
-      for (let i = 0; i < worlds.length; i++) {
-        const w = worlds[i];
-        if (!w || typeof w !== "object") continue;
+    actions.appendChild(loadBtn);
 
-        const id = String(w.id || "");
-        if (!id) continue;
+    titleRow.appendChild(title);
+    titleRow.appendChild(meta);
 
-        const card = document.createElement("div");
-        card.className = "world-card";
+    body.appendChild(titleRow);
+    body.appendChild(desc);
+    body.appendChild(actions);
 
-        const thumb = document.createElement("img");
-        thumb.className = "world-card__thumb";
-        thumb.alt = "";
-        thumb.loading = "lazy";
-        thumb.decoding = "async";
-        thumb.src = typeof w.thumbnail === "string" && w.thumbnail
-        ? w.thumbnail
-        : "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
+    card.appendChild(thumb);
+    card.appendChild(body);
 
-        const body = document.createElement("div");
-        body.className = "world-card__body";
-
-        const titleRow = document.createElement("div");
-        titleRow.className = "world-card__titleRow";
-
-        const title = document.createElement("div");
-        title.className = "world-card__title";
-        title.textContent = String(w.title || "Untitled");
-
-        const meta = document.createElement("div");
-        meta.className = "world-card__meta";
-        meta.textContent = scope === "private" ? "private" : "global";
-
-        const desc = document.createElement("div");
-        desc.className = "world-card__desc";
-        desc.textContent = String(w.description || "");
-
-        const actions = document.createElement("div");
-        actions.className = "world-card__actions";
-
-        const loadBtn = document.createElement("button");
-        loadBtn.className = "avatar-btn";
-        loadBtn.type = "button";
-        loadBtn.textContent = "Load";
-        loadBtn.addEventListener("click", async () => {
-          try {
-            const rec = await cloudGetWorld(scope, id);
-            if (!rec || typeof rec !== "object") return;
-
-            const now = Date.now();
-            if (!rec.createdAt) rec.createdAt = now;
-            rec.updatedAt = now;
-
-            await idbPutWorld(rec);
-            setActiveWorldId(String(rec.id || id));
-
-            try {
-              sessionStorage.setItem(WORLD_PICKER_SUPPRESS_ONCE_KEY, "1");
-            } catch (e) {}
-
-            location.reload();
-          } catch (e) {
-            console.warn("[worlds] cloud load failed", e);
-            showActionToast("Cloud load failed");
-          }
-        });
-
-        actions.appendChild(loadBtn);
-
-        titleRow.appendChild(title);
-        titleRow.appendChild(meta);
-
-        body.appendChild(titleRow);
-        body.appendChild(desc);
-        body.appendChild(actions);
-
-        card.appendChild(thumb);
-        card.appendChild(body);
-
-        listEl.appendChild(card);
-      }
-    }
+    listEl.appendChild(card);
+  }
+}
 
 
 
@@ -7408,456 +7430,456 @@ canvas.world-edit-on {
 /**
  * Ensures the worlds overlay is wired once and can be opened from GUI or on boot.
  */
-    function ensureWorldPickerOverlayWired() {
-      if (worldPickerState.wired) return;
+function ensureWorldPickerOverlayWired() {
+  if (worldPickerState.wired) return;
 
-      worldPickerEl = document.getElementById("worldPicker");
-      worldPickerCloseBtn = document.getElementById("worldPickerClose");
+  worldPickerEl = document.getElementById("worldPicker");
+  worldPickerCloseBtn = document.getElementById("worldPickerClose");
 
-      worldPickerListEl = document.getElementById("worldPickerList");
-      worldPickerListLocalEl = document.getElementById("worldPickerListLocal");
-      worldPickerListPrivateEl = document.getElementById("worldPickerListPrivate");
-      worldPickerListGlobalEl = document.getElementById("worldPickerListGlobal");
+  worldPickerListEl = document.getElementById("worldPickerList");
+  worldPickerListLocalEl = document.getElementById("worldPickerListLocal");
+  worldPickerListPrivateEl = document.getElementById("worldPickerListPrivate");
+  worldPickerListGlobalEl = document.getElementById("worldPickerListGlobal");
 
-      worldPickerLocalMetaEl = document.getElementById("worldPickerLocalMeta");
-      worldPickerPrivateMetaEl = document.getElementById("worldPickerPrivateMeta");
-      worldPickerGlobalMetaEl = document.getElementById("worldPickerGlobalMeta");
+  worldPickerLocalMetaEl = document.getElementById("worldPickerLocalMeta");
+  worldPickerPrivateMetaEl = document.getElementById("worldPickerPrivateMeta");
+  worldPickerGlobalMetaEl = document.getElementById("worldPickerGlobalMeta");
 
-      worldTitleInputEl = document.getElementById("worldTitleInput");
-      worldDescInputEl = document.getElementById("worldDescInput");
-      worldSaveBtnEl = document.getElementById("worldSaveBtn");
-      worldImportBtnEl = document.getElementById("worldImportBtn");
+  worldTitleInputEl = document.getElementById("worldTitleInput");
+  worldDescInputEl = document.getElementById("worldDescInput");
+  worldSaveBtnEl = document.getElementById("worldSaveBtn");
+  worldImportBtnEl = document.getElementById("worldImportBtn");
 
 
-      if (!worldPickerEl) return;
+  if (!worldPickerEl) return;
 
-      if (worldPickerCloseBtn) {
-        worldPickerCloseBtn.addEventListener("click", () => setWorldPickerOpen(false));
-      }
+  if (worldPickerCloseBtn) {
+    worldPickerCloseBtn.addEventListener("click", () => setWorldPickerOpen(false));
+  }
 
-      if (worldImportBtnEl) {
-        worldImportBtnEl.addEventListener("click", () => importWorldModelsJson());
-      }
+  if (worldImportBtnEl) {
+    worldImportBtnEl.addEventListener("click", () => importWorldModelsJson());
+  }
 
-      if (worldSaveBtnEl) {
-        worldSaveBtnEl.addEventListener("click", async () => {
-          try {
-            const title = worldTitleInputEl ? worldTitleInputEl.value.trim() : "";
-            const description = worldDescInputEl ? worldDescInputEl.value.trim() : "";
-            const editId = String(worldPickerState.editId || "").trim();
+  if (worldSaveBtnEl) {
+    worldSaveBtnEl.addEventListener("click", async () => {
+      try {
+        const title = worldTitleInputEl ? worldTitleInputEl.value.trim() : "";
+        const description = worldDescInputEl ? worldDescInputEl.value.trim() : "";
+        const editId = String(worldPickerState.editId || "").trim();
 
-            if (editId) {
-              const rec = await idbGetWorld(editId);
-              if (!rec) return;
+        if (editId) {
+          const rec = await idbGetWorld(editId);
+          if (!rec) return;
 
-              rec.title = title || "Untitled";
-              rec.description = description;
-              rec.updatedAt = Date.now();
+          rec.title = title || "Untitled";
+          rec.description = description;
+          rec.updatedAt = Date.now();
 
-              await idbPutWorld(rec);
+          await idbPutWorld(rec);
 
-              if (getActiveWorldId() === editId) {
-                setWorldNameLabel(rec.title || "Default");
-              }
-
-              worldPickerState.editId = "";
-              if (worldPickerEl) worldPickerEl.classList.remove("is-editing");
-
-              if (worldTitleInputEl) worldTitleInputEl.value = "";
-              if (worldDescInputEl) worldDescInputEl.value = "";
-
-              const updated = await idbGetAllWorlds();
-              renderWorldPickerList(updated);
-
-              showActionToast("World updated");
-              return;
-            }
-
-            const snapshot = snapshotWorldModelsConfig();
-            const normalized = normalizeWorldModelsConfig(snapshot);
-            if (!normalized) return;
-
-            const now = Date.now();
-            const rec = buildWorldRecord({
-              id: makeWorldId(),
-              title: title || "Untitled",
-              description,
-              models: normalized,
-              settings: safeCloneSettings(params),
-              thumbnail: captureWorldThumbnail(),
-              meta: {},
-              createdAt: now,
-              updatedAt: now
-            });
-
-            await idbPutWorld(rec);
-            setActiveWorldId(rec.id);
-
-            if (worldTitleInputEl) worldTitleInputEl.value = "";
-            if (worldDescInputEl) worldDescInputEl.value = "";
-
-            const updated = await idbGetAllWorlds();
-            renderWorldPickerList(updated);
-
-            showActionToast("World saved");
-          } catch (e) {
-            console.warn("[worlds] save failed", e);
+          if (getActiveWorldId() === editId) {
+            setWorldNameLabel(rec.title || "Default");
           }
-        });
-      }
 
-      worldPickerState.wired = true;
-    }
+          worldPickerState.editId = "";
+          if (worldPickerEl) worldPickerEl.classList.remove("is-editing");
+
+          if (worldTitleInputEl) worldTitleInputEl.value = "";
+          if (worldDescInputEl) worldDescInputEl.value = "";
+
+          const updated = await idbGetAllWorlds();
+          renderWorldPickerList(updated);
+
+          showActionToast("World updated");
+          return;
+        }
+
+        const snapshot = snapshotWorldModelsConfig();
+        const normalized = normalizeWorldModelsConfig(snapshot);
+        if (!normalized) return;
+
+        const now = Date.now();
+        const rec = buildWorldRecord({
+          id: makeWorldId(),
+          title: title || "Untitled",
+          description,
+          models: normalized,
+          settings: safeCloneSettings(params),
+          thumbnail: captureWorldThumbnail(),
+          meta: {},
+          createdAt: now,
+          updatedAt: now
+        });
+
+        await idbPutWorld(rec);
+        setActiveWorldId(rec.id);
+
+        if (worldTitleInputEl) worldTitleInputEl.value = "";
+        if (worldDescInputEl) worldDescInputEl.value = "";
+
+        const updated = await idbGetAllWorlds();
+        renderWorldPickerList(updated);
+
+        showActionToast("World saved");
+      } catch (e) {
+        console.warn("[worlds] save failed", e);
+      }
+    });
+  }
+
+  worldPickerState.wired = true;
+}
 
     /**
      * Opens the overlay and refreshes its list.
      */
-    function openWorldPickerOverlay() {
-      ensureWorldPickerOverlayWired();
+function openWorldPickerOverlay() {
+  ensureWorldPickerOverlayWired();
 
-      worldPickerState.editId = "";
-      if (worldPickerEl) worldPickerEl.classList.remove("is-editing");
+  worldPickerState.editId = "";
+  if (worldPickerEl) worldPickerEl.classList.remove("is-editing");
 
-      (async () => {
+  (async () => {
+    try {
+      const worlds = await idbGetAllWorlds();
+
+      if (CLOUD_WORLDS_API.enabled) {
         try {
-          const worlds = await idbGetAllWorlds();
+          const [priv, glob] = await Promise.all([
+            cloudListWorlds("private"),
+            cloudListWorlds("global")
+          ]);
 
-          if (CLOUD_WORLDS_API.enabled) {
-            try {
-              const [priv, glob] = await Promise.all([
-                cloudListWorlds("private"),
-                cloudListWorlds("global")
-              ]);
-
-              worldPickerCloudState.privateWorlds = Array.isArray(priv) ? priv : [];
-              worldPickerCloudState.globalWorlds = Array.isArray(glob) ? glob : [];
-              worldPickerCloudState.lastError = "";
-            } catch (e) {
-              worldPickerCloudState.privateWorlds = [];
-              worldPickerCloudState.globalWorlds = [];
-              worldPickerCloudState.lastError = String(e && e.message ? e.message : e);
-            }
-          } else {
-            worldPickerCloudState.privateWorlds = [];
-            worldPickerCloudState.globalWorlds = [];
-            worldPickerCloudState.lastError = "";
-          }
-
-          renderWorldPickerList(worlds);
-          setWorldPickerOpen(true);
+          worldPickerCloudState.privateWorlds = Array.isArray(priv) ? priv : [];
+          worldPickerCloudState.globalWorlds = Array.isArray(glob) ? glob : [];
+          worldPickerCloudState.lastError = "";
         } catch (e) {
-          console.warn("[worlds] list failed", e);
+          worldPickerCloudState.privateWorlds = [];
+          worldPickerCloudState.globalWorlds = [];
+          worldPickerCloudState.lastError = String(e && e.message ? e.message : e);
         }
-      })();
+      } else {
+        worldPickerCloudState.privateWorlds = [];
+        worldPickerCloudState.globalWorlds = [];
+        worldPickerCloudState.lastError = "";
+      }
+
+      renderWorldPickerList(worlds);
+      setWorldPickerOpen(true);
+    } catch (e) {
+      console.warn("[worlds] list failed", e);
     }
+  })();
+}
 
 
 
     /**
      * If an imported world had no thumbnail, capture one after first paint and update the record.
      */
-    async function finalizePendingWorldThumbnail() {
-      let pendingId = "";
-      try {
-        pendingId = localStorage.getItem(PENDING_WORLD_THUMB_ID_KEY) || "";
-      } catch (e) {
-        pendingId = "";
-      }
-      if (!pendingId) return;
+async function finalizePendingWorldThumbnail() {
+  let pendingId = "";
+  try {
+    pendingId = localStorage.getItem(PENDING_WORLD_THUMB_ID_KEY) || "";
+  } catch (e) {
+    pendingId = "";
+  }
+  if (!pendingId) return;
 
-      try {
-        const rec = await idbGetWorld(pendingId);
-        if (!rec || (typeof rec.thumbnail === "string" && rec.thumbnail)) {
-          localStorage.removeItem(PENDING_WORLD_THUMB_ID_KEY);
-          return;
-        }
-
-        const thumb = captureWorldThumbnail();
-        if (!thumb) return;
-
-        rec.thumbnail = thumb;
-        rec.updatedAt = Date.now();
-        await idbPutWorld(rec);
-
-        localStorage.removeItem(PENDING_WORLD_THUMB_ID_KEY);
-      } catch (e) {
-        console.warn("[worlds] thumbnail update failed", e);
-      }
+  try {
+    const rec = await idbGetWorld(pendingId);
+    if (!rec || (typeof rec.thumbnail === "string" && rec.thumbnail)) {
+      localStorage.removeItem(PENDING_WORLD_THUMB_ID_KEY);
+      return;
     }
+
+    const thumb = captureWorldThumbnail();
+    if (!thumb) return;
+
+    rec.thumbnail = thumb;
+    rec.updatedAt = Date.now();
+    await idbPutWorld(rec);
+
+    localStorage.removeItem(PENDING_WORLD_THUMB_ID_KEY);
+  } catch (e) {
+    console.warn("[worlds] thumbnail update failed", e);
+  }
+}
 
 
     /**
      * Boot behavior: if any worlds exist in IndexedDB, open the picker overlay on page load.
      */
-    function bootWorldPickerOverlay() {
-      ensureWorldPickerOverlayWired();
+function bootWorldPickerOverlay() {
+  ensureWorldPickerOverlayWired();
+
+  (async () => {
+    let suppressOnce = false;
+
+    try {
+      suppressOnce = !!(sessionStorage && sessionStorage.getItem(WORLD_PICKER_SUPPRESS_ONCE_KEY));
+      if (suppressOnce) sessionStorage.removeItem(WORLD_PICKER_SUPPRESS_ONCE_KEY);
+    } catch (e) {
+      suppressOnce = false;
+    }
+
+    try {
+      const worlds = await idbGetAllWorlds();
+      if (worlds && worlds.length) {
+        renderWorldPickerList(worlds);
+        if (!suppressOnce) setWorldPickerOpen(true);
+        else setWorldPickerOpen(false);
+      } else {
+        setWorldPickerOpen(false);
+      }
+    } catch (e) {}
+
+    requestAnimationFrame(() => {
+      finalizePendingWorldThumbnail();
+    });
+  })();
+}
+
+
+
+
+
+
+
+function hasAlphaTexture(mat) {
+  return !!(mat && (mat.alphaMap || mat.map) && (mat.transparent || mat.opacity < 1 || mat.alphaTest > 0));
+}
+
+function applyAlphaCutoutShadows(mesh, cutoff = 0.5) {
+      /* Forces alpha-mapped foliage to behave as depth-writing cutout (not blended transparency),
+         and makes shadow/depth passes respect the same alphaTest threshold. */
+  if (!mesh || !mesh.material) return;
+
+      // Ensure per-instance materials (avoid mutating shared template materials)
+  if (Array.isArray(mesh.material)) {
+    mesh.material = mesh.material.map(m => (m && m.isMaterial ? m.clone() : m));
+  } else if (mesh.material && mesh.material.isMaterial) {
+    mesh.material = mesh.material.clone();
+  }
+
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+  let alphaTex = null;
+  let alphaTest = cutoff;
+
+  for (let i = 0; i < mats.length; i++) {
+    const mat = mats[i];
+    if (!mat || !mat.isMaterial) continue;
+
+    const tex = mat.alphaMap || mat.map;
+    if (tex && !alphaTex) alphaTex = tex;
+
+    mat.alphaTest = Math.max(mat.alphaTest || 0, cutoff);
+    alphaTest = Math.max(alphaTest, mat.alphaTest);
+
+        // Critical: keep it OUT of the transparent pass, so depth sorting works with grass.
+    mat.transparent = false;
+    mat.opacity = 1.0;
+    mat.depthTest = true;
+    mat.depthWrite = true;
+
+    mat.needsUpdate = true;
+  }
+
+  if (!alphaTex) return;
+
+      // Make the SHADOW MAP respect alphaTest too
+  const depthMat = new THREE.MeshDepthMaterial({
+    depthPacking: THREE.RGBADepthPacking,
+    map: alphaTex,
+    alphaTest: alphaTest
+  });
+  depthMat.side = mats[0] && mats[0].side != null ? mats[0].side : THREE.FrontSide;
+
+  const distMat = new THREE.MeshDistanceMaterial({
+    map: alphaTex,
+    alphaTest: alphaTest
+  });
+  distMat.side = depthMat.side;
+
+  mesh.customDepthMaterial = depthMat;
+  mesh.customDistanceMaterial = distMat;
+}
+
+
+
+
+
+
+
+
+
+
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath(
+  "https://www.gstatic.com/draco/versioned/decoders/1.5.7/"
+  );
+
+const gltfLoader = new GLTFLoader();
+gltfLoader.setDRACOLoader(dracoLoader);
+
+
+
+
+
+function loadAllModels() {
+  avatarModelColliderObjects.length = 0;
+  avatarModelColliderBounds.length = 0;
+  avatarModelColliderOBBs.length = 0;
+
+  worldGroundMeshes.length = 0;
+
+  vehicleInteractables.length = 0;
+  equipmentInteractables.length = 0;
+
+  setVehiclePrompt(false, null);
+  updateVehicleOutlineFor(null);
+
+  for (const k in modelTemplates) delete modelTemplates[k];
+    for (const k in modelInstances) delete modelInstances[k];
+
+      function buildOBBForInstance(root, id) {
+        root.updateWorldMatrix(true, true);
+
+        obbTmpBox.setFromObject(root);
+        if (!Number.isFinite(obbTmpBox.min.x) || !Number.isFinite(obbTmpBox.max.x)) return null;
+
+        obbTmpBox.getCenter(obbTmpCenter);
+        obbTmpBox.getSize(obbTmpSize);
+
+        root.getWorldQuaternion(obbTmpQuat);
+        obbTmpEuler.setFromQuaternion(obbTmpQuat);
+
+        const hx = Math.max(0.10, (obbTmpSize.x * 0.5) * 0.48);
+        const hz = Math.max(0.10, (obbTmpSize.z * 0.5) * 0.48);
+
+        return {
+          id: id || "",
+          object: root,
+          center: obbTmpCenter.clone(),
+          halfX: hx,
+          halfZ: hz,
+          yaw: obbTmpEuler.y,
+          yMin: obbTmpBox.min.y,
+          yMax: obbTmpBox.max.y
+        };
+      }
+
 
       (async () => {
-        let suppressOnce = false;
+        const config = await getWorldModelsConfig();
 
-        try {
-          suppressOnce = !!(sessionStorage && sessionStorage.getItem(WORLD_PICKER_SUPPRESS_ONCE_KEY));
-          if (suppressOnce) sessionStorage.removeItem(WORLD_PICKER_SUPPRESS_ONCE_KEY);
-        } catch (e) {
-          suppressOnce = false;
+        for (const entry of config) {
+          gltfLoader.load(
+            entry.url,
+            (gltf) => {
+              const baseScene = gltf.scene;
+              modelTemplates[entry.name] = baseScene;
+
+              for (const instCfg of entry.instances) {
+                const inst = baseScene.clone(true);
+
+                const p = instCfg.position || [0, 0, 0];
+                const r = instCfg.rotation || [0, 0, 0];
+                const s = instCfg.scale != null ? instCfg.scale : 1.0;
+
+                inst.position.set(p[0], p[1], p[2]);
+                inst.rotation.set(r[0], r[1], r[2]);
+
+                if (Array.isArray(s) && s.length === 3) {
+                  inst.scale.set(s[0], s[1], s[2]);
+                } else {
+                  inst.scale.setScalar(s);
+                }
+
+                Object.defineProperty(instCfg, "runtimeObject", {
+                  value: inst,
+                  enumerable: false,
+                  configurable: true
+                });
+
+                inst.traverse((obj) => {
+                      /* Classifies model meshes for ground sampling vs XZ blocking collisions. */
+                  if (!obj.isMesh) return;
+
+                  obj.castShadow = true;
+                  obj.receiveShadow = true;
+
+                  const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+                  if (mats.some(hasAlphaTexture)) {
+                    applyAlphaCutoutShadows(obj, 0.5);
+                  }
+
+                  const isGround = !!instCfg.ground;
+                  const isStick = !!instCfg.stick;
+
+                  if (isGround) {
+                    obj.userData.worldModelGroundPlatform = true;
+                    if (!obj.name && instCfg.id) obj.name = `ground:${instCfg.id}`;
+                    worldGroundMeshes.push(obj);
+                  }
+
+                  if (isStick && !isGround) {
+                    obj.userData.worldModelStick = true;
+                    if (!obj.name && instCfg.id) obj.name = `stick:${instCfg.id}`;
+                    colliderObjects.push(obj);
+                  }
+                });
+
+
+                scene.add(inst);
+
+                if (instCfg.id) {
+                  modelInstances[instCfg.id] = inst;
+                }
+
+                registerWorldEditRoot(inst, instCfg);
+
+                if (instCfg.vehicle) {
+                  registerVehicleInstance(inst, instCfg);
+                }
+
+                if (instCfg.equipment || (instCfg.meta && (instCfg.meta.kind === "food" || instCfg.meta.kind === "pickup"))) {
+                  registerEquipmentInstance(inst, instCfg);
+                }
+
+
+                if (instCfg.collide) {
+                  avatarModelColliderObjects.push(inst);
+
+                  const obb = buildOBBForInstance(inst, instCfg.id);
+                  if (obb) avatarModelColliderOBBs.push(obb);
+                }
+              }
+
+              if (colliderObjects.length) {
+                colliderBounds = buildColliderBounds(colliderObjects);
+                rebuildAvatarCollisionGrid();
+              }
+
+              avatarModelColliderBounds = [];
+            },
+            undefined,
+            (error) => {
+              console.error("[snow] failed to load GLB", entry.url, error);
+            }
+            );
         }
-
-        try {
-          const worlds = await idbGetAllWorlds();
-          if (worlds && worlds.length) {
-            renderWorldPickerList(worlds);
-            if (!suppressOnce) setWorldPickerOpen(true);
-            else setWorldPickerOpen(false);
-          } else {
-            setWorldPickerOpen(false);
-          }
-        } catch (e) {}
-
-        requestAnimationFrame(() => {
-          finalizePendingWorldThumbnail();
-        });
       })();
     }
 
 
 
 
-
-
-
-    function hasAlphaTexture(mat) {
-      return !!(mat && (mat.alphaMap || mat.map) && (mat.transparent || mat.opacity < 1 || mat.alphaTest > 0));
+    function getModelInstance(id) {
+      return modelInstances[id] || null;
     }
-
-    function applyAlphaCutoutShadows(mesh, cutoff = 0.5) {
-      /* Forces alpha-mapped foliage to behave as depth-writing cutout (not blended transparency),
-         and makes shadow/depth passes respect the same alphaTest threshold. */
-      if (!mesh || !mesh.material) return;
-
-      // Ensure per-instance materials (avoid mutating shared template materials)
-      if (Array.isArray(mesh.material)) {
-        mesh.material = mesh.material.map(m => (m && m.isMaterial ? m.clone() : m));
-      } else if (mesh.material && mesh.material.isMaterial) {
-        mesh.material = mesh.material.clone();
-      }
-
-      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-
-      let alphaTex = null;
-      let alphaTest = cutoff;
-
-      for (let i = 0; i < mats.length; i++) {
-        const mat = mats[i];
-        if (!mat || !mat.isMaterial) continue;
-
-        const tex = mat.alphaMap || mat.map;
-        if (tex && !alphaTex) alphaTex = tex;
-
-        mat.alphaTest = Math.max(mat.alphaTest || 0, cutoff);
-        alphaTest = Math.max(alphaTest, mat.alphaTest);
-
-        // Critical: keep it OUT of the transparent pass, so depth sorting works with grass.
-        mat.transparent = false;
-        mat.opacity = 1.0;
-        mat.depthTest = true;
-        mat.depthWrite = true;
-
-        mat.needsUpdate = true;
-      }
-
-      if (!alphaTex) return;
-
-      // Make the SHADOW MAP respect alphaTest too
-      const depthMat = new THREE.MeshDepthMaterial({
-        depthPacking: THREE.RGBADepthPacking,
-        map: alphaTex,
-        alphaTest: alphaTest
-      });
-      depthMat.side = mats[0] && mats[0].side != null ? mats[0].side : THREE.FrontSide;
-
-      const distMat = new THREE.MeshDistanceMaterial({
-        map: alphaTex,
-        alphaTest: alphaTest
-      });
-      distMat.side = depthMat.side;
-
-      mesh.customDepthMaterial = depthMat;
-      mesh.customDistanceMaterial = distMat;
-    }
-
-
-
-
-
-
-
-
-
-
-    const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath(
-      "https://www.gstatic.com/draco/versioned/decoders/1.5.7/"
-      );
-
-    const gltfLoader = new GLTFLoader();
-    gltfLoader.setDRACOLoader(dracoLoader);
-
-
-
-
-
-    function loadAllModels() {
-      avatarModelColliderObjects.length = 0;
-      avatarModelColliderBounds.length = 0;
-      avatarModelColliderOBBs.length = 0;
-
-      worldGroundMeshes.length = 0;
-
-      vehicleInteractables.length = 0;
-      equipmentInteractables.length = 0;
-
-      setVehiclePrompt(false, null);
-      updateVehicleOutlineFor(null);
-
-      for (const k in modelTemplates) delete modelTemplates[k];
-        for (const k in modelInstances) delete modelInstances[k];
-
-          function buildOBBForInstance(root, id) {
-            root.updateWorldMatrix(true, true);
-
-            obbTmpBox.setFromObject(root);
-            if (!Number.isFinite(obbTmpBox.min.x) || !Number.isFinite(obbTmpBox.max.x)) return null;
-
-            obbTmpBox.getCenter(obbTmpCenter);
-            obbTmpBox.getSize(obbTmpSize);
-
-            root.getWorldQuaternion(obbTmpQuat);
-            obbTmpEuler.setFromQuaternion(obbTmpQuat);
-
-            const hx = Math.max(0.10, (obbTmpSize.x * 0.5) * 0.48);
-            const hz = Math.max(0.10, (obbTmpSize.z * 0.5) * 0.48);
-
-            return {
-              id: id || "",
-              object: root,
-              center: obbTmpCenter.clone(),
-              halfX: hx,
-              halfZ: hz,
-              yaw: obbTmpEuler.y,
-              yMin: obbTmpBox.min.y,
-              yMax: obbTmpBox.max.y
-            };
-          }
-
-
-          (async () => {
-            const config = await getWorldModelsConfig();
-
-            for (const entry of config) {
-              gltfLoader.load(
-                entry.url,
-                (gltf) => {
-                  const baseScene = gltf.scene;
-                  modelTemplates[entry.name] = baseScene;
-
-                  for (const instCfg of entry.instances) {
-                    const inst = baseScene.clone(true);
-
-                    const p = instCfg.position || [0, 0, 0];
-                    const r = instCfg.rotation || [0, 0, 0];
-                    const s = instCfg.scale != null ? instCfg.scale : 1.0;
-
-                    inst.position.set(p[0], p[1], p[2]);
-                    inst.rotation.set(r[0], r[1], r[2]);
-
-                    if (Array.isArray(s) && s.length === 3) {
-                      inst.scale.set(s[0], s[1], s[2]);
-                    } else {
-                      inst.scale.setScalar(s);
-                    }
-
-                    Object.defineProperty(instCfg, "runtimeObject", {
-                      value: inst,
-                      enumerable: false,
-                      configurable: true
-                    });
-
-                    inst.traverse((obj) => {
-                      /* Classifies model meshes for ground sampling vs XZ blocking collisions. */
-                      if (!obj.isMesh) return;
-
-                      obj.castShadow = true;
-                      obj.receiveShadow = true;
-
-                      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
-                      if (mats.some(hasAlphaTexture)) {
-                        applyAlphaCutoutShadows(obj, 0.5);
-                      }
-
-                      const isGround = !!instCfg.ground;
-                      const isStick = !!instCfg.stick;
-
-                      if (isGround) {
-                        obj.userData.worldModelGroundPlatform = true;
-                        if (!obj.name && instCfg.id) obj.name = `ground:${instCfg.id}`;
-                        worldGroundMeshes.push(obj);
-                      }
-
-                      if (isStick && !isGround) {
-                        obj.userData.worldModelStick = true;
-                        if (!obj.name && instCfg.id) obj.name = `stick:${instCfg.id}`;
-                        colliderObjects.push(obj);
-                      }
-                    });
-
-
-                    scene.add(inst);
-
-                    if (instCfg.id) {
-                      modelInstances[instCfg.id] = inst;
-                    }
-
-                    registerWorldEditRoot(inst, instCfg);
-
-                    if (instCfg.vehicle) {
-                      registerVehicleInstance(inst, instCfg);
-                    }
-
-                    if (instCfg.equipment || (instCfg.meta && (instCfg.meta.kind === "food" || instCfg.meta.kind === "pickup"))) {
-                      registerEquipmentInstance(inst, instCfg);
-                    }
-
-
-                    if (instCfg.collide) {
-                      avatarModelColliderObjects.push(inst);
-
-                      const obb = buildOBBForInstance(inst, instCfg.id);
-                      if (obb) avatarModelColliderOBBs.push(obb);
-                    }
-                  }
-
-                  if (colliderObjects.length) {
-                    colliderBounds = buildColliderBounds(colliderObjects);
-                    rebuildAvatarCollisionGrid();
-                  }
-
-                  avatarModelColliderBounds = [];
-                },
-                undefined,
-                (error) => {
-                  console.error("[snow] failed to load GLB", entry.url, error);
-                }
-                );
-            }
-          })();
-        }
-
-
-
-
-        function getModelInstance(id) {
-          return modelInstances[id] || null;
-        }
 
 
 
@@ -7868,34 +7890,34 @@ canvas.world-edit-on {
 // -------------------------------------------------------------------------
 
     /* Resolves selected avatar from params (saved with worlds + last settings). */
-        function getSelectedAvatarId() {
-          return sanitizeAvatarId(params.avatarId, DEFAULTS.avatarId);
-        }
+    function getSelectedAvatarId() {
+      return sanitizeAvatarId(params.avatarId, DEFAULTS.avatarId);
+    }
 
-        function getSelectedAvatarUrl() {
-          const id = getSelectedAvatarId();
-          const entry = getAvatarById(id);
-          return entry ? entry.url : "";
-        }
+    function getSelectedAvatarUrl() {
+      const id = getSelectedAvatarId();
+      const entry = getAvatarById(id);
+      return entry ? entry.url : "";
+    }
 
-        const avatarSwapPos = new THREE.Vector3();
-        const avatarSwapUpAxis = new THREE.Vector3(0, 1, 0);
-        let avatarSwapYaw = 0;
-        const avatarSwapQuat = new THREE.Quaternion();
-        const avatarSwapScale = new THREE.Vector3();
-        let avatarSwapToken = 0;
-
-
-
-        let avatar = null;
-        let avatarMixer = null;
-        const avatarActions = {};
-        let avatarCurrentAction = null;
-        let avatarCurrentActionName = "";
+    const avatarSwapPos = new THREE.Vector3();
+    const avatarSwapUpAxis = new THREE.Vector3(0, 1, 0);
+    let avatarSwapYaw = 0;
+    const avatarSwapQuat = new THREE.Quaternion();
+    const avatarSwapScale = new THREE.Vector3();
+    let avatarSwapToken = 0;
 
 
-        const avatarState = {
-          enabled: false,
+
+    let avatar = null;
+    let avatarMixer = null;
+    const avatarActions = {};
+    let avatarCurrentAction = null;
+    let avatarCurrentActionName = "";
+
+
+    const avatarState = {
+      enabled: false,
       viewMode: "third", // "third" | "first"
       moveX: 0,
       moveZ: 0
@@ -11195,6 +11217,140 @@ canvas.world-edit-on {
 
 
 
+// /* Keeps the top-right controls button consistent with current layout + visibility. */
+//     function updateControlsToggleButton() {
+//       const btn = document.getElementById("controlsToggleBtn");
+//       if (!btn) return;
+
+//       const ui = document.querySelector(".avatar-ui");
+//       const layout = ui && ui.dataset ? String(ui.dataset.layout || "text") : "text";
+//       btn.dataset.layout = (layout === "icons" || layout === "both") ? layout : "text";
+
+//       const isVisible = !(ui && ui.classList.contains("avatar-ui--hidden"));
+//       const labelEl = btn.querySelector(".avatar-btn__text");
+//       if (labelEl) labelEl.textContent = isVisible ? "Controls: ON" : "Controls: OFF";
+//       btn.setAttribute("aria-label", isVisible ? "Controls on" : "Controls off");
+
+//       const iconEl = btn.querySelector(".avatar-btn__icon");
+//       if (iconEl) {
+//         const folder = isVisible ? "black" : "white";
+//         iconEl.src = `assets/images/icons/${folder}/settings.svg`;
+//       }
+//     }
+
+// /* Do not create DOM from JS; button is in HTML layout. */
+
+
+
+
+
+
+
+
+// /**
+//  * Refreshes UI button labels/visibility/disabled state based on avatar + world editor state.
+//  */
+//     function updateAvatarButtons() {
+//       const toggle = document.getElementById("avatarToggle");
+//       const view = document.getElementById("avatarViewToggle");
+//       const edit = document.getElementById("worldEditToggle");
+//       const uiMode = document.getElementById("avatarUiModeToggle");
+
+//       const undoBtn = document.getElementById("worldEditUndoBtn");
+//       const redoBtn = document.getElementById("worldEditRedoBtn");
+//       const modeBtn = document.getElementById("worldEditTransformMode");
+//       const addBtn = document.getElementById("worldEditAddBtn");
+//       const dupBtn = document.getElementById("worldEditDuplicateBtn");
+//       const delBtn = document.getElementById("worldEditDeleteBtn");
+
+//       const setBtnText = (btn, text) => {
+//         if (!btn) return;
+//         const labelEl = btn.querySelector(".avatar-btn__text");
+//         if (labelEl) labelEl.textContent = text;
+//         else btn.textContent = text;
+//         btn.setAttribute("aria-label", text);
+//       };
+
+//       if (toggle) {
+//         setBtnText(toggle, avatarState.enabled ? "Avatar: ON" : "Avatar: OFF");
+//         toggle.classList.toggle("is-on", !!avatarState.enabled);
+//       }
+
+//       if (view) {
+//         setBtnText(view, avatarState.viewMode === "third" ? "View: Behind" : "View: Eyes");
+//         view.classList.toggle("is-on", !!(avatarState.enabled && avatarState.viewMode !== "third"));
+//       }
+
+//       if (edit) {
+//         setBtnText(edit, worldEditState.enabled ? "Edit World: ON" : "Edit World: OFF");
+//         edit.classList.toggle("is-on", !!worldEditState.enabled);
+//       }
+
+//       if (uiMode) {
+//         const ui = document.querySelector(".avatar-ui");
+//         const layout = ui && ui.dataset ? String(ui.dataset.layout || "text") : "text";
+//         setBtnText(uiMode, layout === "icons" ? "UI: ICONS" : layout === "both" ? "UI: BOTH" : "UI: TEXT");
+//         uiMode.classList.toggle("is-on", layout !== "text");
+//       }
+
+//       const swapIcon = (btn) => {
+//         if (!btn) return;
+//         const img = btn.querySelector(".avatar-btn__icon");
+//         if (!img) return;
+//         const src = String(img.getAttribute("src") || "");
+//         if (!src) return;
+
+//         const on = btn.classList.contains("is-on");
+//         const wantFolder = on ? "/black/" : "/white/";
+
+//         if (src.indexOf("/white/") !== -1 || src.indexOf("/black/") !== -1) {
+//           const next = src.replace("/white/", wantFolder).replace("/black/", wantFolder);
+//           if (next !== src) img.setAttribute("src", next);
+//         }
+//       };
+
+//       swapIcon(toggle);
+//       swapIcon(view);
+//       swapIcon(edit);
+//       swapIcon(uiMode);
+
+//       const visible = !!worldEditState.enabled;
+
+//       const setVisible = (el) => {
+//         if (!el) return;
+//         el.style.display = visible ? "flex" : "none";
+//         el.setAttribute("aria-hidden", visible ? "false" : "true");
+//       };
+
+//       setVisible(undoBtn);
+//       setVisible(redoBtn);
+//       setVisible(modeBtn);
+//       setVisible(addBtn);
+//       setVisible(dupBtn);
+//       setVisible(delBtn);
+
+//       if (!visible) return;
+
+//       const hasSelection = !!worldEditState.selected;
+//       const canUndo = !!(worldEditHistory && worldEditHistory.undo && worldEditHistory.undo.length);
+//       const canRedo = !!(worldEditHistory && worldEditHistory.redo && worldEditHistory.redo.length);
+//       const hasTransform = !!transformControls;
+
+//       if (undoBtn) undoBtn.disabled = !canUndo;
+//       if (redoBtn) redoBtn.disabled = !canRedo;
+//       if (dupBtn) dupBtn.disabled = !hasSelection;
+//       if (delBtn) delBtn.disabled = !hasSelection;
+
+//       if (modeBtn) {
+//         modeBtn.disabled = !hasTransform;
+
+//         const mode = hasTransform ? (transformControls.mode || "translate") : "translate";
+//         modeBtn.textContent = mode === "translate" ? "P" : mode === "rotate" ? "R" : "S";
+//       }
+//     }
+
+
+
 /* Keeps the top-right controls button consistent with current layout + visibility. */
     function updateControlsToggleButton() {
       const btn = document.getElementById("controlsToggleBtn");
@@ -11209,20 +11365,15 @@ canvas.world-edit-on {
       if (labelEl) labelEl.textContent = isVisible ? "Controls: ON" : "Controls: OFF";
       btn.setAttribute("aria-label", isVisible ? "Controls on" : "Controls off");
 
+  // Native hover hint (title) for accessibility + discoverability
+      btn.setAttribute("title", isVisible ? "Hide controls" : "Show controls");
+
       const iconEl = btn.querySelector(".avatar-btn__icon");
       if (iconEl) {
         const folder = isVisible ? "black" : "white";
         iconEl.src = `assets/images/icons/${folder}/settings.svg`;
       }
     }
-
-/* Do not create DOM from JS; button is in HTML layout. */
-
-
-
-
-
-
 
 
 /**
@@ -11233,6 +11384,11 @@ canvas.world-edit-on {
       const view = document.getElementById("avatarViewToggle");
       const edit = document.getElementById("worldEditToggle");
       const uiMode = document.getElementById("avatarUiModeToggle");
+
+      const worldsBtn = document.getElementById("worldsBtn");
+      const saveWorldBtn = document.getElementById("saveWorldBtn");
+      const inventoryBtn = document.getElementById("inventoryBtn");
+      const playerProfileBtn = document.getElementById("playerProfileBtn");
 
       const undoBtn = document.getElementById("worldEditUndoBtn");
       const redoBtn = document.getElementById("worldEditRedoBtn");
@@ -11249,6 +11405,14 @@ canvas.world-edit-on {
         btn.setAttribute("aria-label", text);
       };
 
+      const setHint = (btn, title, ariaKeyShortcuts) => {
+        if (!btn) return;
+        btn.setAttribute("title", title);
+        if (ariaKeyShortcuts) btn.setAttribute("aria-keyshortcuts", ariaKeyShortcuts);
+        else btn.removeAttribute("aria-keyshortcuts");
+      };
+
+  // Button labels + states
       if (toggle) {
         setBtnText(toggle, avatarState.enabled ? "Avatar: ON" : "Avatar: OFF");
         toggle.classList.toggle("is-on", !!avatarState.enabled);
@@ -11270,6 +11434,17 @@ canvas.world-edit-on {
         setBtnText(uiMode, layout === "icons" ? "UI: ICONS" : layout === "both" ? "UI: BOTH" : "UI: TEXT");
         uiMode.classList.toggle("is-on", layout !== "text");
       }
+
+  // Native hover hints + keyboard shortcut hints (kept in sync with current state)
+      setHint(toggle, `Toggle avatar control (${avatarState.enabled ? "ON" : "OFF"}) (V)`, "V");
+      setHint(view, `Toggle camera view (${avatarState.viewMode === "third" ? "Behind" : "Eyes"}) (C)`, "C");
+      setHint(edit, `Toggle Edit World mode (${worldEditState.enabled ? "ON" : "OFF"}) (N)`, "N");
+      setHint(uiMode, "Cycle UI layout (TEXT → ICONS → BOTH)", "");
+
+      setHint(worldsBtn, "Open worlds", "");
+      setHint(saveWorldBtn, "Save current world (Ctrl/Cmd+S)", "Control+S Meta+S");
+      setHint(inventoryBtn, "Open inventory", "");
+      setHint(playerProfileBtn, "Open profile", "");
 
       const swapIcon = (btn) => {
         if (!btn) return;
@@ -11326,10 +11501,6 @@ canvas.world-edit-on {
         modeBtn.textContent = mode === "translate" ? "P" : mode === "rotate" ? "R" : "S";
       }
     }
-
-
-
-
 
 
 
@@ -19626,7 +19797,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
       function setupGui() {
-        gui = new GUI({ width: 380 });
+        gui = new GUI();
 
         trackController(gui.add(params, "paused").name("Paused"), { instant: true });
         trackController(gui.add(params, "debug").name("Debug logs"), { instant: true });
@@ -22490,10 +22661,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 /**
  * Unified key handler.
  */
+/**
+ * Unified key handler.
+ */
       function onKeyDown(event) {
         const tag = event.target && event.target.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA") return;
 
+  // Cmd/Ctrl + / : toggle keyboard help overlay
         const isHelpToggle = event.code === "Slash" && (event.metaKey || event.ctrlKey);
         if (isHelpToggle) {
           event.preventDefault();
@@ -22501,6 +22676,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+  // When keyboard help is open, only allow closing
         if (keyboardHelpState.open) {
           if (event.code === "Escape") {
             event.preventDefault();
@@ -22509,6 +22685,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+  // F8: avatar collision debug toggle
         if (event.code === "F8") {
           event.preventDefault();
           event.stopPropagation();
@@ -22521,7 +22698,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
-
+  // Snapshots overlay: local key handling while open
         if (typeof snapshotsOverlayState !== "undefined" && snapshotsOverlayState && snapshotsOverlayState.open) {
           if (event.code === "Escape") {
             event.preventDefault();
@@ -22553,6 +22730,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+  // F7/F5/F6: snapshots overlay + quick save/load
         if (event.code === "F7") {
           event.preventDefault();
           event.stopPropagation();
@@ -22574,6 +22752,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+  // Cmd/Ctrl + S: save current world
         const isWorldSave = event.code === "KeyS" && (event.metaKey || event.ctrlKey);
         if (isWorldSave) {
           event.preventDefault();
@@ -22581,13 +22760,15 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
-        if (event.code === "KeyE" && (event.metaKey || event.ctrlKey)) {
+  // N: toggle Edit World mode
+        if (event.code === "KeyN" && !event.metaKey && !event.ctrlKey && !event.altKey) {
           if (event.repeat) return;
           event.preventDefault();
           setWorldEditEnabled(!worldEditState.enabled);
           return;
         }
 
+  // World edit mode: transform + selection operations
         if (worldEditState.enabled) {
           const mod = event.metaKey || event.ctrlKey;
 
@@ -22646,6 +22827,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           }
         }
 
+  // P: pause / resume simulation
         if (event.code === "KeyP") {
           if (event.repeat) return;
           event.preventDefault();
@@ -22653,6 +22835,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+  // B: toggle chase camera behind avatar/vehicle
         if (event.code === "KeyB") {
           if (event.repeat) return;
           event.preventDefault();
@@ -22675,12 +22858,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+  // F: toggle fullscreen
         if (event.code === "KeyF") {
           event.preventDefault();
           toggleFullscreen();
           return;
         }
 
+  // Esc: exit fullscreen if active; otherwise toggle UI; also used to close overlays above
         if (event.code === "Escape") {
           if (isFullscreen()) {
             if (document.exitFullscreen) document.exitFullscreen();
@@ -22693,6 +22878,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+  // E: interact (enter nearest vehicle / equip nearby item)
         if (event.code === "KeyE" && !event.metaKey && !event.ctrlKey) {
           if (event.repeat) return;
           event.preventDefault();
@@ -22721,6 +22907,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+  // O: exit vehicle / unequip item
         if (event.code === "KeyO") {
           event.preventDefault();
 
@@ -22735,6 +22922,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
+  // A: enable avatar control when available and not already enabled
         if (event.code === "KeyA" && !vehicleDriveState.enabled && !avatarState.enabled && avatar) {
           event.preventDefault();
           enableAvatarControl(avatarState.viewMode);
@@ -22810,6 +22998,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           break;
         }
       }
+
 
 
 

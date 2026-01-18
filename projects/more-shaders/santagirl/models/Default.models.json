@@ -584,7 +584,7 @@
     "url": "models/vehicles/jetpacks/jetpack.glb",
     "instances": [
       {
-        "id": "jetpack_copy",
+        "id": "jetpack1",
         "position": [
           2.560453124291323,
           -0.7135154156748085,
@@ -600,7 +600,7 @@
         "collide": false,
         "equipment": {
           "type": "Jetpack",
-          "description": "Personal jetpack One",
+          "description": "Personal jetpack One 1",
           "action": "jetpack",
           "attach": {
             "bone": "mixamorigSpine2",

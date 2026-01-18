@@ -126,32 +126,68 @@ World model placement/config is loaded in this priority order:
 4) Baked `MODEL_CONFIG` fallback  
 
 ---
-
 ## Core Systems (High Level)
 
 ### Snowfall + Wind + Gusts
-A high-count visual snow field controlled by parameters such as flake count, size, fall speed/jitter, and wind strength/speed.
-Gusts are spawned over time and influence snow motion and drift evolution (including scour + redeposition).
+- Snow is rendered as a high-count GPU particle field (`snowPoints`) with per-flake drift, jitter, and near-ground fading.
+- Base wind is combined with **gust volumes** that add swirl + radial push + optional updraft; gust influence tapers with distance and height above snow.
+- Gusts also drive **terrain change** via scour + redeposition (removing snow near gust centers and depositing downwind). :contentReference[oaicite:0]{index=0}
 
 ### Drifts (Ground Heightfield)
-A grid-based drift surface is evolved over time. Drift shaping accounts for obstacles and supports periodic normal updates for lighting.
-Height sampling is used for aligning/placing entities against the snow surface.
+- The ground “snow” is a grid-based heightfield (“drifts”) evolved over time.
+- Entities sample the drift surface for placement/grounding (e.g., moving props placed onto snow height).
+- Drift writes are also used for visible deformation and for keeping surface normals updated for lighting. :contentReference[oaicite:1]{index=1}
 
 ### Sticking Snow + Tracks
-A sticking/decal system deposits snow onto surfaces. The avatar and vehicles can stamp/mark snow (footprints/tracks) into the drift/decal systems during motion.
+- “Sticking snow” uses a decal/instancing system to deposit snow onto surfaces (and can be disposed/rebuilt as needed).
+- Motion can stamp surface marks:
+  - Avatar footprints (when enabled) and
+  - Vehicle tracks / wet trail marks (vehicle-sized width/length parameters).
+- This is visual feedback layered on top of the drift/terrain systems. :contentReference[oaicite:2]{index=2}
 
-### Avatar
-Loads a GLTF avatar model and provides a movement controller with collision resolution (bounds/OBBs).
-Supports first-person and third-person camera, plus optional chase camera behavior.
+### Avatar (movement + camera)
+- Avatar input comes from keyboard + on-screen joystick:
+  - Keyboard state is stored in `avatarKeys`
+  - Joystick supplies continuous `valueX/valueY`
+- Movement is computed relative to camera forward/right on the XZ plane, with accel/decel smoothing (not instant velocity).
+- Facing rules:
+  - Third-person: yaw turns toward movement direction
+  - First-person: yaw follows camera look direction
+- Vertical motion:
+  - Jump uses gravity + landing snap to “ground surface”
+  - Jetpack (when equipped) uses thrust up/down + gravity + drag (Space up, Q down). 
 
-### Vehicles
-Vehicles are registered as interactables and detected by proximity checks. Enter/exit flow updates drive state and UI prompt visibility.
-Driving uses the same movement key state (WASD/arrows) while mounted. Vehicle tuning/state is exposed through lil-gui.
+### Objects as Vehicles (enter/drive/exit)
+- “Vehicle” is an object instance with `vehicle` metadata (type/description/seatLocal/yawOffset/profile).
+- Vehicles are registered as interactables and discovered via proximity checks; the UI prompt shows when near.
+- Enter vehicle:
+  - Enables `vehicleDriveState`, seeds yaw, switches avatar animation/state, and can enable chase camera.
+- Drive vehicle (`tickVehicle(dt)`):
+  - Reads forward/steer from joystick or keyboard
+  - Smooths speed with accel/brake/coast
+  - Smooths steering and converts steer angle → turn radius → yaw rate
+  - Applies movement and resolves vehicle XZ collisions
+- Vehicle modes:
+  - Ground vehicles use turn radius + grip-ish tuning
+  - Plane profiles add lift/attitude behavior and reduce turning in air (`airTurnScale`). 
+
+### Collision Detection (how movement stays believable)
+Two collision layers run in parallel:
+
+1) Horizontal collision (XZ) for obstacles:
+- Avatar is treated as a circle in XZ and resolves overlaps by push-out + sliding.
+- Broadphase uses a spatial hash grid over collider sphere-bounds, plus optional OBB colliders for model instances (cars/vehicles/etc.).
+- This is “overlap then push-out” (not fully swept collision), so extreme dt spikes can still cause corner pop/tunneling. 
+
+2) Vertical collision (Y) for “grounding”:
+- Vertical grounding uses `getWorldSurfaceY(x,z)`:
+  - drift/snow surface height sampling, plus
+  - highest hit from downward raycasts against meshes flagged as ground (`worldGroundMeshes`).
+- To make an object landable (stand on top), it must be included in the ground-ray set (flagged `ground:true`), because landing is driven by surface sampling + ground raycasts, not by the XZ obstacle colliders. 
 
 ### WebXR / VR
-A WebXR **Enter VR** button is shown on XR-capable browsers (Quest/Pico/Vive etc.). OrbitControls are disabled while in XR to avoid fighting head pose.
+- Optional VR is enabled via WebXR; OrbitControls are disabled in XR to avoid fighting head pose. :contentReference[oaicite:7]{index=7}
 
----
 
 ## Included Assets (relative paths)
 
