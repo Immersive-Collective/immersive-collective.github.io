@@ -748,10 +748,10 @@ button {
 
 
 .world-card {
-  border: 2px solid rgba(255, 255, 255, 0.16);
-  border-radius: 12px;
+  border: 0px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0);
   position: relative;
   height: clamp(220px, 32vw, 290px);
   display: block;
@@ -759,7 +759,7 @@ button {
 }
 
 .world-card.is-active {
-  border-color: rgba(34, 197, 94, 0.60);
+  border: 4px solid #00ff1d;  
 }
 
 .world-card__thumb {
@@ -784,7 +784,8 @@ button {
   background: linear-gradient(
     to bottom,
     rgba(0, 0, 0, 0.74),
-    rgba(0, 0, 0, 0.22) 48%,
+    rgba(0, 0, 0, 0.12) 25%,
+    rgba(0, 0, 0, 0.12) 75%,
     rgba(0, 0, 0, 0.84)
   );
   color: rgba(255, 255, 255, 0.95);
@@ -835,7 +836,7 @@ button {
 
 .world-card__actions {
   display: flex;
-  gap: 8px;
+  gap: 2px;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
@@ -1492,9 +1493,9 @@ button {
   width: var(--minimap-size, 160px);
   min-height: 64px;
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(0,0,0,0.35);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.30);
+  border: 0px solid rgba(255,255,255,0.16);
+/*  background: rgba(0,0,0,0.35);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.30);*/
   backdrop-filter: blur(10px);
   padding: 10px 12px;
   z-index: 22;
@@ -1689,6 +1690,40 @@ canvas.world-edit-on {
 
 
 
+.avatar-ui--hidden{display:none}
+
+.ui-controls-toggle{
+  position: fixed;
+  top: 0px;
+  right: 0px;
+  z-index: 9999;
+  border-radius: 0;
+  padding: 0.15rem 0.15rem 0.15rem 0.6rem;
+}
+.ui-controls-toggle[data-layout="icons"] .avatar-btn__text{display:none}
+.ui-controls-toggle[data-layout="text"] .avatar-btn__icon{display:none}
+
+
+.lil-gui--hidden{
+  display:none!important;
+  visibility: hidden;
+  opacity: 0;
+}
+
+#controlsToggleBtn {
+
+}
+
+
+.joystick { bottom: 50px; }
+.ui-controls-hidden .joystick { bottom: 16px; }
+
+
+#VRButton {
+  bottom: 50px!important;
+}
+
+
 
 </style>
 
@@ -1805,8 +1840,10 @@ canvas.world-edit-on {
   </div>
 
 
-
-
+  <button id="controlsToggleBtn" class="avatar-btn border-stick-b ui-controls-toggle" type="button" aria-label="Controls">
+    <img class="avatar-btn__icon" src="assets/images/icons/black/settings.svg" alt="" aria-hidden="true">
+    <span class="avatar-btn__text">Controls: ON</span>
+  </button>
 
 
   <div class="avatar-ui avatar-ui--text" data-layout="text">
@@ -3740,7 +3777,7 @@ canvas.world-edit-on {
       groundColor: "#ffffff",
       rockColor: "#2b3442",
       forestColor: "#2b7a2b",
-      cubeColor: "#4e9cff",      
+      //cubeColor: "#4e9cff",      
 
   // Snowman path animation
       snowmanMoveEnabled: true,
@@ -3887,7 +3924,7 @@ canvas.world-edit-on {
 
 
     let scene, camera, renderer, controls, hemiLight, dirLight;
-    let ground, cube;
+    let ground;
     const cones = [];
     const rocks = [];
 
@@ -4016,15 +4053,15 @@ canvas.world-edit-on {
       const g = normalizeHexColor(params.groundColor, DEFAULTS.groundColor || "#ffffff");
       const r = normalizeHexColor(params.rockColor, DEFAULTS.rockColor || "#2b3442");
       const f = normalizeHexColor(params.forestColor, DEFAULTS.forestColor || "#2b7a2b");
-      const c = normalizeHexColor(params.cubeColor, DEFAULTS.cubeColor || "#4e9cff");
+      //const c = normalizeHexColor(params.cubeColor, DEFAULTS.cubeColor || "#4e9cff");
 
       if (ground && ground.material && ground.material.color) {
         ground.material.color.set(g);
       }
 
-      if (cube && cube.material && cube.material.color) {
-        cube.material.color.set(c);
-      }
+      // if (cube && cube.material && cube.material.color) {
+      //   cube.material.color.set(c);
+      // }
 
       if (rockMat && rockMat.color) {
         rockMat.color.set(r);
@@ -8758,6 +8795,7 @@ canvas.world-edit-on {
     }
 
 /* Binds pointer input to the right joystick element and updates joystickRightState continuously. */
+/* Binds pointer input to the right joystick element and updates joystickRightState continuously. */
     function initRightJoystick(rootEl) {
       if (!rootEl || rootEl.__joyRightBound) return;
       rootEl.__joyRightBound = true;
@@ -8781,6 +8819,19 @@ canvas.world-edit-on {
         try { rootEl.setPointerCapture(e.pointerId); } catch (_) {}
 
         updateRightJoystickFromPointer(e.clientX, e.clientY);
+
+        const meta =
+        (equipmentState && equipmentState.enabled && equipmentState.item && equipmentState.item.meta)
+        ? equipmentState.item.meta
+        : null;
+
+        const action = meta && typeof meta.action === "string" ? meta.action.trim().toLowerCase() : "";
+        const type = meta && typeof meta.type === "string" ? meta.type.trim().toLowerCase() : "";
+        const isJetpack = (action === "jetpack") || (type === "jetpack");
+
+        if (!isJetpack && typeof requestAvatarJump === "function") {
+          requestAvatarJump();
+        }
 
         e.preventDefault();
         e.stopPropagation();
@@ -8812,6 +8863,7 @@ canvas.world-edit-on {
       rootEl.addEventListener("pointerup", onUp, { passive: false });
       rootEl.addEventListener("pointercancel", onUp, { passive: false });
     }
+
 
 
 
@@ -10454,13 +10506,11 @@ canvas.world-edit-on {
       if (typeof ensureWorldObjectPickerOverlayWired === "function") ensureWorldObjectPickerOverlayWired();
 
       initAvatarUiLayout();
+      initControlsToggleUi();
 
       if (avatarUiModeToggleBtn) {
         avatarUiModeToggleBtn.addEventListener("click", () => {
-          const ui = document.querySelector(".avatar-ui");
-          const current = ui && ui.dataset ? String(ui.dataset.layout || "text") : "text";
-          const next = (current === "text") ? "icons" : (current === "icons") ? "both" : "text";
-          setAvatarUiLayout(next, true);
+          cycleAvatarUiLayout();
           updateAvatarButtons();
         });
       }
@@ -11088,6 +11138,89 @@ canvas.world-edit-on {
 
       if (persist) localStorage.setItem(key, m);
     }
+
+
+
+
+
+
+/* Cycles avatar UI layout (text -> icons -> both) and persists selection. */
+/* Cycles avatar UI layout (text -> icons -> both) and persists selection. */
+    function cycleAvatarUiLayout() {
+      const ui = document.querySelector(".avatar-ui");
+      const current = ui && ui.dataset ? String(ui.dataset.layout || "text") : "text";
+      const next = (current === "text") ? "icons" : (current === "icons") ? "both" : "text";
+      setAvatarUiLayout(next, true);
+      updateControlsToggleButton();
+    }
+
+/* Initializes top-right controls toggle (show/hide avatar-ui) from localStorage. */
+    function initControlsToggleUi() {
+      const btn = document.getElementById("controlsToggleBtn");
+      if (btn && !btn.__bound) {
+        btn.__bound = true;
+        btn.addEventListener("click", () => {
+          const ui = document.querySelector(".avatar-ui");
+          const visible = !(ui && ui.classList.contains("avatar-ui--hidden"));
+          setControlsVisible(!visible, true);
+        });
+      }
+
+      const key = "ui:controlsVisible";
+      const raw = localStorage.getItem(key);
+      const visible = (raw === null) ? true : (raw !== "0");
+
+      setControlsVisible(visible, false);
+    }
+
+
+/* Shows/hides the lil GUI (avatar-ui) and persists selection. */
+    function setControlsVisible(visible, persist) {
+      const ui = document.querySelector(".avatar-ui");
+      if (ui) ui.classList.toggle("avatar-ui--hidden", !visible);
+
+      const btn = document.getElementById("controlsToggleBtn");
+      if (btn) btn.classList.toggle("is-on", !!visible);
+
+      if (gui && gui.domElement) {
+        gui.domElement.classList.toggle("lil-gui--hidden", !visible);
+      }
+
+      document.body.classList.toggle("ui-controls-hidden", !visible);
+
+      if (persist) localStorage.setItem("ui:controlsVisible", visible ? "1" : "0");
+
+      updateControlsToggleButton();
+    }
+
+
+
+/* Keeps the top-right controls button consistent with current layout + visibility. */
+    function updateControlsToggleButton() {
+      const btn = document.getElementById("controlsToggleBtn");
+      if (!btn) return;
+
+      const ui = document.querySelector(".avatar-ui");
+      const layout = ui && ui.dataset ? String(ui.dataset.layout || "text") : "text";
+      btn.dataset.layout = (layout === "icons" || layout === "both") ? layout : "text";
+
+      const isVisible = !(ui && ui.classList.contains("avatar-ui--hidden"));
+      const labelEl = btn.querySelector(".avatar-btn__text");
+      if (labelEl) labelEl.textContent = isVisible ? "Controls: ON" : "Controls: OFF";
+      btn.setAttribute("aria-label", isVisible ? "Controls on" : "Controls off");
+
+      const iconEl = btn.querySelector(".avatar-btn__icon");
+      if (iconEl) {
+        const folder = isVisible ? "black" : "white";
+        iconEl.src = `assets/images/icons/${folder}/settings.svg`;
+      }
+    }
+
+/* Do not create DOM from JS; button is in HTML layout. */
+
+
+
+
 
 
 
@@ -16418,7 +16551,7 @@ function applySettings(
     params.groundColor = normalizeHexColor(params.groundColor, DEFAULTS.groundColor || "#ffffff");
     params.rockColor = normalizeHexColor(params.rockColor, DEFAULTS.rockColor || "#2b3442");
     params.forestColor = normalizeHexColor(params.forestColor, DEFAULTS.forestColor || "#2b7a2b");
-    params.cubeColor = normalizeHexColor(params.cubeColor, DEFAULTS.cubeColor || "#4e9cff");
+    //params.cubeColor = normalizeHexColor(params.cubeColor, DEFAULTS.cubeColor || "#4e9cff");
 
     // snowman
     params.snowmanMoveEnabled = !!params.snowmanMoveEnabled;
@@ -19119,16 +19252,16 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
       // Cube centered at origin (sitting on ground)
-      const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
-      const cubeMat = new THREE.MeshStandardMaterial({
-        color: normalizeHexColor(params.cubeColor, DEFAULTS.cubeColor || "#4e9cff"),
-        roughness: 0.4,
-        metalness: 0.2
-      });
-      cube = new THREE.Mesh(cubeGeo, cubeMat);
-      cube.position.set(0, 0.5, 0);
-      cube.castShadow = true;
-      //scene.add(cube);
+      // const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
+      // const cubeMat = new THREE.MeshStandardMaterial({
+      //   color: normalizeHexColor(params.cubeColor, DEFAULTS.cubeColor || "#4e9cff"),
+      //   roughness: 0.4,
+      //   metalness: 0.2
+      // });
+      // cube = new THREE.Mesh(cubeGeo, cubeMat);
+      // cube.position.set(0, 0.5, 0);
+      // cube.castShadow = true;
+      // scene.add(cube);
 
 
       // Rocks
@@ -19164,7 +19297,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
       // Base colliders: rocks + cube, forest trees added in rebuildForest()
-      colliderObjects = [...rocks, cube];
+      colliderObjects = [...rocks];
 
       // Build forest according to params (fills cones[] and colliderObjects)
       rebuildForest();
@@ -20152,7 +20285,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           params.groundColor = normalizeHexColor(params.groundColor, DEFAULTS.groundColor || "#ffffff");
           params.rockColor = normalizeHexColor(params.rockColor, DEFAULTS.rockColor || "#2b3442");
           params.forestColor = normalizeHexColor(params.forestColor, DEFAULTS.forestColor || "#2b7a2b");
-          params.cubeColor = normalizeHexColor(params.cubeColor, DEFAULTS.cubeColor || "#4e9cff");
+          //params.cubeColor = normalizeHexColor(params.cubeColor, DEFAULTS.cubeColor || "#4e9cff");
           applySurfaceColorsFromParams();
           saveLastDebounced(params);
         };
@@ -20160,14 +20293,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const groundColorCtrl = surfaces.addColor(params, "groundColor").name("Ground").listen();
         const rockColorCtrl = surfaces.addColor(params, "rockColor").name("Rocks").listen();
         const forestColorCtrl = surfaces.addColor(params, "forestColor").name("Forest").listen();
-        const cubeColorCtrl = surfaces.addColor(params, "cubeColor").name("Cube").listen();
+        //const cubeColorCtrl = surfaces.addColor(params, "cubeColor").name("Cube").listen();
 
-        guiControllers.push(groundColorCtrl, rockColorCtrl, forestColorCtrl, cubeColorCtrl);
+        guiControllers.push(groundColorCtrl, rockColorCtrl, forestColorCtrl);
 
         groundColorCtrl.onChange(surfaceUpdate);
         rockColorCtrl.onChange(surfaceUpdate);
         forestColorCtrl.onChange(surfaceUpdate);
-        cubeColorCtrl.onChange(surfaceUpdate);
+        //cubeColorCtrl.onChange(surfaceUpdate);
 
         surfaces.close();
 

@@ -1,0 +1,1097 @@
+{
+  "v": 1,
+  "kind": "snow-world",
+  "id": "3cb7aade-6b22-458d-b5d5-060608b7049c",
+  "title": "Spring 2026",
+  "description": "",
+  "createdAt": 1768711359973,
+  "updatedAt": 1768711441905,
+  "thumbnail": "data:image/jpeg;base64,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",
+  "meta": {},
+  "settings": {
+    "musicEnabled": true,
+    "musicVolume": 0.05,
+    "sfxEnabled": true,
+    "sfxVolume": 0.85,
+    "envSoundEnabled": true,
+    "envSoundVolume": 0.33,
+    "envSoundPanDepth": 0.5,
+    "envSoundPanSpeed": 0.6,
+    "envSoundReverbMix": 0.72,
+    "envSoundIrSeconds": 3.1,
+    "envSoundToneHz": 33,
+    "avatarId": "male/tata/tata4_1-rework",
+    "avatarMaxStepUp": 0.37,
+    "avatarFallStart": 0.8,
+    "kcalPerStep": 0.05,
+    "kcalPerJump": 0.2,
+    "shadowsEnabled": true,
+    "shadowsAutoUpdate": true,
+    "shadowType": "PCF",
+    "shadowMapSize": 1024,
+    "paused": false,
+    "debug": false,
+    "timeScale": 1,
+    "dtMax": 0.05,
+    "pixelRatio": 1,
+    "snowEnabled": true,
+    "visualCount": 20000,
+    "windStrength": 0,
+    "windSpeed": 0.01,
+    "fallSpeed": 0.283,
+    "fallJitter": 0.9,
+    "flakeSize": 0.28,
+    "flakeSizeJitter": 0.09,
+    "gustMinInterval": 6,
+    "gustMaxInterval": 12,
+    "gustTornadoChance": 0.01,
+    "gustStrengthMul": 1,
+    "gustSwirlMul": 1,
+    "gustUpdraftMul": 1,
+    "gustScour": 0.01,
+    "gustRedeposit": 0.028,
+    "driftGrid": 512,
+    "driftMaxHeight": 5,
+    "coverBase": 0,
+    "coverMacroAmp": 0.3,
+    "coverMacroFreq": 6,
+    "coverMicroAmp": 0.2,
+    "coverMicroFreq": 16,
+    "terrainEnabled": true,
+    "terrainSeed": 1337,
+    "terrainRadius": 200,
+    "terrainInnerRadius": 30.5,
+    "terrainEdgeFade": 40,
+    "terrainEdgeNoiseAmp": 0.9,
+    "terrainEdgeNoiseFreq": 0.025,
+    "terrainAmp": 9.2,
+    "terrainFreq": 0.011,
+    "terrainOctaves": 3,
+    "terrainLacunarity": 2,
+    "terrainGain": 0.94,
+    "terrainWarpAmp": 24.25,
+    "terrainWarpFreq": 0.012,
+    "terrainRidge": true,
+    "terrainExponent": 1.7,
+    "terrainColorLow": "#63c748",
+    "terrainColorHigh": "#26531d",
+    "terrainColorStrength": 1,
+    "driftDiffusion": 0,
+    "driftAdvection": 0,
+    "obstacleShapeInterval": 1,
+    "driftWriteInterval": 1,
+    "normalUpdateInterval": 4,
+    "settlerCount": 8000,
+    "groundDepositBudget": 420,
+    "depositUnit": 0.00005,
+    "objectTestsPerFrame": 900,
+    "objectDeposit": 0.002,
+    "stuckMax": 24000,
+    "decalSize": 0.14,
+    "fogNear": 80.6,
+    "fogFar": 378.5,
+    "fogColor": "#18a4fb",
+    "fadeEndOfWorldEnabled": true,
+    "fadeEndOfWorldDistance": 95,
+    "groundColor": "#193b0c",
+    "rockColor": "#307104",
+    "forestColor": "#47a126",
+    "cubeColor": "#4e9cff",
+    "snowmanMoveEnabled": true,
+    "snowmanPathRadius": 7.6,
+    "snowmanSpeed": 0.111,
+    "forestCount": 292,
+    "forestRadius": 369,
+    "forestInnerRadius": 12,
+    "forestMinScale": 0.5,
+    "forestMaxScale": 2.65,
+    "forestSeed": 1234,
+    "forestJitter": 1.25,
+    "rockCount": 206,
+    "rockRadius": 303.5,
+    "rockInnerRadius": 110,
+    "rockMinScale": 0.2,
+    "rockMaxScale": 16.8,
+    "rockSeed": 2468,
+    "rockJitter": 1,
+    "rockDetail": 1,
+    "rockVariantCount": 8,
+    "rockNoiseAmp": 0.28,
+    "rockNoiseFreq": 1.75,
+    "rockNoiseOctaves": 4,
+    "rockNoiseLacunarity": 1.48,
+    "rockNoiseGain": 0.5,
+    "rockNoiseRidge": 0.35,
+    "rockFlatten": 0.55,
+    "rockAnisotropy": 0.15,
+    "rockEmbed": 0.12,
+    "rockColorVar": 0.38,
+    "rockRoughness": 1,
+    "rockMetalness": 0,
+    "cloudEnabled": true,
+    "cloudHeightBase": 53,
+    "cloudHeightRange": 140,
+    "cloudRadius": 300,
+    "cloudSliceCount": 83,
+    "cloudSpeed": 0.047,
+    "cloudDensity": 0.72,
+    "cloudSoftness": 0.534,
+    "cloudColor": "#ffffff",
+    "cloudSkyColor": "#f5f5f5",
+    "cloudOpacity": 0.05,
+    "dustEnabled": false,
+    "dustRadius": 5,
+    "dustFloorY": 0.1,
+    "dustCeilY": 4,
+    "dustSpeed": 2.3,
+    "dustCount": 600,
+    "dustSize": 0.1,
+    "dustNoise": 0.1,
+    "dustCenterX": 0,
+    "dustCenterZ": -3.5,
+    "dustColorInner": "#ffc57a",
+    "dustColorOuter": "#222222",
+    "rainEnabled": true,
+    "rainRadius": 28,
+    "rainTopY": 26,
+    "rainBottomY": 0,
+    "rainSpeed": 2.4,
+    "rainCount": 12000,
+    "rainSize": 1.78,
+    "rainThickness": 0.06,
+    "rainStreak": 0.85,
+    "rainWindX": 0.4,
+    "rainWindZ": 0.1,
+    "rainCenterX": 0,
+    "rainCenterZ": 0,
+    "rainColor": "#bcd7ff",
+    "rainOpacity": 0.3,
+    "grassEnabled": true,
+    "grassCount": 91115,
+    "grassRadius": 235.2,
+    "grassCenterX": 0,
+    "grassCenterZ": 0,
+    "grassBaseY": 0.02,
+    "grassBladeHeight": 4.49,
+    "grassBladeWidth": 0.033,
+    "grassHeightJitter": 0.55,
+    "grassWidthJitter": 0.5,
+    "grassBend": 6.85,
+    "grassWindSpeed": 0.4,
+    "grassWindStrength": 0.12,
+    "grassStiffness": 1.7,
+    "grassNoiseScale": 0.35,
+    "grassNoiseStrength": 0.75,
+    "grassNoiseSpeed": 0.06,
+    "grassStaticHeightNoise": 0.4,
+    "grassStaticWidthNoise": 0.35,
+    "grassBorderNoise": 10,
+    "grassColorVariation": 0.12,
+    "grassColorBottom": "#1f5f2e",
+    "grassColorTop": "#7ee36c",
+    "grassOpacity": 0.95,
+    "grassAlphaCutoff": 0.03,
+    "grassSeed": 4242,
+    "avatarHelpersWidth": 10,
+    "avatarHelpersHeight": 12,
+    "avatarHelperShowBase": false,
+    "avatarHelperShowMaxStepUp": false,
+    "avatarHelperShowFallStart": false,
+    "avatarHelperShowMaxHeightFromVelocity": false,
+    "avatarHelperShowMaxHeightFromGravity": false
+  },
+  "models": [
+    {
+      "name": "Ginger Bread",
+      "url": "models/gingerbread_man-c.glb",
+      "instances": [
+        {
+          "id": "model1_center",
+          "position": [
+            28.762912750011303,
+            0,
+            22.40805329552
+          ],
+          "rotation": [
+            3.141592653589793,
+            -0.37223696863923605,
+            3.141592653589793
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "meta": {
+            "kind": "food",
+            "name": "Ginger Bread",
+            "description": "Sweet snack",
+            "caloriesKcal": 250,
+            "weightKg": 0.2,
+            "size": "small",
+            "requiresBackpack": false
+          }
+        },
+        {
+          "id": "Ginger Bread_copy",
+          "position": [
+            -14.640165037775017,
+            5.690279174164283,
+            3.3272239877345013
+          ],
+          "rotation": [
+            3.1415926535897922,
+            1.4851876976413816,
+            -3.1415926535897922
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "meta": {
+            "kind": "food",
+            "name": "Ginger Bread",
+            "description": "Sweet snack",
+            "caloriesKcal": 250,
+            "weightKg": 0.2,
+            "size": "small",
+            "requiresBackpack": false
+          }
+        }
+      ]
+    },
+    {
+      "name": "plane",
+      "url": "models/vehicles/flying/plane1-1.glb",
+      "instances": [
+        {
+          "id": "plane1",
+          "position": [
+            19.63539094531624,
+            0,
+            -16.13712174001699
+          ],
+          "rotation": [
+            -7.501843164171675e-16,
+            -1.4538123579809117,
+            -7.08213111850709e-16
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true,
+          "vehicle": {
+            "type": "plane",
+            "description": "Small Airplane 1",
+            "seatLocal": [
+              0,
+              0.8,
+              -0.43
+            ],
+            "yawOffset": 0,
+            "profile": {
+              "maxSpeed": 27.2,
+              "maxReverse": 2.1,
+              "accel": 7.1,
+              "brake": 2.7,
+              "coastDecel": 1.7,
+              "turnRate": 0.6,
+              "radius": 0.95,
+              "wheelBase": 2.66,
+              "minTurnRadius": 7.7,
+              "minSteerSpeed": 0.35,
+              "steerResponse": 2,
+              "steerReturn": 6,
+              "lateralGrip": 8,
+              "wetWidth": 0.05,
+              "wetLength": 1.04,
+              "trackHalfWidth": 1,
+              "airRollResponse": 1.7,
+              "airRollReturn": 5,
+              "climbPitchMax": 0.17,
+              "climbPitchSpeed": 6.6,
+              "pitchResponse": 3.2,
+              "pitchReturn": 0.1,
+              "turnPitchMax": 0.08,
+              "propAxis": "z",
+              "airRollMax": 1.18,
+              "airTurnScale": 0.21,
+              "liftResponse": 0.1,
+              "maxLift": 21.9,
+              "minFlySpeed": 22.3
+            }
+          }
+        },
+        {
+          "id": "plane_copy",
+          "position": [
+            227.14857068492566,
+            0.016753285919067662,
+            -15.918592034309063
+          ],
+          "rotation": [
+            -0.17,
+            0.8659521538706405,
+            -0.00005274224401850514
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true,
+          "vehicle": {
+            "type": "plane",
+            "description": "Small Airplane 1",
+            "seatLocal": [
+              0,
+              0.8,
+              -0.43
+            ],
+            "yawOffset": 0,
+            "profile": {
+              "maxSpeed": 27.2,
+              "maxReverse": 2.1,
+              "accel": 7.1,
+              "brake": 2.7,
+              "coastDecel": 1.7,
+              "turnRate": 0.6,
+              "radius": 0.95,
+              "wheelBase": 2.66,
+              "minTurnRadius": 7.7,
+              "minSteerSpeed": 0.35,
+              "steerResponse": 2,
+              "steerReturn": 6,
+              "lateralGrip": 8,
+              "wetWidth": 0.05,
+              "wetLength": 1.04,
+              "trackHalfWidth": 1,
+              "airRollResponse": 1.7,
+              "airRollReturn": 5,
+              "climbPitchMax": 0.17,
+              "climbPitchSpeed": 6.6,
+              "pitchResponse": 3.2,
+              "pitchReturn": 0.1,
+              "turnPitchMax": 0.08,
+              "propAxis": "z",
+              "airRollMax": 1.18,
+              "airTurnScale": 0.21,
+              "liftResponse": 0.1,
+              "maxLift": 21.9,
+              "minFlySpeed": 22.3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "wings2",
+      "url": "models/wings/steampunk_wings-1.glb",
+      "instances": [
+        {
+          "id": "plane2",
+          "position": [
+            -5.677337317955971,
+            3.6234761054764,
+            -6.936134524488043
+          ],
+          "rotation": [
+            0.03278530644238372,
+            15.264128872536238,
+            -0.1323538641376393
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true,
+          "vehicle": {
+            "type": "plane",
+            "description": "Steam Punk Wings",
+            "seatLocal": [
+              0.02,
+              -0.7,
+              0.13
+            ],
+            "yawOffset": 0,
+            "profile": {
+              "maxSpeed": 100.5,
+              "maxReverse": 2.1,
+              "accel": 6.9,
+              "brake": 2.7,
+              "coastDecel": 1.5,
+              "turnRate": 0.6,
+              "radius": 0.95,
+              "wheelBase": 2.66,
+              "minTurnRadius": 7.7,
+              "minSteerSpeed": 0.35,
+              "steerResponse": 2,
+              "steerReturn": 6,
+              "lateralGrip": 30,
+              "wetWidth": 0.05,
+              "wetLength": 1.04,
+              "trackHalfWidth": 1,
+              "airRollResponse": 22.8,
+              "airRollReturn": 30,
+              "climbPitchMax": 0.8,
+              "climbPitchSpeed": 7.1,
+              "pitchResponse": 29.8,
+              "pitchReturn": 30,
+              "turnPitchMax": 0.5,
+              "propAxis": "z",
+              "airRollMax": 1.2,
+              "airTurnScale": 0.92,
+              "liftResponse": 0.1,
+              "maxLift": 550,
+              "minFlySpeed": 2.1
+            }
+          }
+        },
+        {
+          "id": "wings2_copy",
+          "position": [
+            -7.019647130726481,
+            2.36701952184576,
+            -21.60716003846153
+          ],
+          "rotation": [
+            0.008458178283667848,
+            -2.0595480898822403,
+            -0.08962971081501998
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true,
+          "vehicle": {
+            "type": "plane",
+            "description": "Steam Punk Wings",
+            "seatLocal": [
+              0.02,
+              -0.7,
+              0.13
+            ],
+            "yawOffset": 0,
+            "profile": {
+              "maxSpeed": 100.5,
+              "maxReverse": 2.1,
+              "accel": 6.9,
+              "brake": 2.7,
+              "coastDecel": 1.5,
+              "turnRate": 0.6,
+              "radius": 0.95,
+              "wheelBase": 2.66,
+              "minTurnRadius": 7.7,
+              "minSteerSpeed": 0.35,
+              "steerResponse": 2,
+              "steerReturn": 6,
+              "lateralGrip": 30,
+              "wetWidth": 0.05,
+              "wetLength": 1.04,
+              "trackHalfWidth": 1,
+              "airRollResponse": 22.8,
+              "airRollReturn": 30,
+              "climbPitchMax": 0.8,
+              "climbPitchSpeed": 7.1,
+              "pitchResponse": 29.8,
+              "pitchReturn": 30,
+              "turnPitchMax": 0.5,
+              "propAxis": "z",
+              "airRollMax": 1.2,
+              "airTurnScale": 0.92,
+              "liftResponse": 0.1,
+              "maxLift": 550,
+              "minFlySpeed": 2.1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "wings",
+      "url": "models/wings/wings1.glb",
+      "instances": [
+        {
+          "id": "plane3",
+          "position": [
+            -23.26445599980044,
+            5.076622619962008,
+            -0.6827225632756964
+          ],
+          "rotation": [
+            -1.1642470613141435e-16,
+            -0.7195994066431347,
+            -3.9889770606998765e-17
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true,
+          "vehicle": {
+            "type": "plane",
+            "description": "Angels Wings",
+            "seatLocal": [
+              0.02,
+              -0.7,
+              0.13
+            ],
+            "yawOffset": 0,
+            "profile": {
+              "maxSpeed": 100.5,
+              "maxReverse": 2.1,
+              "accel": 6.9,
+              "brake": 2.7,
+              "coastDecel": 1.5,
+              "turnRate": 0.6,
+              "radius": 0.95,
+              "wheelBase": 2.66,
+              "minTurnRadius": 7.7,
+              "minSteerSpeed": 0.35,
+              "steerResponse": 2,
+              "steerReturn": 6,
+              "lateralGrip": 30,
+              "wetWidth": 0.05,
+              "wetLength": 1.04,
+              "trackHalfWidth": 1,
+              "airRollResponse": 22.8,
+              "airRollReturn": 30,
+              "climbPitchMax": 0.8,
+              "climbPitchSpeed": 7.1,
+              "pitchResponse": 29.8,
+              "pitchReturn": 30,
+              "turnPitchMax": 0.5,
+              "propAxis": "z",
+              "airRollMax": 1.2,
+              "airTurnScale": 0.92,
+              "liftResponse": 0.1,
+              "maxLift": 550,
+              "minFlySpeed": 2.1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "speeder",
+      "url": "models/vehicles/flying/speeder.glb",
+      "instances": [
+        {
+          "id": "plane4",
+          "position": [
+            -45.77125038659627,
+            -0.48238206964020036,
+            -3.7183023325548694
+          ],
+          "rotation": [
+            0.05471233457505367,
+            11.383521910301889,
+            -0.001948143330069469
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true,
+          "vehicle": {
+            "type": "plane",
+            "description": "Star Wars Speeder",
+            "seatLocal": [
+              0.04,
+              0.4,
+              0.22
+            ],
+            "yawOffset": 0,
+            "profile": {
+              "maxSpeed": 27.2,
+              "maxReverse": 2.1,
+              "accel": 7.1,
+              "brake": 2.7,
+              "coastDecel": 1.7,
+              "turnRate": 0.6,
+              "radius": 0.95,
+              "wheelBase": 2.66,
+              "minTurnRadius": 7.7,
+              "minSteerSpeed": 0.35,
+              "steerResponse": 2,
+              "steerReturn": 6,
+              "lateralGrip": 8,
+              "wetWidth": 0.05,
+              "wetLength": 1.04,
+              "trackHalfWidth": 1,
+              "airRollResponse": 1.7,
+              "airRollReturn": 5,
+              "climbPitchMax": 0.17,
+              "climbPitchSpeed": 6.6,
+              "pitchResponse": 3.2,
+              "pitchReturn": 0.1,
+              "turnPitchMax": 0.08,
+              "propAxis": "z",
+              "airRollMax": 1.18,
+              "airTurnScale": 0.21,
+              "liftResponse": 0.1,
+              "maxLift": 21.9,
+              "minFlySpeed": 22.3
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "heli",
+      "url": "models/vehicles/flying/heli1.glb",
+      "instances": [
+        {
+          "id": "heli",
+          "position": [
+            -23.520154959801086,
+            0.5666821675951189,
+            26.491346804946225
+          ],
+          "rotation": [
+            0,
+            -2.2024089549458172,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true,
+          "vehicle": {
+            "type": "helicopter",
+            "description": "This is just a helicopter",
+            "seatLocal": [
+              0,
+              0.8,
+              -0.43
+            ],
+            "yawOffset": 0,
+            "profile": {
+              "driveMode": "plane",
+              "maxSpeed": 46.6,
+              "maxReverse": 4,
+              "accel": 1.6,
+              "brake": 4.6,
+              "coastDecel": 0.6,
+              "turnRate": 0.25,
+              "radius": 1.21,
+              "wheelBase": 2.5,
+              "minTurnRadius": 3,
+              "minSteerSpeed": 0.35,
+              "steerResponse": 1.6,
+              "steerReturn": 3.7,
+              "lateralGrip": 8,
+              "wetWidth": 0.46,
+              "wetLength": 0.9,
+              "trackHalfWidth": 1,
+              "airRollResponse": 0.1,
+              "airRollReturn": 5,
+              "climbPitchMax": 0.17,
+              "climbPitchSpeed": 6.6,
+              "pitchResponse": 3.2,
+              "pitchReturn": 0.1,
+              "turnPitchMax": 0.08,
+              "propAxis": "z",
+              "airRollMax": 0,
+              "airTurnScale": 0.35,
+              "liftResponse": 0.8,
+              "maxLift": 78,
+              "minFlySpeed": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "skipatrol",
+      "url": "models/vehicles/ski_patrol1.glb",
+      "instances": [
+        {
+          "id": "skipatrol",
+          "position": [
+            66.00209516130896,
+            0.07280929364992787,
+            124.05725050538764
+          ],
+          "rotation": [
+            -0.9879495913543076,
+            -1.5066650140783828,
+            -0.9997458180485685
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true,
+          "vehicle": {
+            "type": "Ski Patrol",
+            "description": "Snow vehicle / patrol sled",
+            "seatLocal": [
+              0,
+              0.034,
+              -0.52
+            ],
+            "yawOffset": 0,
+            "profile": {
+              "maxSpeed": 11.2,
+              "maxReverse": 5,
+              "accel": 4.2,
+              "brake": 18,
+              "coastDecel": 4,
+              "turnRate": 2.8,
+              "radius": 1.55,
+              "wheelBase": 2.66,
+              "minTurnRadius": 6,
+              "minSteerSpeed": 0.35,
+              "steerResponse": 2.1,
+              "steerReturn": 6,
+              "lateralGrip": 8,
+              "wetWidth": 0.05,
+              "wetLength": 1.04,
+              "trackHalfWidth": 0.5,
+              "airRollResponse": 8,
+              "airRollReturn": 5,
+              "climbPitchMax": 0.22,
+              "climbPitchSpeed": 4,
+              "pitchResponse": 4,
+              "pitchReturn": 3,
+              "turnPitchMax": 0.1,
+              "airRollMax": 0.35,
+              "airTurnScale": 0.35,
+              "liftResponse": 5,
+              "maxLift": 10,
+              "minFlySpeed": 14
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "base",
+      "url": "models/buildings/bases/stylized_low_poly_sci-fi_buildings-c-11.glb",
+      "instances": [
+        {
+          "id": "base",
+          "position": [
+            -42.24687240712989,
+            -0.7031759169232752,
+            -183.80750880202456
+          ],
+          "rotation": [
+            3.141592653589793,
+            -1.4635359498478704,
+            3.141592653589793
+          ],
+          "scale": 1,
+          "ground": true,
+          "stick": false,
+          "collide": false
+        }
+      ]
+    },
+    {
+      "name": "par2",
+      "url": "models/buildings/tests/par2.glb",
+      "instances": [
+        {
+          "id": "par2",
+          "position": [
+            15.508490621191507,
+            0.26676717269732675,
+            101.22387032065791
+          ],
+          "rotation": [
+            3.141592653589793,
+            -1.4635359498478704,
+            3.141592653589793
+          ],
+          "scale": 1,
+          "ground": true,
+          "stick": false,
+          "collide": false
+        }
+      ]
+    },
+    {
+      "name": "par3",
+      "url": "models/buildings/tests/par3.glb",
+      "instances": [
+        {
+          "id": "par3",
+          "position": [
+            193.77257578586728,
+            -1.6263395430298564,
+            117.90722061103199
+          ],
+          "rotation": [
+            3.141592653589793,
+            -1.4635359498478704,
+            3.141592653589793
+          ],
+          "scale": 1,
+          "ground": true,
+          "stick": false,
+          "collide": false
+        }
+      ]
+    },
+    {
+      "name": "gym1o",
+      "url": "models/buildings/tests/gym1o.glb",
+      "instances": [
+        {
+          "id": "gym1_1o",
+          "position": [
+            -0.013974910684439124,
+            0.09979077751996268,
+            9.146625485606378
+          ],
+          "rotation": [
+            3.141592653589793,
+            -1.2099800333204505,
+            3.141592653589793
+          ],
+          "scale": 1,
+          "ground": true,
+          "stick": false,
+          "collide": false
+        }
+      ]
+    },
+    {
+      "name": "test",
+      "url": "models/buildings/tests/par1.glb",
+      "instances": [
+        {
+          "id": "par1",
+          "position": [
+            -24.481297100893457,
+            0.043861764478432264,
+            109.50381331407604
+          ],
+          "rotation": [
+            3.141592653589793,
+            -1.4635359498478704,
+            3.141592653589793
+          ],
+          "scale": 1,
+          "ground": true,
+          "stick": false,
+          "collide": false
+        }
+      ]
+    },
+    {
+      "name": "test2",
+      "url": "models/buildings/tests/parcours.glb",
+      "instances": [
+        {
+          "id": "par2",
+          "position": [
+            224.0743842129737,
+            0.3708977674871651,
+            7.310209823815242
+          ],
+          "rotation": [
+            3.141592653589793,
+            -1.4635359498478704,
+            3.141592653589793
+          ],
+          "scale": 1,
+          "ground": true,
+          "stick": false,
+          "collide": false
+        }
+      ]
+    },
+    {
+      "name": "house",
+      "url": "models/buildings/house.glb",
+      "instances": [
+        {
+          "id": "house",
+          "position": [
+            11.543509263711645,
+            -0.4709160592455617,
+            -38.72188775098245
+          ],
+          "rotation": [
+            0,
+            0.8918073736850386,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true
+        }
+      ]
+    },
+    {
+      "name": "jetpack",
+      "url": "models/vehicles/jetpacks/jetpack.glb",
+      "instances": [
+        {
+          "id": "jetpack_copy",
+          "position": [
+            2.560453124291323,
+            -0.7135154156748085,
+            -4.578173205368428
+          ],
+          "rotation": [
+            0,
+            1.4026286626579993,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Jetpack",
+            "description": "Personal jetpack One",
+            "action": "jetpack",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -135.913,
+                3.77000000000001
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": 1
+            }
+          }
+        },
+        {
+          "id": "jetpack_copy2",
+          "position": [
+            237.44581206992265,
+            0.37111091369676835,
+            0.39435496597380904
+          ],
+          "rotation": [
+            0,
+            2.4452841921033333,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Jetpack",
+            "description": "Personal jetpack One",
+            "action": "jetpack",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -135.913,
+                3.77000000000001
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "backpack",
+      "url": "models/backpacks/backpack1.glb",
+      "instances": [
+        {
+          "id": "backpack1",
+          "position": [
+            -3.748722029131833,
+            6.6582038765926965,
+            10.929495132109349
+          ],
+          "rotation": [
+            0,
+            7.804545764908181,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Backpack",
+            "description": "Wearable backpack 1",
+            "action": "",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -20.062,
+                -15.829
+              ],
+              "rotation": [
+                2.96040734641021,
+                3.141592653589793,
+                3.1
+              ],
+              "scale": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "snowcar",
+      "url": "models/vehicles/snowcar.glb",
+      "instances": [
+        {
+          "id": "car2",
+          "position": [
+            463.13300717882,
+            -0.2291527022835803,
+            -78.83202064508461
+          ],
+          "rotation": [
+            -3.138638360113626,
+            0.6753483317191713,
+            -3.1397942206631777
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": true,
+          "vehicle": {
+            "type": "Snowcar",
+            "description": "Snow-capable car",
+            "seatLocal": [
+              0.5,
+              0.54,
+              1.15
+            ],
+            "yawOffset": 0,
+            "profile": {
+              "maxSpeed": 111,
+              "maxReverse": 6.9,
+              "accel": 3.2,
+              "brake": 28.7,
+              "coastDecel": 1.8,
+              "turnRate": 0.64,
+              "radius": 0.7,
+              "wheelBase": 1.9,
+              "minTurnRadius": 3.8,
+              "minSteerSpeed": 0.55,
+              "steerResponse": 5.7,
+              "steerReturn": 7,
+              "lateralGrip": 9,
+              "wetWidth": 0.15,
+              "wetLength": 1.63,
+              "trackHalfWidth": 1.1,
+              "propSpinIdle": 8,
+              "propSpinMax": 80,
+              "propSpinMul": 1,
+              "propAxis": "z",
+              "propInvert": false,
+              "minFlySpeed": 14,
+              "maxLift": 10,
+              "liftResponse": 5,
+              "airTurnScale": 0.35,
+              "airRollMax": 0.35,
+              "airRollResponse": 8,
+              "airRollReturn": 5,
+              "climbPitchMax": 0.22,
+              "climbPitchSpeed": 4,
+              "pitchResponse": 4,
+              "pitchReturn": 3,
+              "turnPitchMax": 0.1
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
