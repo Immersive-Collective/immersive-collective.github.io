@@ -117,6 +117,18 @@ button {
   color: rgba(255,255,255,0.98);
 }
 
+
+.avatar-ui {
+  position: fixed;
+  right: 2px;
+  bottom: 0px;
+  display: flex;
+  gap: 0px;
+  align-items: center;
+  z-index: 20;
+  pointer-events: auto;
+}
+
 .avatar-btn {
   padding: 4px 10px;
   border-radius: 999px;
@@ -10372,28 +10384,6 @@ canvas.world-edit-on {
               playerProfile.stats.__stepCarryM -= newSteps * stepLen;
 
               if (worldBucket) worldBucket.steps = (worldBucket.steps || 0) + newSteps;
-
-          // Footsteps (sync by the same step counter; does not affect animation)
-              const onFoot =
-              avatarState.enabled &&
-              avatar &&
-              avatarJumpState &&
-              avatarJumpState.grounded &&
-              !vehicleDriveState.enabled;
-
-              if (onFoot) {
-            // Cap per-frame to avoid "machine gun" if dt spikes.
-                const burst = Math.min(4, newSteps);
-
-                const vx2 = (avatar.position.x - prevAx) / Math.max(1e-6, dt);
-                const vz2 = (avatar.position.z - prevAz) / Math.max(1e-6, dt);
-                const speed = Math.hypot(vx2, vz2);
-
-                for (let i = 0; i < burst; i++) {
-                  const scale = clamp(0.35 + speed * 0.05, 0.22, 0.95);
-                  playFX("steps2", scale);
-                }
-              }
             }
           }
         }
@@ -10406,6 +10396,11 @@ canvas.world-edit-on {
         if (moved) savePlayerProfile(playerProfile);
       }
 
+  // Keep vehicle GUI selection in sync with the currently driven vehicle
+      if (typeof syncVehicleTuningFromCurrentVehicle === "function") {
+        syncVehicleTuningFromCurrentVehicle();
+      }
+
   // Keep original per-frame helpers + animation mixer update
       if (typeof window.__avatarLevelHelpersTick === "function") {
         window.__avatarLevelHelpersTick();
@@ -10415,7 +10410,6 @@ canvas.world-edit-on {
         avatarMixer.update(dt);
       }
     }
-
 
 
 
@@ -14634,10 +14628,85 @@ let vehicleTuningFolder = null;
      * Resolves the current tuning target vehicle based on interaction/drive state.
      */
 function getVehicleTuningTarget() {
-  if (vehicleDriveState.enabled && vehicleDriveState.vehicle) return vehicleDriveState.vehicle;
-  if (vehiclePromptState.open && vehiclePromptState.nearby) return vehiclePromptState.nearby;
-  return null;
+  if (!vehicleDriveState || !vehicleDriveState.enabled) return null;
+  const v = vehicleDriveState.vehicle || null;
+  if (!v || !v.meta) return null;
+  return v;
 }
+
+function writeTuningStateIntoVehicleProfile(v) {
+  if (!v || !v.meta) return;
+
+  // Make sure we never mutate a shared/default profile object.
+  if (!v.meta.profile || typeof v.meta.profile !== "object") v.meta.profile = {};
+  if (!v.meta.__profileIsInstance) {
+    v.meta.profile = { ...v.meta.profile };
+    v.meta.__profileIsInstance = true;
+  }
+
+  const prof = v.meta.profile;
+
+  v.meta.seatLocal = [
+    Number.isFinite(vehicleTuningState.seatX) ? vehicleTuningState.seatX : 0.0,
+    Number.isFinite(vehicleTuningState.seatY) ? vehicleTuningState.seatY : 0.6,
+    Number.isFinite(vehicleTuningState.seatZ) ? vehicleTuningState.seatZ : 0.0
+  ];
+
+  prof.maxSpeed = Math.max(0.1, vehicleTuningState.maxSpeed ?? 10.0);
+  prof.maxReverse = Math.max(0.1, vehicleTuningState.maxReverse ?? 4.0);
+  prof.accel = Math.max(0.1, vehicleTuningState.accel ?? 10.0);
+  prof.brake = Math.max(0.1, vehicleTuningState.brake ?? 14.0);
+  prof.coastDecel = Math.max(0.1, vehicleTuningState.coastDecel ?? 3.0);
+  prof.turnRate = Math.max(0.1, vehicleTuningState.turnRate ?? 2.4);
+
+  prof.radius = Math.max(0.35, vehicleTuningState.radius ?? 0.9);
+
+  prof.wheelBase = Math.max(0.5, vehicleTuningState.wheelBase ?? 2.5);
+  prof.minTurnRadius = Math.max(1.0, vehicleTuningState.minTurnRadius ?? 3.0);
+  prof.minSteerSpeed = Math.max(0.0, vehicleTuningState.minSteerSpeed ?? 0.35);
+  prof.steerResponse = Math.max(0.1, vehicleTuningState.steerResponse ?? 8.0);
+  prof.steerReturn = Math.max(0.1, vehicleTuningState.steerReturn ?? 6.0);
+  prof.lateralGrip = Math.max(0.0, vehicleTuningState.lateralGrip ?? 8.0);
+
+  prof.minFlySpeed = Math.max(0.0, vehicleTuningState.minFlySpeed ?? 14.0);
+  prof.maxLift = Math.max(0.0, vehicleTuningState.maxLift ?? 10.0);
+  prof.liftResponse = Math.max(0.1, vehicleTuningState.liftResponse ?? 5.0);
+
+  prof.airTurnScale = clamp(
+    Number.isFinite(vehicleTuningState.airTurnScale) ? vehicleTuningState.airTurnScale : 0.35,
+    0.0,
+    1.0
+    );
+  prof.airRollMax = Math.max(0.0, vehicleTuningState.airRollMax ?? 0.35);
+  prof.airRollResponse = Math.max(0.1, vehicleTuningState.airRollResponse ?? 8.0);
+  prof.airRollReturn = Math.max(0.1, vehicleTuningState.airRollReturn ?? 5.0);
+
+  prof.wetWidth = Math.max(0.0, vehicleTuningState.wetWidth ?? 0.0);
+  prof.wetLength = Math.max(0.0, vehicleTuningState.wetLength ?? 0.0);
+  prof.trackHalfWidth = Math.max(0.0, vehicleTuningState.trackHalfWidth ?? 0.0);
+}
+
+function syncVehicleTuningFromCurrentVehicle() {
+  const v = getVehicleTuningTarget();
+
+  if (!v) {
+    vehicleTuningState.available = false;
+    vehicleTuningState.id = "";
+    vehicleTuningState.type = "";
+    vehicleTuningState.description = "";
+    vehicleTuningLastId = "";
+    vehicleTuningState.__lastVehicleRef = null;
+    return;
+  }
+
+  // Refresh on actual vehicle object change (not only id), so entering/exiting always updates GUI.
+  if (vehicleTuningState.__lastVehicleRef !== v) {
+    vehicleTuningState.__lastVehicleRef = v;
+    vehicleTuningLastId = v.id || "";
+    readVehicleProfileIntoTuningState(v);
+  }
+}
+
 
     /**
      * Copies vehicle profile values into the tuning state (used for GUI display/listen).
@@ -14706,55 +14775,55 @@ function readVehicleProfileIntoTuningState(v) {
     /**
      * Writes the tuning state back to the target vehicle profile (live steering changes).
      */
-function writeTuningStateIntoVehicleProfile(v) {
-  if (!v || !v.meta) return;
+// function writeTuningStateIntoVehicleProfile(v) {
+//   if (!v || !v.meta) return;
 
-  v.meta.seatLocal = [
-    Number.isFinite(vehicleTuningState.seatX) ? vehicleTuningState.seatX : 0.0,
-    Number.isFinite(vehicleTuningState.seatY) ? vehicleTuningState.seatY : 0.6,
-    Number.isFinite(vehicleTuningState.seatZ) ? vehicleTuningState.seatZ : 0.0
-  ];
+//   v.meta.seatLocal = [
+//     Number.isFinite(vehicleTuningState.seatX) ? vehicleTuningState.seatX : 0.0,
+//     Number.isFinite(vehicleTuningState.seatY) ? vehicleTuningState.seatY : 0.6,
+//     Number.isFinite(vehicleTuningState.seatZ) ? vehicleTuningState.seatZ : 0.0
+//   ];
 
-  if (!v.meta.profile || typeof v.meta.profile != "object") v.meta.profile = {};
-  const prof = v.meta.profile;
+//   if (!v.meta.profile || typeof v.meta.profile != "object") v.meta.profile = {};
+//   const prof = v.meta.profile;
 
-  prof.maxSpeed = Math.max(0.1, vehicleTuningState.maxSpeed);
-  prof.maxReverse = Math.max(0.1, vehicleTuningState.maxReverse);
-  prof.accel = Math.max(0.1, vehicleTuningState.accel);
-  prof.brake = Math.max(0.1, vehicleTuningState.brake);
-  prof.coastDecel = Math.max(0.1, vehicleTuningState.coastDecel);
-  prof.turnRate = Math.max(0.1, vehicleTuningState.turnRate);
+//   prof.maxSpeed = Math.max(0.1, vehicleTuningState.maxSpeed);
+//   prof.maxReverse = Math.max(0.1, vehicleTuningState.maxReverse);
+//   prof.accel = Math.max(0.1, vehicleTuningState.accel);
+//   prof.brake = Math.max(0.1, vehicleTuningState.brake);
+//   prof.coastDecel = Math.max(0.1, vehicleTuningState.coastDecel);
+//   prof.turnRate = Math.max(0.1, vehicleTuningState.turnRate);
 
-  prof.radius = Math.max(0.35, vehicleTuningState.radius);
-  v.radius = prof.radius;
+//   prof.radius = Math.max(0.35, vehicleTuningState.radius);
+//   v.radius = prof.radius;
 
-  prof.wheelBase = Math.max(0.5, vehicleTuningState.wheelBase);
-  prof.minTurnRadius = Math.max(1.0, vehicleTuningState.minTurnRadius);
-  prof.minSteerSpeed = Math.max(0.0, vehicleTuningState.minSteerSpeed);
-  prof.steerResponse = Math.max(0.1, vehicleTuningState.steerResponse);
-  prof.steerReturn = Math.max(0.1, vehicleTuningState.steerReturn);
-  prof.lateralGrip = Math.max(0.0, vehicleTuningState.lateralGrip);
+//   prof.wheelBase = Math.max(0.5, vehicleTuningState.wheelBase);
+//   prof.minTurnRadius = Math.max(1.0, vehicleTuningState.minTurnRadius);
+//   prof.minSteerSpeed = Math.max(0.0, vehicleTuningState.minSteerSpeed);
+//   prof.steerResponse = Math.max(0.1, vehicleTuningState.steerResponse);
+//   prof.steerReturn = Math.max(0.1, vehicleTuningState.steerReturn);
+//   prof.lateralGrip = Math.max(0.0, vehicleTuningState.lateralGrip);
 
-  prof.minFlySpeed = Math.max(0.0, vehicleTuningState.minFlySpeed);
-  prof.maxLift = Math.max(0.0, vehicleTuningState.maxLift);
-  prof.liftResponse = Math.max(0.1, vehicleTuningState.liftResponse);
+//   prof.minFlySpeed = Math.max(0.0, vehicleTuningState.minFlySpeed);
+//   prof.maxLift = Math.max(0.0, vehicleTuningState.maxLift);
+//   prof.liftResponse = Math.max(0.1, vehicleTuningState.liftResponse);
 
-  prof.airTurnScale = clamp(Number.isFinite(vehicleTuningState.airTurnScale) ? vehicleTuningState.airTurnScale : 0.35, 0.0, 1.0);
-  prof.airRollMax = Math.max(0.0, vehicleTuningState.airRollMax);
-  prof.airRollResponse = Math.max(0.1, vehicleTuningState.airRollResponse);
-  prof.airRollReturn = Math.max(0.1, vehicleTuningState.airRollReturn);
+//   prof.airTurnScale = clamp(Number.isFinite(vehicleTuningState.airTurnScale) ? vehicleTuningState.airTurnScale : 0.35, 0.0, 1.0);
+//   prof.airRollMax = Math.max(0.0, vehicleTuningState.airRollMax);
+//   prof.airRollResponse = Math.max(0.1, vehicleTuningState.airRollResponse);
+//   prof.airRollReturn = Math.max(0.1, vehicleTuningState.airRollReturn);
 
-  prof.climbPitchMax = Math.max(0.0, vehicleTuningState.climbPitchMax);
-  prof.climbPitchSpeed = Math.max(0.1, vehicleTuningState.climbPitchSpeed);
-  prof.pitchResponse = Math.max(0.1, vehicleTuningState.pitchResponse);
-  prof.pitchReturn = Math.max(0.1, vehicleTuningState.pitchReturn);
-  prof.turnPitchMax = Math.max(0.0, vehicleTuningState.turnPitchMax);
+//   prof.climbPitchMax = Math.max(0.0, vehicleTuningState.climbPitchMax);
+//   prof.climbPitchSpeed = Math.max(0.1, vehicleTuningState.climbPitchSpeed);
+//   prof.pitchResponse = Math.max(0.1, vehicleTuningState.pitchResponse);
+//   prof.pitchReturn = Math.max(0.1, vehicleTuningState.pitchReturn);
+//   prof.turnPitchMax = Math.max(0.0, vehicleTuningState.turnPitchMax);
 
-  prof.trackHalfWidth = Math.min(4.0, Math.max(0.22, vehicleTuningState.trackHalfWidth));
+//   prof.trackHalfWidth = Math.min(4.0, Math.max(0.22, vehicleTuningState.trackHalfWidth));
 
-  prof.wetWidth = Math.max(0.05, vehicleTuningState.wetWidth);
-  prof.wetLength = Math.max(0.05, vehicleTuningState.wetLength);
-}
+//   prof.wetWidth = Math.max(0.05, vehicleTuningState.wetWidth);
+//   prof.wetLength = Math.max(0.05, vehicleTuningState.wetLength);
+// }
 
 
 
@@ -14762,30 +14831,34 @@ function writeTuningStateIntoVehicleProfile(v) {
     /**
      * Keeps the tuning state aligned with the current selection (no polling/traversal hacks).
      */
-function syncVehicleTuningSelection() {
-  if (!vehicleTuningFolder) return;
+// function syncVehicleTuningSelection() {
+//   if (!vehicleTuningFolder) return;
 
-  const v = getVehicleTuningTarget();
-  const id = v ? (v.id || "") : "";
+//   const v = getVehicleTuningTarget();
+//   const id = v ? (v.id || "") : "";
 
-  if (!v) {
-    vehicleTuningState.available = false;
-    vehicleTuningState.id = "";
-    vehicleTuningState.type = "";
-    vehicleTuningState.description = "";
-    vehicleTuningLastId = "";
-    return;
-  }
+//   if (!v) {
+//     vehicleTuningState.available = false;
+//     vehicleTuningState.id = "";
+//     vehicleTuningState.type = "";
+//     vehicleTuningState.description = "";
+//     vehicleTuningLastId = "";
+//     return;
+//   }
 
-  if (id === vehicleTuningLastId) return;
+//   if (id === vehicleTuningLastId) return;
 
-  vehicleTuningLastId = id;
-  readVehicleProfileIntoTuningState(v);
-}
+//   vehicleTuningLastId = id;
+//   readVehicleProfileIntoTuningState(v);
+// }
 
-    /**
-     * Sets up lil-gui controls for the selected vehicle profile and provides an export action.
-     */
+
+
+
+/**
+ * Sets up lil-gui controls for the selected vehicle profile and provides an export action.
+ */
+
 function setupVehicleTuningGui(folder) {
   vehicleTuningFolder = folder;
 
@@ -14979,143 +15052,50 @@ function setupVehicleTuningGui(folder) {
   const actions = {
     exportProfile: async () => {
       const v = getVehicleTuningTarget();
-      if (!v || !v.meta) return;
+      if (!v || !v.meta || !v.object) return;
 
       writeTuningStateIntoVehicleProfile(v);
 
-      function fmtNum(n, digits = 3) {
-        const x = Number(n);
-        if (!Number.isFinite(x)) return null;
-        const p = Math.pow(10, digits);
-        const r = Math.round(x * p) / p;
-        let s = r.toFixed(digits).replace(/0+$/, "").replace(/\.$/, "");
-        if (!s.includes(".")) s += ".0";
-        return s;
+      const hit = findWorldEditConfigForRoot(v.object);
+      if (!hit || !hit.entry || !hit.instCfg) return;
+
+      const entry = hit.entry;
+      const instCfg = hit.instCfg;
+
+      const outEntry = {
+        name: entry.name,
+        url: entry.url,
+        instances: []
+      };
+
+      const pos = v.object.position;
+      const rot = v.object.rotation;
+      const scale = v.object.scale;
+
+      const outInst = {};
+      for (const k in instCfg) {
+        if (!Object.prototype.hasOwnProperty.call(instCfg, k)) continue;
+        if (k === "runtimeObject") continue;
+        if (k === "__profileIsInstance") continue;
+        outInst[k] = instCfg[k];
       }
 
-      function fmtStr(s) {
-        return JSON.stringify(String(s ?? ""));
+      outInst.position = [pos.x, pos.y, pos.z];
+      outInst.rotation = [rot.x, rot.y, rot.z];
+      outInst.scale = (typeof outInst.scale === "number" || Array.isArray(outInst.scale)) ? outInst.scale : scale.x;
+
+      if (outInst.vehicle && typeof outInst.vehicle === "object") {
+        if (outInst.vehicle.__profileIsInstance) delete outInst.vehicle.__profileIsInstance;
+        if (outInst.vehicle.profile && outInst.vehicle.profile.__profileIsInstance) delete outInst.vehicle.profile.__profileIsInstance;
       }
 
-      function fmtBool(b) {
-        return b ? "true" : "false";
-      }
+      outEntry.instances.push(outInst);
 
-      function fmtArr3(a, dx, dy, dz) {
-        const x = Array.isArray(a) ? a : [dx, dy, dz];
-        const sx = fmtNum(x[0]) ?? "0.0";
-        const sy = fmtNum(x[1]) ?? "0.0";
-        const sz = fmtNum(x[2]) ?? "0.0";
-        return `[${sx}, ${sy}, ${sz}]`;
-      }
-
-      const type = v.meta.type || "Vehicle";
-      const description = v.meta.description || "";
-      const seatLocal = v.meta.seatLocal || [0, 0.6, 0];
-      const yawOffset = Number.isFinite(v.meta.yawOffset) ? v.meta.yawOffset : 0.0;
-
-      const prof = (v.meta.profile && typeof v.meta.profile === "object") ? v.meta.profile : {};
-      const used = new Set();
-      const lines = [];
-
-      lines.push("vehicle: {");
-      lines.push(`  type: ${fmtStr(type)},`);
-      lines.push(`  description: ${fmtStr(description)},`);
-      lines.push(`  seatLocal: ${fmtArr3(seatLocal, 0, 0.6, 0)},`);
-      lines.push(`  yawOffset: ${fmtNum(yawOffset) ?? "0.0"},`);
-      lines.push("  profile: {");
-
-      function pushNum(key) {
-        used.add(key);
-        const val = prof[key];
-        const s = fmtNum(val);
-        if (s == null) return;
-        lines.push(`    ${key}: ${s},`);
-      }
-
-      function pushStrKey(key) {
-        used.add(key);
-        const val = prof[key];
-        if (typeof val !== "string") return;
-        lines.push(`    ${key}: ${fmtStr(val)},`);
-      }
-
-      function pushBoolKey(key) {
-        used.add(key);
-        const val = prof[key];
-        if (typeof val !== "boolean") return;
-        lines.push(`    ${key}: ${fmtBool(val)},`);
-      }
-
-      pushNum("maxSpeed");
-      pushNum("maxReverse");
-      pushNum("accel");
-      pushNum("brake");
-      pushNum("coastDecel");
-      pushNum("turnRate");
-      pushNum("radius");
-      pushNum("wheelBase");
-      pushNum("minTurnRadius");
-      pushNum("minSteerSpeed");
-      pushNum("steerResponse");
-      pushNum("steerReturn");
-      pushNum("lateralGrip");
-
-      pushNum("wetWidth");
-      pushNum("wetLength");
-      pushNum("trackHalfWidth");
-
-      pushNum("propSpinIdle");
-      pushNum("propSpinMax");
-      pushNum("propSpinMul");
-
-      pushNum("liftOffSpeed");
-      pushNum("liftOffRise");
-      pushNum("liftOffFall");
-
-      pushNum("airYawRate");
-      pushNum("airRollRate");
-      pushNum("airRollResponse");
-      pushNum("airRollReturn");
-
-      pushNum("climbPitchMax");
-      pushNum("climbPitchSpeed");
-      pushNum("pitchResponse");
-      pushNum("pitchReturn");
-      pushNum("turnPitchMax");
-
-      pushStrKey("driveMode");
-      pushStrKey("propAxis");
-      pushBoolKey("propInvert");
-
-      const extraKeys = Object.keys(prof).filter((k) => !used.has(k)).sort();
-      for (let i = 0; i < extraKeys.length; i++) {
-        const k = extraKeys[i];
-        const val = prof[k];
-
-        if (typeof val === "number") {
-          const s = fmtNum(val);
-          if (s != null) lines.push(`    ${k}: ${s},`);
-          continue;
-        }
-        if (typeof val === "string" && val.length) {
-          lines.push(`    ${k}: ${fmtStr(val)},`);
-          continue;
-        }
-        if (typeof val === "boolean") {
-          lines.push(`    ${k}: ${fmtBool(val)},`);
-          continue;
-        }
-      }
-
-      if (lines[lines.length - 1].endsWith(",")) {
-        lines[lines.length - 1] = lines[lines.length - 1].slice(0, -1);
-      }
-
-      lines.push("  }");
-      lines.push("}");
-
-      const out = `// MODEL_CONFIG -> instance ${JSON.stringify(v.id)} (${type})\n${lines.join("\n")}`;
+      const out = JSON.stringify(outEntry, (key, value) => {
+        if (key === "runtimeObject") return undefined;
+        if (key === "__profileIsInstance") return undefined;
+        return value;
+      }, 2);
 
       console.log(out);
 
@@ -15130,13 +15110,10 @@ function setupVehicleTuningGui(folder) {
     }
   };
 
-
-
-
-
-
   folder.add(actions, "exportProfile").name("Copy MODEL_CONFIG").listen();
 }
+
+
 
 
 

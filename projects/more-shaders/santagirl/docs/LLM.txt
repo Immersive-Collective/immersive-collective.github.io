@@ -54,3 +54,7 @@
 * code changes - no essays or explanations - productive support - I am not wiriting Wikipedia or PhD articles - I need progress with code
 
 * if you provide me code for entire <script> tag - do not provide this script tag - I know this is script tag - just pure JS please
+
+* never provide an instruction in terms of edit in the code in a form of a comment like this one: "<!-- APPLY by adding classes in your existing HTML (example: video card) -->" - the instruction needs to be clearly outside the code, above and then code as code
+
+* we are working with production code - do not treat code baase as a collection of examples - you are providing a production high grade the best state of the art code and soltions - not a cheap tutorials for a poor man 
