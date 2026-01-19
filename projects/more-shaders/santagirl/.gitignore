@@ -2,3 +2,37 @@
 vendor/
 node_modules/
 
+
+# package manager logs / caches
+/npm-debug.log*
+/yarn-debug.log*
+/yarn-error.log*
+/pnpm-debug.log*
+/.pnpm-store/
+/.npm/
+/.yarn/
+
+# build / dist outputs
+/dist/
+/build/
+/out/
+
+# bundler caches
+/.parcel-cache/
+/.vite/
+/.esbuild/
+/.turbo/
+/.next/
+/.nuxt/
+
+# local env / secrets
+/.env
+/.env.*
+!.env.example
+
+# OS / editor noise
+/.DS_Store
+/Thumbs.db
+/.idea/
+/.vscode/
+*.swp
