@@ -237,9 +237,10 @@ button {
   border-radius: 999px;
   background: rgba(255,255,255,0.10);
   border: 1px solid rgba(255,255,255,0.18);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 
+/*  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+*/
   z-index: 40;
   pointer-events: auto;
 
@@ -1730,11 +1731,22 @@ canvas.world-edit-on {
 
 
 <!-- Import map for Three.js -->
-<script type="importmap">
+<!-- <script type="importmap">
   {
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.182.0/build/three.module.js",
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.182.0/examples/jsm/"
+    }
+  }
+</script> -->
+
+
+<script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three/build/three.module.js",
+      "three/addons/": "./vendor/three/examples/jsm/",
+      "lil-gui": "./vendor/lil-gui/lil-gui.esm.js"
     }
   }
 </script>
@@ -2187,7 +2199,8 @@ canvas.world-edit-on {
   import { VRButton } from "three/addons/webxr/VRButton.js";
   import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
   import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";    
-  import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm";
+  // import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.20/+esm";
+  import GUI from "lil-gui";
 
     // -------------------------------------------------------------------------
     // Helpers / persistence utilities
@@ -4675,14 +4688,181 @@ canvas.world-edit-on {
 
 
 /* Plays a WebAudio preset by id: playFX("jump"). */
+  // function playFX(id, scale = 1.0, presetOverride = null) {
+  //   if (!params || !params.sfxEnabled) return;
+  //   if (!id) return;
+
+  //   const bus = ensureSfxBus();
+  //   if (!bus || !audioCtx) return;
+
+  //   if (audioCtx.state === "suspended") return;
+
+  //   const presets = (params && params.sfxPresets && typeof params.sfxPresets === "object") ? params.sfxPresets : null;
+
+  //   const p =
+  //   (presetOverride && typeof presetOverride === "object")
+  //   ? presetOverride
+  //   : (presets && presets[id] ? presets[id] : null);
+
+  //   if (!p) return;
+
+  //   const ctx = audioCtx;
+  //   const now = ctx.currentTime;
+
+  //   const kind = String(p.kind || "osc").toLowerCase();
+  //   const oscType = String(p.oscType || "sine");
+  //   const freq = Math.max(1, Number(p.freq || 220));
+  //   const freqEnd = Math.max(1, Number(p.freqEnd || freq));
+  //   const noiseAmt = clamp(Number(p.noise != null ? p.noise : 0), 0.0, 1.0);
+
+  //   const gainBase = clamp(Number(p.gain != null ? p.gain : 0.5), 0.0, 2.0) * clamp(Number(scale || 1), 0.05, 3.0);
+  //   const attack = clamp(Number(p.attack != null ? p.attack : 0.002), 0.0, 0.5);
+  //   const decay = clamp(Number(p.decay != null ? p.decay : 0.10), 0.0, 2.0);
+  //   const release = clamp(Number(p.release != null ? p.release : 0.05), 0.0, 2.0);
+  //   const duration = clamp(Number(p.duration != null ? p.duration : 0.2), 0.02, 6.0);
+
+  //   const filterType = String(p.filterType || "none").toLowerCase();
+  //   const filterFreq = clamp(Number(p.filterFreq != null ? p.filterFreq : 12000), 20, 20000);
+  //   const filterQ = clamp(Number(p.filterQ != null ? p.filterQ : 0.7), 0.0001, 30);
+
+  //   const panVal = clamp(Number(p.pan != null ? p.pan : 0), -1.0, 1.0);
+
+  //   const reverbMix = clamp(Number(p.reverbMix != null ? p.reverbMix : 0.0), 0.0, 1.0);
+  //   const irSeconds = clamp(Number(p.irSeconds != null ? p.irSeconds : 1.2), 0.2, 6.0);
+
+  //   const master = ctx.createGain();
+  //   master.gain.value = 1.0;
+
+  //   const env = ctx.createGain();
+  //   env.gain.setValueAtTime(0.0001, now);
+
+  //   const peak = Math.max(0.0002, gainBase);
+  //   const tA = now + attack;
+  //   const tD = tA + decay;
+  //   const tEnd = now + duration;
+  //   const tRel = tEnd + release;
+
+  //   env.gain.exponentialRampToValueAtTime(peak, Math.max(now + 0.0005, tA));
+  //   env.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak * 0.35), Math.max(tA + 0.0005, tD));
+  //   env.gain.exponentialRampToValueAtTime(0.0001, Math.max(tEnd + 0.0005, tRel));
+
+  //   const panner = ctx.createStereoPanner();
+  //   panner.pan.value = panVal;
+
+  //   let post = env;
+
+  //   let filter = null;
+  //   if (filterType !== "none") {
+  //     filter = ctx.createBiquadFilter();
+  //     filter.type = filterType;
+  //     filter.frequency.value = filterFreq;
+  //     filter.Q.value = filterQ;
+  //     env.connect(filter);
+  //     post = filter;
+  //   }
+
+  //   let osc = null;
+  //   if (kind === "osc" || kind === "mix") {
+  //     osc = ctx.createOscillator();
+  //     osc.type = oscType;
+  //     osc.frequency.setValueAtTime(freq, now);
+  //     osc.frequency.exponentialRampToValueAtTime(freqEnd, Math.max(now + 0.01, tEnd));
+  //     osc.connect(env);
+  //   }
+
+  //   let noise = null;
+  //   let noiseGain = null;
+  //   if (kind === "noise" || kind === "mix") {
+  //     const buf = ensureSfxNoiseBuffer();
+  //     if (buf) {
+  //       noise = ctx.createBufferSource();
+  //       noise.buffer = buf;
+  //       noise.loop = true;
+
+  //       noiseGain = ctx.createGain();
+  //       noiseGain.gain.value = noiseAmt;
+
+  //       noise.connect(noiseGain);
+  //       noiseGain.connect(env);
+  //     }
+  //   }
+
+  //   const dry = ctx.createGain();
+  //   const wet = ctx.createGain();
+  //   dry.gain.value = 1.0 - reverbMix;
+  //   wet.gain.value = reverbMix;
+
+  //   post.connect(dry);
+  //   dry.connect(panner);
+
+  //   if (reverbMix > 0.0001) {
+  //     const convolver = ctx.createConvolver();
+  //     convolver.buffer = getSfxIR(irSeconds);
+
+  //     post.connect(convolver);
+  //     convolver.connect(wet);
+  //     wet.connect(panner);
+  //   }
+
+  //   panner.connect(master);
+  //   master.connect(bus);
+
+  //   if (osc) {
+  //     osc.start(now);
+  //     osc.stop(Math.max(now + 0.02, tRel + 0.02));
+  //   }
+  //   if (noise) {
+  //     noise.start(now);
+  //     noise.stop(Math.max(now + 0.02, tRel + 0.02));
+  //   }
+  // }
+
+
+/* Plays a WebAudio preset by id: playFX("jump"). Also records last-failure reason in params.__sfxLast. */
   function playFX(id, scale = 1.0, presetOverride = null) {
-    if (!params || !params.sfxEnabled) return;
-    if (!id) return;
+    const setLast = (ok, reason, extra) => {
+      if (!params || typeof params !== "object") return;
+      params.__sfxLast = {
+        ok: !!ok,
+        id: String(id || ""),
+        reason: reason ? String(reason) : "",
+        ctxState: (audioCtx && audioCtx.state) ? String(audioCtx.state) : "",
+        t: (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now(),
+        extra: extra || null
+      };
+
+      if (params.sfxDebug) {
+        if (ok) console.log("[sfx]", "OK", params.__sfxLast);
+        else console.warn("[sfx]", "FAIL", params.__sfxLast);
+        if (!ok && typeof showActionToast === "function") showActionToast(`SFX FAIL: ${params.__sfxLast.reason}`);
+      }
+    };
+
+    if (!params || !params.sfxEnabled) {
+      setLast(false, "disabled", null);
+      return false;
+    }
+
+    if (!id) {
+      setLast(false, "missing-id", null);
+      return false;
+    }
 
     const bus = ensureSfxBus();
-    if (!bus || !audioCtx) return;
+    if (!bus) {
+      setLast(false, "no-sfx-bus", null);
+      return false;
+    }
 
-    if (audioCtx.state === "suspended") return;
+    if (!audioCtx) {
+      setLast(false, "no-audio-context", null);
+      return false;
+    }
+
+    if (audioCtx.state !== "running") {
+      setLast(false, "audio-context-not-running", { state: audioCtx.state });
+      return false;
+    }
 
     const presets = (params && params.sfxPresets && typeof params.sfxPresets === "object") ? params.sfxPresets : null;
 
@@ -4691,7 +4871,10 @@ canvas.world-edit-on {
     ? presetOverride
     : (presets && presets[id] ? presets[id] : null);
 
-    if (!p) return;
+    if (!p) {
+      setLast(false, "missing-preset", { id: String(id), hasPresets: !!presets });
+      return false;
+    }
 
     const ctx = audioCtx;
     const now = ctx.currentTime;
@@ -4802,9 +4985,15 @@ canvas.world-edit-on {
       noise.start(now);
       noise.stop(Math.max(now + 0.02, tRel + 0.02));
     }
+
+    setLast(true, "ok", null);
+    return true;
   }
 
 
+
+
+  window.playFX = playFX
 
 
 
@@ -10458,6 +10647,29 @@ function loadAllModels() {
               playerProfile.stats.__stepCarryM -= newSteps * stepLen;
 
               if (worldBucket) worldBucket.steps = (worldBucket.steps || 0) + newSteps;
+
+          // Footsteps (sync by the same step counter; does not affect animation)
+              const onFoot =
+              avatarState.enabled &&
+              avatar &&
+              avatarJumpState &&
+              avatarJumpState.grounded &&
+              !(vehicleDriveState && vehicleDriveState.enabled);
+
+              if (onFoot) {
+            // Cap per-frame to avoid "machine gun" if dt spikes.
+                const burst = Math.min(4, newSteps);
+
+                const invDt = 1 / Math.max(1e-6, dt);
+                const vx2 = (avatar.position.x - prevAx) * invDt;
+                const vz2 = (avatar.position.z - prevAz) * invDt;
+                const speed = Math.hypot(vx2, vz2);
+
+                for (let i = 0; i < burst; i++) {
+                  const scale = clamp(0.35 + speed * 0.05, 0.22, 0.95);
+                  playFX("step6", scale);
+                }
+              }
             }
           }
         }
@@ -10484,6 +10696,7 @@ function loadAllModels() {
         avatarMixer.update(dt);
       }
     }
+
 
 
 
@@ -10670,11 +10883,13 @@ function loadAllModels() {
           if (!near) return;
 
           if (near.kind === "pickup") {
+
             pickupTake(near);
             return;
           }
 
           if (near.kind === "equipment") {
+
             if (!equipmentState.enabled) equipItem(near);
             return;
           }
@@ -11385,11 +11600,6 @@ function loadAllModels() {
       const edit = document.getElementById("worldEditToggle");
       const uiMode = document.getElementById("avatarUiModeToggle");
 
-      const worldsBtn = document.getElementById("worldsBtn");
-      const saveWorldBtn = document.getElementById("saveWorldBtn");
-      const inventoryBtn = document.getElementById("inventoryBtn");
-      const playerProfileBtn = document.getElementById("playerProfileBtn");
-
       const undoBtn = document.getElementById("worldEditUndoBtn");
       const redoBtn = document.getElementById("worldEditRedoBtn");
       const modeBtn = document.getElementById("worldEditTransformMode");
@@ -11405,14 +11615,6 @@ function loadAllModels() {
         btn.setAttribute("aria-label", text);
       };
 
-      const setHint = (btn, title, ariaKeyShortcuts) => {
-        if (!btn) return;
-        btn.setAttribute("title", title);
-        if (ariaKeyShortcuts) btn.setAttribute("aria-keyshortcuts", ariaKeyShortcuts);
-        else btn.removeAttribute("aria-keyshortcuts");
-      };
-
-  // Button labels + states
       if (toggle) {
         setBtnText(toggle, avatarState.enabled ? "Avatar: ON" : "Avatar: OFF");
         toggle.classList.toggle("is-on", !!avatarState.enabled);
@@ -11435,17 +11637,6 @@ function loadAllModels() {
         uiMode.classList.toggle("is-on", layout !== "text");
       }
 
-  // Native hover hints + keyboard shortcut hints (kept in sync with current state)
-      setHint(toggle, `Toggle avatar control (${avatarState.enabled ? "ON" : "OFF"}) (V)`, "V");
-      setHint(view, `Toggle camera view (${avatarState.viewMode === "third" ? "Behind" : "Eyes"}) (C)`, "C");
-      setHint(edit, `Toggle Edit World mode (${worldEditState.enabled ? "ON" : "OFF"}) (N)`, "N");
-      setHint(uiMode, "Cycle UI layout (TEXT → ICONS → BOTH)", "");
-
-      setHint(worldsBtn, "Open worlds", "");
-      setHint(saveWorldBtn, "Save current world (Ctrl/Cmd+S)", "Control+S Meta+S");
-      setHint(inventoryBtn, "Open inventory", "");
-      setHint(playerProfileBtn, "Open profile", "");
-
       const swapIcon = (btn) => {
         if (!btn) return;
         const img = btn.querySelector(".avatar-btn__icon");
@@ -11466,6 +11657,23 @@ function loadAllModels() {
       swapIcon(view);
       swapIcon(edit);
       swapIcon(uiMode);
+
+  // Mobile joysticks: only visible when avatar control is enabled.
+      const ui = document.querySelector(".avatar-ui");
+      const uiIsHidden = !!(ui && ui.style && ui.style.display === "none");
+      const showJoysticks = !!(avatarState.enabled && !uiIsHidden);
+
+      const joystickEl = document.getElementById("joystick");
+      if (joystickEl) {
+        joystickEl.style.display = showJoysticks ? "" : "none";
+        joystickEl.setAttribute("aria-hidden", showJoysticks ? "false" : "true");
+      }
+
+      const joystickRightEl = document.getElementById("joystickRight");
+      if (joystickRightEl) {
+        joystickRightEl.style.display = showJoysticks ? "" : "none";
+        joystickRightEl.setAttribute("aria-hidden", showJoysticks ? "false" : "true");
+      }
 
       const visible = !!worldEditState.enabled;
 
@@ -11501,6 +11709,7 @@ function loadAllModels() {
         modeBtn.textContent = mode === "translate" ? "P" : mode === "rotate" ? "R" : "S";
       }
     }
+
 
 
 
@@ -13926,6 +14135,7 @@ function getAvatarEquipAttachmentNode(boneName) {
  * Attaches a nearby equipment object to the avatar and activates its idle override action if present.
  */
 function equipItem(e) {
+
   if (!avatar || !scene || !e || !e.object) return;
   if (vehicleDriveState.enabled) return;
   if (equipmentState.enabled) return;
@@ -13976,6 +14186,8 @@ function equipItem(e) {
 
   const s = attach.scale;
 
+
+
   if (Array.isArray(s) && s.length === 3) {
     const sx = Number.isFinite(s[0]) ? s[0] : 1;
     const sy = Number.isFinite(s[1]) ? s[1] : 1;
@@ -14004,6 +14216,11 @@ function equipItem(e) {
   switchAvatarAction("idle");
   setVehiclePrompt(true, e);
   updateVehicleOutlineFor(null);
+
+
+
+
+
 }
 
 
@@ -22880,6 +23097,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
   // E: interact (enter nearest vehicle / equip nearby item)
         if (event.code === "KeyE" && !event.metaKey && !event.ctrlKey) {
+
+
+
+
           if (event.repeat) return;
           event.preventDefault();
 
@@ -22899,7 +23120,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           if (!near) return;
 
           if (near.kind === "equipment") {
+
             equipItem(near);
+
             return;
           }
 

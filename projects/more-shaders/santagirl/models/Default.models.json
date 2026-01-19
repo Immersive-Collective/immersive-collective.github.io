@@ -30,6 +30,8 @@
       }
     ]
   },
+
+
   {
     "name": "plane",
     "url": "models/vehicles/flying/plane1-1.glb",
@@ -579,6 +581,7 @@
       }
     ]
   },
+
   {
     "name": "jetpack",
     "url": "models/vehicles/jetpacks/jetpack.glb",
@@ -620,6 +623,8 @@
       }
     ]
   },
+
+
   {
     "name": "backpack",
     "url": "models/backpacks/backpack1.glb",
@@ -661,71 +666,78 @@
       }
     ]
   },
-  {
-    "name": "snowcar",
-    "url": "models/vehicles/snowcar.glb",
-    "instances": [
-      {
-        "id": "car2",
-        "position": [
-          -8.853128096038596,
-          -0.01753732038906497,
-          -16.146082033671828
+
+
+
+{
+  "name": "snowcar",
+  "url": "models/vehicles/snowcar.glb",
+  "instances": [
+    {
+      "id": "car2",
+      "position": [
+        2.8378617232195,
+        -0.06303714406510107,
+        -6.352041653416148
+      ],
+      "rotation": [
+        -2.981037069924253,
+        -1.5584226311081686,
+        -2.9792750366763077
+      ],
+      "scale": 1,
+      "stick": false,
+      "collide": true,
+      "vehicle": {
+        "type": "Snowcar",
+        "description": "Snow-capable car",
+        "seatLocal": [
+          0.5,
+          0.54,
+          1.15
         ],
-        "rotation": [
-          3.141592653589793,
-          -0.850190555681674,
-          3.141592653589793
-        ],
-        "scale": 1,
-        "stick": false,
-        "collide": true,
-        "vehicle": {
-          "type": "Snowcar",
-          "description": "Snow-capable car",
-          "seatLocal": [
-            0.5,
-            0.54,
-            1.15
-          ],
-          "yawOffset": 0,
-          "profile": {
-            "maxSpeed": 111,
-            "maxReverse": 6.9,
-            "accel": 3.2,
-            "brake": 28.7,
-            "coastDecel": 1.8,
-            "turnRate": 0.64,
-            "radius": 0.7,
-            "wheelBase": 1.9,
-            "minTurnRadius": 3.8,
-            "minSteerSpeed": 0.55,
-            "steerResponse": 5.7,
-            "steerReturn": 7,
-            "lateralGrip": 9,
-            "wetWidth": 0.15,
-            "wetLength": 1.63,
-            "trackHalfWidth": 1.1,
-            "propSpinIdle": 8,
-            "propSpinMax": 80,
-            "propSpinMul": 1,
-            "propAxis": "z",
-            "propInvert": false,
-            "minFlySpeed": 14,
-            "maxLift": 10,
-            "liftResponse": 5,
-            "airTurnScale": 0.35,
-            "airRollMax": 0.35,
-            "airRollResponse": 8,
-            "airRollReturn": 5,
-            "climbPitchMax": 0.22,
-            "climbPitchSpeed": 4,
-            "pitchResponse": 4,
-            "pitchReturn": 3,
-            "turnPitchMax": 0.1
-          }
+        "yawOffset": 0,
+        "profile": {
+          "maxSpeed": 111,
+          "maxReverse": 6.9,
+          "accel": 2,
+          "brake": 11.7,
+          "coastDecel": 1.5,
+          "turnRate": 0.1,
+          "radius": 0.38,
+          "wheelBase": 1.9,
+          "minTurnRadius": 3.8,
+          "minSteerSpeed": 0.55,
+          "steerResponse": 5.7,
+          "steerReturn": 7,
+          "lateralGrip": 9,
+          "wetWidth": 0.15,
+          "wetLength": 1.63,
+          "trackHalfWidth": 1.1,
+          "propSpinIdle": 8,
+          "propSpinMax": 80,
+          "propSpinMul": 1,
+          "propAxis": "z",
+          "propInvert": false,
+          "minFlySpeed": 14,
+          "maxLift": 10,
+          "liftResponse": 5,
+          "airTurnScale": 0.35,
+          "airRollMax": 0.35,
+          "airRollResponse": 8,
+          "airRollReturn": 5,
+          "climbPitchMax": 0.22,
+          "climbPitchSpeed": 4,
+          "pitchResponse": 4,
+          "pitchReturn": 3,
+          "turnPitchMax": 0.1
         }
       }
-    ]
-  }
+    }
+  ]
+}
+
+
+
+
 ]

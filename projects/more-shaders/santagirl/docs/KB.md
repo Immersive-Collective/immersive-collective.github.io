@@ -260,3 +260,41 @@ And “pp” here should be treated as:
 * not EffectComposer chains.
 
 
+
+
+
+
+
+### Vehicle tuning cheat sheet (quick)
+
+**If it’s too fast**
+
+* `maxSpeed` ↓ (likely m/s; 30 ≈ 108 km/h)
+* `accel` ↓ (slower to reach max)
+* `coastDecel` ↑ (slows down when not throttling)
+* `brake` ↑ (stops faster)
+
+**If it turns too fast / too twitchy**
+
+* `turnRate` ↓ (primary “steer strength”)
+* `minTurnRadius` ↑ (bigger = wider turns)
+* `steerResponse` ↓ (less twitch on input)
+* `lateralGrip` ↓ (less “bite”, more drift/slide)
+
+**If it won’t return to straight**
+
+* `steerReturn` ↑
+
+**Good starting ranges (car-like)**
+
+* `maxSpeed`: **20–35**
+* `maxReverse`: **3–6**
+* `turnRate`: **0.15–0.35**
+* `minTurnRadius`: **5–9**
+* `steerResponse`: **3–6**
+* `steerReturn`: **5–9**
+* `lateralGrip`: **6–9**
+
+**One-line fix for your current profile**
+
+* Change `maxSpeed: 111` → **30.8** (if you meant 111 km/h)
