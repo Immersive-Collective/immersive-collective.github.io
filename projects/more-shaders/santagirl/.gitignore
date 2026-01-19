@@ -1,6 +1,8 @@
 .DS_Store
 node_modules/
-
+build
+!vendor/three/build/
+!vendor/three/build/**
 
 # package manager logs / caches
 /npm-debug.log*
@@ -13,7 +15,6 @@ node_modules/
 
 # build / dist outputs
 /dist/
-/build/
 /out/
 
 # bundler caches
