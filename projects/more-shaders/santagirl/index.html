@@ -878,14 +878,14 @@ button {
 .world-name {
   position: fixed;
   left: 50%;
-  top: calc(30px + env(safe-area-inset-top));
+  top: calc(95px + env(safe-area-inset-top));
   transform: translateX(-50%);
-  padding: 6px 10px;
+  padding: 0 1rem 0 1rem;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.18);
+/*  border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgb(192 192 192 / 42%);
-  color: rgb(50 50 50 / 92%);
-  font-size: 22px;;
+*/  color: rgb(255 255 255 / 92%);
+  font-size: 32px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1185,20 +1185,20 @@ button {
 
 .minimap {
   position: fixed;
-  left: calc(8px + env(safe-area-inset-left));
-  top: calc(8px + env(safe-area-inset-top));
+  left: calc(4px + env(safe-area-inset-left));
+  top: calc(4px + env(safe-area-inset-top));
   width: var(--minimap-size, 160px);
   height: var(--minimap-size, 160px);
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(0,0,0,0.35);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  /*border-radius: 16px;*/
+  /*border: 0px solid rgba(255,255,255,0.18);*/
+  /*background: rgba(0,0,0,0.35);*/
+  /*box-shadow: 0 10px 30px rgba(0,0,0,0.35);*/
   padding: 0;
   overflow: hidden;
   z-index: 22;
   pointer-events: auto;
   cursor: pointer;
-  backdrop-filter: blur(10px);
+  /*backdrop-filter: blur(10px);*/
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -1489,15 +1489,15 @@ button {
 
 .hud-tile {
   position: fixed;
-  left: calc(8px + env(safe-area-inset-left));
-  top: calc(8px + env(safe-area-inset-top) + var(--minimap-size, 160px) + 10px);
+  left: calc(0px + env(safe-area-inset-left));
+  top: calc(0px + env(safe-area-inset-top) + var(--minimap-size, 160px) + 10px);
   width: var(--minimap-size, 160px);
   min-height: 64px;
   border-radius: 14px;
   border: 0px solid rgba(255,255,255,0.16);
 /*  background: rgba(0,0,0,0.35);
   box-shadow: 0 10px 30px rgba(0,0,0,0.30);*/
-  backdrop-filter: blur(10px);
+  /*backdrop-filter: blur(10px);*/
   padding: 10px 12px;
   z-index: 22;
   pointer-events: none;
@@ -1562,20 +1562,23 @@ canvas.world-edit-on {
 }
 
 
+
+
+
 .now-playing {
   position: fixed;
   left: 50%;
-  top: calc(75px + env(safe-area-inset-top));
+  top: 2px;
   transform: translateX(-50%);
   width: min(50vw, 520px);
   z-index: 23;
   pointer-events: auto;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgb(0 0 0 / 28%);
-  backdrop-filter: blur(10px);
-  color: rgba(255,255,255,0.92);
+  padding: 4px 18px;
+  border-radius: 12px;
+  /*border: 1px solid rgba(255,255,255,0.18);*/
+  background: rgb(0 0 0 / 0%);
+  /*backdrop-filter: blur(12px);*/
+  color: rgba(255,255,255,1);
 }
 
 .now-playing[aria-hidden="true"] {
@@ -1585,9 +1588,8 @@ canvas.world-edit-on {
 .now-playing__row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .now-playing__title {
@@ -1598,32 +1600,35 @@ canvas.world-edit-on {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 70%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.now-playing__controls {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex: 0 0 auto;
 }
 
 .now-playing__time {
   font-size: 12px;
   opacity: 0.9;
   flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .now-playing__seek {
   width: 100%;
-  margin: 0 0 8px 0;
-}
-
-.now-playing__controls {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
+  margin: 0;
 }
 
 .now-playing__btn {
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.18);
   background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.92);
+  color: rgba(255,255,255,1);
   font-weight: 700;
   cursor: pointer;
 }
@@ -1632,11 +1637,58 @@ canvas.world-edit-on {
   background: rgba(255,255,255,0.18);
 }
 
-
 .now-playing.now-playing--disabled {
   opacity: 0.65;
   filter: grayscale(0.2);
 }
+
+
+.now-playing__seek {
+  width: 100%;
+  margin: 0;
+  height: 14px;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.now-playing__seek:focus {
+  outline: none;
+}
+
+.now-playing__seek::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.22);
+}
+
+.now-playing__seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+  border: 0;
+  margin-top: -3px;
+}
+
+.now-playing__seek::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.22);
+}
+
+.now-playing__seek::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+  border: 0;
+}
+
+
+
 
 
 .avatar-btn__icon {
@@ -1772,17 +1824,19 @@ canvas.world-edit-on {
   <div id="nowPlaying" class="now-playing" aria-hidden="true">
     <div class="now-playing__row">
       <div id="nowPlayingTitle" class="now-playing__title">—</div>
+
+      <div class="now-playing__controls">
+        <button id="nowPlayingPrev" class="now-playing__btn" type="button">Prev</button>
+        <button id="nowPlayingPlay" class="now-playing__btn now-playing__btn--primary" type="button">Play</button>
+        <button id="nowPlayingNext" class="now-playing__btn" type="button">Next</button>
+      </div>
+
       <div id="nowPlayingTime" class="now-playing__time">0:00 / 0:00</div>
     </div>
 
     <input id="nowPlayingSeek" class="now-playing__seek" type="range" min="0" max="1" step="0.001" value="0" aria-label="Seek" />
-
-    <div class="now-playing__controls">
-      <button id="nowPlayingPrev" class="now-playing__btn" type="button">Prev</button>
-      <button id="nowPlayingPlay" class="now-playing__btn now-playing__btn--primary" type="button">Play</button>
-      <button id="nowPlayingNext" class="now-playing__btn" type="button">Next</button>
-    </div>
   </div>
+
 
 
 
@@ -3634,8 +3688,14 @@ canvas.world-edit-on {
     // Audio (music + SFX)
     musicEnabled: false,
     musicVolume: 0.35,
+    musicPlaylistId: "starter",
+    musicTrackIndex: 0,
+    musicLoopPlaylist: true,
+    musicFollowPlaylistsOrder: false,
+    musicAutoPlay: false,
+
     sfxEnabled: true,
-    sfxVolume: 0.85,    
+    sfxVolume: 0.85, 
 
 
     sfxPresets: {
@@ -4390,6 +4450,7 @@ canvas.world-edit-on {
       musicState.uiWired = true;
     }
 
+// Replace function: musicSelectPlaylistById
 /* Selects a playlist by id and loads its trackList.json. */
     async function musicSelectPlaylistById(id, { keepPlaying = false } = {}) {
       await loadPlaylistsSetOnce();
@@ -4401,6 +4462,11 @@ canvas.world-edit-on {
       musicState.playlistId = pl.id;
       musicState.playlistFolder = pl.folder;
 
+      if (params) {
+        params.musicPlaylistId = musicState.playlistId;
+        saveLastDebounced(params);
+      }
+
       await loadTracksForCurrentPlaylist();
 
       musicState.trackIndex = clamp(musicState.trackIndex | 0, 0, Math.max(0, musicState.tracks.length - 1));
@@ -4408,6 +4474,7 @@ canvas.world-edit-on {
 
       updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
     }
+
 
 /* Loads the current track into the element (does not restart on volume changes). */
     async function musicLoadCurrentTrack({ autoplay = false } = {}) {
@@ -4419,6 +4486,11 @@ canvas.world-edit-on {
 
       const idx = clamp(musicState.trackIndex | 0, 0, tracks.length - 1);
       musicState.trackIndex = idx;
+
+      if (params) {
+        params.musicTrackIndex = idx | 0;
+        saveLastDebounced(params);
+      }
 
       const folder = String(musicState.playlistFolder || "starter").trim() || "starter";
       const t = tracks[idx];
@@ -4438,6 +4510,7 @@ canvas.world-edit-on {
       }
     }
 
+
     async function musicPlay() {
       if (!params || !params.musicEnabled) return;
 
@@ -4448,7 +4521,7 @@ canvas.world-edit-on {
 
       await loadPlaylistsSetOnce();
       if (!musicState.tracks || !musicState.tracks.length) {
-        await musicSelectPlaylistById(musicState.playlistId || "starter", { keepPlaying: false });
+        await musicSelectPlaylistById(musicState.playlistId || (params.musicPlaylistId || "starter"), { keepPlaying: false });
       }
 
       const el = ensureMusicElement();
@@ -4464,6 +4537,13 @@ canvas.world-edit-on {
       try {
         await el.play();
         musicState.isPlaying = true;
+
+        params.musicPlaylistId = String(musicState.playlistId || "starter");
+        params.musicTrackIndex = musicState.trackIndex | 0;
+        params.musicLoopPlaylist = !!musicState.loopPlaylist;
+        params.musicFollowPlaylistsOrder = !!musicState.followPlaylistsOrder;
+        params.musicAutoPlay = true;
+        saveLastDebounced(params);
       } catch (_) {
         musicState.isPlaying = false;
       }
@@ -4471,10 +4551,67 @@ canvas.world-edit-on {
       updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
     }
 
+
+
+/* Boots music state from saved params (playlist/track) and resumes playback on first user gesture if required. */
+    async function bootMusicFromSavedSettings() {
+      if (!params) return;
+
+      musicState.playlistId = String(params.musicPlaylistId || musicState.playlistId || "starter");
+      musicState.trackIndex = Number.isFinite(Number(params.musicTrackIndex)) ? (Number(params.musicTrackIndex) | 0) : (musicState.trackIndex | 0);
+
+      musicState.loopPlaylist = !!params.musicLoopPlaylist;
+      musicState.followPlaylistsOrder = !!params.musicFollowPlaylistsOrder;
+
+      if (!params.musicEnabled) {
+        applyMusicFromParams();
+        return;
+      }
+
+      applyMusicFromParams();
+
+      await loadPlaylistsSetOnce().catch(() => {});
+      await musicSelectPlaylistById(musicState.playlistId || "starter", { keepPlaying: false }).catch(() => {});
+
+      musicState.trackIndex = clamp(musicState.trackIndex | 0, 0, Math.max(0, (musicState.tracks || []).length - 1));
+      await musicLoadCurrentTrack({ autoplay: false }).catch(() => {});
+
+      if (!params.musicAutoPlay) return;
+
+      const arm = () => {
+        const kick = async () => {
+          window.removeEventListener("pointerdown", kick, true);
+          window.removeEventListener("keydown", kick, true);
+          window.removeEventListener("touchstart", kick, true);
+          await musicPlay();
+        };
+
+        window.addEventListener("pointerdown", kick, true);
+        window.addEventListener("keydown", kick, true);
+        window.addEventListener("touchstart", kick, true);
+
+        if (typeof showActionToast === "function") showActionToast("Tap / press a key to start music");
+      };
+
+      try {
+        await musicPlay();
+      } catch (_) {
+        arm();
+      }
+    }
+
+
+
     function musicPause() {
       if (!musicElement) return;
       musicElement.pause();
       musicState.isPlaying = false;
+
+      if (params) {
+        params.musicAutoPlay = false;
+        saveLastDebounced(params);
+      }
+
       updateNowPlayingUi((typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now());
     }
 
@@ -23378,10 +23515,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
+// Replace function: init
       async function init() {
         loadLastSettings(params);
         await loadSfxPresetsFromFile("./audio/sounds_presets.json");
-
 
         const bootActiveWorldId = getActiveWorldId();
         let bootWorldSettings = null;
@@ -23408,17 +23545,16 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           rebuildWorld();
         }
 
+        await bootMusicFromSavedSettings();
+
         setupGui();
         refreshGuiDisplays();
         refreshPresetList();
-    //loadSoundPresetsJson();
 
         handleResize();
         window.addEventListener("resize", handleResize, { passive: true });
 
-
-        /* Prevents browser scrolling/selection when interacting with the on-screen joysticks. */
-
+  /* Prevents browser scrolling/selection when interacting with the on-screen joysticks. */
         document.addEventListener("contextmenu", (e) => e.preventDefault());
 
         document.addEventListener(
@@ -23430,8 +23566,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           },
           { passive: false }
           );
-
-
 
         window.addEventListener("keydown", onKeyDown);
         window.addEventListener("keyup", onKeyUp);
@@ -23452,7 +23586,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         loadAvatar();
         setupAvatarUI();
-        setupMinimapUI();        
+        setupMinimapUI();
 
         bootWorldPickerOverlay();
 
@@ -23467,6 +23601,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         renderer.setAnimationLoop(animate);
       }
+
 
 
 
