@@ -22196,6 +22196,123 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         c2: new THREE.Color()
       };
 
+
+/* Emitter particle textures: built-in shapes (canvas) + optional external sprite texture. */
+      const emitterParticleTexCache = new Map();
+      const emitterParticleTexLoader = new THREE.TextureLoader();
+
+      function getEmitterParticleTexture(shape, textureUrl) {
+        const s = String(shape || "square").trim().toLowerCase();
+        const url = String(textureUrl || "").trim();
+        const key = `${s}|${url}`;
+
+        const cached = emitterParticleTexCache.get(key);
+        if (cached) return cached;
+
+        if (s === "tex") {
+          if (!url) return null;
+          const t = emitterParticleTexLoader.load(url);
+          t.wrapS = THREE.ClampToEdgeWrapping;
+          t.wrapT = THREE.ClampToEdgeWrapping;
+          t.minFilter = THREE.LinearMipMapLinearFilter;
+          t.magFilter = THREE.LinearFilter;
+          t.generateMipmaps = true;
+          t.needsUpdate = true;
+          emitterParticleTexCache.set(key, t);
+          return t;
+        }
+
+        if (s === "square") return null;
+
+        const c = document.createElement("canvas");
+        c.width = 64;
+        c.height = 64;
+        const ctx = c.getContext("2d");
+        ctx.clearRect(0, 0, 64, 64);
+
+        const mid = 32;
+
+        if (s === "dot") {
+          const g = ctx.createRadialGradient(mid, mid, 0, mid, mid, 28);
+          g.addColorStop(0.0, "rgba(255,255,255,1)");
+          g.addColorStop(0.65, "rgba(255,255,255,0.75)");
+          g.addColorStop(1.0, "rgba(255,255,255,0)");
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(mid, mid, 28, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (s === "cross") {
+          ctx.fillStyle = "rgba(255,255,255,1)";
+          ctx.globalAlpha = 1;
+          ctx.fillRect(mid - 5, 10, 10, 44);
+          ctx.fillRect(10, mid - 5, 44, 10);
+          ctx.globalAlpha = 0.55;
+          ctx.fillRect(mid - 2, 8, 4, 48);
+          ctx.fillRect(8, mid - 2, 48, 4);
+          ctx.globalAlpha = 1;
+        } else if (s === "triangle") {
+          ctx.fillStyle = "rgba(255,255,255,1)";
+          ctx.beginPath();
+          ctx.moveTo(mid, 10);
+          ctx.lineTo(54, 54);
+          ctx.lineTo(10, 54);
+          ctx.closePath();
+          ctx.fill();
+          ctx.globalAlpha = 0.35;
+          ctx.beginPath();
+          ctx.moveTo(mid, 16);
+          ctx.lineTo(48, 52);
+          ctx.lineTo(16, 52);
+          ctx.closePath();
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        } else {
+          ctx.fillStyle = "rgba(255,255,255,1)";
+          ctx.fillRect(8, 8, 48, 48);
+        }
+
+        const t = new THREE.CanvasTexture(c);
+        t.wrapS = THREE.ClampToEdgeWrapping;
+        t.wrapT = THREE.ClampToEdgeWrapping;
+        t.minFilter = THREE.LinearMipMapLinearFilter;
+        t.magFilter = THREE.LinearFilter;
+        t.generateMipmaps = true;
+        t.needsUpdate = true;
+
+        emitterParticleTexCache.set(key, t);
+        return t;
+      }
+
+/* Applies particle rendering style (shape/texture) to a PointsMaterial. */
+      function applyEmitterParticleStyleToMaterial(mat, params) {
+        if (!mat || !mat.isPointsMaterial) return;
+
+        const p = (params && typeof params === "object") ? params : {};
+        const shape = String(p.shape || "square").trim().toLowerCase();
+        const texUrl = String(p.textureUrl || "").trim();
+
+        mat.map = null;
+        mat.alphaTest = 0;
+
+        if (shape !== "square") {
+          const t = getEmitterParticleTexture(shape, texUrl);
+          if (t) {
+            mat.map = t;
+            mat.alphaTest = 0.02;
+          }
+        }
+
+        mat.transparent = true;
+        mat.depthWrite = false;
+        mat.needsUpdate = true;
+      }
+
+
+
+
+
+
+
       function getEmitterPresetById(id) {
         const sid = String(id || "");
         for (let i = 0; i < EMITTER_LIBRARY.length; i++) {
@@ -22233,7 +22350,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         return mesh;
       }
 
-      function createEmitterPoints(maxParticles) {
+
+
+
+
+      function createEmitterPoints(maxParticles, params) {
         const n = Math.max(16, (maxParticles | 0) || 160);
 
         const geo = new THREE.BufferGeometry();
@@ -22253,11 +22374,18 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           depthWrite: false
         });
 
+        applyEmitterParticleStyleToMaterial(mat, params);
+
         const pts = new THREE.Points(geo, mat);
         pts.frustumCulled = false;
 
         return { pts, geo, pos, col, alpha: a, max: n };
       }
+
+
+
+
+
 
       function buildEmitterRuntime(cfg) {
         const p = (cfg && cfg.params && typeof cfg.params === "object") ? cfg.params : {};
@@ -22270,7 +22398,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         holder.name = "EmitterHolder";
         group.add(holder);
 
-        const pp = createEmitterPoints(maxN);
+        const pp = createEmitterPoints(maxN, p);
         pp.pts.name = "EmitterParticles";
         group.add(pp.pts);
 
@@ -22327,6 +22455,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         return rt;
       }
+
+
+
+
+
 
       function addEmitterToScene(presetId) {
         if (!scene) return null;
@@ -22729,23 +22862,26 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
   const sel = {
     id: "",
-    name: "",
+    name: "Emitter",
     maxParticles: 160,
-    rate: 0,
+    rate: 40,
     burst: 0,
-    life: 1,
-    lifeJitter: 0,
-    speed: 1,
-    speedJitter: 0,
-    spread: 0.5,
-    gravity: 0,
-    drag: 1,
+    life: 0.9,
+    lifeJitter: 0.35,
+    speed: 1.2,
+    speedJitter: 0.8,
+    spread: 0.85,
+    gravity: -0.4,
+    drag: 1.0,
     size: 0.08,
-    sizeJitter: 0,
-    opacity: 1,
+    sizeJitter: 0.05,
+    opacity: 0.75,
+    shape: "square",
+    textureUrl: "",
     loop: true,
     autoStopMs: 0
   };
+
 
   let selCtrl = null;
   let instanceOptsSig = "";
@@ -22780,30 +22916,43 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
   };
 
   const applySelToRt = (rt) => {
-    const p = rt.cfg.params;
+    if (!rt) return;
+    rt.cfg.name = String(sel.name || "Emitter");
 
-    p.maxParticles = sel.maxParticles | 0;
-    p.rate = Number(sel.rate);
-    p.burst = sel.burst | 0;
-    p.life = Number(sel.life);
-    p.lifeJitter = Number(sel.lifeJitter);
-    p.speed = Number(sel.speed);
-    p.speedJitter = Number(sel.speedJitter);
-    p.spread = Number(sel.spread);
-    p.gravity = Number(sel.gravity);
-    p.drag = Number(sel.drag);
-    p.size = Number(sel.size);
-    p.sizeJitter = Number(sel.sizeJitter);
-    p.opacity = Number(sel.opacity);
+    const p = rt.cfg.params;
+    p.maxParticles = (sel.maxParticles | 0) || 160;
+    p.rate = Number(sel.rate ?? 0);
+    p.burst = (sel.burst | 0) || 0;
+    p.life = Number(sel.life ?? 1);
+    p.lifeJitter = Number(sel.lifeJitter ?? 0);
+    p.speed = Number(sel.speed ?? 1);
+    p.speedJitter = Number(sel.speedJitter ?? 0);
+    p.spread = Number(sel.spread ?? 0.5);
+    p.gravity = Number(sel.gravity ?? 0);
+    p.drag = Number(sel.drag ?? 1);
+    p.size = Number(sel.size ?? 0.08);
+    p.sizeJitter = Number(sel.sizeJitter ?? 0);
+    p.opacity = Number(sel.opacity ?? 1);
+    p.shape = String(sel.shape || "square");
+    p.textureUrl = String(sel.textureUrl || "");
     p.loop = !!sel.loop;
-    p.autoStopMs = sel.autoStopMs | 0;
+    p.autoStopMs = (sel.autoStopMs | 0) || 0;
+
+    if (rt.points && rt.points.material) {
+      rt.points.material.size = Math.max(0.001, p.size || 0.08);
+      rt.points.material.opacity = Math.max(0, Math.min(1, Number(p.opacity ?? 1)));
+      applyEmitterParticleStyleToMaterial(rt.points.material, p);
+    }
+
+    if (typeof syncWorldEditObjectLabel === "function") syncWorldEditObjectLabel();
   };
+
 
   const readRtToSel = (rt) => {
     const p = rt.cfg.params;
 
     sel.id = rt.cfg.id;
-    sel.name = String(rt.cfg.name || rt.cfg.presetId || "Emitter");
+    sel.name = String(rt.cfg.name || "Emitter");
     sel.maxParticles = (p.maxParticles | 0) || 160;
     sel.rate = Number(p.rate ?? 0);
     sel.burst = (p.burst | 0) || 0;
@@ -22817,11 +22966,12 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     sel.size = Number(p.size ?? 0.08);
     sel.sizeJitter = Number(p.sizeJitter ?? 0);
     sel.opacity = Number(p.opacity ?? 1);
+    sel.shape = String(p.shape || "square");
+    sel.textureUrl = String(p.textureUrl || "");
     sel.loop = !!p.loop;
     sel.autoStopMs = (p.autoStopMs | 0) || 0;
-
-    emitterGuiState.name = String(sel.name || "");
   };
+
 
   selCtrl = trackController(folder.add(emitterGuiState, "selected").name("Selected"));
   selCtrl.onChange(() => {
@@ -22926,6 +23076,26 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
+
+
+  const shapeOpts = {
+    Square: "square",
+    Dot: "dot",
+    Cross: "cross",
+    Triangle: "triangle",
+    Texture: "tex"
+  };
+
+  push(folder.add(sel, "shape", shapeOpts).name("Particle")).onChange(() => {
+    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    if (rt) applySelToRt(rt);
+  });
+
+  push(folder.add(sel, "textureUrl").name("Texture url")).onChange(() => {
+    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    if (rt) applySelToRt(rt);
+  });
+
 
   push(folder.add(sel, "loop").name("Loop")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
