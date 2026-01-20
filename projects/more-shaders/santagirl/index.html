@@ -132,7 +132,7 @@ button {
 .avatar-btn {
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.24);
+  border: 0px solid rgba(255,255,255,0.24);
   background: rgba(0,0,0,0.55);
   color: #f5f5f5;
   font-size: 12px;;
@@ -147,8 +147,8 @@ button {
 .avatar-btn {
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.24);
-  background: rgba(0,0,0,0.55);
+  border: 0px solid rgba(255,255,255,0.24);
+  background: rgba(0,0,0,0);
   color: #f5f5f5;
   font-size: 12px;;
   letter-spacing: 0.04em;
@@ -581,7 +581,7 @@ button {
   color: rgba(255, 255, 255, 0.88);
   padding: 10px 10px;
   font-size: 14px;;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: Minimalo, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   user-select: text;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -750,7 +750,7 @@ button {
 
 .world-card {
   border: 0px solid rgba(255, 255, 255, 0.16);
-  border-radius: 18px;
+  border-radius: 24px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0);
   position: relative;
@@ -957,12 +957,12 @@ button {
 .inventory-picker__list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 2px;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 2px;
+  padding: 0px;
   scrollbar-width: none;
 }
 
@@ -1501,7 +1501,7 @@ button {
   padding: 10px 12px;
   z-index: 22;
   pointer-events: none;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  font-family: Minimalo, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
   color: rgba(255,255,255,0.92);
 }
 
@@ -1513,7 +1513,7 @@ button {
 }
 
 .hud-tile__label {
-  font-size: 0.6rem;
+  font-size: 0.8rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   opacity: 0.75;
@@ -1565,20 +1565,22 @@ canvas.world-edit-on {
 
 
 
+
+
+
 .now-playing {
   position: fixed;
   left: 50%;
   top: 2px;
   transform: translateX(-50%);
-  width: min(50vw, 520px);
+  /*width: min(50vw, 520px);*/
   z-index: 23;
   pointer-events: auto;
   padding: 4px 18px;
   border-radius: 12px;
-  /*border: 1px solid rgba(255,255,255,0.18);*/
   background: rgb(0 0 0 / 0%);
-  /*backdrop-filter: blur(12px);*/
   color: rgba(255,255,255,1);
+  transition: width 180ms ease, padding 180ms ease, border-radius 180ms ease, background 180ms ease, transform 180ms ease;
 }
 
 .now-playing[aria-hidden="true"] {
@@ -1618,11 +1620,6 @@ canvas.world-edit-on {
   white-space: nowrap;
 }
 
-.now-playing__seek {
-  width: 100%;
-  margin: 0;
-}
-
 .now-playing__btn {
   padding: 4px 8px;
   border-radius: 10px;
@@ -1637,11 +1634,23 @@ canvas.world-edit-on {
   background: rgba(255,255,255,0.18);
 }
 
+.now-playing__btn--icon {
+  padding: 4px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.now-playing__minArrow {
+  display: inline-block;
+  transition: transform 180ms ease;
+  transform-origin: 50% 50%;
+}
+
 .now-playing.now-playing--disabled {
   opacity: 0.65;
   filter: grayscale(0.2);
 }
-
 
 .now-playing__seek {
   width: 100%;
@@ -1686,6 +1695,42 @@ canvas.world-edit-on {
   background: rgba(255,255,255,0.92);
   border: 0;
 }
+
+.now-playing.now-playing--min {
+  width: auto;
+  padding: 4px 6px;
+}
+
+.now-playing.now-playing--min .now-playing__title,
+.now-playing.now-playing--min .now-playing__controls,
+.now-playing.now-playing--min .now-playing__time,
+.now-playing.now-playing--min .now-playing__seek {
+  display: none;
+}
+
+.now-playing.now-playing--min .now-playing__row {
+  margin-bottom: 0;
+  justify-content: flex-end;
+}
+
+.now-playing.now-playing--min .now-playing__minArrow {
+  transform: rotate(180deg);
+}
+
+.now-playing__minIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.now-playing__minImg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+
 
 
 
@@ -1778,6 +1823,595 @@ canvas.world-edit-on {
 
 
 
+
+
+
+
+
+
+.lil-gui {
+  font-family: Minimalo;
+  font-size: var(--font-size);
+  line-height: 1;
+  font-weight: normal;
+  font-style: normal;
+  text-align: left;
+  color: var(--text-color);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  --background-color: rgba(0,0,0,0);
+  --text-color: #ebebeb;
+  --title-background-color: #111111;
+  --title-text-color: #ebebeb;
+  --widget-color: #424242;
+  --hover-color: #4f4f4f;
+  --focus-color: #595959;
+  --number-color: #2cc9ff;
+  --string-color: #a2db3c;
+  --font-size: 16px;
+  --input-font-size: 11px;
+  --font-family: Minimalo, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-family-mono: Minimalo, Menlo, Monaco, Consolas, "Droid Sans Mono", monospace;
+  --padding: 4px;
+  --spacing: 4px;
+  --widget-height: 20px;
+  --title-height: calc(var(--widget-height) + var(--spacing) * 1.25);
+  --name-width: 45%;
+  --slider-knob-width: 2px;
+  --slider-input-width: 27%;
+  --color-input-width: 27%;
+  --slider-input-min-width: 45px;
+  --color-input-min-width: 45px;
+  --folder-indent: 7px;
+  --widget-padding: 0 0 0 3px;
+  --widget-border-radius: 1rem;
+  --checkbox-size: calc(0.75 * var(--widget-height));
+  --scrollbar-width: 5px;
+}
+.lil-gui, .lil-gui * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+.lil-gui.root {
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--background-color);
+}
+.lil-gui.root > .title {
+  background: rgba(0,0,0,0);
+  color: var(--title-text-color);
+  text-align: center;
+}
+.lil-gui.root > .children {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.lil-gui.root > .children::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-width);
+  background: var(--background-color);
+}
+.lil-gui.root > .children::-webkit-scrollbar-thumb {
+  border-radius: var(--scrollbar-width);
+  background: var(--focus-color);
+}
+@media (pointer: coarse) {
+  .lil-gui.allow-touch-styles, .lil-gui.allow-touch-styles .lil-gui {
+    --widget-height: 28px;
+    --padding: 6px;
+    --spacing: 6px;
+    --font-size: 16px;
+    --input-font-size: 16px;
+    --folder-indent: 10px;
+    --scrollbar-width: 7px;
+    --slider-input-min-width: 50px;
+    --color-input-min-width: 65px;
+  }
+}
+.lil-gui.force-touch-styles, .lil-gui.force-touch-styles .lil-gui {
+  --widget-height: 28px;
+  --padding: 6px;
+  --spacing: 6px;
+  --font-size: 16px;
+  --input-font-size: 16px;
+  --folder-indent: 10px;
+  --scrollbar-width: 7px;
+  --slider-input-min-width: 50px;
+  --color-input-min-width: 65px;
+}
+.lil-gui.autoPlace {
+  max-height: 100%;
+  position: fixed;
+  top: 2rem;
+  right: 15px;
+  z-index: 1001;
+}
+
+.lil-gui .controller {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--padding);
+  margin: var(--spacing) 0;
+}
+.lil-gui .controller.disabled {
+  opacity: 0.5;
+}
+.lil-gui .controller.disabled, .lil-gui .controller.disabled * {
+  pointer-events: none !important;
+}
+.lil-gui .controller > .name {
+  min-width: var(--name-width);
+  flex-shrink: 0;
+  white-space: pre;
+  padding-right: var(--spacing);
+  line-height: var(--widget-height);
+}
+.lil-gui .controller .widget {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: var(--widget-height);
+}
+.lil-gui .controller.string input {
+  color: var(--string-color);
+}
+.lil-gui .controller.boolean {
+  cursor: pointer;
+}
+.lil-gui .controller.color .display {
+  width: 100%;
+  height: var(--widget-height);
+  border-radius: var(--widget-border-radius);
+  position: relative;
+}
+@media (hover: hover) {
+  .lil-gui .controller.color .display:hover:before {
+    content: " ";
+    display: block;
+    position: absolute;
+    border-radius: var(--widget-border-radius);
+    border: 1px solid #fff9;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+  }
+}
+.lil-gui .controller.color input[type=color] {
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.lil-gui .controller.color input[type=text] {
+  margin-left: var(--spacing);
+  font-family: var(--font-family-mono);
+  min-width: var(--color-input-min-width);
+  width: var(--color-input-width);
+  flex-shrink: 0;
+}
+.lil-gui .controller.option select {
+  opacity: 0;
+  position: absolute;
+  width: 100%;
+  max-width: 100%;
+}
+.lil-gui .controller.option .display {
+  position: relative;
+  pointer-events: none;
+  border-radius: var(--widget-border-radius);
+  height: var(--widget-height);
+  line-height: var(--widget-height);
+  max-width: 100%;
+  overflow: hidden;
+  word-break: break-all;
+  padding-left: 0.55em;
+  padding-right: 1.75em;
+  background: var(--widget-color);
+}
+@media (hover: hover) {
+  .lil-gui .controller.option .display.focus {
+    background: var(--focus-color);
+  }
+}
+.lil-gui .controller.option .display.active {
+  background: var(--focus-color);
+}
+.lil-gui .controller.option .display:after {
+  font-family: monospace;
+  content: "↕";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  padding-right: 0.375em;
+}
+.lil-gui .controller.option .widget,
+.lil-gui .controller.option select {
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .lil-gui .controller.option .widget:hover .display {
+    background: var(--hover-color);
+  }
+}
+.lil-gui .controller.number input {
+  color: var(--number-color);
+}
+.lil-gui .controller.number.hasSlider input {
+  margin-left: var(--spacing);
+  width: var(--slider-input-width);
+  min-width: var(--slider-input-min-width);
+  flex-shrink: 0;
+}
+.lil-gui .controller.number .slider {
+  width: 100%;
+  height: var(--widget-height);
+  background: var(--widget-color);
+  border-radius: var(--widget-border-radius);
+  padding-right: var(--slider-knob-width);
+  overflow: hidden;
+  cursor: ew-resize;
+  touch-action: pan-y;
+}
+@media (hover: hover) {
+  .lil-gui .controller.number .slider:hover {
+    background: var(--hover-color);
+  }
+}
+.lil-gui .controller.number .slider.active {
+  background: var(--focus-color);
+}
+.lil-gui .controller.number .slider.active .fill {
+  opacity: 0.95;
+}
+.lil-gui .controller.number .fill {
+  height: 100%;
+  border-right: var(--slider-knob-width) solid var(--number-color);
+  box-sizing: content-box;
+}
+
+.lil-gui-dragging .lil-gui {
+  --hover-color: var(--widget-color);
+}
+.lil-gui-dragging * {
+  cursor: ew-resize !important;
+}
+
+.lil-gui-dragging.lil-gui-vertical * {
+  cursor: ns-resize !important;
+}
+
+.lil-gui .title {
+  height: var(--title-height);
+  font-weight: 600;
+  padding: 0 var(--padding);
+  width: 100%;
+  text-align: left;
+  background: none;
+  text-decoration-skip: objects;
+}
+.lil-gui .title:before {
+  font-family: monospace;
+  content: "▾";
+  padding-right: 2px;
+  display: inline-block;
+}
+.lil-gui .title:active {
+  background: var(--title-background-color);
+  opacity: 0.75;
+}
+@media (hover: hover) {
+  body:not(.lil-gui-dragging) .lil-gui .title:hover {
+    background: var(--title-background-color);
+    opacity: 0.85;
+  }
+  .lil-gui .title:focus {
+    text-decoration: underline var(--focus-color);
+  }
+}
+.lil-gui.root > .title:focus {
+  text-decoration: none !important;
+}
+.lil-gui.closed > .title:before {
+  content: "▸";
+}
+.lil-gui.closed > .children {
+  transform: translateY(-7px);
+  opacity: 0;
+}
+.lil-gui.closed:not(.transition) > .children {
+  display: none;
+}
+.lil-gui.transition > .children {
+  transition-duration: 300ms;
+  transition-property: height, opacity, transform;
+  transition-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1);
+  overflow: hidden;
+  pointer-events: none;
+}
+.lil-gui .children:empty:before {
+  content: "Empty";
+  padding: 0 var(--padding);
+  margin: var(--spacing) 0;
+  display: block;
+  height: var(--widget-height);
+  font-style: italic;
+  line-height: var(--widget-height);
+  opacity: 0.5;
+}
+.lil-gui.root > .children > .lil-gui > .title {
+  border: 0 solid var(--widget-color);
+  border-width: 0px 0;
+  transition: border-color 300ms;
+}
+.lil-gui.root > .children > .lil-gui.closed > .title {
+  border-bottom-color: transparent;
+  text-align: right;
+}
+.lil-gui + .controller {
+  border-top: 1px solid var(--widget-color);
+  margin-top: 0;
+  padding-top: var(--spacing);
+}
+.lil-gui .lil-gui .lil-gui > .title {
+  border: none;
+}
+.lil-gui .lil-gui .lil-gui > .children {
+  border: none;
+  margin-left: var(--folder-indent);
+  border-left: 2px solid var(--widget-color);
+}
+.lil-gui .lil-gui .controller {
+  border: none;
+}
+
+.lil-gui label, .lil-gui input, .lil-gui button {
+  -webkit-tap-highlight-color: transparent;
+}
+.lil-gui input {
+  border: 0;
+  outline: none;
+  font-family: var(--font-family);
+  font-size: var(--input-font-size);
+  border-radius: var(--widget-border-radius);
+  height: var(--widget-height);
+  background: var(--widget-color);
+  color: var(--text-color);
+  width: 100%;
+}
+@media (hover: hover) {
+  .lil-gui input:hover {
+    background: var(--hover-color);
+  }
+  .lil-gui input:active {
+    background: var(--focus-color);
+  }
+}
+.lil-gui input:disabled {
+  opacity: 1;
+}
+.lil-gui input[type=text],
+.lil-gui input[type=number] {
+  padding: var(--widget-padding);
+  -moz-appearance: textfield;
+}
+.lil-gui input[type=text]:focus,
+.lil-gui input[type=number]:focus {
+  background: var(--focus-color);
+}
+.lil-gui input[type=checkbox] {
+  appearance: none;
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+  border-radius: var(--widget-border-radius);
+  text-align: center;
+  cursor: pointer;
+}
+.lil-gui input[type=checkbox]:checked:before {
+  font-family: monospace;
+  content: "✓";
+  font-size: var(--checkbox-size);
+  line-height: var(--checkbox-size);
+}
+@media (hover: hover) {
+  .lil-gui input[type=checkbox]:focus {
+    box-shadow: inset 0 0 0 1px var(--focus-color);
+  }
+}
+.lil-gui button {
+  outline: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  color: var(--text-color);
+  width: 100%;
+  border: none;
+}
+.lil-gui .controller button {
+  height: var(--widget-height);
+  text-transform: none;
+  background: var(--widget-color);
+  border-radius: var(--widget-border-radius);
+}
+@media (hover: hover) {
+  .lil-gui .controller button:hover {
+    background: var(--hover-color);
+  }
+  .lil-gui .controller button:focus {
+    box-shadow: inset 0 0 0 1px var(--focus-color);
+  }
+}
+.lil-gui .controller button:active {
+  background: var(--focus-color);
+}
+
+@font-face {
+  font-family: monospace;
+  src: url("data:application/font-woff;charset=utf-8;base64,d09GRgABAAAAAAUsAAsAAAAACJwAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAABHU1VCAAABCAAAAH4AAADAImwmYE9TLzIAAAGIAAAAPwAAAGBKqH5SY21hcAAAAcgAAAD0AAACrukyyJBnbHlmAAACvAAAAF8AAACEIZpWH2hlYWQAAAMcAAAAJwAAADZfcj2zaGhlYQAAA0QAAAAYAAAAJAC5AHhobXR4AAADXAAAABAAAABMAZAAAGxvY2EAAANsAAAAFAAAACgCEgIybWF4cAAAA4AAAAAeAAAAIAEfABJuYW1lAAADoAAAASIAAAIK9SUU/XBvc3QAAATEAAAAZgAAAJCTcMc2eJxVjbEOgjAURU+hFRBK1dGRL+ALnAiToyMLEzFpnPz/eAshwSa97517c/MwwJmeB9kwPl+0cf5+uGPZXsqPu4nvZabcSZldZ6kfyWnomFY/eScKqZNWupKJO6kXN3K9uCVoL7iInPr1X5baXs3tjuMqCtzEuagm/AAlzQgPAAB4nGNgYRBlnMDAysDAYM/gBiT5oLQBAwuDJAMDEwMrMwNWEJDmmsJwgCFeXZghBcjlZMgFCzOiKOIFAB71Bb8AeJy1kjFuwkAQRZ+DwRAwBtNQRUGKQ8OdKCAWUhAgKLhIuAsVSpWz5Bbkj3dEgYiUIszqWdpZe+Z7/wB1oCYmIoboiwiLT2WjKl/jscrHfGg/pKdMkyklC5Zs2LEfHYpjcRoPzme9MWWmk3dWbK9ObkWkikOetJ554fWyoEsmdSlt+uR0pCJR34b6t/TVg1SY3sYvdf8vuiKrpyaDXDISiegp17p7579Gp3p++y7HPAiY9pmTibljrr85qSidtlg4+l25GLCaS8e6rRxNBmsnERunKbaOObRz7N72ju5vdAjYpBXHgJylOAVsMseDAPEP8LYoUHicY2BiAAEfhiAGJgZWBgZ7RnFRdnVJELCQlBSRlATJMoLV2DK4glSYs6ubq5vbKrJLSbGrgEmovDuDJVhe3VzcXFwNLCOILB/C4IuQ1xTn5FPilBTj5FPmBAB4WwoqAHicY2BkYGAA4sk1sR/j+W2+MnAzpDBgAyEMQUCSg4EJxAEAwUgFHgB4nGNgZGBgSGFggJMhDIwMqEAYAByHATJ4nGNgAIIUNEwmAABl3AGReJxjYAACIQYlBiMGJ3wQAEcQBEV4nGNgZGBgEGZgY2BiAAEQyQWEDAz/wXwGAAsPATIAAHicXdBNSsNAHAXwl35iA0UQXYnMShfS9GPZA7T7LgIu03SSpkwzYTIt1BN4Ak/gKTyAeCxfw39jZkjymzcvAwmAW/wgwHUEGDb36+jQQ3GXGot79L24jxCP4gHzF/EIr4jEIe7wxhOC3g2TMYy4Q7+Lu/SHuEd/ivt4wJd4wPxbPEKMX3GI5+DJFGaSn4qNzk8mcbKSR6xdXdhSzaOZJGtdapd4vVPbi6rP+cL7TGXOHtXKll4bY1Xl7EGnPtp7Xy2n00zyKLVHfkHBa4IcJ2oD3cgggWvt/V/FbDrUlEUJhTn/0azVWbNTNr0Ens8de1tceK9xZmfB1CPjOmPH4kitmvOubcNpmVTN3oFJyjzCvnmrwhJTzqzVj9jiSX911FjeAAB4nG3HMRKCMBBA0f0giiKi4DU8k0V2GWbIZDOh4PoWWvq6J5V8If9NVNQcaDhyouXMhY4rPTcG7jwYmXhKq8Wz+p762aNaeYXom2n3m2dLTVgsrCgFJ7OTmIkYbwIbC6vIB7WmFfAAAA==") format("woff");
+}
+
+
+
+
+
+.narration {
+  position: fixed;
+  left: 50%;
+  bottom: calc(100px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(560px, calc(100vw - 20px));
+  z-index: 26;
+  pointer-events: none;
+}
+
+.narration[aria-hidden="true"] {
+  display: none;
+}
+
+.narration__panel {
+  pointer-events: auto;
+/*  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgb(0 0 0 / 28%);
+  backdrop-filter: blur(10px);
+*/
+  color: rgba(255,255,255,0.94);
+  /*box-shadow: 0 10px 28px rgba(0,0,0,0.35);*/
+  padding: 10px 10px 8px 10px;
+  transform: translateY(14px);
+  opacity: 0;
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+
+.narration.is-open .narration__panel {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.narration.is-closing .narration__panel {
+  transform: translateY(14px);
+  opacity: 0;
+}
+
+.narration__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.narration__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.08);
+  object-fit: cover;
+  display: block;
+}
+
+.narration__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.narration__speaker {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.narration__pager {
+  font-size: 12px;
+  opacity: 0.82;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.narration__text {
+  font-size: 24px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  margin: 0 2px 10px 2px;
+  max-height: 168px;
+  overflow: auto;
+}
+
+.narration__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.narration__btn {
+  padding: 4px 10px;
+}
+
+.narration__close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 10px;
+  font-weight: 900;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.narration__timer {
+  margin-top: 8px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.10);
+  overflow: hidden;
+}
+
+.narration__timerBar {
+  height: 100%;
+  width: 100%;
+  transform-origin: 0 50%;
+  transform: scaleX(1);
+  background: rgba(255,255,255,0.35);
+  animation: none;
+}
+
+@keyframes narrationBar {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .narration__panel {
+    transition: none;
+  }
+  .narration__timerBar {
+    animation: none !important;
+  }
+}
+
+
+
+
+
+
+
+
+
 </style>
 
 
@@ -1832,10 +2466,50 @@ canvas.world-edit-on {
       </div>
 
       <div id="nowPlayingTime" class="now-playing__time">0:00 / 0:00</div>
+
+      <button id="nowPlayingMinToggle" class="now-playing__btn now-playing__btn--icon" type="button" aria-label="Minimize music player" aria-pressed="false">
+        <span class="now-playing__minIcon" aria-hidden="true">
+          <img class="now-playing__minImg" src="assets/images/icons/white/music.svg" alt="" aria-hidden="true">
+        </span>
+        <span class="now-playing__minArrow" aria-hidden="true">▲</span>
+      </button>
+
+
     </div>
 
     <input id="nowPlayingSeek" class="now-playing__seek" type="range" min="0" max="1" step="0.001" value="0" aria-label="Seek" />
   </div>
+
+
+  <div id="narrationCloud" class="narration" aria-hidden="true">
+    <div class="narration__panel" role="dialog" aria-label="Narration">
+      <div class="narration__head">
+        <img id="narrationIcon" class="narration__icon" src="" alt="" aria-hidden="true">
+        <div class="narration__meta">
+          <div id="narrationSpeaker" class="narration__speaker">—</div>
+          <div id="narrationPager" class="narration__pager">1/1</div>
+        </div>
+        <button id="narrationClose" class="avatar-btn narration__close" type="button" aria-label="Dismiss">×</button>
+      </div>
+
+      <div id="narrationText" class="narration__text">—</div>
+
+
+      <div class="narration__actions">
+        <button id="narrationAcknowledge" class="avatar-btn narration__btn narration__btn--primary" type="button">Acknowledge</button>
+        <button id="narrationDisregard" class="avatar-btn narration__btn" type="button">Disregard</button>
+        <button id="narrationNext" class="avatar-btn narration__btn" type="button">Next</button>
+        <button id="narrationPause" class="avatar-btn narration__btn" type="button" aria-pressed="false">Pause</button>
+      </div>
+
+
+
+      <div class="narration__timer">
+        <div id="narrationTimerBar" class="narration__timerBar"></div>
+      </div>
+    </div>
+  </div>
+
 
 
 
@@ -2559,6 +3233,22 @@ canvas.world-edit-on {
 
 /* Audio System */
   let envAudioState = null;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4392,7 +5082,7 @@ canvas.world-edit-on {
 
 
 
-/* Wires the Now Playing DOM strip once (buttons, seek). */
+/* Wires the Now Playing DOM strip once (buttons, seek, minimize toggle + persisted state). */
     function ensureNowPlayingUiWired() {
       if (musicState.uiWired) return;
 
@@ -4403,8 +5093,9 @@ canvas.world-edit-on {
       const btnPlay = document.getElementById("nowPlayingPlay");
       const btnPrev = document.getElementById("nowPlayingPrev");
       const btnNext = document.getElementById("nowPlayingNext");
+      const btnMin = document.getElementById("nowPlayingMinToggle");
 
-      if (!root || !seek || !btnPlay || !btnPrev || !btnNext) return;
+      if (!root || !seek || !btnPlay || !btnPrev || !btnNext || !btnMin) return;
 
       musicState.ui.root = root;
       musicState.ui.title = title;
@@ -4413,6 +5104,26 @@ canvas.world-edit-on {
       musicState.ui.btnPlay = btnPlay;
       musicState.ui.btnPrev = btnPrev;
       musicState.ui.btnNext = btnNext;
+      musicState.ui.btnMin = btnMin;
+
+      const applyMinState = (min) => {
+        const on = !!min;
+        root.classList.toggle("now-playing--min", on);
+        btnMin.setAttribute("aria-pressed", on ? "true" : "false");
+        btnMin.setAttribute("aria-label", on ? "Expand music player" : "Minimize music player");
+
+        if (params && typeof params === "object") {
+          params.musicUiMinimized = on;
+          if (typeof saveLastDebounced === "function") saveLastDebounced(params);
+        }
+      };
+
+      applyMinState(!!(params && params.musicUiMinimized));
+
+      btnMin.addEventListener("click", (e) => {
+        e.preventDefault();
+        applyMinState(!root.classList.contains("now-playing--min"));
+      }, { passive: false });
 
       seek.addEventListener("input", () => {
         musicState._seeking = true;
@@ -4449,6 +5160,698 @@ canvas.world-edit-on {
 
       musicState.uiWired = true;
     }
+
+
+
+
+
+
+/**
+*
+* 
+* Audio FX: Steps
+* 
+* 
+*/
+
+
+
+// Paste into DevTools console, then call: step({ surface:"concrete", intensity:0.9 })
+// Tip: if you hear nothing, click the page once and run step() again (autoplay policy).
+
+//     const step = (() => {
+//       let ctx;
+
+//       function ensureCtx() {
+//         if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+//         if (ctx.state !== "running") ctx.resume();
+//         return ctx;
+//       }
+
+//   // Small helper: exponential-ish envelope
+//       function env(gain, t0, a, d, peak = 1, tail = 0.0001) {
+//         gain.cancelScheduledValues(t0);
+//         gain.setValueAtTime(tail, t0);
+//         gain.exponentialRampToValueAtTime(Math.max(peak, tail), t0 + Math.max(0.0001, a));
+//         gain.exponentialRampToValueAtTime(tail, t0 + Math.max(0.0002, a + d));
+//       }
+
+//       function noiseBuffer(ctx, seconds = 0.08) {
+//         const sr = ctx.sampleRate;
+//         const len = Math.max(1, Math.floor(sr * seconds));
+//         const b = ctx.createBuffer(1, len, sr);
+//         const d = b.getChannelData(0);
+//     // slightly shaped noise (more "grit" than white)
+//         let last = 0;
+//         for (let i = 0; i < len; i++) {
+//           const w = (Math.random() * 2 - 1);
+//           last = last * 0.75 + w * 0.25;
+//           d[i] = last;
+//         }
+//         return b;
+//       }
+
+//   // Optional tiny "room" impulse (very short, subtle)
+//       function makeImpulse(ctx, seconds = 0.12, decay = 8) {
+//         const sr = ctx.sampleRate;
+//         const len = Math.floor(sr * seconds);
+//         const b = ctx.createBuffer(2, len, sr);
+//         for (let ch = 0; ch < 2; ch++) {
+//           const d = b.getChannelData(ch);
+//           for (let i = 0; i < len; i++) {
+//             const t = i / len;
+//             d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+//           }
+//         }
+//         return b;
+//       }
+
+//   // Main
+//       return function step(opts = {}) {
+//         const ctx = ensureCtx();
+//         const t0 = ctx.currentTime + (opts.when ?? 0);
+
+//     // --- Parameters (tweak these) ---
+//     const surface = (opts.surface ?? "concrete").toLowerCase(); // concrete | wood | gravel | grass | carpet | metal
+//     const intensity = Math.max(0, Math.min(1.5, opts.intensity ?? 0.9)); // 0..1.5
+//     const shoe = (opts.shoe ?? "sneaker").toLowerCase(); // sneaker | boot | heel
+//     const panVal = Math.max(-1, Math.min(1, opts.pan ?? 0));
+//     const rate = Math.max(0.5, Math.min(2.0, opts.rate ?? 1.0)); // overall duration scaling
+//     const room = Math.max(0, Math.min(1, opts.room ?? 0.15)); // subtle reverb amount 0..1
+//     const dry = Math.max(0, Math.min(1, opts.dry ?? 1.0));
+
+//     // Surface presets
+//     const presets = {
+//       concrete: { thumpHz: 78, noiseHP: 180, noiseLP: 2400, grit: 0.9, ringHz: 0, ringQ: 1.2 },
+//       wood:     { thumpHz: 70, noiseHP: 140, noiseLP: 1800, grit: 0.7, ringHz: 280, ringQ: 6.0 },
+//       gravel:   { thumpHz: 65, noiseHP: 450, noiseLP: 5200, grit: 1.2, ringHz: 0, ringQ: 1.2 },
+//       grass:    { thumpHz: 55, noiseHP: 220, noiseLP: 1400, grit: 0.5, ringHz: 0, ringQ: 1.2 },
+//       carpet:   { thumpHz: 45, noiseHP: 180, noiseLP: 900,  grit: 0.3, ringHz: 0, ringQ: 1.2 },
+//       metal:    { thumpHz: 85, noiseHP: 220, noiseLP: 2600, grit: 0.8, ringHz: 520, ringQ: 10.0 },
+//     };
+//     const p = presets[surface] ?? presets.concrete;
+
+//     // Shoe presets (adds "click" character)
+//     const shoeClick = {
+//       sneaker: { clickHz: 2200, clickQ: 1.2, clickGain: 0.25 },
+//       boot:    { clickHz: 1400, clickQ: 1.0, clickGain: 0.20 },
+//       heel:    { clickHz: 3200, clickQ: 2.2, clickGain: 0.35 },
+//     }[shoe] ?? { clickHz: 2200, clickQ: 1.2, clickGain: 0.25 };
+
+//     // Random micro-variation for realism
+//     const rand = (a, b) => a + Math.random() * (b - a);
+//     const thumpHz = p.thumpHz * rand(0.92, 1.08);
+//     const thumpTime = (0.09 / rate) * rand(0.9, 1.15);
+//     const scuffTime = (0.06 / rate) * rand(0.85, 1.25);
+//     const clickTime = (0.018 / rate) * rand(0.8, 1.25);
+
+//     // --- Graph ---
+//     const out = ctx.createGain();
+//     out.gain.value = 0.9;
+
+//     const pan = ctx.createStereoPanner();
+//     pan.pan.value = panVal;
+
+//     const master = ctx.createGain();
+//     master.gain.value = 0.9;
+
+//     out.connect(pan).connect(master).connect(ctx.destination);
+
+//     // --- Thump (low impact) ---
+//     const osc = ctx.createOscillator();
+//     osc.type = "sine"; // try "triangle" for harder sole
+//     osc.frequency.setValueAtTime(thumpHz, t0);
+//     // quick downward pitch = more "impact"
+//     osc.frequency.exponentialRampToValueAtTime(thumpHz * 0.55, t0 + thumpTime);
+
+//     const thumpGain = ctx.createGain();
+//     thumpGain.gain.value = 0.0001;
+
+//     const thumpLP = ctx.createBiquadFilter();
+//     thumpLP.type = "lowpass";
+//     thumpLP.frequency.setValueAtTime(220 + intensity * 280, t0);
+//     thumpLP.Q.value = 0.7;
+
+//     osc.connect(thumpGain).connect(thumpLP).connect(out);
+//     env(thumpGain.gain, t0, 0.002 / rate, thumpTime, 0.55 * intensity);
+
+//     osc.start(t0);
+//     osc.stop(t0 + thumpTime + 0.02);
+
+//     // --- Scuff (broadband noise burst) ---
+//     const n = ctx.createBufferSource();
+//     n.buffer = noiseBuffer(ctx, 0.09 / rate);
+//     const nGain = ctx.createGain();
+//     nGain.gain.value = 0.0001;
+
+//     const hp = ctx.createBiquadFilter();
+//     hp.type = "highpass";
+//     hp.frequency.setValueAtTime(p.noiseHP, t0);
+//     hp.Q.value = 0.7;
+
+//     const lp = ctx.createBiquadFilter();
+//     lp.type = "lowpass";
+//     lp.frequency.setValueAtTime(p.noiseLP * (0.9 + intensity * 0.25), t0);
+//     lp.Q.value = 0.7;
+
+//     // Extra grit for gravel/concrete
+//     const grit = ctx.createWaveShaper();
+//     grit.curve = (() => {
+//       const k = 30 * p.grit * intensity;
+//       const curve = new Float32Array(1024);
+//       for (let i = 0; i < curve.length; i++) {
+//         const x = (i * 2) / (curve.length - 1) - 1;
+//         curve[i] = (1 + k) * x / (1 + k * Math.abs(x));
+//       }
+//       return curve;
+//     })();
+
+//     n.connect(hp).connect(lp).connect(grit).connect(nGain).connect(out);
+//     env(nGain.gain, t0 + 0.004 / rate, 0.002 / rate, scuffTime, 0.32 * intensity);
+
+//     n.start(t0);
+//     n.stop(t0 + scuffTime + 0.05);
+
+//     // --- Click (heel/toe transient) ---
+//     const c = ctx.createBufferSource();
+//     c.buffer = noiseBuffer(ctx, 0.02 / rate);
+
+//     const cBP = ctx.createBiquadFilter();
+//     cBP.type = "bandpass";
+//     cBP.frequency.setValueAtTime(shoeClick.clickHz * rand(0.9, 1.1), t0);
+//     cBP.Q.value = shoeClick.clickQ;
+
+//     const cGain = ctx.createGain();
+//     cGain.gain.value = 0.0001;
+
+//     c.connect(cBP).connect(cGain).connect(out);
+//     env(cGain.gain, t0 + 0.001 / rate, 0.001 / rate, clickTime, shoeClick.clickGain * intensity);
+
+//     c.start(t0);
+//     c.stop(t0 + clickTime + 0.03);
+
+//     // --- Optional metallic/wood ring ---
+//     if (p.ringHz && (opts.ring ?? 1) > 0) {
+//       const ring = ctx.createOscillator();
+//       ring.type = "sine";
+//       ring.frequency.setValueAtTime(p.ringHz * rand(0.95, 1.07), t0 + 0.006 / rate);
+//       const ringGain = ctx.createGain();
+//       ringGain.gain.value = 0.0001;
+//       const ringFilt = ctx.createBiquadFilter();
+//       ringFilt.type = "bandpass";
+//       ringFilt.frequency.value = p.ringHz;
+//       ringFilt.Q.value = p.ringQ;
+
+//       ring.connect(ringFilt).connect(ringGain).connect(out);
+//       env(ringGain.gain, t0 + 0.006 / rate, 0.002 / rate, 0.18 / rate, 0.10 * intensity * (opts.ring ?? 1));
+//       ring.start(t0 + 0.006 / rate);
+//       ring.stop(t0 + 0.25 / rate);
+//     }
+
+//     // --- Tiny room reverb (subtle) ---
+//     if (room > 0) {
+//       const convolver = ctx.createConvolver();
+//       convolver.buffer = makeImpulse(ctx, 0.12, 8);
+
+//       const wet = ctx.createGain();
+//       wet.gain.value = 0.35 * room;
+
+//       const dryG = ctx.createGain();
+//       dryG.gain.value = dry;
+
+//       // Re-route master -> dry/wet
+//       master.disconnect();
+//       master.connect(dryG).connect(ctx.destination);
+//       master.connect(convolver).connect(wet).connect(ctx.destination);
+
+//       // Restore routing after a short time (keeps console use simple)
+//       setTimeout(() => {
+//         try {
+//           master.disconnect();
+//           master.connect(ctx.destination);
+//         } catch {}
+//       }, 400);
+//     }
+
+//     return { ctx, t0 };
+//   };
+// })();
+
+// Example calls:
+// step();
+// step({ surface:"wood", intensity:0.8, room:0.25 });
+// step({ surface:"gravel", intensity:1.1 });
+// step({ shoe:"heel", surface:"metal", intensity:0.9, ring:1.0, pan:-0.2 });
+
+
+
+
+
+
+
+
+/**
+*
+* 
+* Narration system
+* 
+* 
+*/
+
+    const narration = (() => {
+  /* Narration controller: queued, multi-part; auto-dismiss uses setTimeout; progress bar uses CSS animation. */
+      const AUTOHIDE_DEFAULT_MS = 9000;
+
+      let root = null;
+      let panel = null;
+
+      let elIcon = null;
+      let elSpeaker = null;
+      let elPager = null;
+      let elText = null;
+
+      let btnAck = null;
+      let btnDis = null;
+      let btnNext = null;
+      let btnPause = null;
+      let btnClose = null;
+
+      let bar = null;
+
+      const state = {
+        queue: [],
+        active: null,
+        partIndex: 0,
+        closing: false,
+
+        paused: false,
+        timerId: null,
+        startMs: 0,
+        totalMs: 0,
+        remainingMs: 0
+      };
+
+      const splitParts = (s) => {
+        const raw = String(s || "");
+        const parts = raw.split(/\n\s*\n+/g).map((p) => p.trim()).filter(Boolean);
+        return parts.length ? parts : [raw.trim()];
+      };
+
+      const nowMs = () => (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+
+      const getAutoHideMs = (msg) => {
+        if (Number.isFinite(Number(msg.autoHideMs))) return Math.max(250, Number(msg.autoHideMs) | 0);
+        if (params && Number.isFinite(Number(params.narrationAutoHideMs))) return Math.max(250, Number(params.narrationAutoHideMs) | 0);
+        return AUTOHIDE_DEFAULT_MS;
+      };
+
+      const parseScaleX = (t) => {
+        if (!t || t === "none") return 1.0;
+
+        const m2 = t.match(/^matrix\(([^)]+)\)$/);
+        if (m2) {
+          const parts = m2[1].split(",").map((x) => Number(x.trim()));
+          const a = parts.length >= 1 ? parts[0] : 1.0;
+          return Number.isFinite(a) ? a : 1.0;
+        }
+
+        const m3 = t.match(/^matrix3d\(([^)]+)\)$/);
+        if (m3) {
+          const parts = m3[1].split(",").map((x) => Number(x.trim()));
+          const a = parts.length >= 1 ? parts[0] : 1.0;
+          return Number.isFinite(a) ? a : 1.0;
+        }
+
+        return 1.0;
+      };
+
+      const barStopAndFreeze = () => {
+        if (!bar) return;
+        const cs = getComputedStyle(bar);
+        const scale = parseScaleX(cs.transform);
+        bar.style.animation = "none";
+        bar.style.setProperty("--narrBarFrom", String(clamp(scale, 0.0, 1.0)));
+        bar.style.transform = `scaleX(${clamp(scale, 0.0, 1.0)})`;
+      };
+
+      const barRestart = (ms, fromScale) => {
+        if (!bar) return;
+        const s = Number.isFinite(fromScale) ? clamp(fromScale, 0.0, 1.0) : 1.0;
+        bar.style.animation = "none";
+        bar.style.setProperty("--narrBarFrom", String(s));
+        bar.style.transform = `scaleX(${s})`;
+        void bar.offsetHeight;
+        bar.style.animation = `narrationBar ${Math.max(1, ms | 0)}ms linear forwards`;
+      };
+
+      const timerClear = () => {
+        if (state.timerId) {
+          clearTimeout(state.timerId);
+          state.timerId = null;
+        }
+      };
+
+      const timerStart = (ms) => {
+        timerClear();
+        state.startMs = nowMs();
+        state.totalMs = Math.max(1, ms | 0);
+        state.remainingMs = state.totalMs;
+
+        state.timerId = setTimeout(() => {
+          state.timerId = null;
+          if (!state.active || state.closing) return;
+          if (state.paused) return;
+          scheduleClose("timeout");
+        }, state.totalMs);
+      };
+
+      const timerPause = () => {
+        if (!state.timerId) return;
+
+        const elapsed = nowMs() - state.startMs;
+        const rem = Math.max(0, state.totalMs - (elapsed | 0));
+
+        timerClear();
+        state.remainingMs = rem;
+      };
+
+      const timerResume = () => {
+        if (!state.active) return;
+        if (state.remainingMs <= 0) {
+          scheduleClose("timeout");
+          return;
+        }
+
+        state.startMs = nowMs();
+        state.totalMs = state.remainingMs;
+
+        timerClear();
+        state.timerId = setTimeout(() => {
+          state.timerId = null;
+          if (!state.active || state.closing) return;
+          if (state.paused) return;
+          scheduleClose("timeout");
+        }, state.totalMs);
+      };
+
+      const setPausedUi = (on) => {
+        state.paused = !!on;
+
+        if (btnPause) {
+          btnPause.textContent = state.paused ? "Resume" : "Pause";
+          btnPause.setAttribute("aria-pressed", state.paused ? "true" : "false");
+        }
+      };
+
+      const transitionIsZero = () => {
+        if (!panel) return true;
+        const cs = getComputedStyle(panel);
+        const d = (cs.transitionDuration || "0s").split(",").map((x) => x.trim());
+        return d.every((x) => x === "0s" || x === "0ms" || x === "");
+      };
+
+      const render = () => {
+        const a = state.active;
+        if (!a) return;
+
+        const parts = Array.isArray(a.parts) ? a.parts : splitParts(a.text);
+        const total = parts.length || 1;
+
+        const idx = clamp(state.partIndex | 0, 0, total - 1);
+        state.partIndex = idx;
+
+        if (elSpeaker) elSpeaker.textContent = String(a.speaker || "Narration");
+        if (elPager) elPager.textContent = `${idx + 1}/${total}`;
+        if (elText) elText.textContent = String(parts[idx] || "");
+
+        const iconUrl = String(a.iconUrl || "");
+        if (elIcon) {
+          if (iconUrl) {
+            elIcon.src = iconUrl;
+            elIcon.style.display = "";
+          } else {
+            elIcon.src = "";
+            elIcon.style.display = "none";
+          }
+        }
+
+        if (btnNext) btnNext.style.display = (idx < total - 1) ? "" : "none";
+      };
+
+      const finalizeClose = (why) => {
+        if (!root) return;
+        root.classList.remove("is-closing");
+        root.setAttribute("aria-hidden", "true");
+
+        const a = state.active;
+
+        state.active = null;
+        state.partIndex = 0;
+        state.closing = false;
+
+        setPausedUi(false);
+        timerClear();
+        state.startMs = 0;
+        state.totalMs = 0;
+        state.remainingMs = 0;
+
+        if (bar) {
+          bar.style.animation = "none";
+          bar.style.setProperty("--narrBarFrom", "1");
+          bar.style.transform = "scaleX(1)";
+        }
+
+        if (a) document.dispatchEvent(new CustomEvent("narration:closed", { detail: { id: a.id || "", why } }));
+
+        if (state.queue.length) {
+          const next = state.queue.shift();
+          if (next) showActive(next);
+        }
+      };
+
+      const scheduleClose = (why) => {
+        if (!root) return;
+        if (root.getAttribute("aria-hidden") === "true") return;
+        if (state.closing) return;
+
+        state.closing = true;
+        timerClear();
+
+        root.classList.remove("is-open");
+        root.classList.add("is-closing");
+
+        const a = state.active;
+        if (a && typeof a.onClose === "function") {
+          try { a.onClose({ why, id: a.id || "", partIndex: state.partIndex }); } catch (_) {}
+        }
+
+        if (transitionIsZero()) finalizeClose("no-transition");
+      };
+
+      const showActive = (msg) => {
+        if (!root) return;
+
+        const m = msg && typeof msg === "object" ? msg : { text: String(msg || "") };
+        if (!m.id) m.id = `n_${Math.random().toString(36).slice(2)}`;
+
+        m.parts = Array.isArray(m.parts) ? m.parts : (m.text ? splitParts(m.text) : [""]);
+        m.autoHideMs = getAutoHideMs(m);
+
+        state.active = m;
+        state.partIndex = 0;
+        state.closing = false;
+
+        setPausedUi(false);
+
+        root.setAttribute("aria-hidden", "false");
+        root.classList.remove("is-closing");
+        root.classList.add("is-open");
+
+        render();
+
+        timerStart(m.autoHideMs);
+        barRestart(m.autoHideMs, 1.0);
+
+        document.dispatchEvent(new CustomEvent("narration:shown", { detail: { id: m.id, speaker: m.speaker || "Narration" } }));
+      };
+
+      const enqueue = (msg) => {
+        const m = msg && typeof msg === "object" ? msg : { text: String(msg || "") };
+        if (!m.id) m.id = `n_${Math.random().toString(36).slice(2)}`;
+        state.queue.push(m);
+
+        if (!state.active && root && root.getAttribute("aria-hidden") === "true") {
+          const next = state.queue.shift();
+          if (next) showActive(next);
+        }
+        return m.id;
+      };
+
+      const show = (msg) => {
+        state.queue.length = 0;
+        showActive(msg);
+        return state.active ? state.active.id : "";
+      };
+
+      const clear = () => {
+        state.queue.length = 0;
+        scheduleClose("clear");
+      };
+
+      const init = () => {
+        root = document.getElementById("narrationCloud");
+        panel = root ? root.querySelector(".narration__panel") : null;
+
+        elIcon = document.getElementById("narrationIcon");
+        elSpeaker = document.getElementById("narrationSpeaker");
+        elPager = document.getElementById("narrationPager");
+        elText = document.getElementById("narrationText");
+
+        btnAck = document.getElementById("narrationAcknowledge");
+        btnDis = document.getElementById("narrationDisregard");
+        btnNext = document.getElementById("narrationNext");
+        btnPause = document.getElementById("narrationPause");
+        btnClose = document.getElementById("narrationClose");
+
+        bar = document.getElementById("narrationTimerBar");
+
+        if (!root || !panel || !elIcon || !elSpeaker || !elPager || !elText || !btnAck || !btnDis || !btnNext || !btnPause || !btnClose || !bar) return;
+
+        panel.addEventListener("transitionend", (e) => {
+          if (!state.closing) return;
+          if (e && e.target !== panel) return;
+          if (!root.classList.contains("is-closing")) return;
+          finalizeClose("transitionend");
+        });
+
+        btnAck.addEventListener("click", () => {
+          const a = state.active;
+          if (a) document.dispatchEvent(new CustomEvent("narration:acknowledge", { detail: { id: a.id || "", partIndex: state.partIndex } }));
+          scheduleClose("acknowledge");
+        });
+
+        btnDis.addEventListener("click", () => {
+          const a = state.active;
+          if (a) document.dispatchEvent(new CustomEvent("narration:disregard", { detail: { id: a.id || "", partIndex: state.partIndex } }));
+          scheduleClose("disregard");
+        });
+
+        btnNext.addEventListener("click", () => {
+          const a = state.active;
+          if (!a) return;
+
+          const total = (a.parts && a.parts.length) ? a.parts.length : 1;
+          if (state.partIndex < total - 1) {
+            state.partIndex++;
+            render();
+
+            if (!state.paused) {
+              timerClear();
+              timerStart(a.autoHideMs);
+              barRestart(a.autoHideMs, 1.0);
+            }
+
+            document.dispatchEvent(new CustomEvent("narration:next", { detail: { id: a.id || "", partIndex: state.partIndex } }));
+          } else {
+            scheduleClose("done");
+          }
+        });
+
+        btnPause.addEventListener("click", () => {
+          if (!state.active) return;
+
+          if (!state.paused) {
+            setPausedUi(true);
+            timerPause();
+            barStopAndFreeze();
+          } else {
+            setPausedUi(false);
+            const cs = getComputedStyle(bar);
+            const scale = parseScaleX(cs.transform);
+            barRestart(state.remainingMs, Number.isFinite(scale) ? clamp(scale, 0.0, 1.0) : 1.0);
+            timerResume();
+          }
+        });
+
+        btnClose.addEventListener("click", () => scheduleClose("close"));
+
+        document.addEventListener("narration:show", (ev) => {
+          const d = ev && ev.detail ? ev.detail : null;
+          if (!d) return;
+          show(d);
+        });
+
+        document.addEventListener("narration:enqueue", (ev) => {
+          const d = ev && ev.detail ? ev.detail : null;
+          if (!d) return;
+          enqueue(d);
+        });
+
+        document.addEventListener("narration:clear", () => clear());
+      };
+
+      return { init, enqueue, show, clear };
+    })();
+
+
+
+
+
+
+/* Intro narration script + idle trigger (shows after N ms if avatar control is still OFF). */
+    const INTRO_NARRATION = {
+      id: "intro_monolog_01",
+      speaker: "Inner monologue",
+      iconUrl: "assets/images/icons/white/profile.svg",
+      parts: [
+        "The sun is already too bright for this hour. Heat shimmers over the pavement, and everything smells like warm dust and sunscreen.",
+        "Okay… where am I even headed?",
+        "There’s a beach path to the left—music and gulls, people laughing like they’ve solved life. Straight ahead is the town square, quiet except for a fountain and a few bored pigeons. To the right, a narrow alley with shade and a breeze that feels like a hint.",
+        "No quest marker. No urgent problem. Just… me, and a whole summer day.",
+        "Maybe start small. Find water. Find a place to sit. Listen for something interesting. Someone always needs something in places like this—lost keys, a broken scooter, a note that never got delivered.",
+        "Or maybe I’m the one who’s lost.",
+        "If I follow the sound of music, I’ll blend in. If I head into the square, I’ll see more. If I take the alley… that’s where stories usually begin.",
+        "Alright. One step. Pick a direction. Any direction. The day won’t wait forever."
+      ],
+      autoHideMs: 14000
+    };
+
+    function bootIntroNarration() {
+  /* Shows intro narration after params.introNarrationDelayMs if avatar control is still disabled. */
+      const delayMs = (params && Number.isFinite(Number(params.introNarrationDelayMs)))
+      ? Math.max(0, Number(params.introNarrationDelayMs) | 0)
+      : 9000;
+
+      const mark = (v) => {
+        if (!params || typeof params !== "object") return;
+        params.__introNarrationShown = !!v;
+        if (typeof saveLastDebounced === "function") saveLastDebounced(params);
+      };
+
+      if (params && params.__introNarrationShown) return;
+
+      setTimeout(() => {
+        if (params && params.__introNarrationShown) return;
+        if (vehicleDriveState && vehicleDriveState.enabled) return;
+        if (avatarState && avatarState.enabled) return;
+
+        narration.show(INTRO_NARRATION);
+        mark(true);
+      }, delayMs);
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Replace function: musicSelectPlaylistById
 /* Selects a playlist by id and loads its trackList.json. */
@@ -9760,41 +11163,57 @@ function loadAllModels() {
       return parts.join("/");
     }
 
+
     /**
      * Collects and prints avatar bone names (and paths) to the console.
      * Returns an array of bone info rows for downstream tooling.
      */
     function listAvatarBonesToConsole() {
       if (!avatar) {
+        if (typeof showActionToast === "function") showActionToast("Avatar not loaded yet");
         console.warn("[avatar] list bones: avatar is not loaded");
         return [];
       }
 
-      const bones = [];
-      avatar.traverse((o) => {
-        if (o && o.isBone) bones.push(o);
-      });
-
-      const rows = bones.map((b, i) => {
-        return {
-          i,
-          name: String(b.name || ""),
-          path: getObjectPath(b, avatar),
-          position: b.position ? `${b.position.x.toFixed(3)}, ${b.position.y.toFixed(3)}, ${b.position.z.toFixed(3)}` : "",
-          rotation: b.rotation ? `${b.rotation.x.toFixed(3)}, ${b.rotation.y.toFixed(3)}, ${b.rotation.z.toFixed(3)}` : ""
-        };
-      });
-
-      console.groupCollapsed(`[avatar] bones (${bones.length})`);
       try {
-        console.table(rows);
-      } catch (e) {
-        console.log(rows);
-      }
-      console.groupEnd();
+        const bones = [];
+        avatar.traverse((o) => {
+          if (o && o.isBone) bones.push(o);
+        });
 
-      return rows;
+        const rows = bones.map((b, i) => {
+          return {
+            i,
+            name: String(b.name || ""),
+            path: getObjectPath(b, avatar),
+            position: b.position ? `${b.position.x.toFixed(3)}, ${b.position.y.toFixed(3)}, ${b.position.z.toFixed(3)}` : "",
+            rotation: b.rotation ? `${b.rotation.x.toFixed(3)}, ${b.rotation.y.toFixed(3)}, ${b.rotation.z.toFixed(3)}` : ""
+          };
+        });
+
+        if (!rows.length) {
+          if (typeof showActionToast === "function") showActionToast("No bones found on current avatar");
+          console.warn("[avatar] list bones: none found");
+          return [];
+        }
+
+        if (typeof showActionToast === "function") showActionToast(`Bones: ${rows.length} (see console)`);
+        console.groupCollapsed(`[avatar] bones (${rows.length})`);
+        try {
+          console.table(rows);
+        } catch (e) {
+          console.log(rows);
+        }
+        console.groupEnd();
+
+        return rows;
+      } catch (err) {
+        if (typeof showActionToast === "function") showActionToast("List bones failed (see console)");
+        console.error("[avatar] list bones failed", err);
+        return [];
+      }
     }
+
 
 
 
@@ -10805,6 +12224,7 @@ function loadAllModels() {
                 for (let i = 0; i < burst; i++) {
                   const scale = clamp(0.35 + speed * 0.05, 0.22, 0.95);
                   playFX("step6", scale);
+                  //step();
                 }
               }
             }
@@ -11036,7 +12456,35 @@ function loadAllModels() {
         });
       }
 
-      if (vehicleExitBtn) vehicleExitBtn.addEventListener("click", () => { exitVehicle(); });
+      // if (vehicleExitBtn) vehicleExitBtn.addEventListener("click", () => { exitVehicle(); });
+      if (vehicleExitBtn) {
+        vehicleExitBtn.addEventListener("click", () => {
+    /* Secondary prompt action: exit/unequip/consume depending on the current prompt target. */
+          const near = vehiclePromptState.nearby;
+          if (!near) return;
+
+          if (near.kind === "vehicle") {
+            if (vehicleDriveState.enabled) exitVehicle();
+            return;
+          }
+
+          if (near.kind === "equipment") {
+            if (equipmentState.enabled) unequipItem();
+            return;
+          }
+
+          if (near.kind === "pickup") {
+            const meta = (near.meta && typeof near.meta === "object") ? near.meta : {};
+            const isFood = String(meta.kind || "").toLowerCase() === "food";
+            if (isFood) pickupConsume(near);
+            return;
+          }
+        });
+      }
+
+
+
+
       
       if (vehicleCloseBtn) {
         vehicleCloseBtn.addEventListener("click", (e) => {
@@ -13446,16 +14894,18 @@ function updateVehicleQuickActionButton() {
 /**
  * Shows/hides the vehicle prompt panel and refreshes the current selection.
  */
-/**
- * Shows/hides the vehicle prompt panel and refreshes the current selection.
- */
+
+
 function setVehiclePrompt(open, near) {
-  /* Shows the interaction prompt for the current nearby target and configures actions based on kind. */
+  /* Interaction prompt UI + one-shot SFX on open/target-change (sound ids are simple to edit below). */
   const panel = document.getElementById("vehiclePrompt");
   const titleEl = document.getElementById("vehiclePromptTitle");
   const descEl = document.getElementById("vehiclePromptDesc");
   const enterBtn = document.getElementById("vehicleEnterBtn");
   const exitBtn = document.getElementById("vehicleExitBtn");
+
+  const prevOpen = !!vehiclePromptState.open;
+  const prevKey = String(vehiclePromptState.__sfxKey || "");
 
   vehiclePromptState.open = !!open;
   vehiclePromptState.nearby = open ? (near || null) : null;
@@ -13470,6 +14920,7 @@ function setVehiclePrompt(open, near) {
     enterBtn.style.display = "none";
     exitBtn.style.display = "none";
     updateVehicleQuickActionButton();
+    vehiclePromptState.__sfxKey = "";
     return;
   }
 
@@ -13527,7 +14978,39 @@ function setVehiclePrompt(open, near) {
   panel.style.display = "block";
   panel.setAttribute("aria-hidden", "false");
   updateVehicleQuickActionButton();
+
+  /* Prompt SFX routing: change these ids only (must exist in sounds_presets.json). */
+  const PROMPT_SFX = {
+    vehicle: "vehicleEnter",
+    equipment: "equipment",
+    pickup: "pickup",
+    food: "food",
+    other: "other"
+  };
+
+  const id = String(n.id || meta.id || "");
+  const sfxKey = `${kind}:${id || title}`;
+  const changedTarget = (sfxKey && sfxKey !== prevKey);
+  const openedNow = (!prevOpen && vehiclePromptState.open);
+  const shouldPlay = openedNow || changedTarget;
+
+  vehiclePromptState.__sfxKey = sfxKey;
+
+  if (shouldPlay && typeof playFX === "function" && params && params.sfxPresets) {
+    let sfxId = PROMPT_SFX.other;
+
+    if (kind === "vehicle") sfxId = PROMPT_SFX.vehicle;
+    else if (kind === "equipment") sfxId = PROMPT_SFX.equipment;
+    else if (kind === "pickup") {
+      const isFood = String(meta.kind || "").toLowerCase() === "food";
+      sfxId = isFood ? PROMPT_SFX.food : PROMPT_SFX.pickup;
+    }
+
+    if (params.sfxPresets[sfxId]) playFX(sfxId, 0.9);
+    else if (params.sfxPresets["pickup"]) playFX("pickup", 0.9);
+  }
 }
+
 
 
 
@@ -14354,16 +15837,18 @@ function equipItem(e) {
   setVehiclePrompt(true, e);
   updateVehicleOutlineFor(null);
 
-
-
+  /* Equip SFX (actual action). */
+  if (typeof playFX === "function" && params && params.sfxPresets && params.sfxPresets["equip"]) {
+    playFX("equip", 0.9);
+  }
 
 
 }
 
 
 /**
- * Detaches the currently equipped item, restores its pre-equip transform/visibility,
- * and drops it in front of the avatar so it remains re-interactable in the world.
+ * Detaches the currently equipped item and drops it close in front of the avatar,
+ * resting on the surface using the object's bounding box height.
  */
 function unequipItem() {
   if (!equipmentState.enabled || !equipmentState.item || !avatar || !scene) return;
@@ -14395,13 +15880,31 @@ function unequipItem() {
   obj.quaternion.copy(equipmentState.originalQuaternion);
   obj.scale.copy(equipmentState.originalScale);
 
-  const dist = 1.25;
-  equipmentTmpForward.set(0, 0, -1).applyAxisAngle(equipmentWorldUp, avatar.rotation.y);
+  avatar.getWorldPosition(equipmentTmpPos);
 
-  obj.position.copy(avatar.position).addScaledVector(equipmentTmpForward, dist);
-  obj.position.y = avatar.position.y;
+  equipmentTmpForward.set(0, 0, 1).applyQuaternion(avatar.quaternion);
+  equipmentTmpForward.y = 0;
+  if (equipmentTmpForward.lengthSq() < 1e-10) equipmentTmpForward.set(0, 0, 1);
+  equipmentTmpForward.normalize();
 
-  obj.rotation.set(0, avatar.rotation.y + Math.PI, 0);
+  equipmentTmpBox.setFromObject(obj);
+  equipmentTmpBox.getSize(equipmentTmpSize);
+
+  const radius = 0.5 * Math.max(0.0, equipmentTmpSize.x, equipmentTmpSize.z);
+  const dist = clamp(0.45 + radius * 0.35, 0.45, 0.85);
+
+  const dropX = equipmentTmpPos.x + equipmentTmpForward.x * dist;
+  const dropZ = equipmentTmpPos.z + equipmentTmpForward.z * dist;
+
+  const surfaceY = getWorldSurfaceY(dropX, dropZ);
+
+  equipmentTmpBox.getCenter(equipmentTmpCenter);
+  const halfH = Math.max(0.01, equipmentTmpSize.y * 0.5);
+
+  obj.position.set(dropX, surfaceY + halfH, dropZ);
+
+  const yaw = Math.atan2(equipmentTmpForward.x, equipmentTmpForward.z);
+  obj.rotation.set(0, yaw + Math.PI, 0);
   obj.updateMatrixWorld(true);
 
   equipmentState.enabled = false;
@@ -14416,6 +15919,8 @@ function unequipItem() {
   setVehiclePrompt(false, null);
   updateVehicleOutlineFor(null);
 }
+
+
 
 
 /**
@@ -16297,8 +17802,9 @@ function tickVehicle(dt) {
 /**
  * Shows the interaction prompt for nearby vehicles/equipment (and updates vehicle outline when applicable).
  */
+
 function tickVehicleProximity() {
-  /* Shows prompt for nearby interactables unless that specific target was dismissed and still in range. */
+  /* Chooses the highest-priority nearby target (vehicle/pickup/equipment), even while wearing equipment. */
   if (!avatarState.enabled || vehicleDriveState.enabled) {
     if (vehiclePromptState.open) setVehiclePrompt(false, null);
     updateVehicleOutlineFor(null);
@@ -16315,17 +17821,6 @@ function tickVehicleProximity() {
     return id === dismissedId && kind === (dismissedKind || kind);
   };
 
-  if (equipmentState.enabled && equipmentState.item) {
-    if (isDismissed(equipmentState.item)) {
-      if (vehiclePromptState.open) setVehiclePrompt(false, null);
-      updateVehicleOutlineFor(null);
-      return;
-    }
-    setVehiclePrompt(true, equipmentState.item);
-    updateVehicleOutlineFor(null);
-    return;
-  }
-
   const nearVehicle = findNearbyVehicle();
   if (nearVehicle) {
     if (isDismissed(nearVehicle)) {
@@ -16338,7 +17833,7 @@ function tickVehicleProximity() {
     return;
   }
 
-  const nearEquip = findNearbyEquipment();
+  const nearEquip = findNearbyEquipment(); // may return kind "equipment" or "pickup"
   if (nearEquip) {
     if (isDismissed(nearEquip)) {
       if (vehiclePromptState.open) setVehiclePrompt(false, null);
@@ -16346,6 +17841,17 @@ function tickVehicleProximity() {
       return;
     }
     setVehiclePrompt(true, nearEquip);
+    updateVehicleOutlineFor(null);
+    return;
+  }
+
+  if (equipmentState.enabled && equipmentState.item) {
+    if (isDismissed(equipmentState.item)) {
+      if (vehiclePromptState.open) setVehiclePrompt(false, null);
+      updateVehicleOutlineFor(null);
+      return;
+    }
+    setVehiclePrompt(true, equipmentState.item);
     updateVehicleOutlineFor(null);
     return;
   }
@@ -16358,6 +17864,7 @@ function tickVehicleProximity() {
   if (vehiclePromptState.open) setVehiclePrompt(false, null);
   updateVehicleOutlineFor(null);
 }
+
 
 
 
@@ -20153,15 +21660,12 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       function setupGui() {
         gui = new GUI();
 
-        trackController(gui.add(params, "paused").name("Paused"), { instant: true });
-        trackController(gui.add(params, "debug").name("Debug logs"), { instant: true });
+        /* Avatar debugging actions exposed in GUI. */
         const avatarDebugActions = {
           listBones: () => {
             listAvatarBonesToConsole();
           }
         };
-
-        gui.add(avatarDebugActions, "listBones").name("Avatar: list bones");
 
 
         const sim = gui.addFolder("Simulation");
@@ -20190,7 +21694,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           { instant: true }
           );
 
+        trackController(perf.add(params, "paused").name("Paused"), { instant: true });
+        trackController(perf.add(params, "debug").name("Debug logs"), { instant: true });
+
         perf.close();
+
 
 
       //sim.open();
@@ -20484,8 +21992,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         sfxDraftCtrls.push(soundMaker.add(d, "kind", ["osc", "noise", "mix"]).name("Kind").onChange(onDraftChanged));
         sfxDraftCtrls.push(soundMaker.add(d, "oscType", ["sine", "square", "sawtooth", "triangle"]).name("Osc type").onChange(onDraftChanged));
-        sfxDraftCtrls.push(soundMaker.add(d, "freq", 20, 2000, 1).name("Freq").onChange(onDraftChanged));
-        sfxDraftCtrls.push(soundMaker.add(d, "freqEnd", 20, 2000, 1).name("Freq end").onChange(onDraftChanged));
+        sfxDraftCtrls.push(soundMaker.add(d, "freq", 1, 2000, 1).name("Freq").onChange(onDraftChanged));
+        sfxDraftCtrls.push(soundMaker.add(d, "freqEnd", 1, 2000, 1).name("Freq end").onChange(onDraftChanged));
         sfxDraftCtrls.push(soundMaker.add(d, "noise", 0.0, 1.0, 0.01).name("Noise mix").onChange(onDraftChanged));
         sfxDraftCtrls.push(soundMaker.add(d, "gain", 0.0, 2.0, 0.01).name("Gain").onChange(onDraftChanged));
 
@@ -21753,7 +23261,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         };
 
 
-        gui.add(misc, "resetDefaults").name("Reset to defaults");
 
         const presets = gui.addFolder("Presets");
         presets.add(presetState, "presetName").name("Save as").listen();
@@ -21776,7 +23283,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         presets.add({ deletePreset }, "deletePreset").name("Delete");
         presets.add({ exportJson: exportSettings }, "exportJson").name("Export JSON");
         presets.add({ importJson: importSettings }, "importJson").name("Import JSON");
-      //presets.open();
+        presets.add(misc, "resetDefaults").name("Reset to defaults");
       //presets.open();
 
 
@@ -21825,7 +23332,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         const avatarFolder = gui.addFolder("Avatar");
         setupAvatarStepGui(avatarFolder);
+
+        avatarFolder.add(avatarDebugActions, "listBones").name("List bones");
+        
         avatarFolder.close();
+
 
         const objectFolder = gui.addFolder("Object");
         setupWorldEditObjectGui(objectFolder);
@@ -22319,6 +23830,12 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           }
         }
 
+        /* Take/pickup SFX (actual action). */
+        if (typeof playFX === "function" && params && params.sfxPresets && params.sfxPresets["pickup"]) {
+          playFX("pickup", 0.9);
+        }
+
+
         if (typeof showActionToast === "function") showActionToast(`TAKEN • ${entry.name}`);
 
         if (near.object.parent) near.object.parent.remove(near.object);
@@ -22359,6 +23876,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
           if (typeof savePlayerVitals === "function") savePlayerVitals();
         }
+
+        /* Consume SFX (uses existing "pickup" unless you add a dedicated preset later). */
+        if (typeof playFX === "function" && params && params.sfxPresets && params.sfxPresets["pickup"]) {
+          playFX("pickup", 0.85);
+        }        
 
         const nm = String(meta.name || meta.title || near.id || "Food");
         if (typeof showActionToast === "function") showActionToast(`CONSUMED • ${nm} +${(kcal | 0)}kcal`);
@@ -22642,6 +24164,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
       /* Adds a new instance of a catalog object to the editable world config and spawns it into the scene. */
       function addWorldObjectToScene(modelName) {
+  /* Spawns a new world model instance and immediately selects it for TransformControls. */
         if (!worldEditState.enabled) return;
 
         const name = String(modelName || "").trim();
@@ -22739,6 +24262,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         scene.add(inst);
         modelInstances[instCfg.id] = inst;
+
+        registerWorldEditRoot(inst, instCfg);
 
         rebuildWorldModelsRuntimeCaches();
         selectWorldEditRoot(inst);
@@ -23232,12 +24757,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           return;
         }
 
-  // E: interact (enter nearest vehicle / equip nearby item)
+        // E: interact (enter nearest vehicle / equip nearby item / take pickup; Shift+E consumes food)
+
         if (event.code === "KeyE" && !event.metaKey && !event.ctrlKey) {
-
-
-
-
+  /* Interact priority: exit vehicle -> enter vehicle -> pickup (take/consume) -> equipment (equip/unequip). */
           if (event.repeat) return;
           event.preventDefault();
 
@@ -23248,24 +24771,45 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
             return;
           }
 
-          if (equipmentState.enabled) {
-            unequipItem();
-            return;
-          }
-
           const near = vehiclePromptState.nearby;
           if (!near) return;
 
-          if (near.kind === "equipment") {
+          const kind = String(near.kind || "");
+          const isPickup = kind === "pickup";
+          const isEquipment = kind === "equipment";
+          const isVehicle =
+          kind === "vehicle" ||
+          (!isPickup && !isEquipment && near.object && near.meta && (near.meta.type || near.meta.description || near.meta.seatLocal || near.meta.profile));
 
-            equipItem(near);
-
+          if (isVehicle) {
+            enterVehicle(near);
             return;
           }
 
-          enterVehicle(near);
+          if (isPickup) {
+            const meta = (near.meta && typeof near.meta === "object") ? near.meta : {};
+            const isFood =
+            String(meta.kind || "").toLowerCase() === "food" ||
+            String(meta.type || "").toLowerCase() === "food" ||
+            !!meta.food;
+
+            if (isFood && event.shiftKey) pickupConsume(near);
+            else pickupTake(near);
+            return;
+          }
+
+          if (isEquipment) {
+            if (equipmentState.enabled) unequipItem();
+            else equipItem(near);
+            return;
+          }
+
           return;
         }
+
+
+
+
 
   // O: exit vehicle / unequip item
         if (event.code === "KeyO") {
@@ -23586,6 +25130,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         loadAvatar();
         setupAvatarUI();
+        narration.init();
+        bootIntroNarration();
         setupMinimapUI();
 
         bootWorldPickerOverlay();

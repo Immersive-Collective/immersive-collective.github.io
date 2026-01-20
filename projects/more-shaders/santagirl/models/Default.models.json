@@ -668,6 +668,49 @@
   },
 
 
+  {
+    "name": "medical",
+    "url": "models/backpacks/medical1.glb",
+    "instances": [
+      {
+        "id": "medical1",
+        "position": [
+          6.169695125924878,
+          1.021042712073922,
+          0.7887031175377324
+        ],
+        "rotation": [
+          0,
+          7.804545764908181,
+          0
+        ],
+        "scale": 1,
+        "stick": false,
+        "collide": false,
+        "equipment": {
+          "type": "Backpack",
+          "description": "Wearable medical backpack 1",
+          "action": "",
+          "attach": {
+            "bone": "mixamorigSpine2",
+            "position": [
+              0,
+              -20.062,
+              -15.829
+            ],
+            "rotation": [
+              2.96040734641021,
+              3.141592653589793,
+              3.1
+            ],
+            "scale": 1
+          }
+        }
+      }
+    ]
+  },  
+
+
 
 {
   "name": "snowcar",
