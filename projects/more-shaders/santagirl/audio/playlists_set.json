@@ -30,6 +30,17 @@
       "thumbnail": "amb.png",
       "order": 0,
       "loop": false
-    }    
+    }
+,
+    {
+      "id": "pitchblack",
+      "folder": "pitchblack",
+      "title": "Pitch Black Songs",
+      "artist": "Pitch Black Airtists",
+      "description": "Music for the pitchblack",
+      "thumbnail": "pitchblack.png",
+      "order": 0,
+      "loop": false
+    }        
   ]
 }

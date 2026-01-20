@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "playlistId": "tripop",
+  "title": "Trip Playlist",
+  "artist": "Various Trip Hop Artists",
+  "description": "Default ambient music for the world",
+  "tracks": [
+    { "file": "1.mp3",  "title": "Track 01", "artist": "Amba", "trackNumber": 1 },
+    { "file": "2.mp3",  "title": "Track 02", "artist": "Blah blahamb", "trackNumber": 2 },
+    { "file": "3.mp3",  "title": "Track 03", "artist": "Various Artists", "trackNumber": 3 },
+    { "file": "4.mp3",  "title": "Track 04", "artist": "Various Artists", "trackNumber": 4 },
+    { "file": "5.mp3",  "title": "Track 05", "artist": "Various Artists", "trackNumber": 5 },
+    { "file": "6.mp3",  "title": "Track 06", "artist": "Various Artists", "trackNumber": 6 },
+    { "file": "7.mp3",  "title": "Track 07", "artist": "Various Artists", "trackNumber": 7 }
+  ]
+}
