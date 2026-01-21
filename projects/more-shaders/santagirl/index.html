@@ -908,6 +908,52 @@ button {
   color: white;
 }
 
+
+.world-object-search {
+  width: 100%;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.95);
+  padding: 0 12px;
+  outline: none;
+  margin-top: 8px;
+}
+
+.world-object-search:focus {
+  border-color: rgba(255, 255, 255, 0.42);
+}
+
+.world-object-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 10px 0;
+}
+
+.world-object-tabs .avatar-btn {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.world-object-tabs .avatar-btn.is-on {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 .inventory-picker {
   position: fixed;
   inset: 0;
@@ -2888,17 +2934,22 @@ canvas.world-edit-on {
 </div>
 
 <div id="worldObjectPicker" class="inventory-picker" aria-hidden="true">
-  <div class="inventory-picker__panel" role="dialog" aria-modal="true" aria-label="World objects">
+  <div class="inventory-picker__panel" role="dialog" aria-modal="true" aria-label="Objects">
     <div class="kbd-help__header">
       <div class="kbd-help__title">Objects</div>
-      <button id="worldObjectPickerClose" class="avatar-btn">Close</button>
+      <button id="worldObjectPickerClose" class="avatar-btn" type="button">Close</button>
     </div>
 
-    <div id="worldObjectPickerList" class="inventory-picker__list"></div>
+    <input id="worldObjectPickerSearch" class="world-object-search" type="text" autocomplete="off" spellcheck="false" placeholder="Search objects, vehicles, equipment, food…" aria-label="Search objects">
 
-    <div class="kbd-help__note">Available world objects (Edit World only). Click an item to add it in front of the avatar.</div>
+    <div id="worldObjectPickerTabs" class="world-object-tabs" role="tablist" aria-label="Object categories"></div>
+
+    <div id="worldObjectPickerList" class="inventory-picker__list" aria-label="Object list"></div>
+
+    <div class="kbd-help__note">Type to search. Click an item to add it to the scene.</div>
   </div>
 </div>
+
 
 
 
@@ -9457,6 +9508,9 @@ function renderEmptyMessage(listEl, text) {
   listEl.appendChild(msg);
 }
 
+
+
+
 function renderLocalWorldCards(worlds) {
   if (!worldPickerListLocalEl) return;
 
@@ -9535,6 +9589,7 @@ function renderLocalWorldCards(worlds) {
           title: String(w.title || "Untitled") + " (Copy)",
           description: String(w.description || ""),
           models: JSON.parse(JSON.stringify(w.models || [])),
+          emitters: JSON.parse(JSON.stringify(w.emitters || [])),
           settings: w.settings ? JSON.parse(JSON.stringify(w.settings)) : safeCloneSettings(params),
           thumbnail: typeof w.thumbnail === "string" ? w.thumbnail : "",
           meta: {},
@@ -9623,6 +9678,9 @@ function renderLocalWorldCards(worlds) {
     worldPickerListLocalEl.appendChild(card);
   }
 }
+
+
+
 
 function renderCloudWorldCards(listEl, worlds, scope) {
   if (!listEl) return;
@@ -26097,14 +26155,33 @@ function renderInventoryPickerList() {
 }
 
 
+
+
+
+
+
+/* Builds the catalog shown in the edit-only object picker (uses currently available templates). */
 /* Builds the catalog shown in the edit-only object picker (uses currently available templates). */
 function getWorldObjectCatalog() {
-  /* Catalog for the object picker: lists world models (regardless of template-load state). */
-  const base = (Array.isArray(worldModelsConfig) && worldModelsConfig.length)
+  const base =
+  (Array.isArray(worldModelsConfig) && worldModelsConfig.length > 0)
   ? worldModelsConfig
   : (Array.isArray(MODEL_CONFIG) ? MODEL_CONFIG : []);
 
   const out = [];
+
+  const findModelUrlByName = (name) => {
+    const n = String(name || "");
+    if (!n) return "";
+
+    const fromBase = (Array.isArray(base) ? base : []).find((e) => e && String(e.name) === n) || null;
+    const u0 = fromBase && typeof fromBase.url === "string" ? fromBase.url.trim() : "";
+    if (u0) return u0;
+
+    const fromDefaults = (Array.isArray(MODEL_CONFIG) ? MODEL_CONFIG : []).find((e) => e && String(e.name) === n) || null;
+    const u1 = fromDefaults && typeof fromDefaults.url === "string" ? fromDefaults.url.trim() : "";
+    return u1 || "";
+  };
 
   const modelUrlToThumb = (url) => {
     const raw = String(url || "").trim();
@@ -26115,18 +26192,62 @@ function getWorldObjectCatalog() {
     return png && png !== clean ? png : DEFAULT_ITEM_THUMB;
   };
 
+  const pickCategory = (entry) => {
+    const inst = (entry && Array.isArray(entry.instances)) ? entry.instances : [];
+
+    let hasVehicle = false;
+    let hasEquipment = false;
+    let hasFood = false;
+
+    for (let i = 0; i < inst.length; i++) {
+      const it = inst[i];
+      if (!it || typeof it !== "object") continue;
+      if (it.vehicle && typeof it.vehicle === "object") hasVehicle = true;
+      if (it.equipment && typeof it.equipment === "object") hasEquipment = true;
+
+      const meta = (it.meta && typeof it.meta === "object") ? it.meta : {};
+      const kind = String(meta.kind || meta.type || "").toLowerCase();
+      if (kind === "food" || kind === "consumable") hasFood = true;
+    }
+
+    if (hasVehicle) return { key: "vehicles", label: "Vehicles" };
+    if (hasFood) return { key: "food", label: "Food" };
+    if (hasEquipment) return { key: "equipment", label: "Equipment" };
+    return { key: "objects", label: "Objects" };
+  };
+
   for (let i = 0; i < base.length; i++) {
     const entry = base[i];
     if (!entry || !entry.name) continue;
 
     const name = String(entry.name);
-    const url = String(entry.url || "");
+    const template = modelTemplates[name] || null;
+    if (!template) continue;
+
+    const url = findModelUrlByName(name);
     const thumb = modelUrlToThumb(url);
+    const cat = pickCategory(entry);
+
+    const desc = (typeof entry.description === "string" ? entry.description.trim() : "") || "Add to scene";
+    const meta = (entry.meta && typeof entry.meta === "object") ? entry.meta : {};
+    const searchText = [
+      name,
+      desc,
+      url,
+      cat.label,
+      cat.key,
+      (typeof meta.tags === "string" ? meta.tags : ""),
+      (Array.isArray(meta.tags) ? meta.tags.join(" ") : ""),
+      (typeof meta.category === "string" ? meta.category : "")
+    ].join(" ").toLowerCase();
 
     out.push({
       name,
-      desc: "Add to scene",
-      thumb
+      desc,
+      thumb,
+      categoryKey: cat.key,
+      categoryLabel: cat.label,
+      searchText
     });
   }
 
@@ -26136,7 +26257,10 @@ function getWorldObjectCatalog() {
 
 
 
-      /* Wires the world-object picker overlay once and keeps open/close state consistent. */
+
+
+
+
 function ensureWorldObjectPickerOverlayWired() {
   if (worldObjectPickerState.wired) return;
 
@@ -26144,9 +26268,19 @@ function ensureWorldObjectPickerOverlayWired() {
   worldObjectPickerCloseBtn = document.getElementById("worldObjectPickerClose");
   worldObjectPickerListEl = document.getElementById("worldObjectPickerList");
 
+  const worldObjectPickerSearchEl = document.getElementById("worldObjectPickerSearch");
+  const worldObjectPickerTabsEl = document.getElementById("worldObjectPickerTabs");
+
   if (!worldObjectPickerEl || !worldObjectPickerListEl) {
     worldObjectPickerState.wired = true;
     return;
+  }
+
+  if (!worldObjectPickerState.filter || typeof worldObjectPickerState.filter !== "object") {
+    worldObjectPickerState.filter = { tab: "all", q: "" };
+  } else {
+    if (typeof worldObjectPickerState.filter.tab !== "string") worldObjectPickerState.filter.tab = "all";
+    if (typeof worldObjectPickerState.filter.q !== "string") worldObjectPickerState.filter.q = "";
   }
 
   if (worldObjectPickerCloseBtn) {
@@ -26159,6 +26293,35 @@ function ensureWorldObjectPickerOverlayWired() {
   worldObjectPickerEl.addEventListener("click", (event) => {
     if (event.target === worldObjectPickerEl) setWorldObjectPickerOpen(false);
   });
+
+  if (worldObjectPickerSearchEl) {
+    worldObjectPickerSearchEl.value = String(worldObjectPickerState.filter.q || "");
+
+    worldObjectPickerSearchEl.addEventListener("input", () => {
+      worldObjectPickerState.filter.q = String(worldObjectPickerSearchEl.value || "");
+      renderWorldObjectPickerList();
+    });
+
+    worldObjectPickerSearchEl.addEventListener("keydown", (event) => {
+      if (event.code === "Escape") {
+        event.preventDefault();
+        setWorldObjectPickerOpen(false);
+      }
+      event.stopPropagation();
+    });
+  }
+
+  if (worldObjectPickerTabsEl) {
+    worldObjectPickerTabsEl.addEventListener("click", (event) => {
+      const btn = event.target && event.target.closest ? event.target.closest("[data-world-tab]") : null;
+      if (!btn) return;
+      event.preventDefault();
+      const tab = btn.getAttribute("data-world-tab") || "all";
+      worldObjectPickerState.filter.tab = tab;
+      renderWorldObjectPickerList();
+      if (worldObjectPickerSearchEl) worldObjectPickerSearchEl.focus();
+    });
+  }
 
   worldObjectPickerListEl.addEventListener("click", (event) => {
     const btn = event.target && event.target.closest ? event.target.closest("[data-world-object]") : null;
@@ -26174,20 +26337,51 @@ function ensureWorldObjectPickerOverlayWired() {
   });
 
   setWorldObjectPickerOpen(worldObjectPickerState.open);
+
+  if (worldObjectPickerState.open && worldObjectPickerSearchEl) {
+    worldObjectPickerSearchEl.focus();
+  }
+
   worldObjectPickerState.wired = true;
 }
+
+
+
+
+
 
       /* Opens/closes object picker overlay and triggers a render when shown. */
 function setWorldObjectPickerOpen(open) {
   worldObjectPickerState.open = !!open;
 
-  if (!worldObjectPickerEl) return;
+  const el = document.getElementById("worldObjectPicker");
+  if (!el) return;
 
-  worldObjectPickerEl.classList.toggle("is-open", worldObjectPickerState.open);
-  worldObjectPickerEl.setAttribute("aria-hidden", worldObjectPickerState.open ? "false" : "true");
+  el.classList.toggle("is-open", worldObjectPickerState.open);
+  el.setAttribute("aria-hidden", worldObjectPickerState.open ? "false" : "true");
+  if ("inert" in el) el.inert = !worldObjectPickerState.open;
 
-  if (worldObjectPickerState.open) renderWorldObjectPickerList();
+  if (worldObjectPickerState.open) {
+    if (!worldObjectPickerState.filter || typeof worldObjectPickerState.filter !== "object") {
+      worldObjectPickerState.filter = { tab: "all", q: "" };
+    }
+    renderWorldObjectPickerList();
+
+    const searchEl = document.getElementById("worldObjectPickerSearch");
+    if (searchEl) {
+      searchEl.value = String(worldObjectPickerState.filter.q || "");
+      searchEl.focus({ preventScroll: true });
+    }
+  } else {
+    const ae = document.activeElement;
+    if (ae && el.contains(ae) && typeof ae.blur === "function") ae.blur();
+  }
 }
+
+
+
+
+
 
       /* Opens object picker overlay (Edit World only) and closes other overlays that compete for input focus. */
 function openWorldObjectPickerOverlay() {
@@ -26203,30 +26397,95 @@ function openWorldObjectPickerOverlay() {
   setWorldObjectPickerOpen(true);
 }
 
-      /* Renders the catalog cards for adding objects back into the scene. */
-function renderWorldObjectPickerList() {
-  if (!worldObjectPickerListEl) return;
 
+
+
+
+function renderWorldObjectPickerList() {
+  const listEl = document.getElementById("worldObjectPickerList");
+  if (!listEl) return;
+
+  const tabsEl = document.getElementById("worldObjectPickerTabs");
   const items = getWorldObjectCatalog();
 
-  worldObjectPickerListEl.innerHTML = items
+  const q = (worldObjectPickerState.filter && typeof worldObjectPickerState.filter.q === "string")
+  ? worldObjectPickerState.filter.q.trim().toLowerCase()
+  : "";
+
+  const tab = (worldObjectPickerState.filter && typeof worldObjectPickerState.filter.tab === "string")
+  ? worldObjectPickerState.filter.tab
+  : "all";
+
+  const tabKey = String(tab || "all").toLowerCase();
+
+  const matches = (it) => {
+    if (!it) return false;
+
+    const ck = String(it.categoryKey || "objects");
+    if (tabKey !== "all" && tabKey !== ck) return false;
+
+    if (!q) return true;
+
+    const hay = String(it.searchText || "").toLowerCase();
+    return hay.includes(q);
+  };
+
+  const filtered = items.filter(matches);
+
+  if (tabsEl) {
+    const cats = new Map();
+    cats.set("all", { key: "all", label: "All", count: items.length });
+
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const k = String(it.categoryKey || "objects");
+      const lbl = String(it.categoryLabel || "Objects");
+      if (!cats.has(k)) cats.set(k, { key: k, label: lbl, count: 0 });
+      cats.get(k).count++;
+    }
+
+    const order = ["all", "objects", "vehicles", "equipment", "food"];
+    const catList = Array.from(cats.values()).sort((a, b) => {
+      const ai = order.indexOf(a.key);
+      const bi = order.indexOf(b.key);
+      if (ai !== -1 || bi !== -1) return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+      return a.label.localeCompare(b.label);
+    });
+
+    tabsEl.innerHTML = catList.map((c) => {
+      const on = (String(tab || "all") === c.key) ? " is-on" : "";
+      return (
+        '<button class="avatar-btn border-stick-b' + on + '" type="button" data-world-tab="' + escapeInventoryText(c.key) + '" role="tab" aria-selected="' + (on ? "true" : "false") + '">' +
+        escapeInventoryText(c.label) +
+        "</button>"
+        );
+    }).join("");
+  }
+
+  listEl.innerHTML = filtered
   .map((it) => {
     const name = escapeInventoryText(it.name);
     const desc = escapeInventoryText(it.desc || "");
     const thumb = escapeInventoryText(it.thumb || DEFAULT_ITEM_THUMB);
-
     return (
       '<button class="inv-slot inv-slot--filled inv-slot--pick" type="button" data-world-object="' + name + '">' +
       '<img class="inv-item__thumb" alt="" loading="lazy" decoding="async" src="' + thumb + '"/>' +
       '<div class="inv-item__body">' +
       '<div class="inv-item__name">' + name + '</div>' +
       '<div class="inv-item__desc">' + (desc || "&nbsp;") + '</div>' +
-      '</div>' +
-      '</button>'
+      "</div>" +
+      "</button>"
       );
   })
   .join("");
 }
+
+
+
+
+
+
+
 
       /* Computes a drop position in front of the avatar (or camera fallback) and snaps it to the traversable surface. */
 function computeDropPoseInFront(outPos, outYaw) {
