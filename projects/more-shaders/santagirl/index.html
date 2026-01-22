@@ -1986,6 +1986,7 @@ canvas.world-edit-on {
   padding: 1rem;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 1rem;
+  backdrop-filter: contrast(0.5) blur(5px);
 }
 
 .lil-gui .controller {
@@ -13415,7 +13416,7 @@ function loadAllModels() {
           if (typeof updateVehicleQuickActionButton === "function") updateVehicleQuickActionButton();
         });
       }
-      
+
 
       if (vehicleQuickActionBtn) {
         vehicleQuickActionBtn.addEventListener("click", () => {
@@ -23445,7 +23446,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
-
   function setupEmittersGui(gui) {
   /* GUI: emitter instances list + rename + preset save/load (SoundMaker-style). */
     if (!gui) return;
@@ -23530,14 +23530,57 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         syncEmitterGuiFromSelection();
       },
 
+      copyPresetData: () => {
+        const id = String(emitterGuiState.presetPick || "").trim();
+        if (!id) return;
 
-      exportPresets: () => {
-        /* Export local custom presets in the same format as emitters_presets.json. */
+        const p = getEmitterPresetByIdMerged(id);
+        if (!p || !p.defaults) return;
+
+        const out = {
+          id: String(p.id || id),
+          name: String(p.name || p.id || id),
+          defaults: JSON.parse(JSON.stringify(p.defaults || {}))
+        };
+
+        const text = JSON.stringify(out, null, 2) + ",\n";
+
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+          navigator.clipboard.writeText(text);
+          return;
+        }
+
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        ta.style.top = "-9999px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try { document.execCommand("copy"); } catch (e) {}
+        ta.remove();
+      },
+
+      exportAllPresets: () => {
+        const map = {};
+
+        for (let i = 0; i < EMITTER_LIBRARY.length; i++) {
+          const p = EMITTER_LIBRARY[i];
+          if (!p || !p.id) continue;
+
+          const id = String(p.id || "").trim();
+          if (!id) continue;
+
+          const name = String(p.name || id).trim() || id;
+          const defaultsIn = (p.defaults && typeof p.defaults === "object") ? p.defaults : {};
+          map[id] = { id, name, defaults: JSON.parse(JSON.stringify(defaultsIn)) };
+        }
+
         const bank = loadEmitterPresetBank();
         const presetsObj = (bank && bank.presets && typeof bank.presets === "object") ? bank.presets : {};
         const keys = Object.keys(presetsObj);
 
-        const presets = [];
         for (let i = 0; i < keys.length; i++) {
           const k = keys[i];
           const p = presetsObj[k];
@@ -23546,14 +23589,17 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           const id = String(p.id || k).trim() || k;
           const name = String(p.name || id).trim() || id;
           const defaultsIn = (p.defaults && typeof p.defaults === "object") ? p.defaults : {};
-          const defaults = JSON.parse(JSON.stringify(defaultsIn));
-
-          presets.push({ id, name, defaults });
+          map[id] = { id, name, defaults: JSON.parse(JSON.stringify(defaultsIn)) };
         }
 
-        presets.sort((a, b) => String(a.name).localeCompare(String(b.name)));
-        downloadJson({ presets }, "emitters_presets.local.json");
+        const ids = Object.keys(map);
+        const presets = [];
+        for (let i = 0; i < ids.length; i++) presets.push(map[ids[i]]);
+
+          presets.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        downloadJson({ presets }, "emitters_presets.json");
       },
+
       importPresets: () => {
         /* Import presets from either array format (emitters_presets.json) or legacy map format. */
         const input = document.createElement("input");
@@ -23621,9 +23667,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         input.click();
       },
 
-
-
-      
       _sync: null
     };
   }
@@ -23635,7 +23678,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     const p = EMITTER_LIBRARY[i];
     if (p && p.id) presetOpts[p.name] = p.id;
   }
-
 
   trackController(folder.add(emitterGuiState, "preset", presetOpts).name("Add preset"));
   trackController(folder.add(emitterGuiState, "add").name("Add emitter"));
@@ -23658,6 +23700,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     size: 0.08,
     sizeJitter: 0.05,
     opacity: 0.75,
+    color: "#ffffff",
     opacityStart: 1.0,
     opacityEnd: 0.0,
     sizeStartMin: NaN,
@@ -23678,8 +23721,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     loop: true,
     autoStopMs: 0
   };
-
-
 
   let selCtrl = null;
   let instanceOptsSig = "";
@@ -23731,6 +23772,23 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     p.size = Number(sel.size ?? 0.08);
     p.sizeJitter = Number(sel.sizeJitter ?? 0);
     p.opacity = Number(sel.opacity ?? 1);
+    p.color = String(sel.color || "#ffffff");
+
+    if (rt.geo && rt.geo.attributes && rt.geo.attributes.color && rt.col && rt.alive) {
+      const base = emitterTmp.c.set(String(p.color || "#ffffff"));
+      const seedBase = (rt.rngSeed >>> 0) ^ 0x9e3779b9;
+      for (let i = 0; i < rt.alive.length; i++) {
+        if (rt.alive[i] === 0) continue;
+        const vi = i * 3;
+        const h = emitterHash32_4(seedBase, i | 0, 0xabc, 0xdef);
+        const r01 = (h >>> 0) / 4294967296;
+        const tint = 0.85 + r01 * 0.3;
+        rt.col[vi + 0] = base.r * tint;
+        rt.col[vi + 1] = base.g * tint;
+        rt.col[vi + 2] = base.b * tint;
+      }
+      rt.geo.attributes.color.needsUpdate = true;
+    }
 
     p.opacityStart = Number(sel.opacityStart ?? 1);
     p.opacityEnd = Number(sel.opacityEnd ?? 0);
@@ -23775,8 +23833,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (typeof syncWorldEditObjectLabel === "function") syncWorldEditObjectLabel();
   };
 
-
-
   const readRtToSel = (rt) => {
     const p = rt.cfg.params;
 
@@ -23795,6 +23851,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     sel.size = Number(p.size ?? 0.08);
     sel.sizeJitter = Number(p.sizeJitter ?? 0);
     sel.opacity = Number(p.opacity ?? 1);
+    sel.color = String(p.color || "#ffffff");
 
     sel.opacityStart = Number(p.opacityStart ?? 1);
     sel.opacityEnd = Number(p.opacityEnd ?? 0);
@@ -23822,8 +23879,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     sel.loop = !!p.loop;
     sel.autoStopMs = (p.autoStopMs | 0) || 0;
   };
-
-
 
   selCtrl = trackController(folder.add(emitterGuiState, "selected").name("Selected"));
   selCtrl.onChange(() => {
@@ -23929,6 +23984,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (rt) applySelToRt(rt);
   });
 
+  push(folder.addColor(sel, "color").name("Color")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
+    if (rt) applySelToRt(rt);
+  });
 
   push(folder.add(sel, "opacityStart", 0.0, 1.0, 0.01).name("Op start")).onChange(() => {
     const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
@@ -24007,10 +24067,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (rt) applySelToRt(rt);
   });
 
-
-
-
-
   const shapeOpts = {
     Square: "square",
     Dot: "dot",
@@ -24028,7 +24084,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
     if (rt) applySelToRt(rt);
   });
-
 
   push(folder.add(sel, "loop").name("Loop")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
@@ -24056,7 +24111,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
   trackController(presetsFolder.add(emitterGuiState, "presetName").name("Name"));
   trackController(presetsFolder.add(emitterGuiState, "savePresetFromSelected").name("Save from selected"));
   trackController(presetsFolder.add(emitterGuiState, "deletePreset").name("Delete preset"));
-  trackController(presetsFolder.add(emitterGuiState, "exportPresets").name("Export presets"));
+  trackController(presetsFolder.add(emitterGuiState, "copyPresetData").name("Copy Preset Data"));
+  trackController(presetsFolder.add(emitterGuiState, "exportAllPresets").name("Export All Presets"));
   trackController(presetsFolder.add(emitterGuiState, "importPresets").name("Import presets"));
 
   emitterGuiState._sync = () => {
@@ -24096,6 +24152,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
   folder.close();
   presetsFolder.close();
 }
+
+
 
 
 

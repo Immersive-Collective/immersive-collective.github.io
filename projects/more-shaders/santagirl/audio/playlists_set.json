@@ -42,5 +42,17 @@
       "order": 0,
       "loop": false
     }        
+,
+    {
+      "id": "vt",
+      "folder": "vt",
+      "title": "VT",
+      "artist": "VT Artists",
+      "description": "Music",
+      "thumbnail": "vt.png",
+      "order": 0,
+      "loop": false
+    }        
+
   ]
 }
