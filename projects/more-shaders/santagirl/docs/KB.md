@@ -298,3 +298,100 @@ And “pp” here should be treated as:
 **One-line fix for your current profile**
 
 * Change `maxSpeed: 111` → **30.8** (if you meant 111 km/h)
+
+
+
+
+
+
+
+      const EMITTER_LIBRARY = [
+        {
+          id: "dust",
+          name: "Dust (puff)",
+          defaults: {
+            maxParticles: 160,
+            rate: 40,
+            burst: 0,
+            life: 0.9,
+            lifeJitter: 0.35,
+            speed: 1.2,
+            speedJitter: 0.8,
+            spread: 0.85,
+            gravity: -0.4,
+            drag: 1.0,
+            size: 0.08,
+            sizeJitter: 0.05,
+            opacity: 0.75,
+            color: "#c8b8a8",
+            loop: true,
+            autoStopMs: 0
+          }
+        },
+        {
+          id: "exhaust",
+          name: "Exhaust (engine)",
+          defaults: {
+            maxParticles: 260,
+            rate: 85,
+            burst: 0,
+            life: 1.4,
+            lifeJitter: 0.45,
+            speed: 2.1,
+            speedJitter: 1.1,
+            spread: 0.45,
+            gravity: 0.15,
+            drag: 1.4,
+            size: 0.06,
+            sizeJitter: 0.04,
+            opacity: 0.55,
+            color: "#aeb6bd",
+            loop: true,
+            autoStopMs: 0
+          }
+        },
+        {
+          id: "smoke",
+          name: "Smoke (slow)",
+          defaults: {
+            maxParticles: 340,
+            rate: 55,
+            burst: 0,
+            life: 2.6,
+            lifeJitter: 0.7,
+            speed: 0.9,
+            speedJitter: 0.5,
+            spread: 0.7,
+            gravity: 0.2,
+            drag: 1.7,
+            size: 0.12,
+            sizeJitter: 0.07,
+            opacity: 0.45,
+            color: "#b8bcc0",
+            loop: true,
+            autoStopMs: 0
+          }
+        },
+        {
+          id: "fire",
+          name: "Fire (small)",
+          defaults: {
+            maxParticles: 240,
+            rate: 95,
+            burst: 0,
+            life: 0.65,
+            lifeJitter: 0.25,
+            speed: 1.7,
+            speedJitter: 0.9,
+            spread: 0.65,
+            gravity: 0.35,
+            drag: 1.25,
+            size: 0.085,
+            sizeJitter: 0.05,
+            opacity: 0.72,
+            color: "#ff8a3a",
+            loop: true,
+            autoStopMs: 0
+          }
+        }
+      ];

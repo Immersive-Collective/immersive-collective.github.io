@@ -23,7 +23,7 @@
       script.defer = true;
       script.src = 'https://analytics.mielniczuk.com/script.js';
       script.setAttribute('data-website-id', 'ff22cca0-067d-440f-98ba-2e4c176300ef');
-      
+
             // Error handling: Log but don't block
       script.onerror = function() {
         console.warn('Analytics script failed to load—continuing without tracking.');
@@ -1023,6 +1023,13 @@ button {
   }
 }
 
+@media (min-width: 1100px) {
+  .inventory-picker__list {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+
 .inv-slot {
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 12px;
@@ -1855,7 +1862,8 @@ canvas.world-edit-on {
 }
 
 #controlsToggleBtn {
-
+  border-radius: 0.5rem;
+  margin: 0.3rem; 
 }
 
 
@@ -2505,8 +2513,7 @@ canvas.world-edit-on {
 
 <!--   <div class="doggerland-wrapper" id="doggerland-root">
     <div class="doggerland-title" id="doggerland-title">Doggerland</div>
-  </div>
-  -->  
+  </div> -->
 
   <div id="worldName" class="world-name" aria-hidden="true" aria-live="polite"></div>
 
@@ -2575,13 +2582,24 @@ canvas.world-edit-on {
     <canvas id="miniMapCanvas" class="minimap__canvas"></canvas>
   </button>
 
-  
+
 
   <div id="hudTile" class="hud-tile" aria-hidden="false">
     <div class="hud-tile__row">
       <span class="hud-tile__label">ALT</span>
       <span id="hudAltValue" class="hud-tile__value">0.0m</span>
     </div>
+
+    <div class="hud-tile__row">
+      <span class="hud-tile__label">SPEED</span>
+      <span id="hudSpeedValue" class="hud-tile__value">0km/h</span>
+    </div> 
+
+
+    <div class="hud-tile__row">
+      <span class="hud-tile__label">VSPEED</span>
+      <span id="hudVSpeedValue" class="hud-tile__value">0.0m/s</span>
+    </div>       
 
     <div class="hud-tile__row">
       <span class="hud-tile__label">DIST</span>
@@ -2933,6 +2951,8 @@ canvas.world-edit-on {
   </div>
 </div>
 
+
+
 <div id="worldObjectPicker" class="inventory-picker" aria-hidden="true">
   <div class="inventory-picker__panel" role="dialog" aria-modal="true" aria-label="Objects">
     <div class="kbd-help__header">
@@ -2940,15 +2960,22 @@ canvas.world-edit-on {
       <button id="worldObjectPickerClose" class="avatar-btn" type="button">Close</button>
     </div>
 
-    <input id="worldObjectPickerSearch" class="world-object-search" type="text" autocomplete="off" spellcheck="false" placeholder="Search objects, vehicles, equipment, food…" aria-label="Search objects">
+    <div id="worldObjectPickerTypeTabs" class="world-object-tabs" role="tablist" aria-label="Object type">
+      <button class="avatar-btn border-stick-b is-on" type="button" data-world-kind="models" role="tab" aria-selected="true">Models</button>
+      <button class="avatar-btn border-stick-b" type="button" data-world-kind="emitters" role="tab" aria-selected="false">Emitters</button>
+    </div>
 
-    <div id="worldObjectPickerTabs" class="world-object-tabs" role="tablist" aria-label="Object categories"></div>
+    <input id="worldObjectPickerSearch" class="world-object-search" type="search" placeholder="Search..." autocomplete="off" spellcheck="false" aria-label="Search">
+
+    <div id="worldObjectPickerTabs" class="world-object-tabs" role="tablist" aria-label="Categories"></div>
 
     <div id="worldObjectPickerList" class="inventory-picker__list" aria-label="Object list"></div>
 
-    <div class="kbd-help__note">Type to search. Click an item to add it to the scene.</div>
+    <div class="kbd-help__note">Click an item to add it to the scene.</div>
   </div>
 </div>
+
+
 
 
 
@@ -3324,11 +3351,12 @@ canvas.world-edit-on {
   let hudProfileMetaEl = null;
   let hudTileNextUpdateMs = 0;
 
-
   let hudDistValueEl = null;
+  let hudSpeedValueEl = null;
   let hudTimeValueEl = null;
+
   let hudStepsValueEl = null;
-  let hudEnergyValueEl = null;
+  let hudEnergyValueEl = null;  
 
     /* Session */
 
@@ -3387,6 +3415,7 @@ canvas.world-edit-on {
 
     hudAltValueEl = document.getElementById("hudAltValue");
     hudDistValueEl = document.getElementById("hudDistValue");
+    hudSpeedValueEl = document.getElementById("hudSpeedValue");
     hudTimeValueEl = document.getElementById("hudTimeValue");
 
     hudStepsValueEl = document.getElementById("hudStepsValue");
@@ -3416,88 +3445,152 @@ canvas.world-edit-on {
 
     const nowS = nowMs * 0.001;
 
-  /* Session timer */
     if (!hudTileState.sessionStartSeconds) hudTileState.sessionStartSeconds = nowS;
     const sessionSeconds = Math.max(0, nowS - hudTileState.sessionStartSeconds);
 
-    /* ALT: avatar altitude above original ground baseline (y=0). */
     let alt = 0.0;
-    if (avatar && avatar.position) {
-      alt = Number.isFinite(avatar.position.y) ? avatar.position.y : 0.0;
-    }
+    if (avatar) alt = Number.isFinite(avatar.position.y) ? avatar.position.y : 0.0;
 
+    let distM = 0;
+    const driving = !!(vehicleDriveState && vehicleDriveState.enabled && vehicleDriveState.vehicle && vehicleDriveState.vehicle.object);
 
-  /* Session distance (walk or vehicle) */
-    const driving = !!(vehicleDriveState && vehicleDriveState.enabled && vehicleDriveState.vehicle);
     if (driving) {
-      const vWrap = vehicleDriveState.vehicle;
-      const vObj = (vWrap && vWrap.object) ? vWrap.object : null;
+      const vObj = vehicleDriveState.vehicle.object;
+      const x = vObj.position.x;
+      const z = vObj.position.z;
 
-      if (vObj) {
-        const vx = vObj.position.x;
-        const vz = vObj.position.z;
-
-        if (sessionPrevVehX !== null && sessionPrevVehZ !== null) {
-          const d = Math.hypot(vx - sessionPrevVehX, vz - sessionPrevVehZ);
-          if (Number.isFinite(d) && d > 1e-6) sessionDistM += d;
-        }
-
-        sessionPrevVehX = vx;
-        sessionPrevVehZ = vz;
+      if (sessionPrevVehX != null && sessionPrevVehZ != null) {
+        const d = Math.hypot(x - sessionPrevVehX, z - sessionPrevVehZ);
+        if (Number.isFinite(d) && d > 1e-6) sessionDistM += d;
       }
+
+      sessionPrevVehX = x;
+      sessionPrevVehZ = z;
 
       sessionPrevX = null;
       sessionPrevZ = null;
-    } else {
-      if (avatar) {
-        const ax = avatar.position.x;
-        const az = avatar.position.z;
+    } else if (avatar) {
+      const x = avatar.position.x;
+      const z = avatar.position.z;
 
-        if (sessionPrevX !== null && sessionPrevZ !== null) {
-          const d = Math.hypot(ax - sessionPrevX, az - sessionPrevZ);
-          if (Number.isFinite(d) && d > 1e-6) sessionDistM += d;
-        }
-
-        sessionPrevX = ax;
-        sessionPrevZ = az;
+      if (sessionPrevX != null && sessionPrevZ != null) {
+        const d = Math.hypot(x - sessionPrevX, z - sessionPrevZ);
+        if (Number.isFinite(d) && d > 1e-6) sessionDistM += d;
       }
 
+      sessionPrevX = x;
+      sessionPrevZ = z;
+
+      sessionPrevVehX = null;
+      sessionPrevVehZ = null;
+    } else {
+      sessionPrevX = null;
+      sessionPrevZ = null;
       sessionPrevVehX = null;
       sessionPrevVehZ = null;
     }
 
-  /* Steps from distance */
-    const stepLen = Number.isFinite(params.avatarStepLengthM) ? Math.max(0.2, params.avatarStepLengthM) : 0.78;
-    const estSteps = Math.max(0, Math.floor(sessionDistM / stepLen));
+    distM = Number.isFinite(sessionDistM) ? Math.max(0, sessionDistM) : 0;
 
-    if (estSteps > sessionSteps) {
-      const deltaSteps = estSteps - sessionSteps;
-      sessionSteps = estSteps;
+    let sessionSteps = (typeof window.__sessionSteps === "number") ? window.__sessionSteps : 0;
+    let sessionEnergyKcal = (typeof window.__sessionEnergyKcal === "number") ? window.__sessionEnergyKcal : 0;
 
-    /* KCAL burn from steps */
-      const kcalPerStep = Number.isFinite(params.kcalPerStep) ? Math.max(0, params.kcalPerStep) : 0.05;
-      sessionEnergyKcal += deltaSteps * kcalPerStep;
+    if (!driving) {
+      const stepLen = Number.isFinite(params.avatarStepLengthM) ? Math.max(0.2, params.avatarStepLengthM) : 0.78;
+      const estSteps = Math.max(0, Math.floor(sessionDistM / stepLen));
+
+      if (estSteps > sessionSteps) {
+        const deltaSteps = estSteps - sessionSteps;
+        sessionSteps = estSteps;
+
+        const kcalPerStep = Number.isFinite(params.kcalPerStep) ? Math.max(0, params.kcalPerStep) : 0.05;
+        sessionEnergyKcal += deltaSteps * kcalPerStep;
+      }
     }
 
-  /* KCAL burn from jumps (rising edge) */
     const jumpActive = !!(avatarJumpState && avatarJumpState.active);
+
     if (jumpActive && !sessionPrevJumpActive) {
       const kcalPerJump = Number.isFinite(params.kcalPerJump) ? Math.max(0, params.kcalPerJump) : 0.2;
       sessionEnergyKcal += kcalPerJump;
     }
     sessionPrevJumpActive = jumpActive;
 
-  /* TIME formatting */
+    window.__sessionSteps = sessionSteps;
+    window.__sessionEnergyKcal = sessionEnergyKcal;
+
     const mins = Math.floor(sessionSeconds / 60);
     const secs = Math.floor(sessionSeconds - mins * 60);
     const timeText = `${mins}:${String(secs).padStart(2, "0")}`;
 
-  /* Intake shown as +kcal (set by pickupConsume) */
     if (typeof window.__sessionEnergyIntakeKcal !== "number") window.__sessionEnergyIntakeKcal = 0;
     const intakeKcal = window.__sessionEnergyIntakeKcal;
 
-  /* DIST / STEPS / ENERGY (session accumulators) */
-    const distM = Number.isFinite(sessionDistM) ? Math.max(0, sessionDistM) : 0;
+    const vWrap = (vehicleDriveState && vehicleDriveState.enabled) ? vehicleDriveState.vehicle : null;
+    const vObj = (vWrap && vWrap.object) ? vWrap.object : null;
+
+    const speedMode = vObj ? "vehicle" : (avatar ? "avatar" : "none");
+    if (hudTileState.__speedMode !== speedMode) {
+      hudTileState.__speedMode = speedMode;
+      hudTileState.__speedPrevS = nowS;
+
+      if (vObj) {
+        hudTileState.__speedPrevX = vObj.position.x;
+        hudTileState.__speedPrevY = vObj.position.y;
+        hudTileState.__speedPrevZ = vObj.position.z;
+      } else if (avatar) {
+        hudTileState.__speedPrevX = avatar.position.x;
+        hudTileState.__speedPrevY = avatar.position.y;
+        hudTileState.__speedPrevZ = avatar.position.z;
+      } else {
+        hudTileState.__speedPrevX = 0;
+        hudTileState.__speedPrevY = 0;
+        hudTileState.__speedPrevZ = 0;
+      }
+
+      hudTileState.__speedKmh = 0;
+      hudTileState.__vSpeedMs = 0;
+    }
+
+    let speedKmhRaw = 0;
+    let vSpeedRaw = 0;
+
+    if (speedMode !== "none") {
+      const x = vObj ? vObj.position.x : avatar.position.x;
+      const y = vObj ? vObj.position.y : avatar.position.y;
+      const z = vObj ? vObj.position.z : avatar.position.z;
+
+      const prevS = (typeof hudTileState.__speedPrevS === "number") ? hudTileState.__speedPrevS : nowS;
+      const dtS = Math.max(1e-6, nowS - prevS);
+
+      const px = (typeof hudTileState.__speedPrevX === "number") ? hudTileState.__speedPrevX : x;
+      const py = (typeof hudTileState.__speedPrevY === "number") ? hudTileState.__speedPrevY : y;
+      const pz = (typeof hudTileState.__speedPrevZ === "number") ? hudTileState.__speedPrevZ : z;
+
+      const dH = Math.hypot(x - px, z - pz);
+      speedKmhRaw = (dH / dtS) * 3.6;
+
+      vSpeedRaw = (y - py) / dtS;
+
+      hudTileState.__speedPrevS = nowS;
+      hudTileState.__speedPrevX = x;
+      hudTileState.__speedPrevY = y;
+      hudTileState.__speedPrevZ = z;
+
+      const prevKmh = Number.isFinite(hudTileState.__speedKmh) ? hudTileState.__speedKmh : 0;
+      const prevV = Number.isFinite(hudTileState.__vSpeedMs) ? hudTileState.__vSpeedMs : 0;
+
+      const alpha = 0.35;
+      hudTileState.__speedKmh = prevKmh + (speedKmhRaw - prevKmh) * alpha;
+      hudTileState.__vSpeedMs = prevV + (vSpeedRaw - prevV) * alpha;
+    } else {
+      hudTileState.__speedKmh = 0;
+      hudTileState.__vSpeedMs = 0;
+    }
+
+    const speedKmh = Number.isFinite(hudTileState.__speedKmh) ? Math.max(0, hudTileState.__speedKmh) : 0;
+    const vSpeedMs = Number.isFinite(hudTileState.__vSpeedMs) ? hudTileState.__vSpeedMs : 0;
+
     const steps = Number.isFinite(sessionSteps) ? Math.max(0, sessionSteps | 0) : 0;
 
     const burnedKcal = Number.isFinite(sessionEnergyKcal) ? Math.max(0, sessionEnergyKcal) : 0;
@@ -3505,24 +3598,30 @@ canvas.world-edit-on {
 
     if (hudAltValueEl) hudAltValueEl.textContent = `${alt.toFixed(1)}m`;
     if (hudDistValueEl) hudDistValueEl.textContent = formatDistanceMeters(distM);
+    if (hudSpeedValueEl) hudSpeedValueEl.textContent = `${Math.round(speedKmh)}km/h`;
+
+    const vEl = document.getElementById("hudVSpeedValue");
+    if (vEl) vEl.textContent = `${vSpeedMs.toFixed(1)}m/s`;
+
     if (hudTimeValueEl) hudTimeValueEl.textContent = timeText;
     if (hudStepsValueEl) hudStepsValueEl.textContent = `${steps}`;
 
     if (hudEnergyValueEl) {
-      const burnTxt = `${burnedKcal.toFixed(0)}kcal`;
-      const kjTxt = `${burnedKJ.toFixed(0)}kJ`;
-      const inTxt = intakeKcal > 0 ? ` +${intakeKcal.toFixed(0)}kcal` : "";
-      hudEnergyValueEl.textContent = `${burnTxt} (${kjTxt})${inTxt}`;
+      const burnTxt = `${burnedKcal.toFixed(0)}kcal (${burnedKJ.toFixed(0)}kJ)`;
+      const intakeTxt = (intakeKcal > 0) ? ` +${Math.round(intakeKcal)}kcal` : "";
+      hudEnergyValueEl.textContent = `${burnTxt}${intakeTxt}`;
     }
 
-  /* Profile meta */
     let healthPct = 100;
     let lives = 3;
 
-    if (typeof playerProfile !== "undefined" && playerProfile) {
-      const nm = (typeof playerProfile.name === "string" && playerProfile.name.trim()) ? playerProfile.name.trim() : "Anonymous";
+    if (playerProfile) {
+      const nm =
+      (playerProfile && typeof playerProfile.displayName === "string" && playerProfile.displayName.trim()) ?
+      playerProfile.displayName.trim() :
+      "Player";
+
       const badges =
-      (playerProfile && playerProfile.stats && Array.isArray(playerProfile.stats.badges)) ? playerProfile.stats.badges.length :
       (playerProfile && Array.isArray(playerProfile.badges)) ? playerProfile.badges.length :
       0;
 
@@ -3535,7 +3634,6 @@ canvas.world-edit-on {
       }
     }
 
-  /* Energy -> stamina -> health drain (pipeline-ready) */
     if (typeof playerVitals !== "undefined" && playerVitals) {
       if (typeof hudTileState.__lastBurnKcal !== "number") hudTileState.__lastBurnKcal = burnedKcal;
 
@@ -3554,46 +3652,13 @@ canvas.world-edit-on {
 
         if (playerVitals.stamina <= 0.10 && !hudTileState.__warnedExhausted) {
           hudTileState.__warnedExhausted = true;
-          if (typeof showActionToast === "function") showActionToast("EXHAUSTED • find food or rest");
-        }
-
-        if (playerVitals.stamina <= 0.001 && playerProfile && playerProfile.stats) {
-          const drain = (deltaBurn / 10);
-          const nextH = Math.max(0, (Number.isFinite(+playerProfile.stats.health) ? +playerProfile.stats.health : 100) - drain);
-          playerProfile.stats.health = nextH;
-
-          if (nextH <= 0) {
-            const nowMs2 = Date.now();
-            const since = nowMs2 - (Number.isFinite(playerVitals.lastDeathMs) ? playerVitals.lastDeathMs : 0);
-
-            if (since > 1200) {
-              playerVitals.lastDeathMs = nowMs2;
-
-              const curLives = Number.isFinite(+playerProfile.stats.lives) ? Math.max(0, Math.floor(+playerProfile.stats.lives)) : 0;
-              playerProfile.stats.lives = Math.max(0, curLives - 1);
-
-              playerProfile.stats.health = 100;
-              playerVitals.stamina = 1;
-              playerVitals.energyKcal = 0;
-
-              if (typeof showActionToast === "function") {
-                if (playerProfile.stats.lives > 0) showActionToast(`DEAD • respawned (${playerProfile.stats.lives} lives left)`);
-                else showActionToast("DEAD • no lives left");
-              }
-
-              savePlayerProfile(playerProfile);
-              savePlayerVitals();
-            }
-          } else {
-            savePlayerProfile(playerProfile);
-          }
+          if (typeof showActionToast === "function") showActionToast("Exhausted: stamina low");
         }
 
         savePlayerVitals();
       }
     }
 
-  /* Health UI */
     if (hudHealthValueEl) hudHealthValueEl.textContent = `${Math.round(healthPct)}%`;
     if (hudLivesValueEl) hudLivesValueEl.textContent = `${lives}`;
 
@@ -3604,7 +3669,6 @@ canvas.world-edit-on {
       if (track && track.setAttribute) track.setAttribute("aria-valuenow", `${Math.round(Math.max(0, Math.min(100, healthPct)))}`);
     }
   }
-
 
 
 
@@ -6888,6 +6952,22 @@ canvas.world-edit-on {
     }
 
 
+    function unregisterWorldEditRoot(root) {
+  /* Unregisters a selectable root and detaches TransformControls if it was selected. */
+      if (!root) return;
+
+      if (worldEditSelectableRoots && worldEditSelectableRoots.has(root)) {
+        worldEditSelectableRoots.delete(root);
+      }
+
+      if (worldEditState && worldEditState.selected === root) {
+        if (typeof clearWorldEditSelection === "function") clearWorldEditSelection();
+        else if (transformControls) transformControls.detach();
+      }
+    }
+
+
+
     /**
      * Returns true when `obj` is a descendant of `ancestor` in the scene graph.
      */
@@ -7090,15 +7170,88 @@ canvas.world-edit-on {
       }
     }
 
-    /**
-     * Pushes a snapshot of the current world models state to the undo stack and clears redo.
-     */
+
+
+
+
+
+
+
+
+
+/**
+ * Captures a unified editor snapshot (models + emitters + selection) for undo/redo.
+ */
+    function snapshotWorldEditSnapshot() {
+      const models = snapshotWorldModelsConfig();
+      const emitters = snapshotWorldEmittersConfig();
+
+      const sel = (worldEditState && worldEditState.selected) ? worldEditState.selected : null;
+      const selUd = sel && sel.userData ? sel.userData : null;
+
+      const selKind = selUd && (selUd.worldEditKind === "emitter" || selUd.worldEmitterId) ? "emitter" : (sel ? "model" : "");
+      const selId =
+      selUd && selKind === "emitter" ? String(selUd.worldEmitterId || selUd.worldEditId || "") :
+      selUd && selKind === "model" ? String(selUd.worldEditId || "") :
+      "";
+
+      return {
+        v: 1,
+        models,
+        emitters,
+        selection: { kind: selKind, id: selId }
+      };
+    }
+
+/**
+ * Applies a unified editor snapshot (models + emitters) with legacy support for older stacks.
+ */
+    function applyWorldEditSnapshot(snap) {
+      if (!snap) return;
+
+      if (Array.isArray(snap)) {
+        applyWorldModelsSnapshot(snap);
+        updateAvatarButtons();
+        return;
+      }
+
+      const models = (snap && Array.isArray(snap.models)) ? snap.models : [];
+      const emitters = (snap && Array.isArray(snap.emitters)) ? snap.emitters : [];
+      const selection = (snap && snap.selection && typeof snap.selection === "object") ? snap.selection : { kind: "", id: "" };
+
+      if (typeof clearWorldEditSelection === "function") clearWorldEditSelection();
+
+      applyWorldModelsSnapshot(models);
+
+      if (worldEditHistory) worldEditHistory.applying = true;
+      try {
+        applyWorldEmittersConfig(emitters);
+      } finally {
+        if (worldEditHistory) worldEditHistory.applying = false;
+      }
+
+      if (worldEditState && worldEditState.enabled && selection && selection.id && typeof selectWorldEditRoot === "function") {
+        if (selection.kind === "emitter") {
+          const rt = (typeof emitterState !== "undefined" && emitterState && emitterState.runtime) ? emitterState.runtime.get(selection.id) : null;
+          if (rt && rt.group) selectWorldEditRoot(rt.group);
+        } else if (selection.kind === "model") {
+          const obj = modelInstances ? modelInstances[selection.id] : null;
+          if (obj) selectWorldEditRoot(obj);
+        }
+      }
+
+      updateAvatarButtons();
+    }
+
+/**
+ * Pushes a snapshot of the current editor state to the undo stack and clears redo.
+ */
     function pushWorldEditUndoSnapshot() {
       if (worldEditHistory.applying) return;
 
       ensureEditableWorldModelsConfig();
 
-      const snap = snapshotWorldModelsConfig();
+      const snap = snapshotWorldEditSnapshot();
       worldEditHistory.undo.push(snap);
 
       if (worldEditHistory.undo.length > worldEditHistory.limit) {
@@ -7107,6 +7260,12 @@ canvas.world-edit-on {
 
       worldEditHistory.redo.length = 0;
     }
+
+
+
+
+
+
 
     /**
      * Finds the (entry, instCfg, instIndex) that owns a given runtime root.
@@ -7282,19 +7441,24 @@ canvas.world-edit-on {
      * Removes a model instance from the scene and runtime maps by id.
      */
     function removeWorldModelInstanceById(id) {
+  /* Removes a model instance from the scene and runtime maps by id (also unregisters editor selection). */
       const key = String(id || "");
       if (!key) return;
 
       const inst = modelInstances[key] || null;
       if (!inst) return;
 
-      if (transformControls && worldEditState.selected === inst) {
+      if (transformControls && worldEditState && worldEditState.selected === inst) {
         clearWorldEditSelection();
       }
+
+      if (typeof unregisterWorldEditRoot === "function") unregisterWorldEditRoot(inst);
+      else if (worldEditSelectableRoots && worldEditSelectableRoots.has(inst)) worldEditSelectableRoots.delete(inst);
 
       if (inst.parent) inst.parent.remove(inst);
       delete modelInstances[key];
     }
+
 
 
 
@@ -7418,6 +7582,7 @@ canvas.world-edit-on {
      * Applies a full world-models snapshot to the scene (adds/removes instances by id and updates transforms).
      */
 function applyWorldModelsSnapshot(snapshot) {
+  /* Applies a full world-models snapshot to the scene (adds/removes instances by id and updates transforms). */
   const normalized = normalizeWorldModelsConfig(snapshot);
   if (!normalized) return;
 
@@ -7459,6 +7624,12 @@ function applyWorldModelsSnapshot(snapshot) {
         modelInstances[id] = inst;
       }
 
+      inst.userData = inst.userData || {};
+      inst.userData.worldEditId = id;
+      inst.userData.worldEditSelectable = true;
+
+      if (typeof registerWorldEditRoot === "function") registerWorldEditRoot(inst, rec.instCfg);
+
       applyInstCfgTransformToInstance(inst, rec.instCfg);
     }
 
@@ -7483,20 +7654,32 @@ function applyWorldModelsSnapshot(snapshot) {
     }
 
     rebuildWorldModelsRuntimeCaches();
+
+    if (worldEditState && worldEditState.selected) {
+      const sel = worldEditState.selected;
+      const inScene = !!(scene && typeof isDescendantOf === "function" && isDescendantOf(sel, scene));
+      if (!inScene) clearWorldEditSelection();
+    }
   } finally {
     worldEditHistory.applying = false;
   }
 }
 
-    /**
-     * Performs an undo (restores previous snapshot). Redo receives the current snapshot.
-     */
+
+
+
+
+
+
+/**
+ * Performs an undo (restores previous snapshot). Redo receives the current snapshot.
+ */
 function worldEditUndo() {
   if (!worldEditHistory.undo.length) return;
 
   ensureEditableWorldModelsConfig();
 
-  const current = snapshotWorldModelsConfig();
+  const current = snapshotWorldEditSnapshot();
   const prev = worldEditHistory.undo.pop();
 
   worldEditHistory.redo.push(current);
@@ -7504,21 +7687,19 @@ function worldEditUndo() {
     worldEditHistory.redo.shift();
   }
 
-  applyWorldModelsSnapshot(prev);
-  updateAvatarButtons();
+  applyWorldEditSnapshot(prev);
   showActionToast("Undo");
 }
 
-
-    /**
-     * Performs a redo (restores next snapshot). Undo receives the current snapshot.
-     */
+/**
+ * Performs a redo (restores next snapshot). Undo receives the current snapshot.
+ */
 function worldEditRedo() {
   if (!worldEditHistory.redo.length) return;
 
   ensureEditableWorldModelsConfig();
 
-  const current = snapshotWorldModelsConfig();
+  const current = snapshotWorldEditSnapshot();
   const next = worldEditHistory.redo.pop();
 
   worldEditHistory.undo.push(current);
@@ -7526,10 +7707,11 @@ function worldEditRedo() {
     worldEditHistory.undo.shift();
   }
 
-  applyWorldModelsSnapshot(next);
-  updateAvatarButtons();
+  applyWorldEditSnapshot(next);
   showActionToast("Redo");
 }
+
+
 
 
 
@@ -7549,6 +7731,8 @@ function duplicateSelectedWorldEmitter() {
   : null;
 
   if (!srcCfg || !scene) return;
+
+  pushWorldEditUndoSnapshot();
 
   const dupCfg = JSON.parse(JSON.stringify(srcCfg));
   dupCfg.id = makeEmitterId();
@@ -7573,18 +7757,10 @@ function duplicateSelectedWorldEmitter() {
   if (typeof syncEmitterGuiFromSelection === "function") syncEmitterGuiFromSelection();
 
   if (typeof selectWorldEditRoot === "function") selectWorldEditRoot(rt.group);
+
+  showActionToast("Cloned");
 }
 
-function deleteSelectedWorldEmitter() {
-  /* Deletes the selected emitter instance (X when an emitter is selected). */
-  const root = worldEditState && worldEditState.selected ? worldEditState.selected : null;
-  if (!root || !root.userData || root.userData.worldEditKind !== "emitter") return;
-
-  const sid = String(root.userData.worldEmitterId || "");
-  if (!sid) return;
-
-  removeEmitterById(sid);
-}
 
 
 
@@ -7658,7 +7834,18 @@ function duplicateSelectedWorldModel() {
 
 
 
+function deleteSelectedWorldEmitter() {
+  /* Deletes the selected emitter instance (X when an emitter is selected). */
+  const root = worldEditState && worldEditState.selected ? worldEditState.selected : null;
+  if (!root || !root.userData || root.userData.worldEditKind !== "emitter") return;
 
+  const sid = String(root.userData.worldEmitterId || "");
+  if (!sid) return;
+
+  pushWorldEditUndoSnapshot();
+  removeEmitterById(sid);
+  showActionToast("Deleted");
+}
 
 
 
@@ -7719,6 +7906,7 @@ function deleteSelectedWorldModel() {
      * Handles canvas pointer picking for world editor selection.
      */
 function onWorldEditPointerDown(event) {
+  /* Handles canvas pointer picking for world editor selection (prunes stale selectable roots). */
   if (!worldEditState.enabled) return;
   if (!renderer || !camera || !transformControls) return;
   if (event.button !== 0) return;
@@ -7731,7 +7919,16 @@ function onWorldEditPointerDown(event) {
   worldEditPointerNDC.set(nx, ny);
   worldEditRaycaster.setFromCamera(worldEditPointerNDC, camera);
 
-  const roots = Array.from(worldEditSelectableRoots);
+  const roots = [];
+  for (const r of worldEditSelectableRoots) {
+    if (!r) continue;
+    if (!scene || (typeof isDescendantOf === "function" && !isDescendantOf(r, scene))) {
+      worldEditSelectableRoots.delete(r);
+      continue;
+    }
+    roots.push(r);
+  }
+
   if (!roots.length) return;
 
   const hits = worldEditRaycaster.intersectObjects(roots, true);
@@ -7761,6 +7958,7 @@ function onWorldEditPointerDown(event) {
 
   selectWorldEditRoot(pickedRoot);
 }
+
 
 
 
@@ -8601,25 +8799,70 @@ function captureWorldThumbnail() {
 
 
 
-    /**
-     * Saves current scene model transforms into the active IndexedDB world record.
-     * If there is no active world, creates one and sets it active (no reload).
-     */
+/**
+ * Saves current scene model transforms into the active IndexedDB world record.
+ * If there is no active world, creates one and sets it active (no reload).
+ */
 async function saveActiveWorld() {
-  /* Saves current world (models + emitters + settings) into IDB under the active world id. */
+  /* Saves current world (models + emitters + settings + refreshed thumbnail) into IDB under the active world id. */
   try {
-    const id = getActiveWorldId();
-    if (!id) return;
+    let id = getActiveWorldId();
 
-    const rec = await idbGetWorld(id);
-    if (!rec) return;
+    if (!id) {
+      id = makeWorldId();
+      setActiveWorldId(id);
+    }
 
-    rec.models = normalizeWorldModelsConfig(snapshotWorldModelsConfig());
-    rec.emitters = normalizeWorldEmittersConfig(snapshotWorldEmittersConfig());
-    rec.settings = safeCloneSettings(params);
-    rec.updatedAt = Date.now();
+    let rec = await idbGetWorld(id);
 
+    const models = normalizeWorldModelsConfig(snapshotWorldModelsConfig());
+    const emitters = normalizeWorldEmittersConfig(snapshotWorldEmittersConfig());
+    const settings = safeCloneSettings(params);
+
+    const now = Date.now();
+
+    if (!rec) {
+      let title = "World";
+      let description = "";
+
+      if (typeof worldUiState !== "undefined" && worldUiState) {
+        if (typeof worldUiState.title === "string" && worldUiState.title.trim()) title = worldUiState.title.trim();
+        if (typeof worldUiState.description === "string") description = worldUiState.description;
+      }
+
+      const thumb = captureWorldThumbnail() || "";
+
+      rec = buildWorldRecord({
+        id,
+        title,
+        description,
+        models,
+        emitters,
+        settings,
+        thumbnail: thumb,
+        meta: {},
+        createdAt: now,
+        updatedAt: now
+      });
+
+      await idbPutWorld(rec);
+
+      if (typeof setWorldNameLabel === "function") setWorldNameLabel(rec.title || "World");
+      showActionToast("World created & saved");
+      return;
+    }
+
+    rec.models = models;
+    rec.emitters = emitters;
+    rec.settings = settings;
+
+    const thumb = captureWorldThumbnail();
+    if (thumb) rec.thumbnail = thumb;
+
+    rec.updatedAt = now;
     await idbPutWorld(rec);
+
+    if (typeof setWorldNameLabel === "function") setWorldNameLabel(rec.title || "World");
     showActionToast("World saved");
   } catch (e) {
     console.warn("[worlds] saveActiveWorld failed", e);
@@ -8843,9 +9086,9 @@ function applyWorldEmittersConfig(raw) {
 }
 
 /* Emitter presets: load optional emitters_presets.json + local custom bank (SoundMaker-style). */
-const EMITTER_PRESETS_KEY = "snow:emittersPresets:v1";
-const EMITTER_PRESETS_URL = "presets/emitters_presets.json";
-let emitterPresetsLoadedOnce = false;
+// const EMITTER_PRESETS_KEY = "snow:emittersPresets:v1";
+// const EMITTER_PRESETS_URL = "presets/emitters_presets.json";
+// let emitterPresetsLoadedOnce = false;
 
 function loadEmitterPresetBank() {
   try {
@@ -8889,18 +9132,24 @@ function mergeEmitterPresetsIntoLibrary(list) {
   }
 }
 
+
 async function loadEmitterPresetsJsonOnce() {
   if (emitterPresetsLoadedOnce) return;
   emitterPresetsLoadedOnce = true;
 
-  try {
-    const res = await fetch(EMITTER_PRESETS_URL, { cache: "no-store" });
-    if (!res.ok) return;
-    const json = await res.json();
-    const list = Array.isArray(json) ? json : (Array.isArray(json.presets) ? json.presets : []);
-    mergeEmitterPresetsIntoLibrary(list);
-  } catch {}
+  for (let i = 0; i < EMITTER_PRESETS_URLS.length; i++) {
+    const url = EMITTER_PRESETS_URLS[i];
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) continue;
+      const json = await res.json();
+      const list = Array.isArray(json) ? json : (Array.isArray(json.presets) ? json.presets : []);
+      mergeEmitterPresetsIntoLibrary(list);
+      break;
+    } catch (e) {}
+  }
 }
+
 
 function getEmitterPresetOptionsMerged() {
   const opts = {};
@@ -9324,6 +9573,7 @@ async function cloudDeleteWorld(scope, id) {
      * Builds an exportable MODEL_CONFIG snapshot using current scene transforms (when instances exist).
      */
 function snapshotWorldModelsConfig() {
+  /* Snapshot current runtime transforms back into config (preserves ground-mode Y semantics). */
   const base = worldModelsConfig || MODEL_CONFIG;
   const out = JSON.parse(JSON.stringify(base));
 
@@ -9390,7 +9640,15 @@ function snapshotWorldModelsConfig() {
         sz = inst.scale.z;
       }
 
-      outInstCfg.position = [px, py, pz];
+      /* Ground-mode instances store Y as offset from surface height at XZ (to match applyInstCfgTransformToInstance). */
+      let storeY = py;
+      if (outInstCfg.ground) {
+        const surfaceY = getWorldSurfaceY(px, pz);
+        const baseY = Number.isFinite(surfaceY) ? surfaceY : 0;
+        storeY = py - baseY;
+      }
+
+      outInstCfg.position = [px, storeY, pz];
       outInstCfg.rotation = [rx, ry, rz];
 
       const uniform = Math.abs(sx - sy) < eps && Math.abs(sx - sz) < eps;
@@ -9400,6 +9658,7 @@ function snapshotWorldModelsConfig() {
 
   return out;
 }
+
 
 
 
@@ -12742,7 +13001,6 @@ function loadAllModels() {
     
 
 
-
     function tickAvatar(dt) {
       const worldId = (typeof worldUiState !== "undefined" && worldUiState && typeof worldUiState.id === "string")
       ? worldUiState.id
@@ -12867,7 +13125,7 @@ function loadAllModels() {
                 for (let i = 0; i < burst; i++) {
                   const scale = clamp(0.35 + speed * 0.05, 0.22, 0.95);
                   playFX("step6", scale);
-                  //step();
+              //step();
                 }
               }
             }
@@ -12887,7 +13145,12 @@ function loadAllModels() {
         syncVehicleTuningFromCurrentVehicle();
       }
 
-      // World emitters update (particles)
+  /* Keep equipment GUI selection in sync with the currently equipped item. */
+      if (typeof syncEquipmentTuningSelection === "function") {
+        syncEquipmentTuningSelection();
+      }
+
+  // World emitters update (particles)
       tickEmitters(dt);
 
   // Keep original per-frame helpers + animation mixer update
@@ -12899,6 +13162,7 @@ function loadAllModels() {
         avatarMixer.update(dt);
       }
     }
+
 
 
 
@@ -16609,38 +16873,47 @@ function getEquipmentTuningTarget() {
  * Copies equipment attachment values into the tuning state (used for GUI display/listen).
  */
 function readEquipmentMetaIntoTuningState(e) {
-  if (!e || !e.meta) return;
+  if (!e) return;
+
+  const meta = (e.meta && typeof e.meta === "object") ? e.meta : {};
   equipmentTuningState.available = true;
-  equipmentTuningState.id = e.id || "";
-  equipmentTuningState.type = e.meta.type || "Item";
-  equipmentTuningState.description = e.meta.description || "";
-  const attach = (e.meta.attach && typeof e.meta.attach === "object") ? e.meta.attach : {};
+
+  equipmentTuningState.id = String(
+    (e.id && String(e.id)) ||
+    (e.object && e.object.uuid) ||
+    (meta.id || meta.name || meta.type || meta.url || "")
+    );
+
+  equipmentTuningState.type = String(meta.type || "Item");
+  equipmentTuningState.description = String(meta.description || "");
+
+  const attach = (meta.attach && typeof meta.attach === "object") ? meta.attach : {};
+
   equipmentTuningState.bone = typeof attach.bone === "string" ? attach.bone : "";
+
   const p = Array.isArray(attach.position) && attach.position.length === 3 ? attach.position : [0, 0.06, -0.22];
   equipmentTuningState.posX = Number.isFinite(p[0]) ? p[0] : 0.0;
   equipmentTuningState.posY = Number.isFinite(p[1]) ? p[1] : 0.06;
   equipmentTuningState.posZ = Number.isFinite(p[2]) ? p[2] : -0.22;
+
   const r = Array.isArray(attach.rotation) && attach.rotation.length === 3 ? attach.rotation : [0, 0, 0];
   equipmentTuningState.rotX = Number.isFinite(r[0]) ? r[0] : 0.0;
   equipmentTuningState.rotY = Number.isFinite(r[1]) ? r[1] : 0.0;
   equipmentTuningState.rotZ = Number.isFinite(r[2]) ? r[2] : 0.0;
+
   const s = attach.scale;
   if (Array.isArray(s) && s.length === 3) {
-    let sx = Number.isFinite(s[0]) ? s[0] : 1.0;
-    let sy = Number.isFinite(s[1]) ? s[1] : 1.0;
-    let sz = Number.isFinite(s[2]) ? s[2] : 1.0;
-    if (sx > 10 || sy > 10 || sz > 10) {
-      sx *= 0.01;
-      sy *= 0.01;
-      sz *= 0.01;
-    }
-    equipmentTuningState.scale = (sx + sy + sz) / 3.0;
+    const sx = Number.isFinite(s[0]) ? s[0] : 1.0;
+    const sy = Number.isFinite(s[1]) ? s[1] : 1.0;
+    const sz = Number.isFinite(s[2]) ? s[2] : 1.0;
+    equipmentTuningState.scale = Math.max(0.001, (sx + sy + sz) / 3);
   } else if (Number.isFinite(s)) {
-    equipmentTuningState.scale = (s > 10) ? (s * 0.01) : s;
+    equipmentTuningState.scale = Math.max(0.001, s);
   } else {
     equipmentTuningState.scale = 1.0;
   }
 }
+
 
 
 /**
@@ -16745,11 +17018,11 @@ function applyEquipmentAttachmentNow(e) {
 /**
  * Keeps the equipment tuning state aligned with the current selection.
  */
+
 function syncEquipmentTuningSelection() {
   if (!equipmentTuningFolder) return;
 
   const e = getEquipmentTuningTarget();
-  const id = e ? (e.id || "") : "";
 
   if (!e) {
     equipmentTuningState.available = false;
@@ -16761,11 +17034,20 @@ function syncEquipmentTuningSelection() {
     return;
   }
 
-  if (id === equipmentTuningLastId) return;
+  const meta = (e.meta && typeof e.meta === "object") ? e.meta : {};
+  const key = String(
+    (e.id && String(e.id)) ||
+    (e.object && e.object.uuid) ||
+    (meta.id || meta.name || meta.type || meta.url || "")
+    );
 
-  equipmentTuningLastId = id;
+  if (key === equipmentTuningLastId) return;
+
+  equipmentTuningLastId = key;
   readEquipmentMetaIntoTuningState(e);
 }
+
+
 
 /**
  * Sets up lil-gui controls for the selected equipment attachment transform.
@@ -21773,6 +22055,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       transformControlsHelper.visible = false;
       scene.add(transformControlsHelper);
 
+
+
+
+
+
       transformControls.addEventListener("dragging-changed", (event) => {
         if (controls) controls.enabled = !event.value;
         markUserInteraction();
@@ -21788,15 +22075,47 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         worldEditHistory.dragPushed = false;
 
         if (worldEditState.enabled && worldEditState.selected) {
-          const found = findWorldEditConfigForRoot(worldEditState.selected);
-          if (found && found.instCfg) {
-            syncInstanceTransformToInstCfg(worldEditState.selected, found.instCfg);
+          const sel = worldEditState.selected;
+          const ud = (sel && sel.userData) ? sel.userData : null;
+
+          const isEmitter = !!(ud && (ud.worldEditKind === "emitter" || ud.worldEmitterId));
+          if (isEmitter && typeof emitterState !== "undefined" && emitterState && Array.isArray(emitterState.emitters)) {
+            const sid = String(ud.worldEmitterId || ud.worldEditId || "");
+            const cfg = sid ? emitterState.emitters.find((x) => x && x.id === sid) : null;
+
+            if (cfg) {
+              cfg.position = [
+                Number.isFinite(sel.position.x) ? sel.position.x : 0,
+                Number.isFinite(sel.position.y) ? sel.position.y : 0.2,
+                Number.isFinite(sel.position.z) ? sel.position.z : 0
+              ];
+
+              cfg.rotation = [
+                Number.isFinite(sel.rotation.x) ? sel.rotation.x : 0,
+                Number.isFinite(sel.rotation.y) ? sel.rotation.y : 0,
+                Number.isFinite(sel.rotation.z) ? sel.rotation.z : 0
+              ];
+
+              const sx = Number.isFinite(sel.scale.x) ? sel.scale.x : 1;
+              cfg.scale = Math.max(0.001, sx);
+            }
+          } else {
+            const found = findWorldEditConfigForRoot(sel);
+            if (found && found.instCfg) {
+              syncInstanceTransformToInstCfg(sel, found.instCfg);
+            }
           }
         }
 
         syncWorldEditObjectGuiSelection();
         commitWorldEditTransform();
       });
+
+
+
+
+
+
 
       transformControls.addEventListener("change", () => {
         if (!worldEditState.enabled || !worldEditState.selected) return;
@@ -22297,6 +22616,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
+/* Emitter presets: load emitters_presets.json + local custom bank (SoundMaker-style). */
+      const EMITTER_PRESETS_KEY = "snow:emittersPresets:v1";
+      const EMITTER_PRESETS_URLS = ["presets/emitters_presets.json", "emitters_presets.json"];
+      let emitterPresetsLoadedOnce = false;
 
 
 
@@ -22308,96 +22631,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         _idSeq: 1
       };
 
-      const EMITTER_LIBRARY = [
-        {
-          id: "dust",
-          name: "Dust (puff)",
-          defaults: {
-            maxParticles: 160,
-            rate: 40,
-            burst: 0,
-            life: 0.9,
-            lifeJitter: 0.35,
-            speed: 1.2,
-            speedJitter: 0.8,
-            spread: 0.85,
-            gravity: -0.4,
-            drag: 1.0,
-            size: 0.08,
-            sizeJitter: 0.05,
-            opacity: 0.75,
-            color: "#c8b8a8",
-            loop: true,
-            autoStopMs: 0
-          }
-        },
-        {
-          id: "exhaust",
-          name: "Exhaust (engine)",
-          defaults: {
-            maxParticles: 260,
-            rate: 85,
-            burst: 0,
-            life: 1.4,
-            lifeJitter: 0.45,
-            speed: 2.1,
-            speedJitter: 1.1,
-            spread: 0.45,
-            gravity: 0.15,
-            drag: 1.4,
-            size: 0.06,
-            sizeJitter: 0.04,
-            opacity: 0.55,
-            color: "#aeb6bd",
-            loop: true,
-            autoStopMs: 0
-          }
-        },
-        {
-          id: "smoke",
-          name: "Smoke (slow)",
-          defaults: {
-            maxParticles: 340,
-            rate: 55,
-            burst: 0,
-            life: 2.6,
-            lifeJitter: 0.7,
-            speed: 0.9,
-            speedJitter: 0.5,
-            spread: 0.7,
-            gravity: 0.2,
-            drag: 1.7,
-            size: 0.12,
-            sizeJitter: 0.07,
-            opacity: 0.45,
-            color: "#b8bcc0",
-            loop: true,
-            autoStopMs: 0
-          }
-        },
-        {
-          id: "fire",
-          name: "Fire (small)",
-          defaults: {
-            maxParticles: 240,
-            rate: 95,
-            burst: 0,
-            life: 0.65,
-            lifeJitter: 0.25,
-            speed: 1.7,
-            speedJitter: 0.9,
-            spread: 0.65,
-            gravity: 0.35,
-            drag: 1.25,
-            size: 0.085,
-            sizeJitter: 0.05,
-            opacity: 0.72,
-            color: "#ff8a3a",
-            loop: true,
-            autoStopMs: 0
-          }
-        }
-      ];
+      const EMITTER_LIBRARY = [];
+
+
 
       const emitterTmp = {
         v3a: new THREE.Vector3(),
@@ -22661,20 +22897,27 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         return `em_${n}_${Math.random().toString(36).slice(2, 6)}`;
       }
 
+
+      /* Builds a new emitter instance config from a preset and normalizes params to safe numeric defaults. */
       function makeEmitterConfigFromPreset(presetId) {
-        const p = getEmitterPresetById(presetId) || EMITTER_LIBRARY[0];
+        const fallback = { id: "custom", name: "Custom", defaults: {} };
+        const p = getEmitterPresetById(presetId) || EMITTER_LIBRARY[0] || fallback;
+
         const cfg = {
           id: makeEmitterId(),
-          presetId: p ? p.id : "dust",
-          name: p ? p.name : "Emitter",
+          presetId: p.id,
+          name: p.name,
           position: [0, 0.2, 0],
           rotation: [0, 0, 0],
           scale: 1,
           attach: { enabled: false, worldEditId: "" },
-          params: { ...(p ? p.defaults : {}) }
+          params: { ...(p.defaults || {}) }
         };
-        return cfg;
+
+        const norm = normalizeWorldEmittersConfig([cfg]);
+        return (Array.isArray(norm) && norm[0]) ? norm[0] : cfg;
       }
+
 
       function createEmitterHolderMesh() {
         const g = new THREE.BoxGeometry(0.25, 0.25, 0.25);
@@ -23286,11 +23529,33 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         emitterGuiState.presetPick = (EMITTER_LIBRARY[0] ? EMITTER_LIBRARY[0].id : "dust");
         syncEmitterGuiFromSelection();
       },
+
+
       exportPresets: () => {
+        /* Export local custom presets in the same format as emitters_presets.json. */
         const bank = loadEmitterPresetBank();
-        downloadJson({ v: 1, presets: bank.presets || {} }, "emitters_presets.local.json");
+        const presetsObj = (bank && bank.presets && typeof bank.presets === "object") ? bank.presets : {};
+        const keys = Object.keys(presetsObj);
+
+        const presets = [];
+        for (let i = 0; i < keys.length; i++) {
+          const k = keys[i];
+          const p = presetsObj[k];
+          if (!p || typeof p !== "object") continue;
+
+          const id = String(p.id || k).trim() || k;
+          const name = String(p.name || id).trim() || id;
+          const defaultsIn = (p.defaults && typeof p.defaults === "object") ? p.defaults : {};
+          const defaults = JSON.parse(JSON.stringify(defaultsIn));
+
+          presets.push({ id, name, defaults });
+        }
+
+        presets.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        downloadJson({ presets }, "emitters_presets.local.json");
       },
       importPresets: () => {
+        /* Import presets from either array format (emitters_presets.json) or legacy map format. */
         const input = document.createElement("input");
         input.type = "file";
         input.accept = "application/json";
@@ -23303,24 +23568,47 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
             const text = await file.text();
             const json = JSON.parse(text);
 
-            const presetsIn = (json && typeof json === "object" && json.presets && typeof json.presets === "object")
-            ? json.presets
-            : (json && typeof json === "object" ? json : {});
+            const listFromArray = (arr) => {
+              for (let i = 0; i < arr.length; i++) {
+                const p = arr[i];
+                if (!p || typeof p !== "object") continue;
+
+                const id = String(p.id || "").trim();
+                if (!id) continue;
+
+                const name = String(p.name || id).trim() || id;
+                const defaultsIn2 = (p.defaults && typeof p.defaults === "object") ? p.defaults : {};
+                const defaults = JSON.parse(JSON.stringify(defaultsIn2));
+
+                bank.presets[id] = { id, name, defaults };
+              }
+            };
 
             const bank = loadEmitterPresetBank();
-            const keys = Object.keys(presetsIn);
 
-            for (let i = 0; i < keys.length; i++) {
-              const k = keys[i];
-              const p = presetsIn[k];
-              if (!p || typeof p !== "object") continue;
+            if (Array.isArray(json)) {
+              listFromArray(json);
+            } else if (json && typeof json === "object" && Array.isArray(json.presets)) {
+              listFromArray(json.presets);
+            } else {
+              const presetsIn =
+              (json && typeof json === "object" && json.presets && typeof json.presets === "object")
+              ? json.presets
+              : (json && typeof json === "object" ? json : {});
 
-              const id = String(p.id || k).trim() || k;
-              const name = String(p.name || id).trim() || id;
-              const defaultsIn2 = (p.defaults && typeof p.defaults === "object") ? p.defaults : {};
-              const defaults = JSON.parse(JSON.stringify(defaultsIn2));
+              const keys = Object.keys(presetsIn);
+              for (let i = 0; i < keys.length; i++) {
+                const k = keys[i];
+                const p = presetsIn[k];
+                if (!p || typeof p !== "object") continue;
 
-              bank.presets[id] = { id, name, defaults };
+                const id = String(p.id || k).trim() || k;
+                const name = String(p.name || id).trim() || id;
+                const defaultsIn2 = (p.defaults && typeof p.defaults === "object") ? p.defaults : {};
+                const defaults = JSON.parse(JSON.stringify(defaultsIn2));
+
+                bank.presets[id] = { id, name, defaults };
+              }
             }
 
             saveEmitterPresetBank(bank);
@@ -23332,6 +23620,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         input.click();
       },
+
+
+
+      
       _sync: null
     };
   }
@@ -25855,6 +26147,9 @@ const worldObjectPickerState = { open: false, wired: false };
 let worldObjectPickerEl = null;
 let worldObjectPickerCloseBtn = null;
 let worldObjectPickerListEl = null;
+let worldObjectPickerSearchEl = null;
+let worldObjectPickerTabsEl = null;
+
 
 
 const DEFAULT_ITEM_THUMB = 'data:image/svg+xml;utf8,' + encodeURIComponent(
@@ -26260,28 +26555,19 @@ function getWorldObjectCatalog() {
 
 
 
-
 function ensureWorldObjectPickerOverlayWired() {
+
   if (worldObjectPickerState.wired) return;
 
   worldObjectPickerEl = document.getElementById("worldObjectPicker");
   worldObjectPickerCloseBtn = document.getElementById("worldObjectPickerClose");
   worldObjectPickerListEl = document.getElementById("worldObjectPickerList");
+  worldObjectPickerSearchEl = document.getElementById("worldObjectPickerSearch");
+  worldObjectPickerTabsEl = document.getElementById("worldObjectPickerTabs");
 
-  const worldObjectPickerSearchEl = document.getElementById("worldObjectPickerSearch");
-  const worldObjectPickerTabsEl = document.getElementById("worldObjectPickerTabs");
+  const typeTabsEl = document.getElementById("worldObjectPickerTypeTabs");
 
-  if (!worldObjectPickerEl || !worldObjectPickerListEl) {
-    worldObjectPickerState.wired = true;
-    return;
-  }
-
-  if (!worldObjectPickerState.filter || typeof worldObjectPickerState.filter !== "object") {
-    worldObjectPickerState.filter = { tab: "all", q: "" };
-  } else {
-    if (typeof worldObjectPickerState.filter.tab !== "string") worldObjectPickerState.filter.tab = "all";
-    if (typeof worldObjectPickerState.filter.q !== "string") worldObjectPickerState.filter.q = "";
-  }
+  if (!worldObjectPickerEl || !worldObjectPickerListEl) return;
 
   if (worldObjectPickerCloseBtn) {
     worldObjectPickerCloseBtn.addEventListener("click", (event) => {
@@ -26294,10 +26580,30 @@ function ensureWorldObjectPickerOverlayWired() {
     if (event.target === worldObjectPickerEl) setWorldObjectPickerOpen(false);
   });
 
+  if (typeTabsEl) {
+    typeTabsEl.addEventListener("click", (event) => {
+      const btn = event.target && event.target.closest ? event.target.closest("[data-world-kind]") : null;
+      if (!btn) return;
+      event.preventDefault();
+
+      const kind = btn.getAttribute("data-world-kind") || "models";
+      if (!worldObjectPickerState.filter || typeof worldObjectPickerState.filter !== "object") {
+        worldObjectPickerState.filter = { kind: "models", tab: "all", q: "" };
+      }
+      worldObjectPickerState.filter.kind = kind;
+      worldObjectPickerState.filter.tab = "all";
+      renderWorldObjectPickerList();
+      if (worldObjectPickerSearchEl) worldObjectPickerSearchEl.focus();
+    });
+  }
+
   if (worldObjectPickerSearchEl) {
-    worldObjectPickerSearchEl.value = String(worldObjectPickerState.filter.q || "");
+    worldObjectPickerSearchEl.value = String((worldObjectPickerState.filter && worldObjectPickerState.filter.q) || "");
 
     worldObjectPickerSearchEl.addEventListener("input", () => {
+      if (!worldObjectPickerState.filter || typeof worldObjectPickerState.filter !== "object") {
+        worldObjectPickerState.filter = { kind: "models", tab: "all", q: "" };
+      }
       worldObjectPickerState.filter.q = String(worldObjectPickerSearchEl.value || "");
       renderWorldObjectPickerList();
     });
@@ -26316,7 +26622,11 @@ function ensureWorldObjectPickerOverlayWired() {
       const btn = event.target && event.target.closest ? event.target.closest("[data-world-tab]") : null;
       if (!btn) return;
       event.preventDefault();
+
       const tab = btn.getAttribute("data-world-tab") || "all";
+      if (!worldObjectPickerState.filter || typeof worldObjectPickerState.filter !== "object") {
+        worldObjectPickerState.filter = { kind: "models", tab: "all", q: "" };
+      }
       worldObjectPickerState.filter.tab = tab;
       renderWorldObjectPickerList();
       if (worldObjectPickerSearchEl) worldObjectPickerSearchEl.focus();
@@ -26324,15 +26634,35 @@ function ensureWorldObjectPickerOverlayWired() {
   }
 
   worldObjectPickerListEl.addEventListener("click", (event) => {
-    const btn = event.target && event.target.closest ? event.target.closest("[data-world-object]") : null;
-    if (!btn) return;
+    const btnObj = event.target && event.target.closest ? event.target.closest("[data-world-object]") : null;
+    const btnEmit = event.target && event.target.closest ? event.target.closest("[data-world-emitter]") : null;
+
+    if (!btnObj && !btnEmit) return;
 
     event.preventDefault();
 
-    const modelName = btn.getAttribute("data-world-object") || "";
-    if (!modelName) return;
+    if (btnObj) {
+      const modelName = btnObj.getAttribute("data-world-object") || "";
+      if (!modelName) return;
+      addWorldObjectToScene(modelName);
+      setWorldObjectPickerOpen(false);
+      return;
+    }
 
-    addWorldObjectToScene(modelName);
+    const presetId = btnEmit.getAttribute("data-world-emitter") || "";
+    if (!presetId) return;
+
+    if (typeof addEmitterToScene === "function") {
+      addEmitterToScene(presetId);
+    } else if (typeof addWorldEmitterToScene === "function") {
+      addWorldEmitterToScene(presetId);
+    } else if (typeof addEmitterInstanceFromPreset === "function") {
+      addEmitterInstanceFromPreset(presetId);
+    } else {
+      console.warn("[emitters] No add emitter function found for preset:", presetId);
+      return;
+    }
+
     setWorldObjectPickerOpen(false);
   });
 
@@ -26350,7 +26680,10 @@ function ensureWorldObjectPickerOverlayWired() {
 
 
 
-      /* Opens/closes object picker overlay and triggers a render when shown. */
+/**
+**  Opens/closes object picker overlay and triggers a render when shown. 
+** */
+
 function setWorldObjectPickerOpen(open) {
   worldObjectPickerState.open = !!open;
 
@@ -26363,8 +26696,13 @@ function setWorldObjectPickerOpen(open) {
 
   if (worldObjectPickerState.open) {
     if (!worldObjectPickerState.filter || typeof worldObjectPickerState.filter !== "object") {
-      worldObjectPickerState.filter = { tab: "all", q: "" };
+      worldObjectPickerState.filter = { kind: "models", tab: "all", q: "" };
+    } else {
+      if (typeof worldObjectPickerState.filter.kind !== "string") worldObjectPickerState.filter.kind = "models";
+      if (typeof worldObjectPickerState.filter.tab !== "string") worldObjectPickerState.filter.tab = "all";
+      if (typeof worldObjectPickerState.filter.q !== "string") worldObjectPickerState.filter.q = "";
     }
+
     renderWorldObjectPickerList();
 
     const searchEl = document.getElementById("worldObjectPickerSearch");
@@ -26377,6 +26715,53 @@ function setWorldObjectPickerOpen(open) {
     if (ae && el.contains(ae) && typeof ae.blur === "function") ae.blur();
   }
 }
+
+/* Builds emitter preset cards for the Objects overlay (thumbnail: assets/images/emitters/<id>.png). */
+function getWorldEmitterCatalogForPicker() {
+  const out = [];
+
+  if (typeof getEmitterPresetOptionsMerged === "function") {
+    const opts = getEmitterPresetOptionsMerged();
+    const names = opts && typeof opts === "object" ? Object.keys(opts) : [];
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      const id = String(opts[name] || "").trim();
+      if (!id) continue;
+
+      let displayName = String(name || id);
+      if (typeof getEmitterPresetByIdMerged === "function") {
+        const p = getEmitterPresetByIdMerged(id);
+        if (p && typeof p.name === "string" && p.name.trim()) displayName = p.name.trim();
+      }
+
+      out.push({
+        id,
+        name: displayName,
+        desc: "Emitter preset",
+        thumb: "assets/images/emitters/" + id + ".png",
+        searchText: (displayName + " " + id)
+      });
+    }
+  } else if (Array.isArray(EMITTER_LIBRARY)) {
+    for (let i = 0; i < EMITTER_LIBRARY.length; i++) {
+      const p = EMITTER_LIBRARY[i];
+      if (!p || !p.id) continue;
+      const id = String(p.id);
+      const displayName = String(p.name || id);
+      out.push({
+        id,
+        name: displayName,
+        desc: "Emitter preset",
+        thumb: "assets/images/emitters/" + id + ".png",
+        searchText: (displayName + " " + id)
+      });
+    }
+  }
+
+  out.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  return out;
+}
+
 
 
 
@@ -26406,64 +26791,100 @@ function renderWorldObjectPickerList() {
   if (!listEl) return;
 
   const tabsEl = document.getElementById("worldObjectPickerTabs");
-  const items = getWorldObjectCatalog();
+  const typeTabsEl = document.getElementById("worldObjectPickerTypeTabs");
 
-  const q = (worldObjectPickerState.filter && typeof worldObjectPickerState.filter.q === "string")
-  ? worldObjectPickerState.filter.q.trim().toLowerCase()
-  : "";
+  if (!worldObjectPickerState.filter || typeof worldObjectPickerState.filter !== "object") {
+    worldObjectPickerState.filter = { kind: "models", tab: "all", q: "" };
+  }
 
-  const tab = (worldObjectPickerState.filter && typeof worldObjectPickerState.filter.tab === "string")
-  ? worldObjectPickerState.filter.tab
-  : "all";
+  const kind = String(worldObjectPickerState.filter.kind || "models").toLowerCase();
+  const q = String(worldObjectPickerState.filter.q || "").trim().toLowerCase();
+  const tabKey = String(worldObjectPickerState.filter.tab || "all").toLowerCase();
 
-  const tabKey = String(tab || "all").toLowerCase();
+  if (typeTabsEl) {
+    const btns = typeTabsEl.querySelectorAll("[data-world-kind]");
+    for (let i = 0; i < btns.length; i++) {
+      const b = btns[i];
+      const k = String(b.getAttribute("data-world-kind") || "models").toLowerCase();
+      const on = (k === kind);
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    }
+  }
+
+  const items = (kind === "emitters") ? getWorldEmitterCatalogForPicker() : getWorldObjectCatalog();
 
   const matches = (it) => {
     if (!it) return false;
 
-    const ck = String(it.categoryKey || "objects");
-    if (tabKey !== "all" && tabKey !== ck) return false;
+    if (kind !== "emitters") {
+      const ck = String(it.categoryKey || "objects").toLowerCase();
+      if (tabKey !== "all" && tabKey !== ck) return false;
+    }
 
     if (!q) return true;
 
-    const hay = String(it.searchText || "").toLowerCase();
+    const hay = String(it.searchText || it.name || it.id || "").toLowerCase();
     return hay.includes(q);
   };
 
   const filtered = items.filter(matches);
 
   if (tabsEl) {
-    const cats = new Map();
-    cats.set("all", { key: "all", label: "All", count: items.length });
+    if (kind === "emitters") {
+      tabsEl.innerHTML =
+      '<button class="avatar-btn border-stick-b is-on" type="button" data-world-tab="all" role="tab" aria-selected="true">All</button>';
+    } else {
+      const cats = new Map();
+      cats.set("all", { key: "all", label: "All", count: items.length });
 
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i];
-      const k = String(it.categoryKey || "objects");
-      const lbl = String(it.categoryLabel || "Objects");
-      if (!cats.has(k)) cats.set(k, { key: k, label: lbl, count: 0 });
-      cats.get(k).count++;
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        const k = String(it.categoryKey || "objects").toLowerCase();
+        const lbl = String(it.categoryLabel || "Objects");
+        if (!cats.has(k)) cats.set(k, { key: k, label: lbl, count: 0 });
+        cats.get(k).count++;
+      }
+
+      const order = ["all", "objects", "vehicles", "equipment", "food"];
+      const catList = Array.from(cats.values()).sort((a, b) => {
+        const ai = order.indexOf(a.key);
+        const bi = order.indexOf(b.key);
+        if (ai !== -1 || bi !== -1) return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+        return a.label.localeCompare(b.label);
+      });
+
+      tabsEl.innerHTML = catList.map((c) => {
+        const on = (String(worldObjectPickerState.filter.tab || "all").toLowerCase() === c.key) ? " is-on" : "";
+        return (
+          '<button class="avatar-btn border-stick-b' + on + '" type="button" data-world-tab="' + escapeInventoryText(c.key) + '" role="tab" aria-selected="' + (on ? "true" : "false") + '">' +
+          escapeInventoryText(c.label) +
+          "</button>"
+          );
+      }).join("");
     }
+  }
 
-    const order = ["all", "objects", "vehicles", "equipment", "food"];
-    const catList = Array.from(cats.values()).sort((a, b) => {
-      const ai = order.indexOf(a.key);
-      const bi = order.indexOf(b.key);
-      if (ai !== -1 || bi !== -1) return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-      return a.label.localeCompare(b.label);
-    });
-
-    tabsEl.innerHTML = catList.map((c) => {
-      const on = (String(tab || "all") === c.key) ? " is-on" : "";
+  if (kind === "emitters") {
+    listEl.innerHTML = filtered.map((it) => {
+      const id = escapeInventoryText(it.id);
+      const name = escapeInventoryText(it.name || it.id);
+      const desc = escapeInventoryText(it.desc || "");
+      const thumb = escapeInventoryText(it.thumb || DEFAULT_ITEM_THUMB);
       return (
-        '<button class="avatar-btn border-stick-b' + on + '" type="button" data-world-tab="' + escapeInventoryText(c.key) + '" role="tab" aria-selected="' + (on ? "true" : "false") + '">' +
-        escapeInventoryText(c.label) +
+        '<button class="inv-slot inv-slot--filled inv-slot--pick" type="button" data-world-emitter="' + id + '">' +
+        '<img class="inv-item__thumb" alt="" loading="lazy" decoding="async" src="' + thumb + '"/>' +
+        '<div class="inv-item__body">' +
+        '<div class="inv-item__name">' + name + '</div>' +
+        '<div class="inv-item__desc">' + (desc || "&nbsp;") + '</div>' +
+        "</div>" +
         "</button>"
         );
     }).join("");
+    return;
   }
 
-  listEl.innerHTML = filtered
-  .map((it) => {
+  listEl.innerHTML = filtered.map((it) => {
     const name = escapeInventoryText(it.name);
     const desc = escapeInventoryText(it.desc || "");
     const thumb = escapeInventoryText(it.thumb || DEFAULT_ITEM_THUMB);
@@ -26476,8 +26897,7 @@ function renderWorldObjectPickerList() {
       "</div>" +
       "</button>"
       );
-  })
-  .join("");
+  }).join("");
 }
 
 
@@ -27455,10 +27875,10 @@ async function loadDefaultPresetFromFile(url) {
 
 
 
-// Replace function: init
 async function init() {
   loadLastSettings(params);
   await loadSfxPresetsFromFile("./audio/sounds_presets.json");
+  await loadEmitterPresetsJsonOnce();
 
   const bootActiveWorldId = getActiveWorldId();
   let bootWorldSettings = null;
@@ -27543,8 +27963,6 @@ async function init() {
 
   renderer.setAnimationLoop(animate);
 }
-
-
 
 
 
