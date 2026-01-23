@@ -1031,7 +1031,7 @@ button {
 
 
 .inv-slot {
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  /*border: 1px solid rgba(255, 255, 255, 0.16);*/
   border-radius: 12px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.35);
@@ -1100,7 +1100,7 @@ button {
 .avatar-picker__nav {
   height: 52px;
   width: 52px;
-  border-radius: 14px;
+  border-radius: 2rem;
   border: 0px solid rgba(255,255,255,0.18);
   background: rgba(0,0,0,0.28);
   color: #ffeb3b;
@@ -1110,6 +1110,11 @@ button {
   place-items: center;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+.avatar-picker__nav:hover {
+  background: #ffeb3b;
+  color: black;
 }
 
 .avatar-picker__nav:active {
@@ -1122,10 +1127,10 @@ button {
   border: 0px solid rgba(255,255,255,0.18);
   background: rgba(0,0,0,0);
   overflow: hidden;
-  padding: 2px;
+  padding: 0px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0px;
   min-height: clamp(280px, 38vh, 420px);
 }
 
@@ -1212,13 +1217,13 @@ button {
   .avatar-picker__nav {
     height: 44px;
     width: 44px;
-    border-radius: 14px;
+    border-radius: 2rem;
     font-size: 20px;
   }
 
   .avatar-picker__card {
-    padding: 10px;
-    min-height: clamp(260px, 36vh, 380px);
+    padding: 0px;
+    min-height: clamp(260px, 0vh, 380px);
   }
 
   .avatar-picker__thumb {
@@ -8875,12 +8880,6 @@ async function saveActiveWorld() {
 
 
 
-
-
-
-
-
-
 function normalizeWorldEmittersConfig(raw) {
   /* Normalizes legacy/new emitter configs and injects safe defaults for missing fields. */
   const src = Array.isArray(raw) ? raw : [];
@@ -8920,13 +8919,16 @@ function normalizeWorldEmittersConfig(raw) {
     if (!Number.isFinite(o.sizeJitter)) o.sizeJitter = 0.05;
 
     if (!Number.isFinite(o.opacity)) o.opacity = 0.75;
+
+    if (typeof o.color !== "string") o.color = "#ffffff";
+
     if (!Number.isFinite(o.opacityStart)) o.opacityStart = 1.0;
     if (!Number.isFinite(o.opacityEnd)) o.opacityEnd = 0.0;
 
-    if (!Number.isFinite(o.sizeStartMin)) o.sizeStartMin = Math.max(0.001, o.size - Math.max(0, o.sizeJitter));
-    if (!Number.isFinite(o.sizeStartMax)) o.sizeStartMax = Math.max(o.sizeStartMin, o.size + Math.max(0, o.sizeJitter));
-    if (!Number.isFinite(o.sizeEndMin)) o.sizeEndMin = o.sizeStartMin;
-    if (!Number.isFinite(o.sizeEndMax)) o.sizeEndMax = o.sizeStartMax;
+    if (!Number.isFinite(o.sizeStartMin)) o.sizeStartMin = Number.NaN;
+    if (!Number.isFinite(o.sizeStartMax)) o.sizeStartMax = Number.NaN;
+    if (!Number.isFinite(o.sizeEndMin)) o.sizeEndMin = Number.NaN;
+    if (!Number.isFinite(o.sizeEndMax)) o.sizeEndMax = Number.NaN;
 
     if (!Number.isFinite(o.seed)) o.seed = 0;
 
@@ -8938,11 +8940,24 @@ function normalizeWorldEmittersConfig(raw) {
     if (typeof o.noiseMode !== "string") o.noiseMode = "none";
     if (!Number.isFinite(o.noiseStrength)) o.noiseStrength = 0.0;
     if (!Number.isFinite(o.noiseScale)) o.noiseScale = 1.0;
-    if (!Number.isFinite(o.noiseSpeed)) o.noiseSpeed = 0.0;
+    if (!Number.isFinite(o.noiseSpeed)) o.noiseSpeed = 0.6;
 
     if (typeof o.shape !== "string") o.shape = "square";
     if (typeof o.textureUrl !== "string") o.textureUrl = "";
-    if (typeof o.color !== "string") o.color = "#ffffff";
+    if (typeof o.texturePick !== "string") o.texturePick = "";
+
+    if (typeof o.rotate !== "boolean") o.rotate = false;
+    if (!Number.isFinite(o.rotationSpeed)) o.rotationSpeed = 0.0;
+    if (!Number.isFinite(o.rotationJitter)) o.rotationJitter = 0.0;
+
+    if (!Number.isFinite(o.atlasIndex)) o.atlasIndex = 1;
+
+    if (typeof o.atlasSeqEnabled !== "boolean") o.atlasSeqEnabled = false;
+    if (!Number.isFinite(o.atlasSeqFps)) o.atlasSeqFps = 12;
+    if (!Number.isFinite(o.atlasSeqLoops)) o.atlasSeqLoops = 0;
+
+    if (!Number.isFinite(o.atlasFrameX)) o.atlasFrameX = 0;
+    if (!Number.isFinite(o.atlasFrameY)) o.atlasFrameY = 0;
 
     if (typeof o.loop !== "boolean") o.loop = true;
     if (!Number.isFinite(o.autoStopMs)) o.autoStopMs = 0;
@@ -8954,11 +8969,11 @@ function normalizeWorldEmittersConfig(raw) {
     const v = src[i];
     if (!v || typeof v !== "object") continue;
 
-    const id = typeof v.id === "string" && v.id ? v.id : makeEmitterId();
-    const presetId = typeof v.presetId === "string" ? v.presetId : "dust";
-    const name = typeof v.name === "string" ? v.name : "Emitter";
+    const id = (typeof v.id === "string" && v.id) ? v.id : makeEmitterId();
+    const presetId = (typeof v.presetId === "string") ? v.presetId : "dust";
+    const name = (typeof v.name === "string") ? v.name : "Emitter";
 
-    const cfg = {
+    out.push({
       id,
       presetId,
       name,
@@ -8967,9 +8982,7 @@ function normalizeWorldEmittersConfig(raw) {
       scale: Number.isFinite(v.scale) ? v.scale : 1,
       attach: ensureAttach(v.attach),
       params: ensureParams(v.params)
-    };
-
-    out.push(cfg);
+    });
   }
 
   return out;
@@ -22617,13 +22630,167 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
-
-
-
 /* Emitter presets: load emitters_presets.json + local custom bank (SoundMaker-style). */
       const EMITTER_PRESETS_KEY = "snow:emittersPresets:v1";
-      const EMITTER_PRESETS_URLS = ["presets/emitters_presets.json", "emitters_presets.json"];
+      const EMITTER_PRESETS_URLS = ["presets/emitters_presets.json"];
       let emitterPresetsLoadedOnce = false;
+
+
+/* Emitter particle texture presets: provides a small registry for GUI dropdown selection. */
+      const EMITTER_TEXTURES_URLS = ["presets/textures-default.json"];
+      let emitterTexturesLoadedOnce = false;
+
+      const EMITTER_TEXTURE_LIBRARY = [];
+      const EMITTER_TEXTURE_BY_ID = new Map();
+
+/* Merges texture entries into the in-memory registry (id/name/path + optional metadata). */
+      function mergeEmitterTexturesIntoLibrary(list) {
+        if (!Array.isArray(list)) return;
+
+        for (let i = 0; i < list.length; i++) {
+          const t = list[i];
+          if (!t || typeof t !== "object") continue;
+
+          const id = String(t.id || "").trim();
+          if (!id) continue;
+
+          const name = String(t.name || id).trim() || id;
+          const path = String(t.path || t.url || t.file || "").trim();
+
+          let size = null;
+          if (Array.isArray(t.size) && t.size.length >= 2) {
+            const w = Number(t.size[0]);
+            const h = Number(t.size[1]);
+            size = [Number.isFinite(w) ? w : 0, Number.isFinite(h) ? h : 0];
+          } else if (t.size != null && Number.isFinite(Number(t.size))) {
+            const n = Number(t.size);
+            size = [n, n];
+          }
+
+          const type = String(t.type || "texture").trim().toLowerCase();
+          let matrix = null;
+          if (type === "atlas" && Array.isArray(t.matrix) && t.matrix.length >= 2) {
+            const cx = Math.max(1, (Number(t.matrix[0]) | 0) || 1);
+            const cy = Math.max(1, (Number(t.matrix[1]) | 0) || 1);
+            matrix = [cx, cy];
+          }
+
+          const entry = { id, name, path, size, type: (type === "atlas" ? "atlas" : "texture"), matrix };
+
+          const prev = EMITTER_TEXTURE_BY_ID.get(id);
+          if (prev) {
+            prev.name = entry.name;
+            prev.path = entry.path;
+            prev.size = entry.size;
+            prev.type = entry.type;
+            prev.matrix = entry.matrix;
+          } else {
+            EMITTER_TEXTURE_LIBRARY.push(entry);
+            EMITTER_TEXTURE_BY_ID.set(id, entry);
+          }
+        }
+      }
+
+
+/* Loads textures-default.json once (before emitter presets), populating the texture registry. */
+      async function loadEmitterTexturesJsonOnce() {
+        if (emitterTexturesLoadedOnce) return;
+        emitterTexturesLoadedOnce = true;
+
+        const attempted = [];
+        let loadedAny = false;
+
+        for (let i = 0; i < EMITTER_TEXTURES_URLS.length; i++) {
+          const url = EMITTER_TEXTURES_URLS[i];
+          attempted.push(url);
+
+          try {
+            console.log("[emitters][textures] fetch:", url);
+
+            const res = await fetch(url, { cache: "no-store" });
+
+            if (!res.ok) {
+              console.warn("[emitters][textures] HTTP", res.status, res.statusText, "url:", url);
+              continue;
+            }
+
+            const text = await res.text();
+
+            let json;
+            try {
+              json = JSON.parse(text);
+            } catch (e) {
+              const msg = String(e && e.message ? e.message : e);
+              console.error("[emitters][textures] JSON parse failed:", msg, "url:", url);
+
+              const head = text.slice(0, 200).replace(/\r/g, "\\r").replace(/\n/g, "\\n");
+              console.error("[emitters][textures] file head:", head);
+              continue;
+            }
+
+            const list =
+            Array.isArray(json) ? json :
+            (json && typeof json === "object" && Array.isArray(json.textures)) ? json.textures :
+            (json && typeof json === "object" && Array.isArray(json.items)) ? json.items :
+            null;
+
+            if (!list) {
+              console.error("[emitters][textures] JSON shape invalid (no array root / textures/items): url:", url, "keys:", (json && typeof json === "object") ? Object.keys(json) : null);
+              continue;
+            }
+
+            const before = EMITTER_TEXTURE_LIBRARY.length;
+            mergeEmitterTexturesIntoLibrary(list);
+            const after = EMITTER_TEXTURE_LIBRARY.length;
+
+            console.log("[emitters][textures] merged:", url, "entries:", list.length, "added:", Math.max(0, after - before));
+            loadedAny = true;
+          } catch (e) {
+            console.error("[emitters][textures] fetch error:", url, e);
+          }
+        }
+
+        if (!loadedAny) {
+          console.error("[emitters][textures] failed to load any textures registry. tried:", attempted);
+        } else {
+          console.log("[emitters][textures] registry ready. total:", EMITTER_TEXTURE_LIBRARY.length);
+        }
+      }
+
+
+
+/* Builds lil-gui options for the registered texture dropdown. */
+      function getEmitterTextureOptions() {
+        const opts = { "(None)": "" };
+
+        for (let i = 0; i < EMITTER_TEXTURE_LIBRARY.length; i++) {
+          const t = EMITTER_TEXTURE_LIBRARY[i];
+          if (!t || !t.id) continue;
+          opts[t.name || t.id] = t.id;
+        }
+
+        return opts;
+      }
+
+      function getEmitterTextureById(id) {
+        const sid = String(id || "").trim();
+        if (!sid) return null;
+        return EMITTER_TEXTURE_BY_ID.get(sid) || null;
+      }
+
+      function getEmitterTextureIdFromPath(path) {
+        const p = String(path || "").trim();
+        if (!p) return "";
+
+        for (let i = 0; i < EMITTER_TEXTURE_LIBRARY.length; i++) {
+          const t = EMITTER_TEXTURE_LIBRARY[i];
+          if (!t || !t.id) continue;
+          if (String(t.path || "").trim() === p) return t.id;
+        }
+
+        return "";
+      }
+
 
 
 
@@ -22654,6 +22821,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       const emitterParticleTexCache = new Map();
       const emitterParticleTexLoader = new THREE.TextureLoader();
 
+
       function getEmitterParticleTexture(shape, textureUrl) {
         const s = String(shape || "square").trim().toLowerCase();
         const url = String(textureUrl || "").trim();
@@ -22662,7 +22830,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const cached = emitterParticleTexCache.get(key);
         if (cached) return cached;
 
-        if (s === "tex") {
+        if (s === "tex" || s === "sprite") {
           if (!url) return null;
           const t = emitterParticleTexLoader.load(url);
           t.wrapS = THREE.ClampToEdgeWrapping;
@@ -22724,17 +22892,20 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           ctx.fillRect(8, 8, 48, 48);
         }
 
-        const t = new THREE.CanvasTexture(c);
-        t.wrapS = THREE.ClampToEdgeWrapping;
-        t.wrapT = THREE.ClampToEdgeWrapping;
-        t.minFilter = THREE.LinearMipMapLinearFilter;
-        t.magFilter = THREE.LinearFilter;
-        t.generateMipmaps = true;
-        t.needsUpdate = true;
+        const tex = new THREE.CanvasTexture(c);
+        tex.wrapS = THREE.ClampToEdgeWrapping;
+        tex.wrapT = THREE.ClampToEdgeWrapping;
+        tex.minFilter = THREE.LinearMipMapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = true;
+        tex.needsUpdate = true;
 
-        emitterParticleTexCache.set(key, t);
-        return t;
+        emitterParticleTexCache.set(key, tex);
+        return tex;
       }
+
+
+
 
 /* Applies particle rendering style (shape/texture) to a PointsMaterial. */
       function applyEmitterParticleStyleToMaterial(mat, params) {
@@ -22746,6 +22917,39 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const texUrl = String(p.textureUrl || "").trim();
 
         mat.userData.emitterRotEnabled = !!p.rotate;
+
+        let atlasEnabled = false;
+        let atlasCols = 1;
+        let atlasRows = 1;
+        let atlasFx = 0;
+        let atlasFy = 0;
+
+        if ((shape === "tex" || shape === "sprite") && texUrl) {
+          const texId = String(p.texturePick || "").trim() || getEmitterTextureIdFromPath(texUrl);
+          const meta = texId ? getEmitterTextureById(texId) : null;
+
+          if (meta && meta.type === "atlas" && Array.isArray(meta.matrix) && meta.matrix.length >= 2) {
+            atlasEnabled = true;
+            atlasCols = Math.max(1, (Number(meta.matrix[0]) | 0) || 1);
+            atlasRows = Math.max(1, (Number(meta.matrix[1]) | 0) || 1);
+
+            const total = Math.max(1, atlasCols * atlasRows);
+            const idx0 = Math.max(0, Math.min(total - 1, ((Number(p.atlasIndex) | 0) || 1) - 1));
+            atlasFx = idx0 % atlasCols;
+            atlasFy = (idx0 / atlasCols) | 0;
+          }
+        }
+
+        mat.userData.emitterAtlasEnabled = atlasEnabled;
+        mat.userData.emitterAtlasMatrix = mat.userData.emitterAtlasMatrix && mat.userData.emitterAtlasMatrix.isVector2
+        ? mat.userData.emitterAtlasMatrix
+        : new THREE.Vector2(1, 1);
+        mat.userData.emitterAtlasFrame = mat.userData.emitterAtlasFrame && mat.userData.emitterAtlasFrame.isVector2
+        ? mat.userData.emitterAtlasFrame
+        : new THREE.Vector2(0, 0);
+
+        mat.userData.emitterAtlasMatrix.set(atlasCols, atlasRows);
+        mat.userData.emitterAtlasFrame.set(atlasFx, atlasFy);
 
         mat.map = null;
         mat.alphaTest = 0;
@@ -22761,15 +22965,16 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         mat.transparent = true;
         mat.depthWrite = false;
 
-        if (mat.userData && mat.userData._emitterShader && mat.userData._emitterShader.uniforms && mat.userData._emitterShader.uniforms.uRotEnabled) {
-          mat.userData._emitterShader.uniforms.uRotEnabled.value = mat.userData.emitterRotEnabled ? 1.0 : 0.0;
+        if (mat.userData && mat.userData._emitterShader && mat.userData._emitterShader.uniforms) {
+          const u = mat.userData._emitterShader.uniforms;
+          if (u.uRotEnabled) u.uRotEnabled.value = mat.userData.emitterRotEnabled ? 1.0 : 0.0;
+          if (u.uAtlasEnabled) u.uAtlasEnabled.value = mat.userData.emitterAtlasEnabled ? 1.0 : 0.0;
+          if (u.uAtlasMatrix) u.uAtlasMatrix.value.set(atlasCols, atlasRows);
+          if (u.uAtlasFrame) u.uAtlasFrame.value.set(atlasFx, atlasFy);
         }
 
         mat.needsUpdate = true;
       }
-
-
-
 
 
 
@@ -22942,8 +23147,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         return mesh;
       }
 
-
-
       function createEmitterPoints(maxParticles, params) {
   /* Creates Points + geometry attributes used by the emitter runtime (color/alpha/psize). */
         const n = Math.max(16, (maxParticles | 0) || 160);
@@ -22971,6 +23174,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         mat.onBeforeCompile = (shader) => {
           shader.uniforms.uRotEnabled = { value: mat.userData.emitterRotEnabled ? 1.0 : 0.0 };
+
+          shader.uniforms.uAtlasEnabled = { value: mat.userData.emitterAtlasEnabled ? 1.0 : 0.0 };
+          shader.uniforms.uAtlasMatrix = { value: (mat.userData.emitterAtlasMatrix && mat.userData.emitterAtlasMatrix.isVector2) ? mat.userData.emitterAtlasMatrix.clone() : new THREE.Vector2(1, 1) };
+          shader.uniforms.uAtlasFrame = { value: (mat.userData.emitterAtlasFrame && mat.userData.emitterAtlasFrame.isVector2) ? mat.userData.emitterAtlasFrame.clone() : new THREE.Vector2(0, 0) };
+
           mat.userData._emitterShader = shader;
 
           shader.vertexShader = shader.vertexShader
@@ -22990,11 +23198,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           shader.fragmentShader = shader.fragmentShader
           .replace(
             "void main() {",
-            "varying float vAlpha;\nvarying float vRot;\nuniform float uRotEnabled;\nvoid main() {"
+            "varying float vAlpha;\nvarying float vRot;\nuniform float uRotEnabled;\nuniform float uAtlasEnabled;\nuniform vec2 uAtlasMatrix;\nuniform vec2 uAtlasFrame;\nvoid main() {"
             )
           .replace(
             "#include <map_particle_fragment>",
-            "vec2 uvRot = gl_PointCoord;\nif (uRotEnabled > 0.5) {\n  vec2 c = uvRot - vec2(0.5);\n  float s = sin(vRot);\n  float cs = cos(vRot);\n  c = vec2(c.x * cs - c.y * s, c.x * s + c.y * cs);\n  uvRot = c + vec2(0.5);\n}\n#ifdef USE_MAP\n  vec4 mapTexel = texture2D( map, uvRot );\n  diffuseColor *= mapTexel;\n#endif"
+            "vec2 uvRot = gl_PointCoord;\nif (uRotEnabled > 0.5) {\n  vec2 c = uvRot - vec2(0.5);\n  float s = sin(vRot);\n  float cs = cos(vRot);\n  c = vec2(c.x * cs - c.y * s, c.x * s + c.y * cs);\n  uvRot = c + vec2(0.5);\n}\nvec2 uvFinal = uvRot;\nif (uAtlasEnabled > 0.5) {\n  uvFinal = (uvRot + uAtlasFrame) / max(uAtlasMatrix, vec2(1.0));\n}\n#ifdef USE_MAP\n  vec4 mapTexel = texture2D( map, uvFinal );\n  diffuseColor *= mapTexel;\n#endif"
             )
           .replace(
             "diffuseColor.a *= opacity;",
@@ -23348,21 +23556,126 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
       const rotEnabled = !!p.rotate;
 
+
       if (rt.points && rt.points.material) {
+        const shape = String(p.shape || "square").trim().toLowerCase();
+        const texUrl = String(p.textureUrl || "").trim();
+
+        let atlasEnabled = false;
+        let atlasCols = 1;
+        let atlasRows = 1;
+        let atlasFx = 0;
+        let atlasFy = 0;
+
+        if ((shape === "tex" || shape === "sprite") && texUrl) {
+          const texId = String(p.texturePick || "").trim() || getEmitterTextureIdFromPath(texUrl);
+          const meta = texId ? getEmitterTextureById(texId) : null;
+
+          if (meta && meta.type === "atlas" && Array.isArray(meta.matrix) && meta.matrix.length >= 2) {
+            atlasEnabled = true;
+            atlasCols = Math.max(1, (Number(meta.matrix[0]) | 0) || 1);
+            atlasRows = Math.max(1, (Number(meta.matrix[1]) | 0) || 1);
+
+            const total = Math.max(1, atlasCols * atlasRows);
+
+            if (shape === "sprite" && !!p.atlasSeqEnabled) {
+              const fps = Math.max(1, (Number(p.atlasSeqFps) | 0) || 12);
+              const loops = Math.max(0, (Number(p.atlasSeqLoops) | 0) || 0);
+              const startIndex = Math.max(1, (Number(p.atlasIndex) | 0) || 1);
+
+              const sig = `${texId}|${atlasCols}x${atlasRows}|${fps}|${loops}|${startIndex}`;
+              if (rt._atlasSeqSig !== sig) {
+                rt._atlasSeqSig = sig;
+                rt._atlasSeqAcc = 0.0;
+                rt._atlasSeqLoopsDone = 0;
+                rt._atlasSeqStopped = false;
+                rt._atlasSeqFrame = Math.max(0, Math.min(total - 1, startIndex - 1));
+              }
+
+              if (!rt._atlasSeqStopped) {
+                rt._atlasSeqAcc += dt * fps;
+
+                while (rt._atlasSeqAcc >= 1.0) {
+                  rt._atlasSeqAcc -= 1.0;
+
+                  rt._atlasSeqFrame = (rt._atlasSeqFrame | 0) + 1;
+
+                  if (rt._atlasSeqFrame >= total) {
+                    rt._atlasSeqFrame = 0;
+
+                    if (loops > 0) {
+                      rt._atlasSeqLoopsDone = (rt._atlasSeqLoopsDone | 0) + 1;
+                      if (rt._atlasSeqLoopsDone >= loops) {
+                        rt._atlasSeqStopped = true;
+                        rt._atlasSeqFrame = total - 1;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+
+              const idx0 = Math.max(0, Math.min(total - 1, (rt._atlasSeqFrame | 0)));
+              atlasFx = idx0 % atlasCols;
+              atlasFy = (idx0 / atlasCols) | 0;
+            } else {
+              rt._atlasSeqSig = "";
+              rt._atlasSeqAcc = 0.0;
+              rt._atlasSeqLoopsDone = 0;
+              rt._atlasSeqStopped = false;
+              rt._atlasSeqFrame = 0;
+
+              const idx0 = Math.max(0, Math.min(total - 1, ((Number(p.atlasIndex) | 0) || 1) - 1));
+              atlasFx = idx0 % atlasCols;
+              atlasFy = (idx0 / atlasCols) | 0;
+            }
+          }
+        }
+
         if (rt.points.material.isShaderMaterial) {
-          rt.points.material.uniforms.uOpacityMul.value = baseOpacityMul;
+          if (rt.points.material.uniforms && rt.points.material.uniforms.uOpacityMul) {
+            rt.points.material.uniforms.uOpacityMul.value = baseOpacityMul;
+          }
+          if (rt.points.material.uniforms && rt.points.material.uniforms.uRotEnabled) {
+            rt.points.material.uniforms.uRotEnabled.value = rotEnabled ? 1.0 : 0.0;
+          }
+          if (rt.points.material.uniforms && rt.points.material.uniforms.uAtlasEnabled) {
+            rt.points.material.uniforms.uAtlasEnabled.value = atlasEnabled ? 1.0 : 0.0;
+          }
+          if (rt.points.material.uniforms && rt.points.material.uniforms.uAtlasMatrix) {
+            rt.points.material.uniforms.uAtlasMatrix.value.set(atlasCols, atlasRows);
+          }
+          if (rt.points.material.uniforms && rt.points.material.uniforms.uAtlasFrame) {
+            rt.points.material.uniforms.uAtlasFrame.value.set(atlasFx, atlasFy);
+          }
           rt.points.material.needsUpdate = false;
         } else {
           rt.points.material.opacity = baseOpacityMul;
           rt.points.material.needsUpdate = true;
+
           if (rt.points.material.isPointsMaterial) {
             rt.points.material.userData.emitterRotEnabled = rotEnabled;
-            if (rt.points.material.userData._emitterShader && rt.points.material.userData._emitterShader.uniforms && rt.points.material.userData._emitterShader.uniforms.uRotEnabled) {
-              rt.points.material.userData._emitterShader.uniforms.uRotEnabled.value = rotEnabled ? 1.0 : 0.0;
+
+            rt.points.material.userData.emitterAtlasEnabled = atlasEnabled;
+            rt.points.material.userData.emitterAtlasMatrix = rt.points.material.userData.emitterAtlasMatrix || new THREE.Vector2(1, 1);
+            rt.points.material.userData.emitterAtlasFrame = rt.points.material.userData.emitterAtlasFrame || new THREE.Vector2(0, 0);
+
+            rt.points.material.userData.emitterAtlasMatrix.set(atlasCols, atlasRows);
+            rt.points.material.userData.emitterAtlasFrame.set(atlasFx, atlasFy);
+
+            if (rt.points.material.userData._emitterShader && rt.points.material.userData._emitterShader.uniforms) {
+              const u = rt.points.material.userData._emitterShader.uniforms;
+              if (u.uRotEnabled) u.uRotEnabled.value = rotEnabled ? 1.0 : 0.0;
+              if (u.uAtlasEnabled) u.uAtlasEnabled.value = atlasEnabled ? 1.0 : 0.0;
+              if (u.uAtlasMatrix) u.uAtlasMatrix.value.set(atlasCols, atlasRows);
+              if (u.uAtlasFrame) u.uAtlasFrame.value.set(atlasFx, atlasFy);
             }
           }
         }
       }
+
+
+
 
       let aliveCount = 0;
 
@@ -23501,11 +23814,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
-
   function setupEmittersGui(gui) {
   /* GUI: emitter instances list + rename + preset save/load (SoundMaker-style). */
     if (!gui) return;
 
+    loadEmitterTexturesJsonOnce();
     loadEmitterPresetsJsonOnce();
 
     if (!emitterGuiState || typeof emitterGuiState !== "object") {
@@ -23585,92 +23898,101 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         emitterGuiState.presetPick = (EMITTER_LIBRARY[0] ? EMITTER_LIBRARY[0].id : "dust");
         syncEmitterGuiFromSelection();
       },
+      copyPresetData: async () => {
+        try {
+          const id = String(emitterGuiState.presetPick || "").trim();
+          if (!id) return;
 
-      copyPresetData: () => {
-        const id = String(emitterGuiState.presetPick || "").trim();
-        if (!id) return;
+          const p = getEmitterPresetByIdMerged(id);
+          if (!p || !p.defaults) return;
 
-        const p = getEmitterPresetByIdMerged(id);
-        if (!p || !p.defaults) return;
+          const payload = {
+            id: String(p.id || id),
+            name: String(p.name || id),
+            defaults: JSON.parse(JSON.stringify(p.defaults))
+          };
 
-        const out = {
-          id: String(p.id || id),
-          name: String(p.name || p.id || id),
-          defaults: JSON.parse(JSON.stringify(p.defaults || {}))
-        };
+          const txt = JSON.stringify(payload, null, 2);
 
-        const text = JSON.stringify(out, null, 2) + ",\n";
+          if (navigator && navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+            await navigator.clipboard.writeText(txt);
+            showActionToast("Preset copied");
+            return;
+          }
 
-        if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
-          navigator.clipboard.writeText(text);
-          return;
+          const ta = document.createElement("textarea");
+          ta.value = txt;
+          ta.setAttribute("readonly", "");
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+          showActionToast("Preset copied");
+        } catch (e) {
+          console.warn("[emitters] copy preset failed", e);
         }
-
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.style.position = "fixed";
-        ta.style.left = "-9999px";
-        ta.style.top = "-9999px";
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        try { document.execCommand("copy"); } catch (e) {}
-        ta.remove();
       },
-
       exportAllPresets: () => {
-        const map = {};
+        try {
+          const out = { presets: [] };
 
-        for (let i = 0; i < EMITTER_LIBRARY.length; i++) {
-          const p = EMITTER_LIBRARY[i];
-          if (!p || !p.id) continue;
+          const added = new Set();
 
-          const id = String(p.id || "").trim();
-          if (!id) continue;
+          for (let i = 0; i < EMITTER_LIBRARY.length; i++) {
+            const p = EMITTER_LIBRARY[i];
+            if (!p || !p.id) continue;
+            const id = String(p.id).trim();
+            if (!id || added.has(id)) continue;
+            added.add(id);
+            out.presets.push({
+              id,
+              name: String(p.name || id),
+              defaults: JSON.parse(JSON.stringify(p.defaults || {}))
+            });
+          }
 
-          const name = String(p.name || id).trim() || id;
-          const defaultsIn = (p.defaults && typeof p.defaults === "object") ? p.defaults : {};
-          map[id] = { id, name, defaults: JSON.parse(JSON.stringify(defaultsIn)) };
+          const bank = loadEmitterPresetBank();
+          const presets = (bank && bank.presets && typeof bank.presets === "object") ? bank.presets : {};
+          const keys = Object.keys(presets);
+
+          for (let i = 0; i < keys.length; i++) {
+            const k = keys[i];
+            const p = presets[k];
+            if (!p || typeof p !== "object") continue;
+
+            const id = String(p.id || k).trim() || k;
+            if (!id || added.has(id)) continue;
+            added.add(id);
+
+            out.presets.push({
+              id,
+              name: String(p.name || id),
+              defaults: JSON.parse(JSON.stringify((p.defaults && typeof p.defaults === "object") ? p.defaults : {}))
+            });
+          }
+
+          downloadJson(out, "emitters_presets.json");
+          showActionToast("Presets exported");
+        } catch (e) {
+          console.warn("[emitters] export all presets failed", e);
         }
-
-        const bank = loadEmitterPresetBank();
-        const presetsObj = (bank && bank.presets && typeof bank.presets === "object") ? bank.presets : {};
-        const keys = Object.keys(presetsObj);
-
-        for (let i = 0; i < keys.length; i++) {
-          const k = keys[i];
-          const p = presetsObj[k];
-          if (!p || typeof p !== "object") continue;
-
-          const id = String(p.id || k).trim() || k;
-          const name = String(p.name || id).trim() || id;
-          const defaultsIn = (p.defaults && typeof p.defaults === "object") ? p.defaults : {};
-          map[id] = { id, name, defaults: JSON.parse(JSON.stringify(defaultsIn)) };
-        }
-
-        const ids = Object.keys(map);
-        const presets = [];
-        for (let i = 0; i < ids.length; i++) presets.push(map[ids[i]]);
-
-          presets.sort((a, b) => String(a.name).localeCompare(String(b.name)));
-        downloadJson({ presets }, "emitters_presets.json");
       },
-
       importPresets: () => {
-        /* Import presets from either array format (emitters_presets.json) or legacy map format. */
         const input = document.createElement("input");
         input.type = "file";
-        input.accept = "application/json";
-
-        input.addEventListener("change", async () => {
+        input.accept = ".json,application/json";
+        input.onchange = async (e) => {
           try {
-            const file = input.files && input.files[0];
-            if (!file) return;
+            const f = e && e.target && e.target.files && e.target.files[0] ? e.target.files[0] : null;
+            if (!f) return;
 
-            const text = await file.text();
-            const json = JSON.parse(text);
+            const txt = await f.text();
+            const json = JSON.parse(txt);
 
             const listFromArray = (arr) => {
+              if (!Array.isArray(arr)) return;
               for (let i = 0; i < arr.length; i++) {
                 const p = arr[i];
                 if (!p || typeof p !== "object") continue;
@@ -23718,7 +24040,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           } catch (e) {
             console.warn("[emitters] import presets failed", e);
           }
-        });
+        };
 
         input.click();
       },
@@ -23776,10 +24098,16 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     noiseScale: 1.0,
     noiseSpeed: 0.6,
     shape: "square",
+    texturePick: "",
     textureUrl: "",
+    atlasIndex: 1,
+    atlasSeqEnabled: false,
+    atlasSeqFps: 12,
+    atlasSeqLoops: 0,
     loop: true,
     autoStopMs: 0
   };
+
 
 
   let selCtrl = null;
@@ -23814,49 +24142,33 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (typeof selCtrl.updateDisplay === "function") selCtrl.updateDisplay();
   };
 
-// setupEmittersGui(gui) — replace the `const applySelToRt = (rt) => { ... };` block
   const applySelToRt = (rt) => {
     if (!rt) return;
     rt.cfg.name = String(sel.name || "Emitter");
 
     const p = rt.cfg.params;
+
     p.maxParticles = (sel.maxParticles | 0) || 160;
     p.rate = Number(sel.rate ?? 0);
     p.burst = (sel.burst | 0) || 0;
     p.life = Number(sel.life ?? 1);
-    p.lifeJitter = Number(sel.lifeJitter ?? 0);
+    p.lifeJitter = Math.max(0, Number(sel.lifeJitter ?? 0));
     p.speed = Number(sel.speed ?? 1);
-    p.speedJitter = Number(sel.speedJitter ?? 0);
-    p.spread = Number(sel.spread ?? 0.5);
+    p.speedJitter = Math.max(0, Number(sel.speedJitter ?? 0));
+    p.spread = Math.max(0, Number(sel.spread ?? 0.5));
     p.gravity = Number(sel.gravity ?? 0);
-    p.drag = Number(sel.drag ?? 1);
-    p.size = Number(sel.size ?? 0.08);
-    p.sizeJitter = Number(sel.sizeJitter ?? 0);
-    p.opacity = Number(sel.opacity ?? 1);
+    p.drag = Math.max(0, Number(sel.drag ?? 1));
+    p.size = Math.max(0.001, Number(sel.size ?? 0.08));
+    p.sizeJitter = Math.max(0, Number(sel.sizeJitter ?? 0));
+    p.opacity = clamp(Number(sel.opacity ?? 1), 0, 1);
     p.color = String(sel.color || "#ffffff");
 
     p.rotate = !!sel.rotate;
     p.rotationSpeed = Number(sel.rotationSpeed ?? 0);
     p.rotationJitter = Math.max(0, Number(sel.rotationJitter ?? 0));
 
-    if (rt.geo && rt.geo.attributes && rt.geo.attributes.color && rt.col && rt.alive) {
-      const base = emitterTmp.c.set(String(p.color || "#ffffff"));
-      const seedBase = (rt.rngSeed >>> 0) ^ 0x9e3779b9;
-      for (let i = 0; i < rt.alive.length; i++) {
-        if (rt.alive[i] === 0) continue;
-        const vi = i * 3;
-        const h = emitterHash32_4(seedBase, i | 0, 0xabc, 0xdef);
-        const r01 = (h >>> 0) / 4294967296;
-        const tint = 0.85 + r01 * 0.3;
-        rt.col[vi + 0] = base.r * tint;
-        rt.col[vi + 1] = base.g * tint;
-        rt.col[vi + 2] = base.b * tint;
-      }
-      rt.geo.attributes.color.needsUpdate = true;
-    }
-
-    p.opacityStart = Number(sel.opacityStart ?? 1);
-    p.opacityEnd = Number(sel.opacityEnd ?? 0);
+    p.opacityStart = clamp(Number(sel.opacityStart ?? 1), 0, 1);
+    p.opacityEnd = clamp(Number(sel.opacityEnd ?? 0), 0, 1);
 
     p.sizeStartMin = Number(sel.sizeStartMin);
     p.sizeStartMax = Number(sel.sizeStartMax);
@@ -23876,7 +24188,31 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     p.noiseSpeed = Number(sel.noiseSpeed ?? 0.6);
 
     p.shape = String(sel.shape || "square");
+    p.texturePick = String(sel.texturePick || "");
     p.textureUrl = String(sel.textureUrl || "");
+
+    p.atlasIndex = Math.max(1, (sel.atlasIndex | 0) || 1);
+    p.atlasSeqEnabled = !!sel.atlasSeqEnabled;
+    p.atlasSeqFps = Math.max(1, (Number(sel.atlasSeqFps) | 0) || 12);
+    p.atlasSeqLoops = Math.max(0, (sel.atlasSeqLoops | 0) || 0);
+
+    {
+      const shape = String(p.shape || "square").trim().toLowerCase();
+      const texUrl = String(p.textureUrl || "").trim();
+      if ((shape === "tex" || shape === "sprite") && texUrl) {
+        const texId = String(p.texturePick || "").trim() || getEmitterTextureIdFromPath(texUrl);
+        const meta = texId ? getEmitterTextureById(texId) : null;
+
+        if (meta && meta.type === "atlas" && Array.isArray(meta.matrix) && meta.matrix.length >= 2) {
+          const cols = Math.max(1, (Number(meta.matrix[0]) | 0) || 1);
+          const rows = Math.max(1, (Number(meta.matrix[1]) | 0) || 1);
+          const total = Math.max(1, cols * rows);
+          const idx0 = Math.max(0, Math.min(total - 1, (p.atlasIndex | 0) - 1));
+          p.atlasFrameX = idx0 % cols;
+          p.atlasFrameY = (idx0 / cols) | 0;
+        }
+      }
+    }
 
     p.loop = !!sel.loop;
     p.autoStopMs = (sel.autoStopMs | 0) || 0;
@@ -23886,7 +24222,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     if (rt.points && rt.points.material) {
       if (rt.points.material.isShaderMaterial) {
-        rt.points.material.uniforms.uOpacityMul.value = clamp(Number(p.opacity ?? 1), 0, 1);
+        if (rt.points.material.uniforms && rt.points.material.uniforms.uOpacityMul) {
+          rt.points.material.uniforms.uOpacityMul.value = clamp(Number(p.opacity ?? 1), 0, 1);
+        }
         applyEmitterParticleStyleToMaterial(rt.points.material, p);
       } else {
         rt.points.material.opacity = clamp(Number(p.opacity ?? 1), 0, 1);
@@ -23899,7 +24237,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
   };
 
 
-// setupEmittersGui(gui) — replace the `const readRtToSel = (rt) => { ... };` block
+
+
   const readRtToSel = (rt) => {
     const p = rt.cfg.params;
 
@@ -23946,33 +24285,26 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     sel.shape = String(p.shape || "square");
     sel.textureUrl = String(p.textureUrl || "");
+    sel.texturePick = String(p.texturePick || "") || getEmitterTextureIdFromPath(sel.textureUrl);
+
+    sel.atlasIndex = Math.max(1, (Number(p.atlasIndex) | 0) || 1);
+    sel.atlasSeqEnabled = !!p.atlasSeqEnabled;
+    sel.atlasSeqFps = Math.max(1, (Number(p.atlasSeqFps) | 0) || 12);
+    sel.atlasSeqLoops = Math.max(0, (Number(p.atlasSeqLoops) | 0) || 0);
 
     sel.loop = !!p.loop;
     sel.autoStopMs = (p.autoStopMs | 0) || 0;
   };
 
 
-  selCtrl = trackController(folder.add(emitterGuiState, "selected").name("Selected"));
-  selCtrl.onChange(() => {
-    const sid = String(emitterGuiState.selected || "");
-    emitterState.selectedId = sid;
 
-    const rt = sid ? emitterState.runtime.get(sid) : null;
-    if (rt) {
-      readRtToSel(rt);
-      if (worldEditState && worldEditState.enabled && typeof selectWorldEditRoot === "function") {
-        selectWorldEditRoot(rt.group);
-      }
-    }
 
-    syncEmitterGuiFromSelection();
-  });
 
   const nameCtrl = trackController(folder.add(emitterGuiState, "name").name("Name"));
   nameCtrl.onFinishChange(() => {
     const sid = String(emitterGuiState.selected || emitterState.selectedId || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
-    if (!rt || !rt.cfg) return;
+    if (!rt) return;
 
     const next = String(emitterGuiState.name || "").trim();
     rt.cfg.name = next || rt.cfg.presetId || rt.cfg.id;
@@ -23990,69 +24322,76 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "burst", 0, 400, 1).name("Burst")).onChange(() => {
+  push(folder.add(sel, "burst", 0, 300, 1).name("Burst")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "life", 0.1, 6.0, 0.05).name("Life")).onChange(() => {
+  push(folder.add(sel, "maxParticles", 10, 2000, 1).name("Max")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
+    if (rt) {
+      applySelToRt(rt);
+      rebuildEmitterRuntimeForId(rt.cfg.id);
+    }
+  });
+
+  push(folder.add(sel, "life", 0.05, 10.0, 0.01).name("Life")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "lifeJitter", 0.0, 2.0, 0.05).name("Life jitter")).onChange(() => {
+  push(folder.add(sel, "lifeJitter", 0.0, 2.0, 0.01).name("Life jitter")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "speed", 0.0, 12.0, 0.05).name("Speed")).onChange(() => {
+  push(folder.add(sel, "speed", 0.0, 20.0, 0.01).name("Speed")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "speedJitter", 0.0, 8.0, 0.05).name("Speed jitter")).onChange(() => {
+  push(folder.add(sel, "speedJitter", 0.0, 10.0, 0.01).name("Speed jitter")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "spread", 0.0, 3.14159, 0.01).name("Spread")).onChange(() => {
+  push(folder.add(sel, "spread", 0.0, 6.0, 0.01).name("Spread")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "gravity", -8.0, 8.0, 0.05).name("Gravity")).onChange(() => {
+  push(folder.add(sel, "gravity", -30.0, 30.0, 0.01).name("Gravity")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "drag", 0.0, 4.0, 0.02).name("Drag")).onChange(() => {
+  push(folder.add(sel, "drag", 0.0, 8.0, 0.01).name("Drag")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "size", 0.005, 0.5, 0.005).name("Size")).onChange(() => {
+  push(folder.add(sel, "size", 0.001, 1.5, 0.001).name("Size")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "sizeJitter", 0.0, 0.25, 0.005).name("Size jitter")).onChange(() => {
+  push(folder.add(sel, "sizeJitter", 0.0, 1.0, 0.001).name("Size jitter")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-
-
-  push(folder.add(sel, "opacity", 0.0, 1.0, 0.01).name("Opacity")).onChange(() => {
+  push(folder.add(sel, "opacity", 0.0, 1.0, 0.001).name("Opacity")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
@@ -24067,36 +24406,30 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
   push(folder.add(sel, "rotate").name("Rotate")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
-    if (rt) applySelToRt(rt);
+    if (rt) {
+      applySelToRt(rt);
+      rebuildEmitterRuntimeForId(rt.cfg.id);
+    }
   });
 
-  push(folder.add(sel, "rotationSpeed", -20.0, 20.0, 0.1).name("Rot speed")).onChange(() => {
+  push(folder.add(sel, "rotationSpeed", -20.0, 20.0, 0.01).name("Rot speed")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "rotationJitter", 0.0, 20.0, 0.1).name("Rot jitter")).onChange(() => {
+  push(folder.add(sel, "rotationJitter", 0.0, 20.0, 0.01).name("Rot jitter")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-
-
-
-
-  push(folder.add(sel, "opacityStart", 0.0, 1.0, 0.01).name("Op start")).onChange(() => {
+  push(folder.add(sel, "opacityStart", 0.0, 1.0, 0.001).name("Opacity0")).onChange(() => {
     const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "opacityEnd", 0.0, 1.0, 0.01).name("Op end")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
-    if (rt) applySelToRt(rt);
-  });
-
-  push(folder.add(sel, "seed", 0, 999999, 1).name("Seed")).onChange(() => {
+  push(folder.add(sel, "opacityEnd", 0.0, 1.0, 0.001).name("Opacity1")).onChange(() => {
     const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
     if (rt) applySelToRt(rt);
   });
@@ -24163,23 +24496,100 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (rt) applySelToRt(rt);
   });
 
+
   const shapeOpts = {
     Square: "square",
     Dot: "dot",
     Cross: "cross",
     Triangle: "triangle",
-    Texture: "tex"
+    Texture: "tex",
+    Spritesheet: "sprite"
   };
 
   push(folder.add(sel, "shape", shapeOpts).name("Particle")).onChange(() => {
     const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
     if (rt) applySelToRt(rt);
+    updateSpriteControls();
+  });
+
+  const texturePickCtrl = push(folder.add(sel, "texturePick", getEmitterTextureOptions()).name("Texture"));
+  texturePickCtrl.onChange(() => {
+    const t = getEmitterTextureById(sel.texturePick);
+    sel.textureUrl = t && t.path ? String(t.path) : "";
+    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    if (rt) applySelToRt(rt);
+    updateSpriteControls();
   });
 
   push(folder.add(sel, "textureUrl").name("Texture url")).onChange(() => {
+    sel.texturePick = getEmitterTextureIdFromPath(sel.textureUrl);
+    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    if (rt) applySelToRt(rt);
+    updateSpriteControls();
+  });
+
+  const atlasIndexCtrl = push(folder.add(sel, "atlasIndex", 1, 16, 1).name("Sprite idx"));
+  atlasIndexCtrl.onChange(() => {
     const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
     if (rt) applySelToRt(rt);
   });
+
+  const atlasSeqEnabledCtrl = push(folder.add(sel, "atlasSeqEnabled").name("Use sequence"));
+  atlasSeqEnabledCtrl.onChange(() => {
+    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    if (rt) applySelToRt(rt);
+    updateSpriteControls();
+  });
+
+  const atlasSeqFpsCtrl = push(folder.add(sel, "atlasSeqFps", 1, 60, 1).name("Seq FPS"));
+  atlasSeqFpsCtrl.onChange(() => {
+    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    if (rt) applySelToRt(rt);
+  });
+
+  const atlasSeqLoopsCtrl = push(folder.add(sel, "atlasSeqLoops", 0, 50, 1).name("Seq loops"));
+  atlasSeqLoopsCtrl.onChange(() => {
+    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    if (rt) applySelToRt(rt);
+  });
+
+  function updateSpriteControls() {
+    const shape = String(sel.shape || "square").trim().toLowerCase();
+    const texUrl = String(sel.textureUrl || "").trim();
+    const texId = String(sel.texturePick || "").trim() || (texUrl ? getEmitterTextureIdFromPath(texUrl) : "");
+    const meta = texId ? getEmitterTextureById(texId) : null;
+
+    const isSprite = (shape === "sprite");
+    const isAtlas = !!(meta && meta.type === "atlas" && Array.isArray(meta.matrix) && meta.matrix.length >= 2);
+
+    let total = 1;
+    if (isAtlas) {
+      const cols = Math.max(1, (Number(meta.matrix[0]) | 0) || 1);
+      const rows = Math.max(1, (Number(meta.matrix[1]) | 0) || 1);
+      total = Math.max(1, cols * rows);
+    }
+
+    atlasIndexCtrl.domElement.style.display = (isSprite && isAtlas) ? "" : "none";
+    atlasSeqEnabledCtrl.domElement.style.display = (isSprite && isAtlas) ? "" : "none";
+    atlasSeqFpsCtrl.domElement.style.display = (isSprite && isAtlas && !!sel.atlasSeqEnabled) ? "" : "none";
+    atlasSeqLoopsCtrl.domElement.style.display = (isSprite && isAtlas && !!sel.atlasSeqEnabled) ? "" : "none";
+
+    atlasIndexCtrl.max(total);
+    sel.atlasIndex = Math.max(1, Math.min(total, (sel.atlasIndex | 0) || 1));
+
+    if (!(isSprite && isAtlas)) sel.atlasSeqEnabled = false;
+
+    if (typeof atlasIndexCtrl.updateDisplay === "function") atlasIndexCtrl.updateDisplay();
+    if (typeof atlasSeqEnabledCtrl.updateDisplay === "function") atlasSeqEnabledCtrl.updateDisplay();
+    if (typeof atlasSeqFpsCtrl.updateDisplay === "function") atlasSeqFpsCtrl.updateDisplay();
+    if (typeof atlasSeqLoopsCtrl.updateDisplay === "function") atlasSeqLoopsCtrl.updateDisplay();
+  }
+
+  updateSpriteControls();
+
+
+
+
 
   push(folder.add(sel, "loop").name("Loop")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
@@ -24211,6 +24621,12 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
   trackController(presetsFolder.add(emitterGuiState, "exportAllPresets").name("Export All Presets"));
   trackController(presetsFolder.add(emitterGuiState, "importPresets").name("Import presets"));
 
+  selCtrl = trackController(folder.add(emitterGuiState, "selected", {}).name("Selected"));
+  selCtrl.onChange(() => {
+    emitterState.selectedId = String(emitterGuiState.selected || "");
+    syncEmitterGuiFromSelection();
+  });
+
   emitterGuiState._sync = () => {
     emitterGuiState.selected = String(emitterState.selectedId || "");
 
@@ -24234,6 +24650,15 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       if (typeof presetPickCtrl.updateDisplay === "function") presetPickCtrl.updateDisplay();
     }
 
+    if (texturePickCtrl && texturePickCtrl.domElement && texturePickCtrl.domElement.isConnected) {
+      try {
+        if (typeof texturePickCtrl.options === "function") texturePickCtrl.options(getEmitterTextureOptions());
+      } catch (err) {
+        console.warn("[emitters][gui] texture options refresh failed", err);
+      }
+      if (typeof texturePickCtrl.updateDisplay === "function") texturePickCtrl.updateDisplay();
+    }
+
     for (let i = 0; i < ctrls.length; i++) {
       const c = ctrls[i];
       if (c && typeof c.updateDisplay === "function") c.updateDisplay();
@@ -24248,9 +24673,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
   folder.close();
   presetsFolder.close();
 }
-
-
-
 
 
 

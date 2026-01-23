@@ -1,0 +1,170 @@
+{
+  "textures": [
+    {
+      "id": "b",
+      "name": "B",
+      "size": [
+        602,
+        605
+      ],
+      "path": "assets/images/textures/debris/b.png"
+    },
+    {
+      "id": "b2",
+      "name": "B2",
+      "size": [
+        1024,
+        1024
+      ],
+      "path": "assets/images/textures/debris/b2.png"
+    },
+    {
+      "id": "dot1",
+      "name": "Dot1",
+      "size": [
+        256,
+        256
+      ],
+      "path": "assets/images/textures/debris/dot1.png"
+    },
+    {
+      "id": "dot11",
+      "name": "Dot11",
+      "size": [
+        256,
+        256
+      ],
+      "path": "assets/images/textures/debris/dot11.png"
+    },
+    {
+      "id": "flake",
+      "name": "Flake",
+      "size": [
+        640,
+        640
+      ],
+      "path": "assets/images/textures/snow/flake.png"
+    },
+    {
+      "id": "flake2",
+      "name": "Flake2",
+      "size": [
+        1024,
+        1024
+      ],
+      "path": "assets/images/textures/snow/flake2.png"
+    },
+    {
+      "id": "flame1",
+      "name": "Flame1",
+      "size": [
+        551,
+        551
+      ],
+      "path": "assets/images/textures/flame/flame1.png"
+    },
+    {
+      "id": "flame2",
+      "name": "Flame2",
+      "size": [
+        1024,
+        1024
+      ],
+      "path": "assets/images/textures/flame/flame2.png"
+    },
+    {
+      "id": "flame3",
+      "name": "Flame3",
+      "size": [
+        1024,
+        1024
+      ],
+      "path": "assets/images/textures/flame/flame3.png"
+    },
+    {
+      "id": "pi1",
+      "name": "Pi1",
+      "size": [
+        256,
+        256
+      ],
+      "path": "assets/images/textures/dots/pi1.png"
+    },
+    {
+      "id": "soap1",
+      "name": "Soap1",
+      "size": [
+        4001,
+        4001
+      ],
+      "path": "assets/images/textures/debris/soap1.png"
+    },
+
+    {
+      "id": "stone1",
+      "name": "Stone1",
+      "size": [
+        55,
+        55
+      ],
+      "path": "assets/images/textures/debris/stone1.png"
+    },
+    {
+      "id": "magistones1",
+      "name": "Magic Stones 1",
+      "type": "atlas",
+      "size": [
+        960,
+        960
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/magicstones1.png"
+    },
+    {
+      "id": "magistones2",
+      "name": "Magic Stones 2",
+      "type": "atlas",
+      "size": [
+        1024,
+        1024
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/magicstones2.png"
+    },
+    {
+      "id": "atlas3",
+      "name": "Atlas 3",
+      "type": "atlas",
+      "size": [
+        1024,
+        1024
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/atlas3.png"
+    },
+    {
+      "id": "meteo1",
+      "name": "Meteo 1",
+      "type": "atlas",
+      "size": [
+        1024,
+        1024
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/meteo1.png"
+    },    
+    {
+      "id": "test1",
+      "name": "Test 1",
+      "type": "atlas",
+      "size": [
+        1024,
+        1024
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/test.png"
+    }  
+
+
+  ]
+}
