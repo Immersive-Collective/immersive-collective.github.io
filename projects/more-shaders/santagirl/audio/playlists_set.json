@@ -53,6 +53,17 @@
       "order": 0,
       "loop": false
     }        
+,
+    {
+      "id": "obs",
+      "folder": "obs",
+      "title": "OBS",
+      "artist": "OBS Artists",
+      "description": "Music for OBS",
+      "thumbnail": "obs.png",
+      "order": 0,
+      "loop": false
+    }        
 
   ]
 }

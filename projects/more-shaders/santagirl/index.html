@@ -1624,10 +1624,10 @@ canvas.world-edit-on {
 .now-playing {
   position: fixed;
   left: 50%;
-  top: 2px;
+  top: 0px;
   transform: translateX(-50%);
   /*width: min(50vw, 520px);*/
-  z-index: 23;
+  z-index: 2;
   pointer-events: auto;
   padding: 4px 18px;
   border-radius: 12px;
@@ -1657,6 +1657,8 @@ canvas.world-edit-on {
   white-space: nowrap;
   min-width: 0;
   flex: 1 1 auto;
+  text-align: center;
+  padding: 0 0 0.25rem 0;
 }
 
 .now-playing__controls {
@@ -2520,8 +2522,9 @@ canvas.world-edit-on {
 
 
   <div id="nowPlaying" class="now-playing" aria-hidden="true">
+    <div id="nowPlayingTitle" class="now-playing__title">—</div>
+
     <div class="now-playing__row">
-      <div id="nowPlayingTitle" class="now-playing__title">—</div>
 
       <div class="now-playing__controls">
         <button id="nowPlayingPrev" class="now-playing__btn" type="button">Prev</button>
@@ -22735,11 +22738,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 /* Applies particle rendering style (shape/texture) to a PointsMaterial. */
       function applyEmitterParticleStyleToMaterial(mat, params) {
+  /* Applies particle rendering style (shape/texture) to a PointsMaterial. */
         if (!mat || !mat.isPointsMaterial) return;
 
         const p = (params && typeof params === "object") ? params : {};
         const shape = String(p.shape || "square").trim().toLowerCase();
         const texUrl = String(p.textureUrl || "").trim();
+
+        mat.userData.emitterRotEnabled = !!p.rotate;
 
         mat.map = null;
         mat.alphaTest = 0;
@@ -22754,8 +22760,16 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         mat.transparent = true;
         mat.depthWrite = false;
+
+        if (mat.userData && mat.userData._emitterShader && mat.userData._emitterShader.uniforms && mat.userData._emitterShader.uniforms.uRotEnabled) {
+          mat.userData._emitterShader.uniforms.uRotEnabled.value = mat.userData.emitterRotEnabled ? 1.0 : 0.0;
+        }
+
         mat.needsUpdate = true;
       }
+
+
+
 
 
 
@@ -22930,8 +22944,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
-
-
       function createEmitterPoints(maxParticles, params) {
   /* Creates Points + geometry attributes used by the emitter runtime (color/alpha/psize). */
         const n = Math.max(16, (maxParticles | 0) || 160);
@@ -22941,11 +22953,13 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const col = new Float32Array(n * 3);
         const a = new Float32Array(n);
         const psize = new Float32Array(n);
+        const rot = new Float32Array(n);
 
         geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
         geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
         geo.setAttribute("alpha", new THREE.BufferAttribute(a, 1));
         geo.setAttribute("psize", new THREE.BufferAttribute(psize, 1));
+        geo.setAttribute("rot", new THREE.BufferAttribute(rot, 1));
 
         const mat = new THREE.PointsMaterial({
           size: 1.0,
@@ -22956,14 +22970,17 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         });
 
         mat.onBeforeCompile = (shader) => {
+          shader.uniforms.uRotEnabled = { value: mat.userData.emitterRotEnabled ? 1.0 : 0.0 };
+          mat.userData._emitterShader = shader;
+
           shader.vertexShader = shader.vertexShader
           .replace(
             "void main() {",
-            "attribute float alpha;\nattribute float psize;\nvarying float vAlpha;\nvoid main() {"
+            "attribute float alpha;\nattribute float psize;\nattribute float rot;\nvarying float vAlpha;\nvarying float vRot;\nvoid main() {"
             )
           .replace(
             "#include <color_vertex>",
-            "#include <color_vertex>\nvAlpha = alpha;"
+            "#include <color_vertex>\nvAlpha = alpha;\nvRot = rot;"
             )
           .replace(
             "gl_PointSize = size;",
@@ -22973,7 +22990,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           shader.fragmentShader = shader.fragmentShader
           .replace(
             "void main() {",
-            "varying float vAlpha;\nvoid main() {"
+            "varying float vAlpha;\nvarying float vRot;\nuniform float uRotEnabled;\nvoid main() {"
+            )
+          .replace(
+            "#include <map_particle_fragment>",
+            "vec2 uvRot = gl_PointCoord;\nif (uRotEnabled > 0.5) {\n  vec2 c = uvRot - vec2(0.5);\n  float s = sin(vRot);\n  float cs = cos(vRot);\n  c = vec2(c.x * cs - c.y * s, c.x * s + c.y * cs);\n  uvRot = c + vec2(0.5);\n}\n#ifdef USE_MAP\n  vec4 mapTexel = texture2D( map, uvRot );\n  diffuseColor *= mapTexel;\n#endif"
             )
           .replace(
             "diffuseColor.a *= opacity;",
@@ -22986,8 +23007,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const pts = new THREE.Points(geo, mat);
         pts.frustumCulled = false;
 
-        return { pts, geo, pos, col, alpha: a, psize, max: n };
+        return { pts, geo, pos, col, alpha: a, psize, rot, max: n };
       }
+
+
 
 
 
@@ -23019,6 +23042,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const op0 = new Float32Array(pp.max);
         const op1 = new Float32Array(pp.max);
 
+        const rotVel = new Float32Array(pp.max);
+
         for (let i = 0; i < pp.max; i++) {
           alive[i] = 0;
           life[i] = 0;
@@ -23029,6 +23054,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           op1[i] = 1.0;
           pp.alpha[i] = 0.0;
           pp.psize[i] = 0.08;
+          pp.rot[i] = 0.0;
+          rotVel[i] = 0.0;
         }
 
         const seed = (p.seed | 0) || 0;
@@ -23045,6 +23072,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           col: pp.col,
           alpha: pp.alpha,
           psize: pp.psize,
+          rot: pp.rot,
+          rotVel,
           vel,
           life,
           age,
@@ -23083,6 +23112,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         return rt;
       }
+
 
 
 
@@ -23240,6 +23270,17 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         rt.alpha[idx] = o0;
         rt.psize[idx] = rt.size0[idx] * rt.cfg.scale;
 
+        const rotEnabled = !!p.rotate;
+        if (rotEnabled) {
+          rt.rot[idx] = emitterRand01(rt) * Math.PI * 2.0;
+          const baseRS = Number(p.rotationSpeed ?? 0);
+          const rj = Math.max(0, Number(p.rotationJitter ?? 0));
+          rt.rotVel[idx] = baseRS + emitterRandSigned(rt) * rj;
+        } else {
+          rt.rot[idx] = 0.0;
+          rt.rotVel[idx] = 0.0;
+        }
+
         rt.aliveCount++;
       }
 
@@ -23305,6 +23346,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       const noiseScale = Math.max(1e-6, Number(p.noiseScale ?? 1.0));
       const noiseSpeed = Number(p.noiseSpeed ?? 0.6);
 
+      const rotEnabled = !!p.rotate;
+
       if (rt.points && rt.points.material) {
         if (rt.points.material.isShaderMaterial) {
           rt.points.material.uniforms.uOpacityMul.value = baseOpacityMul;
@@ -23312,6 +23355,12 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         } else {
           rt.points.material.opacity = baseOpacityMul;
           rt.points.material.needsUpdate = true;
+          if (rt.points.material.isPointsMaterial) {
+            rt.points.material.userData.emitterRotEnabled = rotEnabled;
+            if (rt.points.material.userData._emitterShader && rt.points.material.userData._emitterShader.uniforms && rt.points.material.userData._emitterShader.uniforms.uRotEnabled) {
+              rt.points.material.userData._emitterShader.uniforms.uRotEnabled.value = rotEnabled ? 1.0 : 0.0;
+            }
+          }
         }
       }
 
@@ -23338,6 +23387,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           rt.alive[pi] = 0;
           rt.alpha[pi] = 0.0;
           rt.psize[pi] = 0.001;
+          if (rt.rotVel) rt.rotVel[pi] = 0.0;
           continue;
         }
 
@@ -23408,6 +23458,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         rt.alpha[pi] = (rt.op0[pi] + (rt.op1[pi] - rt.op0[pi]) * t);
         rt.psize[pi] = (rt.size0[pi] + (rt.size1[pi] - rt.size0[pi]) * t) * cfg.scale;
+
+        if (rotEnabled && rt.rot && rt.rotVel) {
+          rt.rot[pi] += rt.rotVel[pi] * dt;
+        }
       }
 
       rt.aliveCount = aliveCount;
@@ -23416,6 +23470,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       rt.geo.attributes.color.needsUpdate = true;
       rt.geo.attributes.alpha.needsUpdate = true;
       rt.geo.attributes.psize.needsUpdate = true;
+      if (rotEnabled && rt.geo.attributes.rot) rt.geo.attributes.rot.needsUpdate = true;
 
       if (rt.holder) {
         const showGizmo = !!(worldEditState && worldEditState.enabled);
@@ -23425,6 +23480,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       updateEmitterCfgFromTransform(rt);
     }
   }
+
 
 
 
@@ -23701,6 +23757,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     sizeJitter: 0.05,
     opacity: 0.75,
     color: "#ffffff",
+    rotate: false,
+    rotationSpeed: 0.0,
+    rotationJitter: 0.0,
     opacityStart: 1.0,
     opacityEnd: 0.0,
     sizeStartMin: NaN,
@@ -23721,6 +23780,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     loop: true,
     autoStopMs: 0
   };
+
 
   let selCtrl = null;
   let instanceOptsSig = "";
@@ -23754,6 +23814,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (typeof selCtrl.updateDisplay === "function") selCtrl.updateDisplay();
   };
 
+// setupEmittersGui(gui) — replace the `const applySelToRt = (rt) => { ... };` block
   const applySelToRt = (rt) => {
     if (!rt) return;
     rt.cfg.name = String(sel.name || "Emitter");
@@ -23773,6 +23834,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     p.sizeJitter = Number(sel.sizeJitter ?? 0);
     p.opacity = Number(sel.opacity ?? 1);
     p.color = String(sel.color || "#ffffff");
+
+    p.rotate = !!sel.rotate;
+    p.rotationSpeed = Number(sel.rotationSpeed ?? 0);
+    p.rotationJitter = Math.max(0, Number(sel.rotationJitter ?? 0));
 
     if (rt.geo && rt.geo.attributes && rt.geo.attributes.color && rt.col && rt.alive) {
       const base = emitterTmp.c.set(String(p.color || "#ffffff"));
@@ -23833,6 +23898,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (typeof syncWorldEditObjectLabel === "function") syncWorldEditObjectLabel();
   };
 
+
+// setupEmittersGui(gui) — replace the `const readRtToSel = (rt) => { ... };` block
   const readRtToSel = (rt) => {
     const p = rt.cfg.params;
 
@@ -23852,6 +23919,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     sel.sizeJitter = Number(p.sizeJitter ?? 0);
     sel.opacity = Number(p.opacity ?? 1);
     sel.color = String(p.color || "#ffffff");
+
+    sel.rotate = !!p.rotate;
+    sel.rotationSpeed = Number(p.rotationSpeed ?? 0);
+    sel.rotationJitter = Math.max(0, Number(p.rotationJitter ?? 0));
 
     sel.opacityStart = Number(p.opacityStart ?? 1);
     sel.opacityEnd = Number(p.opacityEnd ?? 0);
@@ -23879,6 +23950,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     sel.loop = !!p.loop;
     sel.autoStopMs = (p.autoStopMs | 0) || 0;
   };
+
 
   selCtrl = trackController(folder.add(emitterGuiState, "selected").name("Selected"));
   selCtrl.onChange(() => {
@@ -23978,6 +24050,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (rt) applySelToRt(rt);
   });
 
+
+
   push(folder.add(sel, "opacity", 0.0, 1.0, 0.01).name("Opacity")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
@@ -23989,6 +24063,28 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
+
+  push(folder.add(sel, "rotate").name("Rotate")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
+    if (rt) applySelToRt(rt);
+  });
+
+  push(folder.add(sel, "rotationSpeed", -20.0, 20.0, 0.1).name("Rot speed")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
+    if (rt) applySelToRt(rt);
+  });
+
+  push(folder.add(sel, "rotationJitter", 0.0, 20.0, 0.1).name("Rot jitter")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
+    if (rt) applySelToRt(rt);
+  });
+
+
+
+
 
   push(folder.add(sel, "opacityStart", 0.0, 1.0, 0.01).name("Op start")).onChange(() => {
     const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
