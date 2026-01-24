@@ -163,8 +163,62 @@
       ],
       "matrix": [4,4],
       "path": "assets/images/textures/atlases/test.png"
-    }  
-
+    },
+    {
+      "id": "diams",
+      "name": "Nice Diamonds 1",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/4_4x4_512x512.png"
+    },
+    {
+      "id": "diams2",
+      "name": "Nice Diamonds 2",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [6,6],
+      "path": "assets/images/textures/atlases/4_6x6_512x512.png"
+    },
+    {
+      "id": "explo1",
+      "name": "Atomic Mash",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [6,6],
+      "path": "assets/images/textures/atlases/expl_6x6_512x512.png"
+    },
+    {
+      "id": "explo2",
+      "name": "Fireworks",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [6,6],
+      "path": "assets/images/textures/atlases/expl2_6x6_512x512.png"
+    },
+    {
+      "id": "leaf1",
+      "name": "Maple Leaf 1",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [6,6],
+      "path": "assets/images/textures/atlases/leaf1_6x6_512x512.png"
+    }
 
   ]
 }

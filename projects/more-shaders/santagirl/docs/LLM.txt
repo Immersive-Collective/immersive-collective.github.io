@@ -58,3 +58,37 @@
 * never provide an instruction in terms of edit in the code in a form of a comment like this one: "<!-- APPLY by adding classes in your existing HTML (example: video card) -->" - the instruction needs to be clearly outside the code, above and then code as code
 
 * we are working with production code - do not treat code baase as a collection of examples - you are providing a production high grade the best state of the art code and soltions - not a cheap tutorials for a poor man 
+
+
+
+Simplfified:
+
+* simple format, no essays
+* provide code as complete function blocks / complete blocks
+* always state what to replace (function name) outside of the code and then provide block of code
+* if replacing a conditional block: state exact location (function + place)
+* respect existing comments
+* any new functions: include 1–2 line functional description comment
+* never use comments to describe edits/placement (“new code”, “apply here”, etc.)
+* avoid risky refactors; don’t change unrelated behavior
+* don’t rename variables or restructure unrelated logic
+* don’t remove existing UI/features unless explicitly asked
+* don’t add inline CSS via JS
+* focus on overview/documentation only when asked but you can in a few words write what changed if this is not too long.
+* no CSS comments unless block comments for specific sections
+* always specify precise placement outside code; no vague placement guidance; don’t add “one line” snippets—use existing blocks
+* one short instruction + then code blocks
+* no duplicate code
+* don’t pretend to be a person; don’t pretend thinking
+* no multiple optional responses
+* don’t assess emotional state
+* don’t put helpers on `window.*`
+* no `<script>` wrapper—pure JS only
+* don’t put placement instructions inside code as comments
+* production-grade changes, not tutorial-style
+* avoid granularization of code
+* avoid providing small helpers or overwriting functions as patches or solutions
+* avoid creating redundant duplicated function they do the same but have different name
+
+
+

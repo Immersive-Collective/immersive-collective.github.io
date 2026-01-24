@@ -22907,7 +22907,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
-/* Applies particle rendering style (shape/texture) to a PointsMaterial. */
+
+
       function applyEmitterParticleStyleToMaterial(mat, params) {
   /* Applies particle rendering style (shape/texture) to a PointsMaterial. */
         if (!mat || !mat.isPointsMaterial) return;
@@ -22941,15 +22942,19 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         }
 
         mat.userData.emitterAtlasEnabled = atlasEnabled;
-        mat.userData.emitterAtlasMatrix = mat.userData.emitterAtlasMatrix && mat.userData.emitterAtlasMatrix.isVector2
+
+        mat.userData.emitterAtlasMatrix = (mat.userData.emitterAtlasMatrix && mat.userData.emitterAtlasMatrix.isVector2)
         ? mat.userData.emitterAtlasMatrix
         : new THREE.Vector2(1, 1);
-        mat.userData.emitterAtlasFrame = mat.userData.emitterAtlasFrame && mat.userData.emitterAtlasFrame.isVector2
+
+        mat.userData.emitterAtlasFrame = (mat.userData.emitterAtlasFrame && mat.userData.emitterAtlasFrame.isVector2)
         ? mat.userData.emitterAtlasFrame
         : new THREE.Vector2(0, 0);
 
         mat.userData.emitterAtlasMatrix.set(atlasCols, atlasRows);
         mat.userData.emitterAtlasFrame.set(atlasFx, atlasFy);
+
+        mat.userData.emitterAtlasPerParticle = (shape === "sprite" && !!p.atlasSeqEnabled && !!p.atlasSeqPerParticle);
 
         mat.map = null;
         mat.alphaTest = 0;
@@ -22971,11 +22976,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           if (u.uAtlasEnabled) u.uAtlasEnabled.value = mat.userData.emitterAtlasEnabled ? 1.0 : 0.0;
           if (u.uAtlasMatrix) u.uAtlasMatrix.value.set(atlasCols, atlasRows);
           if (u.uAtlasFrame) u.uAtlasFrame.value.set(atlasFx, atlasFy);
+          if (u.uAtlasPerParticle) u.uAtlasPerParticle.value = mat.userData.emitterAtlasPerParticle ? 1.0 : 0.0;
         }
 
         mat.needsUpdate = true;
       }
-
 
 
 
@@ -23147,48 +23152,93 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         return mesh;
       }
 
+
+
+
+
       function createEmitterPoints(maxParticles, params) {
-  /* Creates Points + geometry attributes used by the emitter runtime (color/alpha/psize). */
+  /* Creates Points + geometry attributes used by the emitter runtime (color/alpha/psize/rot/atlas). */
         const n = Math.max(16, (maxParticles | 0) || 160);
 
         const geo = new THREE.BufferGeometry();
+
         const pos = new Float32Array(n * 3);
         const col = new Float32Array(n * 3);
         const a = new Float32Array(n);
         const psize = new Float32Array(n);
         const rot = new Float32Array(n);
+        const aframe = new Float32Array(n * 2);
+
+        for (let i = 0; i < n; i++) {
+          const k = i * 3;
+          pos[k + 0] = 0;
+          pos[k + 1] = 0;
+          pos[k + 2] = 0;
+          col[k + 0] = 1;
+          col[k + 1] = 1;
+          col[k + 2] = 1;
+          a[i] = 0;
+          psize[i] = 0.08;
+          rot[i] = 0;
+          const fi = i * 2;
+          aframe[fi + 0] = 0;
+          aframe[fi + 1] = 0;
+        }
 
         geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
         geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
         geo.setAttribute("alpha", new THREE.BufferAttribute(a, 1));
         geo.setAttribute("psize", new THREE.BufferAttribute(psize, 1));
         geo.setAttribute("rot", new THREE.BufferAttribute(rot, 1));
+        geo.setAttribute("aframe", new THREE.BufferAttribute(aframe, 2));
 
         const mat = new THREE.PointsMaterial({
           size: 1.0,
+          sizeAttenuation: true,
           vertexColors: true,
           transparent: true,
           opacity: 1.0,
           depthWrite: false
         });
 
-        mat.onBeforeCompile = (shader) => {
-          shader.uniforms.uRotEnabled = { value: mat.userData.emitterRotEnabled ? 1.0 : 0.0 };
+        mat.userData.emitterRotEnabled = false;
+        mat.userData.emitterAtlasEnabled = false;
+        mat.userData.emitterAtlasMatrix = new THREE.Vector2(1, 1);
+        mat.userData.emitterAtlasFrame = new THREE.Vector2(0, 0);
+        mat.userData.emitterAtlasPerParticle = false;
 
+        mat.onBeforeCompile = (shader) => {
+          mat.userData._emitterShader = shader;
+
+          shader.uniforms.uOpacityMul = { value: 1.0 };
+          shader.uniforms.uRotEnabled = { value: mat.userData.emitterRotEnabled ? 1.0 : 0.0 };
           shader.uniforms.uAtlasEnabled = { value: mat.userData.emitterAtlasEnabled ? 1.0 : 0.0 };
           shader.uniforms.uAtlasMatrix = { value: (mat.userData.emitterAtlasMatrix && mat.userData.emitterAtlasMatrix.isVector2) ? mat.userData.emitterAtlasMatrix.clone() : new THREE.Vector2(1, 1) };
           shader.uniforms.uAtlasFrame = { value: (mat.userData.emitterAtlasFrame && mat.userData.emitterAtlasFrame.isVector2) ? mat.userData.emitterAtlasFrame.clone() : new THREE.Vector2(0, 0) };
-
-          mat.userData._emitterShader = shader;
+          shader.uniforms.uAtlasPerParticle = { value: mat.userData.emitterAtlasPerParticle ? 1.0 : 0.0 };
 
           shader.vertexShader = shader.vertexShader
           .replace(
             "void main() {",
-            "attribute float alpha;\nattribute float psize;\nattribute float rot;\nvarying float vAlpha;\nvarying float vRot;\nvoid main() {"
+            [
+              "attribute float alpha;",
+              "attribute float psize;",
+              "attribute float rot;",
+              "attribute vec2 aframe;",
+              "varying float vAlpha;",
+              "varying float vRot;",
+              "varying vec2 vAFrame;",
+              "void main() {"
+            ].join("\n")
             )
           .replace(
             "#include <color_vertex>",
-            "#include <color_vertex>\nvAlpha = alpha;\nvRot = rot;"
+            [
+              "#include <color_vertex>",
+              "vAlpha = alpha;",
+              "vRot = rot;",
+              "vAFrame = aframe;"
+            ].join("\n")
             )
           .replace(
             "gl_PointSize = size;",
@@ -23198,15 +23248,52 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           shader.fragmentShader = shader.fragmentShader
           .replace(
             "void main() {",
-            "varying float vAlpha;\nvarying float vRot;\nuniform float uRotEnabled;\nuniform float uAtlasEnabled;\nuniform vec2 uAtlasMatrix;\nuniform vec2 uAtlasFrame;\nvoid main() {"
+            [
+              "varying float vAlpha;",
+              "varying float vRot;",
+              "varying vec2 vAFrame;",
+              "uniform float uOpacityMul;",
+              "uniform float uRotEnabled;",
+              "uniform float uAtlasEnabled;",
+              "uniform vec2 uAtlasMatrix;",
+              "uniform vec2 uAtlasFrame;",
+              "uniform float uAtlasPerParticle;",
+              "void main() {"
+            ].join("\n")
             )
           .replace(
             "#include <map_particle_fragment>",
-            "vec2 uvRot = gl_PointCoord;\nif (uRotEnabled > 0.5) {\n  vec2 c = uvRot - vec2(0.5);\n  float s = sin(vRot);\n  float cs = cos(vRot);\n  c = vec2(c.x * cs - c.y * s, c.x * s + c.y * cs);\n  uvRot = c + vec2(0.5);\n}\nvec2 uvFinal = uvRot;\nif (uAtlasEnabled > 0.5) {\n  uvFinal = (uvRot + uAtlasFrame) / max(uAtlasMatrix, vec2(1.0));\n}\n#ifdef USE_MAP\n  vec4 mapTexel = texture2D( map, uvFinal );\n  diffuseColor *= mapTexel;\n#endif"
+            [
+              "vec2 uvRot = vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y);",
+              "if (uRotEnabled > 0.5) {",
+              "  vec2 c = uvRot - vec2(0.5);",
+              "  float s = sin(vRot);",
+              "  float cs = cos(vRot);",
+              "  c = vec2(c.x * cs - c.y * s, c.x * s + c.y * cs);",
+              "  uvRot = c + vec2(0.5);",
+              "}",
+              "",
+              "vec2 frame = uAtlasFrame;",
+              "if (uAtlasPerParticle > 0.5) frame = vAFrame;",
+              "",
+              "if (uAtlasEnabled > 0.5) {",
+              "  frame.y = (uAtlasMatrix.y - 1.0) - frame.y;",
+              "}",
+              "",
+              "vec2 uvFinal = uvRot;",
+              "if (uAtlasEnabled > 0.5) {",
+              "  uvFinal = (uvRot + frame) / max(uAtlasMatrix, vec2(1.0));",
+              "}",
+              "",
+              "#ifdef USE_MAP",
+              "  vec4 mapTexel = texture2D(map, uvFinal);",
+              "  diffuseColor *= mapTexel;",
+              "#endif"
+            ].join("\n")
             )
           .replace(
             "diffuseColor.a *= opacity;",
-            "diffuseColor.a *= opacity;\ndiffuseColor.a *= vAlpha;"
+            "diffuseColor.a *= opacity;\ndiffuseColor.a *= vAlpha;\ndiffuseColor.a *= uOpacityMul;"
             );
         };
 
@@ -23215,10 +23302,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const pts = new THREE.Points(geo, mat);
         pts.frustumCulled = false;
 
-        return { pts, geo, pos, col, alpha: a, psize, rot, max: n };
+        return { pts, geo, pos, col, alpha: a, psize, rot, aframe, max: n };
       }
-
-
 
 
 
@@ -23261,9 +23346,15 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           op0[i] = 1.0;
           op1[i] = 1.0;
           pp.alpha[i] = 0.0;
-          pp.psize[i] = 0.08;
+          pp.psize[i] = Math.max(0.001, Number(p.size ?? 0.08));
           pp.rot[i] = 0.0;
           rotVel[i] = 0.0;
+
+          if (pp.aframe) {
+            const fi = i * 2;
+            pp.aframe[fi + 0] = 0.0;
+            pp.aframe[fi + 1] = 0.0;
+          }
         }
 
         const seed = (p.seed | 0) || 0;
@@ -23281,6 +23372,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           alpha: pp.alpha,
           psize: pp.psize,
           rot: pp.rot,
+          aframe: pp.aframe,
           rotVel,
           vel,
           life,
@@ -23294,7 +23386,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           stopAtMs: 0,
           aliveCount: 0,
           rngState: rtSeed >>> 0,
-          rngSeed: rtSeed >>> 0
+          rngSeed: rtSeed >>> 0,
+          _aframeDirty: 0
         };
 
         group.userData.worldEmitterId = cfg.id;
@@ -23320,7 +23413,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         return rt;
       }
-
 
 
 
@@ -23441,22 +23533,22 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         dir.normalize();
         dir.applyQuaternion(rt.group.quaternion);
 
-        const vi = idx * 3;
-        rt.vel[vi + 0] = dir.x * speed;
-        rt.vel[vi + 1] = dir.y * speed;
-        rt.vel[vi + 2] = dir.z * speed;
+        const k = idx * 3;
+        rt.vel[k + 0] = dir.x * speed;
+        rt.vel[k + 1] = dir.y * speed;
+        rt.vel[k + 2] = dir.z * speed;
 
-        rt.pos[vi + 0] = 0;
-        rt.pos[vi + 1] = 0;
-        rt.pos[vi + 2] = 0;
+        rt.pos[k + 0] = 0;
+        rt.pos[k + 1] = 0;
+        rt.pos[k + 2] = 0;
 
         const c = emitterTmp.c.set(String(p.color || "#ffffff"));
         const tint = 0.85 + emitterRand01(rt) * 0.3;
         const c2 = emitterTmp.c2.copy(c).multiplyScalar(tint);
 
-        rt.col[vi + 0] = c2.r;
-        rt.col[vi + 1] = c2.g;
-        rt.col[vi + 2] = c2.b;
+        rt.col[k + 0] = c2.r;
+        rt.col[k + 1] = c2.g;
+        rt.col[k + 2] = c2.b;
 
         const baseSize = Math.max(0.001, Number(p.size ?? 0.08));
         const sizeJ = Math.max(0, Number(p.sizeJitter ?? 0));
@@ -23489,11 +23581,63 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           rt.rotVel[idx] = 0.0;
         }
 
+        if (rt.aframe && String(p.shape || "square").trim().toLowerCase() === "sprite" && !!p.atlasSeqEnabled && !!p.atlasSeqPerParticle) {
+          const texUrl = String(p.textureUrl || "").trim();
+          if (texUrl) {
+            const texId = String(p.texturePick || "").trim() || getEmitterTextureIdFromPath(texUrl);
+            const meta = texId ? getEmitterTextureById(texId) : null;
+
+            if (meta && meta.type === "atlas" && Array.isArray(meta.matrix) && meta.matrix.length >= 2) {
+              const cols = Math.max(1, (Number(meta.matrix[0]) | 0) || 1);
+              const rows = Math.max(1, (Number(meta.matrix[1]) | 0) || 1);
+              const total = Math.max(1, cols * rows);
+
+              const loops = Math.max(0, (Number(p.atlasSeqLoops) | 0) || 0);
+              const startIndex = Math.max(1, (Number(p.atlasIndex) | 0) || 1);
+
+              const sig = `${texId}|${cols}x${rows}|${loops}|${startIndex}`;
+              if (rt._atlasSpawnSig !== sig) {
+                rt._atlasSpawnSig = sig;
+                rt._atlasSpawnFrame = Math.max(0, Math.min(total - 1, startIndex - 1));
+                rt._atlasSpawnLoopsDone = 0;
+                rt._atlasSpawnStopped = false;
+              }
+
+              let frameIdx = rt._atlasSpawnFrame | 0;
+              if (rt._atlasSpawnStopped) frameIdx = total - 1;
+              frameIdx = Math.max(0, Math.min(total - 1, frameIdx));
+
+              const fx = frameIdx % cols;
+              const fy = (frameIdx / cols) | 0;
+
+              const fi = idx * 2;
+              rt.aframe[fi + 0] = fx;
+              rt.aframe[fi + 1] = fy;
+              rt._aframeDirty = 1;
+
+              if (!rt._atlasSpawnStopped) {
+                let next = frameIdx + 1;
+
+                if (next >= total) {
+                  next = 0;
+
+                  if (loops > 0) {
+                    rt._atlasSpawnLoopsDone = (rt._atlasSpawnLoopsDone | 0) + 1;
+                    if (rt._atlasSpawnLoopsDone >= loops) {
+                      rt._atlasSpawnStopped = true;
+                      next = total - 1;
+                    }
+                  }
+                }
+
+                rt._atlasSpawnFrame = next;
+              }
+            }
+          }
+        }
+
         rt.aliveCount++;
       }
-
-
-
 
 
 
@@ -23503,6 +23647,15 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         if (!scene) return;
 
         const msNow = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+
+        const setUniformVec2 = (u, x, y) => {
+          if (!u) return;
+          const v = u.value;
+          if (v && v.isVector2 && typeof v.set === "function") { v.set(x, y); return; }
+          if (Array.isArray(v) && v.length >= 2) { v[0] = x; v[1] = y; return; }
+          if (v && typeof v === "object") { v.x = x; v.y = y; return; }
+          u.value = new THREE.Vector2(x, y);
+        };
 
         for (let i = 0; i < emitterState.emitters.length; i++) {
           const cfg = emitterState.emitters[i];
@@ -23556,20 +23709,23 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
       const rotEnabled = !!p.rotate;
 
+      let atlasEnabled = false;
+      let atlasCols = 1;
+      let atlasRows = 1;
+      let atlasFx = 0;
+      let atlasFy = 0;
+      let atlasPerParticle = false;
 
       if (rt.points && rt.points.material) {
         const shape = String(p.shape || "square").trim().toLowerCase();
         const texUrl = String(p.textureUrl || "").trim();
 
-        let atlasEnabled = false;
-        let atlasCols = 1;
-        let atlasRows = 1;
-        let atlasFx = 0;
-        let atlasFy = 0;
-
         if ((shape === "tex" || shape === "sprite") && texUrl) {
-          const texId = String(p.texturePick || "").trim() || getEmitterTextureIdFromPath(texUrl);
-          const meta = texId ? getEmitterTextureById(texId) : null;
+          const texId = (typeof getEmitterTextureIdFromPath === "function")
+          ? (String(p.texturePick || "").trim() || getEmitterTextureIdFromPath(texUrl))
+          : String(p.texturePick || "").trim();
+
+          const meta = (texId && typeof getEmitterTextureById === "function") ? getEmitterTextureById(texId) : null;
 
           if (meta && meta.type === "atlas" && Array.isArray(meta.matrix) && meta.matrix.length >= 2) {
             atlasEnabled = true;
@@ -23578,7 +23734,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
             const total = Math.max(1, atlasCols * atlasRows);
 
-            if (shape === "sprite" && !!p.atlasSeqEnabled) {
+            atlasPerParticle = (shape === "sprite" && !!p.atlasSeqEnabled && !!p.atlasSeqPerParticle);
+
+            if (shape === "sprite" && !!p.atlasSeqEnabled && !atlasPerParticle) {
               const fps = Math.max(1, (Number(p.atlasSeqFps) | 0) || 12);
               const loops = Math.max(0, (Number(p.atlasSeqLoops) | 0) || 0);
               const startIndex = Math.max(1, (Number(p.atlasIndex) | 0) || 1);
@@ -23633,49 +23791,43 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         }
 
         if (rt.points.material.isShaderMaterial) {
-          if (rt.points.material.uniforms && rt.points.material.uniforms.uOpacityMul) {
-            rt.points.material.uniforms.uOpacityMul.value = baseOpacityMul;
-          }
-          if (rt.points.material.uniforms && rt.points.material.uniforms.uRotEnabled) {
-            rt.points.material.uniforms.uRotEnabled.value = rotEnabled ? 1.0 : 0.0;
-          }
-          if (rt.points.material.uniforms && rt.points.material.uniforms.uAtlasEnabled) {
-            rt.points.material.uniforms.uAtlasEnabled.value = atlasEnabled ? 1.0 : 0.0;
-          }
-          if (rt.points.material.uniforms && rt.points.material.uniforms.uAtlasMatrix) {
-            rt.points.material.uniforms.uAtlasMatrix.value.set(atlasCols, atlasRows);
-          }
-          if (rt.points.material.uniforms && rt.points.material.uniforms.uAtlasFrame) {
-            rt.points.material.uniforms.uAtlasFrame.value.set(atlasFx, atlasFy);
-          }
-          rt.points.material.needsUpdate = false;
+          const m = rt.points.material;
+          if (m.uniforms && m.uniforms.uOpacityMul) m.uniforms.uOpacityMul.value = baseOpacityMul;
+          if (m.uniforms && m.uniforms.uRotEnabled) m.uniforms.uRotEnabled.value = rotEnabled ? 1.0 : 0.0;
+          if (m.uniforms && m.uniforms.uAtlasEnabled) m.uniforms.uAtlasEnabled.value = atlasEnabled ? 1.0 : 0.0;
+          if (m.uniforms && m.uniforms.uAtlasMatrix) setUniformVec2(m.uniforms.uAtlasMatrix, atlasCols, atlasRows);
+          if (m.uniforms && m.uniforms.uAtlasFrame) setUniformVec2(m.uniforms.uAtlasFrame, atlasFx, atlasFy);
+          if (m.uniforms && m.uniforms.uAtlasPerParticle) m.uniforms.uAtlasPerParticle.value = atlasPerParticle ? 1.0 : 0.0;
+          m.needsUpdate = false;
         } else {
           rt.points.material.opacity = baseOpacityMul;
           rt.points.material.needsUpdate = true;
 
           if (rt.points.material.isPointsMaterial) {
-            rt.points.material.userData.emitterRotEnabled = rotEnabled;
+            const ud = rt.points.material.userData || (rt.points.material.userData = {});
+            ud.emitterRotEnabled = rotEnabled;
 
-            rt.points.material.userData.emitterAtlasEnabled = atlasEnabled;
-            rt.points.material.userData.emitterAtlasMatrix = rt.points.material.userData.emitterAtlasMatrix || new THREE.Vector2(1, 1);
-            rt.points.material.userData.emitterAtlasFrame = rt.points.material.userData.emitterAtlasFrame || new THREE.Vector2(0, 0);
+            ud.emitterAtlasEnabled = atlasEnabled;
 
-            rt.points.material.userData.emitterAtlasMatrix.set(atlasCols, atlasRows);
-            rt.points.material.userData.emitterAtlasFrame.set(atlasFx, atlasFy);
+            if (!ud.emitterAtlasMatrix || !ud.emitterAtlasMatrix.isVector2) ud.emitterAtlasMatrix = new THREE.Vector2(1, 1);
+            if (!ud.emitterAtlasFrame || !ud.emitterAtlasFrame.isVector2) ud.emitterAtlasFrame = new THREE.Vector2(0, 0);
 
-            if (rt.points.material.userData._emitterShader && rt.points.material.userData._emitterShader.uniforms) {
-              const u = rt.points.material.userData._emitterShader.uniforms;
+            ud.emitterAtlasMatrix.set(atlasCols, atlasRows);
+            ud.emitterAtlasFrame.set(atlasFx, atlasFy);
+
+            ud.emitterAtlasPerParticle = atlasPerParticle;
+
+            if (ud._emitterShader && ud._emitterShader.uniforms) {
+              const u = ud._emitterShader.uniforms;
               if (u.uRotEnabled) u.uRotEnabled.value = rotEnabled ? 1.0 : 0.0;
               if (u.uAtlasEnabled) u.uAtlasEnabled.value = atlasEnabled ? 1.0 : 0.0;
-              if (u.uAtlasMatrix) u.uAtlasMatrix.value.set(atlasCols, atlasRows);
-              if (u.uAtlasFrame) u.uAtlasFrame.value.set(atlasFx, atlasFy);
+              if (u.uAtlasMatrix) setUniformVec2(u.uAtlasMatrix, atlasCols, atlasRows);
+              if (u.uAtlasFrame) setUniformVec2(u.uAtlasFrame, atlasFx, atlasFy);
+              if (u.uAtlasPerParticle) u.uAtlasPerParticle.value = atlasPerParticle ? 1.0 : 0.0;
             }
           }
         }
       }
-
-
-
 
       let aliveCount = 0;
 
@@ -23717,16 +23869,20 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           const dot = radial.dot(axis);
           radial.addScaledVector(axis, -dot);
 
-          if (radial.lengthSq() > 1e-10) {
-            tang.copy(axis).cross(radial).normalize();
-            radial.normalize();
+          const rLen = Math.max(1e-6, radial.length());
+          radial.multiplyScalar(1.0 / rLen);
 
-            const damp = (swirlDamp > 0) ? Math.exp(-swirlDamp * t) : 1.0;
+          tang.copy(axis).cross(radial).normalize();
 
+          if (swirlStrength !== 0) {
+            const damp = 1.0 / (1.0 + swirlDamp * rt.age[pi]);
             rt.vel[k + 0] += tang.x * swirlStrength * damp * dt;
             rt.vel[k + 1] += tang.y * swirlStrength * damp * dt;
             rt.vel[k + 2] += tang.z * swirlStrength * damp * dt;
+          }
 
+          if (swirlPull !== 0) {
+            const damp = 1.0 / (1.0 + swirlDamp * rt.age[pi]);
             rt.vel[k + 0] += radial.x * swirlPull * damp * dt;
             rt.vel[k + 1] += radial.y * swirlPull * damp * dt;
             rt.vel[k + 2] += radial.z * swirlPull * damp * dt;
@@ -23784,6 +23940,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       rt.geo.attributes.alpha.needsUpdate = true;
       rt.geo.attributes.psize.needsUpdate = true;
       if (rotEnabled && rt.geo.attributes.rot) rt.geo.attributes.rot.needsUpdate = true;
+      if (rt.geo.attributes.aframe) rt.geo.attributes.aframe.needsUpdate = true;
 
       if (rt.holder) {
         const showGizmo = !!(worldEditState && worldEditState.enabled);
@@ -23793,10 +23950,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       updateEmitterCfgFromTransform(rt);
     }
   }
-
-
-
-
 
 
 
@@ -24062,6 +24215,9 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
   trackController(folder.add(emitterGuiState, "removeSelected").name("Remove selected"));
   trackController(folder.add(emitterGuiState, "burstTest").name("Burst test"));
 
+
+
+
   const sel = {
     id: "",
     name: "Emitter",
@@ -24102,11 +24258,13 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     textureUrl: "",
     atlasIndex: 1,
     atlasSeqEnabled: false,
+    atlasSeqPerParticle: false,
     atlasSeqFps: 12,
     atlasSeqLoops: 0,
     loop: true,
     autoStopMs: 0
   };
+
 
 
 
@@ -24192,9 +24350,16 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     p.textureUrl = String(sel.textureUrl || "");
 
     p.atlasIndex = Math.max(1, (sel.atlasIndex | 0) || 1);
+
+
+
     p.atlasSeqEnabled = !!sel.atlasSeqEnabled;
+    p.atlasSeqPerParticle = !!sel.atlasSeqPerParticle;
     p.atlasSeqFps = Math.max(1, (Number(sel.atlasSeqFps) | 0) || 12);
     p.atlasSeqLoops = Math.max(0, (sel.atlasSeqLoops | 0) || 0);
+
+
+
 
     {
       const shape = String(p.shape || "square").trim().toLowerCase();
@@ -24541,6 +24706,20 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     updateSpriteControls();
   });
 
+
+
+  const atlasSeqPerParticleCtrl = push(folder.add(sel, "atlasSeqPerParticle").name("Seq per particle"));
+  atlasSeqPerParticleCtrl.onChange(() => {
+    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    if (rt) applySelToRt(rt);
+  });
+
+
+
+
+
+
+
   const atlasSeqFpsCtrl = push(folder.add(sel, "atlasSeqFps", 1, 60, 1).name("Seq FPS"));
   atlasSeqFpsCtrl.onChange(() => {
     const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
@@ -24552,6 +24731,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
     if (rt) applySelToRt(rt);
   });
+
+
 
   function updateSpriteControls() {
     const shape = String(sel.shape || "square").trim().toLowerCase();
@@ -24571,6 +24752,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     atlasIndexCtrl.domElement.style.display = (isSprite && isAtlas) ? "" : "none";
     atlasSeqEnabledCtrl.domElement.style.display = (isSprite && isAtlas) ? "" : "none";
+    atlasSeqPerParticleCtrl.domElement.style.display = (isSprite && isAtlas && !!sel.atlasSeqEnabled) ? "" : "none";
     atlasSeqFpsCtrl.domElement.style.display = (isSprite && isAtlas && !!sel.atlasSeqEnabled) ? "" : "none";
     atlasSeqLoopsCtrl.domElement.style.display = (isSprite && isAtlas && !!sel.atlasSeqEnabled) ? "" : "none";
 
@@ -24578,12 +24760,15 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     sel.atlasIndex = Math.max(1, Math.min(total, (sel.atlasIndex | 0) || 1));
 
     if (!(isSprite && isAtlas)) sel.atlasSeqEnabled = false;
+    if (!(isSprite && isAtlas && !!sel.atlasSeqEnabled)) sel.atlasSeqPerParticle = false;
 
     if (typeof atlasIndexCtrl.updateDisplay === "function") atlasIndexCtrl.updateDisplay();
     if (typeof atlasSeqEnabledCtrl.updateDisplay === "function") atlasSeqEnabledCtrl.updateDisplay();
+    if (typeof atlasSeqPerParticleCtrl.updateDisplay === "function") atlasSeqPerParticleCtrl.updateDisplay();
     if (typeof atlasSeqFpsCtrl.updateDisplay === "function") atlasSeqFpsCtrl.updateDisplay();
     if (typeof atlasSeqLoopsCtrl.updateDisplay === "function") atlasSeqLoopsCtrl.updateDisplay();
   }
+
 
   updateSpriteControls();
 
