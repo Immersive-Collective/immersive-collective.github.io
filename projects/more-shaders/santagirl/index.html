@@ -28,7 +28,7 @@
       script.onerror = function() {
         console.warn('Analytics script failed to load—continuing without tracking.');
       };
-      
+
             // Append to head (or body end) for async loading
       document.head.appendChild(script);
     })();
@@ -16504,6 +16504,10 @@ function findNearbyVehicle() {
 
 
 
+
+
+
+
 /**
  * Enters vehicle mode: locks controls to the vehicle and seats the avatar.
  * Vehicle chase camera is enabled on entry so camera always follows while driving.
@@ -16561,9 +16565,10 @@ function enterVehicle(v) {
     showActionToast(`ENTER • ${desc}`);
   }
 
+  rebuildVehicleAttachedEmittersNow(v);
+
   resetJoystick();
 }
-
 
 
 
@@ -16605,6 +16610,8 @@ function exitVehicle() {
     avatarHeadPos.y += avatarViewConfig.thirdPersonHeight;
     controls.target.copy(avatarHeadPos);
   }
+
+  clearVehicleAttachedEmittersNow(v);
 
   vehicleDriveState.enabled = false;
   vehicleDriveState.vehicle = null;
@@ -16678,6 +16685,8 @@ function getAvatarEquipAttachmentNode(boneName) {
   return best || avatar;
 }
 
+
+
 /**
  * Attaches a nearby equipment object to the avatar and activates its idle override action if present.
  */
@@ -16699,46 +16708,45 @@ function equipItem(e) {
   equipmentState.originalQuaternion.copy(obj.quaternion);
   equipmentState.originalScale.copy(obj.scale);
 
-  const action = typeof meta.action === "string" ? meta.action.trim() : "";
-  equipmentState.idleAction = action;
-
-  obj.removeFromParent();
-
   const bone = typeof attach.bone === "string" ? attach.bone.trim() : "";
   const node = getAvatarEquipAttachmentNode(bone) || avatar;
+  if (!node) return;
 
-  node.updateWorldMatrix(true, false);
-  node.getWorldScale(equipmentTmpWorldScale);
+  if (obj.parent !== node) {
+    obj.removeFromParent();
+    node.add(obj);
+  }
 
-  const wsx = Math.abs(equipmentTmpWorldScale.x) > 1e-6 ? equipmentTmpWorldScale.x : 1.0;
-  const wsy = Math.abs(equipmentTmpWorldScale.y) > 1e-6 ? equipmentTmpWorldScale.y : 1.0;
-  const wsz = Math.abs(equipmentTmpWorldScale.z) > 1e-6 ? equipmentTmpWorldScale.z : 1.0;
+  const p = attach.position;
+  if (Array.isArray(p) && p.length === 3) {
+    const px = Number.isFinite(p[0]) ? p[0] : 0.0;
+    const py = Number.isFinite(p[1]) ? p[1] : 0.0;
+    const pz = Number.isFinite(p[2]) ? p[2] : 0.0;
+    obj.position.set(px, py, pz);
+  } else {
+    obj.position.set(0.0, 0.0, 0.0);
+  }
 
-  node.add(obj);
-
-  const p = Array.isArray(attach.position) && attach.position.length === 3 ? attach.position : [0, 0.06, -0.22];
-  const r = Array.isArray(attach.rotation) && attach.rotation.length === 3 ? attach.rotation : [0, 0, 0];
-
-  obj.position.set(
-    Number.isFinite(p[0]) ? p[0] : 0,
-    Number.isFinite(p[1]) ? p[1] : 0,
-    Number.isFinite(p[2]) ? p[2] : 0
-    );
-
-  obj.rotation.set(
-    Number.isFinite(r[0]) ? r[0] : 0,
-    Number.isFinite(r[1]) ? r[1] : 0,
-    Number.isFinite(r[2]) ? r[2] : 0
-    );
+  const r = attach.rotation;
+  if (Array.isArray(r) && r.length === 3) {
+    const rx = Number.isFinite(r[0]) ? r[0] : 0.0;
+    const ry = Number.isFinite(r[1]) ? r[1] : 0.0;
+    const rz = Number.isFinite(r[2]) ? r[2] : 0.0;
+    obj.rotation.set(rx, ry, rz);
+  } else {
+    obj.rotation.set(0.0, 0.0, 0.0);
+  }
 
   const s = attach.scale;
-
-
+  const ws = node.getWorldScale(emitterTmp.v3a);
+  const wsx = Math.max(0.0001, ws.x);
+  const wsy = Math.max(0.0001, ws.y);
+  const wsz = Math.max(0.0001, ws.z);
 
   if (Array.isArray(s) && s.length === 3) {
-    const sx = Number.isFinite(s[0]) ? s[0] : 1;
-    const sy = Number.isFinite(s[1]) ? s[1] : 1;
-    const sz = Number.isFinite(s[2]) ? s[2] : 1;
+    const sx = Number.isFinite(s[0]) ? s[0] : 1.0;
+    const sy = Number.isFinite(s[1]) ? s[1] : 1.0;
+    const sz = Number.isFinite(s[2]) ? s[2] : 1.0;
 
     obj.scale.set(
       sx / wsx,
@@ -16746,7 +16754,7 @@ function equipItem(e) {
       sz / wsz
       );
   } else if (Number.isFinite(s)) {
-    const ss = s;
+    const ss = Math.max(0.001, s);
     obj.scale.set(
       ss / wsx,
       ss / wsy,
@@ -16760,6 +16768,10 @@ function equipItem(e) {
       );
   }
 
+  obj.updateMatrixWorld(true);
+
+  rebuildEquipmentAttachedEmittersNow(e);
+
   switchAvatarAction("idle");
   setVehiclePrompt(true, e);
   updateVehicleOutlineFor(null);
@@ -16771,6 +16783,9 @@ function equipItem(e) {
 
 
 }
+
+
+
 
 
 /**
@@ -16793,17 +16808,24 @@ function unequipItem() {
     equipmentState.originalScale.set(1, 1, 1);
     setVehiclePrompt(false, null);
     updateVehicleOutlineFor(null);
+    syncEquipmentTuningSelection();
     return;
   }
 
+  clearEquipmentAttachedEmittersNow(e);
+
   obj.removeFromParent();
-  scene.add(obj);
+
+  if (equipmentState.originalParent) {
+    equipmentState.originalParent.add(obj);
+  } else {
+    scene.add(obj);
+  }
 
   obj.traverse((o) => {
     if (o && typeof o.visible === "boolean") o.visible = true;
   });
 
-  obj.position.copy(equipmentState.originalPosition);
   obj.quaternion.copy(equipmentState.originalQuaternion);
   obj.scale.copy(equipmentState.originalScale);
 
@@ -16825,9 +16847,7 @@ function unequipItem() {
 
   const surfaceY = getWorldSurfaceY(dropX, dropZ);
 
-  equipmentTmpBox.getCenter(equipmentTmpCenter);
   const halfH = Math.max(0.01, equipmentTmpSize.y * 0.5);
-
   obj.position.set(dropX, surfaceY + halfH, dropZ);
 
   const yaw = Math.atan2(equipmentTmpForward.x, equipmentTmpForward.z);
@@ -16845,6 +16865,8 @@ function unequipItem() {
   switchAvatarAction("idle");
   setVehiclePrompt(false, null);
   updateVehicleOutlineFor(null);
+
+  syncEquipmentTuningSelection();
 }
 
 
@@ -16876,6 +16898,8 @@ const equipmentTuningState = {
 
 let equipmentTuningLastId = "";
 let equipmentTuningFolder = null;
+let equipmentEmittersFolder = null;
+let equipmentEmittersGuiState = null;
 
 /**
  * Resolves the current tuning target equipment based on interaction/equip state.
@@ -16959,6 +16983,9 @@ function writeTuningStateIntoEquipmentMeta(e) {
   attach.scale = Number.isFinite(equipmentTuningState.scale) ? Math.max(0.001, equipmentTuningState.scale) : 1.0;
 }
 
+
+
+
 /**
  * Applies the current equipment meta.attach transform to the equipped object (bone-relative, scale-compensated).
  */
@@ -16980,29 +17007,31 @@ function applyEquipmentAttachmentNow(e) {
     node.add(obj);
   }
 
-  node.updateWorldMatrix(true, false);
-  node.getWorldScale(equipmentTmpWorldScale);
+  const p = attach.position;
+  if (Array.isArray(p) && p.length === 3) {
+    const px = Number.isFinite(p[0]) ? p[0] : 0.0;
+    const py = Number.isFinite(p[1]) ? p[1] : 0.0;
+    const pz = Number.isFinite(p[2]) ? p[2] : 0.0;
+    obj.position.set(px, py, pz);
+  } else {
+    obj.position.set(0.0, 0.0, 0.0);
+  }
 
-  const wsx = Math.abs(equipmentTmpWorldScale.x) > 1e-6 ? equipmentTmpWorldScale.x : 1.0;
-  const wsy = Math.abs(equipmentTmpWorldScale.y) > 1e-6 ? equipmentTmpWorldScale.y : 1.0;
-  const wsz = Math.abs(equipmentTmpWorldScale.z) > 1e-6 ? equipmentTmpWorldScale.z : 1.0;
-
-  const p = Array.isArray(attach.position) && attach.position.length === 3 ? attach.position : [0, 0.06, -0.22];
-  const r = Array.isArray(attach.rotation) && attach.rotation.length === 3 ? attach.rotation : [0, 0, 0];
-
-  obj.position.set(
-    Number.isFinite(p[0]) ? p[0] : 0.0,
-    Number.isFinite(p[1]) ? p[1] : 0.0,
-    Number.isFinite(p[2]) ? p[2] : 0.0
-    );
-
-  obj.rotation.set(
-    Number.isFinite(r[0]) ? r[0] : 0.0,
-    Number.isFinite(r[1]) ? r[1] : 0.0,
-    Number.isFinite(r[2]) ? r[2] : 0.0
-    );
+  const r = attach.rotation;
+  if (Array.isArray(r) && r.length === 3) {
+    const rx = Number.isFinite(r[0]) ? r[0] : 0.0;
+    const ry = Number.isFinite(r[1]) ? r[1] : 0.0;
+    const rz = Number.isFinite(r[2]) ? r[2] : 0.0;
+    obj.rotation.set(rx, ry, rz);
+  } else {
+    obj.rotation.set(0.0, 0.0, 0.0);
+  }
 
   const s = attach.scale;
+  const ws = node.getWorldScale(emitterTmp.v3a);
+  const wsx = Math.max(0.0001, ws.x);
+  const wsy = Math.max(0.0001, ws.y);
+  const wsz = Math.max(0.0001, ws.z);
 
   if (Array.isArray(s) && s.length === 3) {
     const sx = Number.isFinite(s[0]) ? s[0] : 1.0;
@@ -17030,7 +17059,12 @@ function applyEquipmentAttachmentNow(e) {
   }
 
   obj.updateMatrixWorld(true);
+
+  syncEquipmentAttachedEmittersNow(e);
 }
+
+
+
 
 /**
  * Keeps the equipment tuning state aligned with the current selection.
@@ -17048,6 +17082,7 @@ function syncEquipmentTuningSelection() {
     equipmentTuningState.description = "";
     equipmentTuningState.bone = "";
     equipmentTuningLastId = "";
+    rebuildEquipmentEmittersGui();
     return;
   }
 
@@ -17062,7 +17097,803 @@ function syncEquipmentTuningSelection() {
 
   equipmentTuningLastId = key;
   readEquipmentMetaIntoTuningState(e);
+
+  rebuildEquipmentEmittersGui();
+  syncEquipmentAttachedEmittersNow(e);
 }
+
+
+
+
+
+/* Builds lil-gui controls for equipment meta.emitters and keeps runtime emitters synced. */
+function rebuildEquipmentEmittersGui() {
+  if (!equipmentTuningFolder) return;
+
+  if (equipmentEmittersFolder && typeof equipmentEmittersFolder.destroy === "function") {
+    equipmentEmittersFolder.destroy();
+  }
+  equipmentEmittersFolder = equipmentTuningFolder.addFolder("Emitters");
+
+  const e = getEquipmentTuningTarget();
+  if (!e || !e.meta || typeof e.meta !== "object") {
+    equipmentEmittersFolder.close();
+    return;
+  }
+
+  const meta = e.meta;
+  if (!Array.isArray(meta.emitters)) meta.emitters = [];
+  const list = meta.emitters;
+
+  const presetOpts = (typeof getEmitterPresetOptionsMerged === "function") ? getEmitterPresetOptionsMerged() : {};
+  const presetNames = Object.keys(presetOpts);
+  const firstPreset = presetNames.length ? String(presetOpts[presetNames[0]] || "").trim() : "custom";
+
+  if (!equipmentEmittersGuiState || typeof equipmentEmittersGuiState !== "object") {
+    equipmentEmittersGuiState = {
+      preset: firstPreset,
+      add: () => {
+        const tgt = getEquipmentTuningTarget();
+        if (!tgt || !tgt.meta || typeof tgt.meta !== "object") return;
+
+        const m = tgt.meta;
+        if (!Array.isArray(m.emitters)) m.emitters = [];
+
+        const idKey = String((tgt.id && String(tgt.id)) || (tgt.object && tgt.object.uuid) || "equipment");
+        const presetId = String(equipmentEmittersGuiState.preset || firstPreset || "custom").trim() || "custom";
+
+        const entry = {
+          id: `eq_${idKey}_${makeEmitterId()}`,
+          presetId,
+          enabled: true,
+          global: false,
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          scale: 1,
+          speedDriver: {
+            enabled: true,
+            idle: 0,
+            max: 1,
+            mult: 1,
+            vyMax: 6
+          }
+        };
+
+        m.emitters.push(entry);
+
+        rebuildEquipmentEmittersGui();
+        if (equipmentState.enabled && equipmentState.item === tgt) rebuildEquipmentAttachedEmittersNow(tgt);
+      }
+    };
+  }
+
+  if (presetNames.length) {
+    if (!presetNames.includes(String(equipmentEmittersGuiState.preset || ""))) {
+      equipmentEmittersGuiState.preset = firstPreset;
+    }
+  } else {
+    equipmentEmittersGuiState.preset = "custom";
+  }
+
+  if (presetNames.length) {
+    equipmentEmittersFolder.add(equipmentEmittersGuiState, "preset", presetOpts).name("Preset");
+  }
+  equipmentEmittersFolder.add(equipmentEmittersGuiState, "add").name("Add");
+
+  for (let i = 0; i < list.length; i++) {
+    const entry = list[i];
+    if (!entry || typeof entry !== "object") continue;
+
+    if (!Array.isArray(entry.position) || entry.position.length !== 3) entry.position = [0, 0, 0];
+    if (!Array.isArray(entry.rotation) || entry.rotation.length !== 3) entry.rotation = [0, 0, 0];
+    if (!Number.isFinite(entry.scale)) entry.scale = 1;
+    if (typeof entry.global !== "boolean") entry.global = false;
+
+    if (!entry.speedDriver || typeof entry.speedDriver !== "object") {
+      entry.speedDriver = { enabled: false, idle: 0, max: 1, mult: 1, vyMax: 6 };
+    }
+    if (!Number.isFinite(entry.speedDriver.idle)) entry.speedDriver.idle = 0;
+    if (!Number.isFinite(entry.speedDriver.max) || entry.speedDriver.max <= 0) entry.speedDriver.max = 1;
+    if (!Number.isFinite(entry.speedDriver.mult)) entry.speedDriver.mult = 1;
+    if (!Number.isFinite(entry.speedDriver.vyMax) || entry.speedDriver.vyMax <= 0) entry.speedDriver.vyMax = 6;
+
+    const f = equipmentEmittersFolder.addFolder(`Emitter ${i + 1}`);
+
+    const entryState = {
+      enabled: entry.enabled !== false,
+      global: !!entry.global,
+      presetId: String(entry.presetId || firstPreset || "custom").trim() || "custom",
+      scale: Number(entry.scale) || 1,
+
+      px: Number(entry.position[0]) || 0,
+      py: Number(entry.position[1]) || 0,
+      pz: Number(entry.position[2]) || 0,
+
+      rx: Number(entry.rotation[0]) || 0,
+      ry: Number(entry.rotation[1]) || 0,
+      rz: Number(entry.rotation[2]) || 0,
+
+      sdEnabled: !!entry.speedDriver.enabled,
+      sdIdle: Number(entry.speedDriver.idle) || 0,
+      sdMax: Number(entry.speedDriver.max) || 1,
+      sdMult: Number(entry.speedDriver.mult) || 1,
+      sdVyMax: Number(entry.speedDriver.vyMax) || 6,
+
+      remove: () => {
+        const tgt = getEquipmentTuningTarget();
+        if (!tgt || !tgt.meta || typeof tgt.meta !== "object") return;
+
+        const m = tgt.meta;
+        if (!Array.isArray(m.emitters)) return;
+
+        const idx = m.emitters.indexOf(entry);
+        if (idx >= 0) m.emitters.splice(idx, 1);
+
+        rebuildEquipmentEmittersGui();
+        if (equipmentState.enabled && equipmentState.item === tgt) rebuildEquipmentAttachedEmittersNow(tgt);
+      }
+    };
+
+    f.add(entryState, "enabled").name("Enabled").onChange((v) => {
+      entry.enabled = !!v;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+
+    f.add(entryState, "global").name("Global").onChange((v) => {
+      entry.global = !!v;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt && equipmentState.enabled && equipmentState.item === tgt) rebuildEquipmentAttachedEmittersNow(tgt);
+      else if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+
+    if (presetNames.length) {
+      f.add(entryState, "presetId", presetOpts).name("Preset").onFinishChange((v) => {
+        entry.presetId = String(v || "").trim() || firstPreset || "custom";
+        const tgt = getEquipmentTuningTarget();
+        if (tgt && equipmentState.enabled && equipmentState.item === tgt) rebuildEquipmentAttachedEmittersNow(tgt);
+      });
+    }
+
+    f.add(entryState, "px", -5, 5, 0.001).name("Pos X").onChange((v) => {
+      entry.position[0] = Number(v) || 0;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+    f.add(entryState, "py", -5, 5, 0.001).name("Pos Y").onChange((v) => {
+      entry.position[1] = Number(v) || 0;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+    f.add(entryState, "pz", -5, 5, 0.001).name("Pos Z").onChange((v) => {
+      entry.position[2] = Number(v) || 0;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+
+    f.add(entryState, "rx", -Math.PI, Math.PI, 0.001).name("Rot X").onChange((v) => {
+      entry.rotation[0] = Number(v) || 0;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+    f.add(entryState, "ry", -Math.PI, Math.PI, 0.001).name("Rot Y").onChange((v) => {
+      entry.rotation[1] = Number(v) || 0;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+    f.add(entryState, "rz", -Math.PI, Math.PI, 0.001).name("Rot Z").onChange((v) => {
+      entry.rotation[2] = Number(v) || 0;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+
+    f.add(entryState, "scale", 0.01, 10, 0.01).name("Scale").onChange((v) => {
+      entry.scale = Math.max(0.001, Number(v) || 1);
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+
+    const s = f.addFolder("Speed");
+    s.add(entryState, "sdEnabled").name("Enabled").onChange((v) => {
+      entry.speedDriver.enabled = !!v;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+    s.add(entryState, "sdIdle", 0, 10, 0.01).name("Idle").onChange((v) => {
+      entry.speedDriver.idle = Number(v) || 0;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+    s.add(entryState, "sdMax", 0, 10, 0.01).name("Max").onChange((v) => {
+      entry.speedDriver.max = Math.max(0.0001, Number(v) || 1);
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+    s.add(entryState, "sdMult", 0, 10, 0.01).name("Mult").onChange((v) => {
+      entry.speedDriver.mult = Number(v) || 1;
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+    s.add(entryState, "sdVyMax", 0.1, 50, 0.1).name("VY Max").onChange((v) => {
+      entry.speedDriver.vyMax = Math.max(0.0001, Number(v) || 6);
+      const tgt = getEquipmentTuningTarget();
+      if (tgt) syncEquipmentAttachedEmittersNow(tgt);
+    });
+    s.close();
+
+    f.add(entryState, "remove").name("Remove");
+    f.close();
+  }
+
+  equipmentEmittersFolder.close();
+}
+
+
+
+
+
+
+/* Removes all equipment-attached emitter runtimes for a specific equipment instance. */
+function clearEquipmentAttachedEmittersNow(e) {
+  if (!e || !e._attachedEmitterIds || !Array.isArray(e._attachedEmitterIds)) return;
+  if (typeof emitterState === "undefined" || !emitterState) return;
+
+  for (let i = 0; i < e._attachedEmitterIds.length; i++) {
+    const id = String(e._attachedEmitterIds[i] || "");
+    if (!id) continue;
+
+    const rt = emitterState.runtime.get(id);
+    if (rt && rt.group) rt.group.removeFromParent();
+
+    emitterState.runtime.delete(id);
+
+    const list = emitterState.emitters;
+    for (let k = list.length - 1; k >= 0; k--) {
+      if (list[k] && list[k].id === id) list.splice(k, 1);
+    }
+  }
+
+  e._attachedEmitterIds = [];
+}
+
+
+
+
+
+
+/* Rebuilds equipment-attached emitters from equipment meta.emitters definitions. */
+function rebuildEquipmentAttachedEmittersNow(e) {
+  if (!scene || !avatar || !e || !e.object || !e.meta) return;
+  if (!equipmentState.enabled || equipmentState.item !== e) return;
+  if (typeof emitterState === "undefined" || !emitterState) return;
+
+  clearEquipmentAttachedEmittersNow(e);
+
+  const meta = (e.meta && typeof e.meta === "object") ? e.meta : (e.meta = {});
+  const src = Array.isArray(meta.emitters) ? meta.emitters : (meta.emitters = []);
+
+  const presetOpts = (typeof getEmitterPresetOptionsMerged === "function") ? getEmitterPresetOptionsMerged() : null;
+  const presetNames = presetOpts && typeof presetOpts === "object" ? Object.keys(presetOpts) : [];
+  const fallbackPresetId = presetNames.length ? String(presetOpts[presetNames[0]] || "").trim() : "custom";
+
+  e._attachedEmitterIds = [];
+
+  for (let i = 0; i < src.length; i++) {
+    const em = src[i];
+    if (!em || typeof em !== "object") continue;
+
+    const presetId = String(em.presetId || fallbackPresetId || "custom").trim() || "custom";
+    const cfg0 = makeEmitterConfigFromPreset(presetId);
+
+    const id = String(em.id || "").trim() || `eq_${String((e.id && String(e.id)) || (e.object && e.object.uuid) || "equipment")}_${makeEmitterId()}`;
+    em.id = id;
+
+    cfg0.id = id;
+    cfg0.presetId = presetId;
+    cfg0.name = String(cfg0.name || presetId || id);
+
+    cfg0.position = Array.isArray(em.position) && em.position.length === 3 ? em.position.slice(0, 3) : [0, 0, 0];
+    cfg0.rotation = Array.isArray(em.rotation) && em.rotation.length === 3 ? em.rotation.slice(0, 3) : [0, 0, 0];
+    cfg0.scale = Number.isFinite(em.scale) ? em.scale : 1;
+
+    cfg0.global = !!em.global;
+
+    cfg0._equipmentAttached = true;
+
+    if (!cfg0.params || typeof cfg0.params !== "object") cfg0.params = {};
+    cfg0.params.loop = (em.enabled !== false);
+
+    if (em.speedDriver && typeof em.speedDriver === "object") {
+      cfg0.speedDriver = JSON.parse(JSON.stringify(em.speedDriver));
+    } else {
+      cfg0.speedDriver = { enabled: false, idle: 0, max: 1, mult: 1, vyMax: 6 };
+    }
+
+    emitterState.emitters.push(cfg0);
+
+    const rt = buildEmitterRuntime(cfg0);
+    emitterState.runtime.set(cfg0.id, rt);
+
+    e.object.add(rt.group);
+
+    e._attachedEmitterIds.push(cfg0.id);
+  }
+}
+
+
+
+
+
+
+
+
+/* Keeps equipped item emitter instances in sync with current equipment selection + meta changes. */
+function syncEquipmentAttachedEmittersNow(e) {
+  if (!scene || !avatar || !e || !e.object || !e.meta) return;
+  if (!equipmentState.enabled || equipmentState.item !== e) return;
+  if (typeof emitterState === "undefined" || !emitterState) return;
+
+  const meta = (e.meta && typeof e.meta === "object") ? e.meta : (e.meta = {});
+  const src = Array.isArray(meta.emitters) ? meta.emitters : (meta.emitters = []);
+
+  if (!e._attachedEmitterIds || !Array.isArray(e._attachedEmitterIds) || e._attachedEmitterIds.length !== src.length) {
+    rebuildEquipmentAttachedEmittersNow(e);
+    return;
+  }
+
+  for (let i = 0; i < src.length; i++) {
+    const em = src[i];
+    if (!em || typeof em !== "object") continue;
+
+    const id = String(em.id || "").trim();
+    if (!id) { rebuildEquipmentAttachedEmittersNow(e); return; }
+
+    const rt = emitterState.runtime.get(id);
+    if (!rt || !rt.group) { rebuildEquipmentAttachedEmittersNow(e); return; }
+
+    const cfg = rt.cfg;
+    if (!cfg) { rebuildEquipmentAttachedEmittersNow(e); return; }
+
+    const presetId = String(em.presetId || cfg.presetId || "").trim();
+    if (presetId && presetId !== cfg.presetId) { rebuildEquipmentAttachedEmittersNow(e); return; }
+
+    const g = !!em.global;
+    if (g !== !!cfg.global) { rebuildEquipmentAttachedEmittersNow(e); return; }
+    cfg.global = g;
+
+    cfg.position = Array.isArray(em.position) && em.position.length === 3 ? em.position.slice(0, 3) : [0, 0, 0];
+    cfg.rotation = Array.isArray(em.rotation) && em.rotation.length === 3 ? em.rotation.slice(0, 3) : [0, 0, 0];
+    cfg.scale = Number.isFinite(em.scale) ? em.scale : 1;
+
+    cfg._equipmentAttached = true;
+
+    if (!cfg.params || typeof cfg.params !== "object") cfg.params = {};
+    cfg.params.loop = (em.enabled !== false);
+
+    if (em.speedDriver && typeof em.speedDriver === "object") {
+      cfg.speedDriver = JSON.parse(JSON.stringify(em.speedDriver));
+    } else if (!cfg.speedDriver) {
+      cfg.speedDriver = { enabled: false, idle: 0, max: 1, mult: 1, vyMax: 6 };
+    }
+
+    rt.group.position.set(
+      Number(cfg.position[0]) || 0,
+      Number(cfg.position[1]) || 0,
+      Number(cfg.position[2]) || 0
+      );
+
+    rt.group.rotation.set(
+      Number(cfg.rotation[0]) || 0,
+      Number(cfg.rotation[1]) || 0,
+      Number(cfg.rotation[2]) || 0
+      );
+
+    const s = Math.max(0.001, Number(cfg.scale) || 1);
+    rt.group.scale.set(s, s, s);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+let vehicleEmittersFolder = null;
+let vehicleEmittersGuiState = null;
+
+
+/* Builds lil-gui controls for vehicle meta.emitters and keeps runtime emitters synced. */
+function rebuildVehicleEmittersGui() {
+  if (!vehicleTuningFolder) return;
+
+  if (vehicleEmittersFolder && typeof vehicleEmittersFolder.destroy === "function") {
+    vehicleEmittersFolder.destroy();
+  }
+  vehicleEmittersFolder = vehicleTuningFolder.addFolder("Emitters");
+
+  const v = getVehicleTuningTarget();
+  if (!v || !v.meta || typeof v.meta !== "object") {
+    vehicleEmittersFolder.close();
+    return;
+  }
+
+  const meta = v.meta;
+  if (!Array.isArray(meta.emitters)) meta.emitters = [];
+  const list = meta.emitters;
+
+  const presetOpts = (typeof getEmitterPresetOptionsMerged === "function") ? getEmitterPresetOptionsMerged() : {};
+  const presetNames = Object.keys(presetOpts);
+  const firstPreset = presetNames.length ? String(presetOpts[presetNames[0]] || "").trim() : "custom";
+
+  if (!vehicleEmittersGuiState || typeof vehicleEmittersGuiState !== "object") {
+    vehicleEmittersGuiState = {
+      preset: firstPreset,
+      add: () => {
+        const tgt = getVehicleTuningTarget();
+        if (!tgt || !tgt.meta || typeof tgt.meta !== "object") return;
+
+        const m = tgt.meta;
+        if (!Array.isArray(m.emitters)) m.emitters = [];
+
+        const idKey = String((tgt.id && String(tgt.id)) || (tgt.object && tgt.object.uuid) || "vehicle");
+        const presetId = String(vehicleEmittersGuiState.preset || firstPreset || "custom").trim() || "custom";
+
+        const entry = {
+          id: `veh_${idKey}_${makeEmitterId()}`,
+          presetId,
+          enabled: true,
+          global: false,
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          scale: 1,
+          speedDriver: {
+            enabled: true,
+            idle: 0,
+            max: 1,
+            mult: 1,
+            vyMax: 6
+          }
+        };
+
+        m.emitters.push(entry);
+
+        rebuildVehicleEmittersGui();
+        if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) rebuildVehicleAttachedEmittersNow(tgt);
+      }
+    };
+  }
+
+  if (presetNames.length) {
+    if (!presetNames.includes(String(vehicleEmittersGuiState.preset || ""))) {
+      vehicleEmittersGuiState.preset = firstPreset;
+    }
+  } else {
+    vehicleEmittersGuiState.preset = "custom";
+  }
+
+  if (presetNames.length) {
+    vehicleEmittersFolder.add(vehicleEmittersGuiState, "preset", presetOpts).name("Preset");
+  }
+  vehicleEmittersFolder.add(vehicleEmittersGuiState, "add").name("Add");
+
+  for (let i = 0; i < list.length; i++) {
+    const entry = list[i];
+    if (!entry || typeof entry !== "object") continue;
+
+    if (!Array.isArray(entry.position) || entry.position.length !== 3) entry.position = [0, 0, 0];
+    if (!Array.isArray(entry.rotation) || entry.rotation.length !== 3) entry.rotation = [0, 0, 0];
+    if (!Number.isFinite(entry.scale)) entry.scale = 1;
+    if (typeof entry.global !== "boolean") entry.global = false;
+
+    if (!entry.speedDriver || typeof entry.speedDriver !== "object") {
+      entry.speedDriver = { enabled: false, idle: 0, max: 1, mult: 1, vyMax: 6 };
+    }
+    if (!Number.isFinite(entry.speedDriver.idle)) entry.speedDriver.idle = 0;
+    if (!Number.isFinite(entry.speedDriver.max) || entry.speedDriver.max <= 0) entry.speedDriver.max = 1;
+    if (!Number.isFinite(entry.speedDriver.mult)) entry.speedDriver.mult = 1;
+    if (!Number.isFinite(entry.speedDriver.vyMax) || entry.speedDriver.vyMax <= 0) entry.speedDriver.vyMax = 6;
+
+    const f = vehicleEmittersFolder.addFolder(`Emitter ${i + 1}`);
+
+    const entryState = {
+      enabled: entry.enabled !== false,
+      global: !!entry.global,
+      presetId: String(entry.presetId || firstPreset || "custom").trim() || "custom",
+      scale: Number(entry.scale) || 1,
+
+      px: Number(entry.position[0]) || 0,
+      py: Number(entry.position[1]) || 0,
+      pz: Number(entry.position[2]) || 0,
+
+      rx: Number(entry.rotation[0]) || 0,
+      ry: Number(entry.rotation[1]) || 0,
+      rz: Number(entry.rotation[2]) || 0,
+
+      sdEnabled: !!entry.speedDriver.enabled,
+      sdIdle: Number(entry.speedDriver.idle) || 0,
+      sdMax: Number(entry.speedDriver.max) || 1,
+      sdMult: Number(entry.speedDriver.mult) || 1,
+      sdVyMax: Number(entry.speedDriver.vyMax) || 6,
+
+      remove: () => {
+        const tgt = getVehicleTuningTarget();
+        if (!tgt || !tgt.meta || typeof tgt.meta !== "object") return;
+
+        const m = tgt.meta;
+        if (!Array.isArray(m.emitters)) return;
+
+        const idx = m.emitters.indexOf(entry);
+        if (idx >= 0) m.emitters.splice(idx, 1);
+
+        rebuildVehicleEmittersGui();
+        if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) rebuildVehicleAttachedEmittersNow(tgt);
+      }
+    };
+
+    f.add(entryState, "enabled").name("Enabled").onChange((vv) => {
+      entry.enabled = !!vv;
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+
+    f.add(entryState, "global").name("Global").onChange((vv) => {
+      entry.global = !!vv;
+      const tgt = getVehicleTuningTarget();
+      if (tgt && vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) rebuildVehicleAttachedEmittersNow(tgt);
+      else if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+
+    if (presetNames.length) {
+      f.add(entryState, "presetId", presetOpts).name("Preset").onFinishChange((vv) => {
+        entry.presetId = String(vv || "").trim() || firstPreset || "custom";
+        const tgt = getVehicleTuningTarget();
+        if (tgt && vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) rebuildVehicleAttachedEmittersNow(tgt);
+      });
+    }
+
+    f.add(entryState, "px", -10, 10, 0.001).name("Pos X").onChange((vv) => {
+      entry.position[0] = Number(vv) || 0;
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+    f.add(entryState, "py", -10, 10, 0.001).name("Pos Y").onChange((vv) => {
+      entry.position[1] = Number(vv) || 0;
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+    f.add(entryState, "pz", -10, 10, 0.001).name("Pos Z").onChange((vv) => {
+      entry.position[2] = Number(vv) || 0;
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+
+    f.add(entryState, "rx", -Math.PI, Math.PI, 0.001).name("Rot X").onChange((vv) => {
+      entry.rotation[0] = Number(vv) || 0;
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+    f.add(entryState, "ry", -Math.PI, Math.PI, 0.001).name("Rot Y").onChange((vv) => {
+      entry.rotation[1] = Number(vv) || 0;
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+    f.add(entryState, "rz", -Math.PI, Math.PI, 0.001).name("Rot Z").onChange((vv) => {
+      entry.rotation[2] = Number(vv) || 0;
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+
+    f.add(entryState, "scale", 0.01, 10, 0.01).name("Scale").onChange((vv) => {
+      entry.scale = Math.max(0.001, Number(vv) || 1);
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+
+    const s = f.addFolder("Speed");
+    s.add(entryState, "sdEnabled").name("Enabled").onChange((vv) => {
+      entry.speedDriver.enabled = !!vv;
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+    s.add(entryState, "sdIdle", 0, 10, 0.01).name("Idle").onChange((vv) => {
+      entry.speedDriver.idle = Number(vv) || 0;
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+    s.add(entryState, "sdMax", 0, 10, 0.01).name("Max").onChange((vv) => {
+      entry.speedDriver.max = Math.max(0.0001, Number(vv) || 1);
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+    s.add(entryState, "sdMult", 0, 10, 0.01).name("Mult").onChange((vv) => {
+      entry.speedDriver.mult = Number(vv) || 1;
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+    s.add(entryState, "sdVyMax", 0.1, 200, 0.1).name("VY Max").onChange((vv) => {
+      entry.speedDriver.vyMax = Math.max(0.0001, Number(vv) || 6);
+      const tgt = getVehicleTuningTarget();
+      if (tgt) syncVehicleAttachedEmittersNow(tgt);
+    });
+    s.close();
+
+    f.add(entryState, "remove").name("Remove");
+    f.close();
+  }
+
+  vehicleEmittersFolder.close();
+}
+
+
+/* Removes all vehicle-attached emitter runtimes for a specific vehicle instance. */
+function clearVehicleAttachedEmittersNow(v) {
+  if (!v || !v._attachedEmitterIds || !Array.isArray(v._attachedEmitterIds)) return;
+  if (typeof emitterState === "undefined" || !emitterState) return;
+
+  for (let i = 0; i < v._attachedEmitterIds.length; i++) {
+    const id = String(v._attachedEmitterIds[i] || "");
+    if (!id) continue;
+
+    const rt = emitterState.runtime.get(id);
+    if (rt && rt.group) rt.group.removeFromParent();
+
+    emitterState.runtime.delete(id);
+
+    const list = emitterState.emitters;
+    for (let k = list.length - 1; k >= 0; k--) {
+      if (list[k] && list[k].id === id) list.splice(k, 1);
+    }
+  }
+
+  v._attachedEmitterIds = [];
+}
+
+
+/* Rebuilds vehicle-attached emitters from vehicle meta.emitters definitions. */
+function rebuildVehicleAttachedEmittersNow(v) {
+  if (!scene || !v || !v.object || !v.meta) return;
+  if (!vehicleDriveState.enabled || vehicleDriveState.vehicle !== v) return;
+  if (typeof emitterState === "undefined" || !emitterState) return;
+
+  clearVehicleAttachedEmittersNow(v);
+
+  const meta = (v.meta && typeof v.meta === "object") ? v.meta : (v.meta = {});
+  const src = Array.isArray(meta.emitters) ? meta.emitters : (meta.emitters = []);
+
+  const presetOpts = (typeof getEmitterPresetOptionsMerged === "function") ? getEmitterPresetOptionsMerged() : null;
+  const presetNames = presetOpts && typeof presetOpts === "object" ? Object.keys(presetOpts) : [];
+  const fallbackPresetId = presetNames.length ? String(presetOpts[presetNames[0]] || "").trim() : "custom";
+
+  v._attachedEmitterIds = [];
+
+  for (let i = 0; i < src.length; i++) {
+    const em = src[i];
+    if (!em || typeof em !== "object") continue;
+
+    const presetId = String(em.presetId || fallbackPresetId || "custom").trim() || "custom";
+    const cfg0 = makeEmitterConfigFromPreset(presetId);
+
+    const id = String(em.id || "").trim() || `veh_${String((v.id && String(v.id)) || (v.object && v.object.uuid) || "vehicle")}_${makeEmitterId()}`;
+    em.id = id;
+
+    cfg0.id = id;
+    cfg0.presetId = presetId;
+    cfg0.name = String(cfg0.name || presetId || id);
+
+    cfg0.position = Array.isArray(em.position) && em.position.length === 3 ? em.position.slice(0, 3) : [0, 0, 0];
+    cfg0.rotation = Array.isArray(em.rotation) && em.rotation.length === 3 ? em.rotation.slice(0, 3) : [0, 0, 0];
+    cfg0.scale = Number.isFinite(em.scale) ? em.scale : 1;
+
+    cfg0.global = !!em.global;
+
+    cfg0._vehicleAttached = true;
+
+    if (!cfg0.params || typeof cfg0.params !== "object") cfg0.params = {};
+    cfg0.params.loop = (em.enabled !== false);
+
+    if (em.speedDriver && typeof em.speedDriver === "object") {
+      cfg0.speedDriver = JSON.parse(JSON.stringify(em.speedDriver));
+    } else {
+      cfg0.speedDriver = { enabled: false, idle: 0, max: 1, mult: 1, vyMax: 6 };
+    }
+
+    emitterState.emitters.push(cfg0);
+
+    const rt = buildEmitterRuntime(cfg0);
+    emitterState.runtime.set(cfg0.id, rt);
+
+    v.object.add(rt.group);
+
+    v._attachedEmitterIds.push(cfg0.id);
+  }
+}
+
+
+/* Keeps driven vehicle emitter instances in sync with current vehicle meta changes. */
+function syncVehicleAttachedEmittersNow(v) {
+  if (!scene || !v || !v.object || !v.meta) return;
+  if (!vehicleDriveState.enabled || vehicleDriveState.vehicle !== v) return;
+  if (typeof emitterState === "undefined" || !emitterState) return;
+
+  const meta = (v.meta && typeof v.meta === "object") ? v.meta : (v.meta = {});
+  const src = Array.isArray(meta.emitters) ? meta.emitters : (meta.emitters = []);
+
+  if (!v._attachedEmitterIds || !Array.isArray(v._attachedEmitterIds) || v._attachedEmitterIds.length !== src.length) {
+    rebuildVehicleAttachedEmittersNow(v);
+    return;
+  }
+
+  for (let i = 0; i < src.length; i++) {
+    const em = src[i];
+    if (!em || typeof em !== "object") continue;
+
+    const id = String(em.id || "").trim();
+    if (!id) { rebuildVehicleAttachedEmittersNow(v); return; }
+
+    const rt = emitterState.runtime.get(id);
+    if (!rt || !rt.group) { rebuildVehicleAttachedEmittersNow(v); return; }
+
+    const cfg = rt.cfg;
+    if (!cfg) { rebuildVehicleAttachedEmittersNow(v); return; }
+
+    const presetId = String(em.presetId || cfg.presetId || "").trim();
+    if (presetId && presetId !== cfg.presetId) { rebuildVehicleAttachedEmittersNow(v); return; }
+
+    const g = !!em.global;
+    if (g !== !!cfg.global) { rebuildVehicleAttachedEmittersNow(v); return; }
+    cfg.global = g;
+
+    cfg.position = Array.isArray(em.position) && em.position.length === 3 ? em.position.slice(0, 3) : [0, 0, 0];
+    cfg.rotation = Array.isArray(em.rotation) && em.rotation.length === 3 ? em.rotation.slice(0, 3) : [0, 0, 0];
+    cfg.scale = Number.isFinite(em.scale) ? em.scale : 1;
+
+    cfg._vehicleAttached = true;
+
+    if (!cfg.params || typeof cfg.params !== "object") cfg.params = {};
+    cfg.params.loop = (em.enabled !== false);
+
+    if (em.speedDriver && typeof em.speedDriver === "object") {
+      cfg.speedDriver = JSON.parse(JSON.stringify(em.speedDriver));
+    } else if (!cfg.speedDriver) {
+      cfg.speedDriver = { enabled: false, idle: 0, max: 1, mult: 1, vyMax: 6 };
+    }
+
+    rt.group.position.set(
+      Number(cfg.position[0]) || 0,
+      Number(cfg.position[1]) || 0,
+      Number(cfg.position[2]) || 0
+      );
+
+    rt.group.rotation.set(
+      Number(cfg.rotation[0]) || 0,
+      Number(cfg.rotation[1]) || 0,
+      Number(cfg.rotation[2]) || 0
+      );
+
+    const s = Math.max(0.001, Number(cfg.scale) || 1);
+    rt.group.scale.set(s, s, s);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -17087,19 +17918,19 @@ function setupEquipmentTuningGui(folder) {
     applyEquipmentAttachmentNow(e);
   });
 
-  attach.add(equipmentTuningState, "posX", -150.0, 150.0, 0.001).name("Pos X").listen().onChange(() => {
+  attach.add(equipmentTuningState, "posX", -1.0, 1.0, 0.001).name("Pos X").listen().onChange(() => {
     const e = getEquipmentTuningTarget();
     writeTuningStateIntoEquipmentMeta(e);
     applyEquipmentAttachmentNow(e);
   });
 
-  attach.add(equipmentTuningState, "posY", -150.0, 150.0, 0.001).name("Pos Y").listen().onChange(() => {
+  attach.add(equipmentTuningState, "posY", -1.0, 1.0, 0.001).name("Pos Y").listen().onChange(() => {
     const e = getEquipmentTuningTarget();
     writeTuningStateIntoEquipmentMeta(e);
     applyEquipmentAttachmentNow(e);
   });
 
-  attach.add(equipmentTuningState, "posZ", -150.0, 150.0, 0.001).name("Pos Z").listen().onChange(() => {
+  attach.add(equipmentTuningState, "posZ", -1.0, 1.0, 0.001).name("Pos Z").listen().onChange(() => {
     const e = getEquipmentTuningTarget();
     writeTuningStateIntoEquipmentMeta(e);
     applyEquipmentAttachmentNow(e);
@@ -17130,6 +17961,8 @@ function setupEquipmentTuningGui(folder) {
   });
 
   attach.close();
+
+  rebuildEquipmentEmittersGui();
 }
 
 
@@ -17794,6 +18627,9 @@ function writeTuningStateIntoVehicleProfile(v) {
   prof.trackHalfWidth = Math.max(0.0, vehicleTuningState.trackHalfWidth ?? 0.0);
 }
 
+
+
+
 function syncVehicleTuningFromCurrentVehicle() {
   const v = getVehicleTuningTarget();
 
@@ -17812,8 +18648,14 @@ function syncVehicleTuningFromCurrentVehicle() {
     vehicleTuningState.__lastVehicleRef = v;
     vehicleTuningLastId = v.id || "";
     readVehicleProfileIntoTuningState(v);
+
+    rebuildVehicleEmittersGui();
+    syncVehicleAttachedEmittersNow(v);
   }
 }
+
+
+
 
 
     /**
@@ -17959,6 +18801,9 @@ function readVehicleProfileIntoTuningState(v) {
 //   vehicleTuningLastId = id;
 //   readVehicleProfileIntoTuningState(v);
 // }
+
+
+
 
 
 
@@ -18153,7 +18998,7 @@ function setupVehicleTuningGui(folder) {
 
   flight.close();
 
-
+  rebuildVehicleEmittersGui();
 
 
 
@@ -18220,8 +19065,6 @@ function setupVehicleTuningGui(folder) {
 
   folder.add(actions, "exportProfile").name("Copy MODEL_CONFIG").listen();
 }
-
-
 
 
 
@@ -22908,7 +23751,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
-
       function applyEmitterParticleStyleToMaterial(mat, params) {
   /* Applies particle rendering style (shape/texture) to a PointsMaterial. */
         if (!mat || !mat.isPointsMaterial) return;
@@ -22916,6 +23758,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const p = (params && typeof params === "object") ? params : {};
         const shape = String(p.shape || "square").trim().toLowerCase();
         const texUrl = String(p.textureUrl || "").trim();
+        const tintEnabled = (p.tintEnabled !== false);
 
         mat.userData.emitterRotEnabled = !!p.rotate;
 
@@ -22970,6 +23813,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         mat.transparent = true;
         mat.depthWrite = false;
 
+        const noTintTex = (shape === "tex" || shape === "sprite") && !tintEnabled;
+        mat.vertexColors = !noTintTex;
+        mat.color.set(0xffffff);
+
         if (mat.userData && mat.userData._emitterShader && mat.userData._emitterShader.uniforms) {
           const u = mat.userData._emitterShader.uniforms;
           if (u.uRotEnabled) u.uRotEnabled.value = mat.userData.emitterRotEnabled ? 1.0 : 0.0;
@@ -22981,6 +23828,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
         mat.needsUpdate = true;
       }
+
+
+
+
 
 
 
@@ -23309,6 +24160,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
+
       function buildEmitterRuntime(cfg) {
   /* Builds the runtime buffers and scene graph objects for one emitter instance. */
         const p = (cfg && cfg.params && typeof cfg.params === "object") ? cfg.params : {};
@@ -23387,7 +24239,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           aliveCount: 0,
           rngState: rtSeed >>> 0,
           rngSeed: rtSeed >>> 0,
-          _aframeDirty: 0
+          _aframeDirty: 0,
+          atlasPhase: new Uint16Array(pp.max)
         };
 
         group.userData.worldEmitterId = cfg.id;
@@ -23500,10 +24353,16 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
-
       function emitterSpawnOne(rt) {
   /* Spawns one particle using deterministic RNG and stores per-particle size/opacity curves. */
         const p = rt.cfg.params;
+
+        const isGlobal = !!(rt && rt.cfg && rt.cfg.global);
+
+        if (isGlobal) {
+          if (!rt.posW || rt.posW.length !== rt.pos.length) rt.posW = new Float32Array(rt.pos.length);
+          if (!rt.velW || rt.velW.length !== rt.vel.length) rt.velW = new Float32Array(rt.vel.length);
+        }
 
         let idx = -1;
         for (let i = 0; i < rt.alive.length; i++) {
@@ -23531,24 +24390,57 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         dir.applyAxisAngle(emitterTmp.v3b.set(0, 1, 0), yaw);
         dir.applyAxisAngle(emitterTmp.v3c.set(1, 0, 0), pitch);
         dir.normalize();
-        dir.applyQuaternion(rt.group.quaternion);
+        const qWorld = isGlobal ? rt.group.getWorldQuaternion(emitterTmp.q) : rt.group.quaternion;
+        dir.applyQuaternion(qWorld);
 
         const k = idx * 3;
-        rt.vel[k + 0] = dir.x * speed;
-        rt.vel[k + 1] = dir.y * speed;
-        rt.vel[k + 2] = dir.z * speed;
+        const velA = isGlobal ? rt.velW : rt.vel;
+        const posA = isGlobal ? rt.posW : rt.pos;
 
-        rt.pos[k + 0] = 0;
-        rt.pos[k + 1] = 0;
-        rt.pos[k + 2] = 0;
+        velA[k + 0] = dir.x * speed;
+        velA[k + 1] = dir.y * speed;
+        velA[k + 2] = dir.z * speed;
+
+        if (isGlobal) {
+          const wp = emitterTmp.v3b;
+          rt.group.getWorldPosition(wp);
+          posA[k + 0] = wp.x;
+          posA[k + 1] = wp.y;
+          posA[k + 2] = wp.z;
+
+          const inv = emitterTmp.m4.copy(rt.group.matrixWorld).invert();
+          const lp = emitterTmp.v3c.set(wp.x, wp.y, wp.z).applyMatrix4(inv);
+          rt.pos[k + 0] = lp.x;
+          rt.pos[k + 1] = lp.y;
+          rt.pos[k + 2] = lp.z;
+        } else {
+          posA[k + 0] = 0;
+          posA[k + 1] = 0;
+          posA[k + 2] = 0;
+        }
+
+        const shape0 = String(p.shape || "square").trim().toLowerCase();
+        const tintEnabled = (p.tintEnabled !== false);
+        const noTintTex = (shape0 === "tex" || shape0 === "sprite") && !tintEnabled;
 
         const c = emitterTmp.c.set(String(p.color || "#ffffff"));
-        const tint = 0.85 + emitterRand01(rt) * 0.3;
-        const c2 = emitterTmp.c2.copy(c).multiplyScalar(tint);
+        const rTint = emitterRand01(rt);
+        const tint = tintEnabled ? (0.85 + rTint * 0.3) : 1.0;
 
-        rt.col[k + 0] = c2.r;
-        rt.col[k + 1] = c2.g;
-        rt.col[k + 2] = c2.b;
+        if (noTintTex) {
+          rt.col[k + 0] = 1.0;
+          rt.col[k + 1] = 1.0;
+          rt.col[k + 2] = 1.0;
+        } else if (tintEnabled) {
+          const c2 = emitterTmp.c2.copy(c).multiplyScalar(tint);
+          rt.col[k + 0] = c2.r;
+          rt.col[k + 1] = c2.g;
+          rt.col[k + 2] = c2.b;
+        } else {
+          rt.col[k + 0] = c.r;
+          rt.col[k + 1] = c.g;
+          rt.col[k + 2] = c.b;
+        }
 
         const baseSize = Math.max(0.001, Number(p.size ?? 0.08));
         const sizeJ = Math.max(0, Number(p.sizeJitter ?? 0));
@@ -23636,9 +24528,36 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           }
         }
 
+        if (rt.atlasPhase && rt.aframe && String(p.shape || "square").trim().toLowerCase() === "sprite" && !!p.atlasSeqEnabled && !p.atlasSeqPerParticle && !!p.atlasSeqRandomStart) {
+          const texUrl = String(p.textureUrl || "").trim();
+          if (texUrl) {
+            const texId = String(p.texturePick || "").trim() || getEmitterTextureIdFromPath(texUrl);
+            const meta = texId ? getEmitterTextureById(texId) : null;
+
+            if (meta && meta.type === "atlas" && Array.isArray(meta.matrix) && meta.matrix.length >= 2) {
+              const cols = Math.max(1, (Number(meta.matrix[0]) | 0) || 1);
+              const rows = Math.max(1, (Number(meta.matrix[1]) | 0) || 1);
+              const total = Math.max(1, cols * rows);
+
+              rt.atlasPhase[idx] = Math.max(0, Math.min(total - 1, (emitterRand01(rt) * total) | 0));
+
+              const startIndex = Math.max(1, (Number(p.atlasIndex) | 0) || 1);
+              const baseIdx = Math.max(0, Math.min(total - 1, startIndex - 1));
+
+              const frameIdx = (baseIdx + (rt.atlasPhase[idx] | 0)) % total;
+              const fx = frameIdx % cols;
+              const fy = (frameIdx / cols) | 0;
+
+              const fi = idx * 2;
+              rt.aframe[fi + 0] = fx;
+              rt.aframe[fi + 1] = fy;
+              rt._aframeDirty = 1;
+            }
+          }
+        }
+
         rt.aliveCount++;
       }
-
 
 
 
@@ -23651,10 +24570,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const setUniformVec2 = (u, x, y) => {
           if (!u) return;
           const v = u.value;
-          if (v && v.isVector2 && typeof v.set === "function") { v.set(x, y); return; }
-          if (Array.isArray(v) && v.length >= 2) { v[0] = x; v[1] = y; return; }
-          if (v && typeof v === "object") { v.x = x; v.y = y; return; }
-          u.value = new THREE.Vector2(x, y);
+          if (v && v.isVector2) {
+            v.set(x, y);
+          } else {
+            u.value = new THREE.Vector2(x, y);
+          }
         };
 
         for (let i = 0; i < emitterState.emitters.length; i++) {
@@ -23665,6 +24585,34 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           if (!rt) continue;
 
           const p = (cfg.params && typeof cfg.params === "object") ? cfg.params : (cfg.params = {});
+
+          const isGlobal = !!(cfg && cfg.global);
+
+          if ((rt._globalMode ? 1 : 0) !== (isGlobal ? 1 : 0)) {
+            rt._globalMode = isGlobal ? 1 : 0;
+
+            if (isGlobal) {
+              if (!rt.posW || rt.posW.length !== rt.pos.length) rt.posW = new Float32Array(rt.pos.length);
+              if (!rt.velW || rt.velW.length !== rt.vel.length) rt.velW = new Float32Array(rt.vel.length);
+            }
+
+            rt.spawnAcc = 0;
+            rt.stopAtMs = 0;
+            rt.aliveCount = 0;
+
+            for (let pi = 0; pi < rt.alive.length; pi++) {
+              rt.alive[pi] = 0;
+              rt.age[pi] = 0;
+              rt.life[pi] = 0;
+              rt.alpha[pi] = 0.0;
+              rt.psize[pi] = 0.001;
+              if (rt.rotVel) rt.rotVel[pi] = 0.0;
+            }
+          }
+
+          const posA = isGlobal ? rt.posW : rt.pos;
+          const velA = isGlobal ? rt.velW : rt.vel;
+
           const loop = !!p.loop;
 
           if (!rt.stopAtMs) {
@@ -23678,11 +24626,46 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
           const rate = Math.max(0, Number(p.rate ?? 0));
           const burst = Math.max(0, Number(p.burst ?? 0));
 
-          if (doEmit) {
-            rt.spawnAcc += rate * dt;
 
-            if (burst > 0 && rt.spawnAcc < 0.0001) {
-              for (let b = 0; b < burst; b++) emitterSpawnOne(rt);
+
+
+          if (doEmit) {
+            let rateMul = 1.0;
+            let burstMul = 1.0;
+
+            const sd = cfg && cfg.speedDriver && typeof cfg.speedDriver === "object" ? cfg.speedDriver : null;
+            if (sd && sd.enabled) {
+              const idle = Number.isFinite(sd.idle) ? sd.idle : 0;
+              const max = Number.isFinite(sd.max) ? sd.max : 1;
+              const mult = Number.isFinite(sd.mult) ? sd.mult : 1;
+              const vyMax = (Number.isFinite(sd.vyMax) && sd.vyMax > 0) ? sd.vyMax : 6;
+
+              const vy = (typeof avatarJumpState !== "undefined" && avatarJumpState && Number.isFinite(avatarJumpState.vy))
+              ? Math.abs(avatarJumpState.vy)
+              : 0;
+
+              let h = 0;
+              if (vehicleDriveState && vehicleDriveState.enabled && Number.isFinite(vehicleDriveState.speed)) {
+                h = Math.abs(vehicleDriveState.speed);
+              } else if (typeof avatarVelocity !== "undefined" && avatarVelocity) {
+                const vx = Number.isFinite(avatarVelocity.x) ? avatarVelocity.x : 0;
+                const vz = Number.isFinite(avatarVelocity.z) ? avatarVelocity.z : 0;
+                h = Math.sqrt(vx * vx + vz * vz);
+              }
+
+              const s = Math.max(vy, h);
+              const t = clamp((s * mult) / vyMax, 0, 1);
+
+              const k = Math.max(0, idle + (max - idle) * t);
+              rateMul = k;
+              burstMul = k;
+            }
+
+            rt.spawnAcc += (rate * rateMul) * dt;
+
+            const burstN = Math.max(0, Math.floor(burst * burstMul));
+            if (burstN > 0 && rt.spawnAcc < 0.0001) {
+              for (let b = 0; b < burstN; b++) emitterSpawnOne(rt);
             }
 
           const nSpawn = Math.min(24, rt.spawnAcc | 0);
@@ -23691,6 +24674,14 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
             for (let s = 0; s < nSpawn; s++) emitterSpawnOne(rt);
           }
       }
+
+
+
+
+
+
+
+      
 
       const gravity = Number(p.gravity ?? 0);
       const drag = Math.max(0, Number(p.drag ?? 1.0));
@@ -23715,6 +24706,10 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       let atlasFx = 0;
       let atlasFy = 0;
       let atlasPerParticle = false;
+      let atlasRandomStart = false;
+      let atlasSeqBaseIdx = 0;
+      let atlasSeqStopped = false;
+      let atlasTotal = 1;
 
       if (rt.points && rt.points.material) {
         const shape = String(p.shape || "square").trim().toLowerCase();
@@ -23734,9 +24729,13 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
             const total = Math.max(1, atlasCols * atlasRows);
 
-            atlasPerParticle = (shape === "sprite" && !!p.atlasSeqEnabled && !!p.atlasSeqPerParticle);
+            atlasRandomStart = (shape === "sprite" && !!p.atlasSeqEnabled && !p.atlasSeqPerParticle && !!p.atlasSeqRandomStart && !!rt.aframe && !!rt.atlasPhase);
 
-            if (shape === "sprite" && !!p.atlasSeqEnabled && !atlasPerParticle) {
+            atlasPerParticle = (shape === "sprite" && !!p.atlasSeqEnabled && (!!p.atlasSeqPerParticle || atlasRandomStart) && !!rt.aframe);
+
+            atlasTotal = total;
+
+            if (shape === "sprite" && !!p.atlasSeqEnabled && !p.atlasSeqPerParticle) {
               const fps = Math.max(1, (Number(p.atlasSeqFps) | 0) || 12);
               const loops = Math.max(0, (Number(p.atlasSeqLoops) | 0) || 0);
               const startIndex = Math.max(1, (Number(p.atlasIndex) | 0) || 1);
@@ -23774,6 +24773,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
               }
 
               const idx0 = Math.max(0, Math.min(total - 1, (rt._atlasSeqFrame | 0)));
+              atlasSeqBaseIdx = idx0;
+              atlasSeqStopped = !!rt._atlasSeqStopped;
               atlasFx = idx0 % atlasCols;
               atlasFy = (idx0 / atlasCols) | 0;
             } else {
@@ -23784,6 +24785,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
               rt._atlasSeqFrame = 0;
 
               const idx0 = Math.max(0, Math.min(total - 1, ((Number(p.atlasIndex) | 0) || 1) - 1));
+              atlasSeqBaseIdx = idx0;
+              atlasSeqStopped = false;
               atlasFx = idx0 % atlasCols;
               atlasFy = (idx0 / atlasCols) | 0;
             }
@@ -23837,7 +24840,12 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       const nv = emitterTmp.v3d || (emitterTmp.v3d = new THREE.Vector3());
       const curl = emitterTmp.v3e || (emitterTmp.v3e = new THREE.Vector3());
 
-      emitterAxisVec3(swirlAxis, axis).applyQuaternion(rt.group.quaternion).normalize();
+      const qUse = isGlobal ? rt.group.getWorldQuaternion(emitterTmp.q) : rt.group.quaternion;
+
+      emitterAxisVec3(swirlAxis, axis).applyQuaternion(qUse).normalize();
+
+      const originW = isGlobal ? (emitterTmp.v3f || (emitterTmp.v3f = new THREE.Vector3())) : null;
+      if (isGlobal) rt.group.getWorldPosition(originW);
 
       const seedBase = rt.rngSeed >>> 0;
       const tNow = (msNow * 0.001) * noiseSpeed;
@@ -23861,11 +24869,12 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         const k = pi * 3;
 
         if (swirlStrength !== 0 || swirlPull !== 0) {
-          const px = rt.pos[k + 0];
-          const py = rt.pos[k + 1];
-          const pz = rt.pos[k + 2];
+          const px = posA[k + 0];
+          const py = posA[k + 1];
+          const pz = posA[k + 2];
 
-          radial.set(px, py, pz);
+          if (isGlobal) radial.set(px - originW.x, py - originW.y, pz - originW.z);
+          else radial.set(px, py, pz);
           const dot = radial.dot(axis);
           radial.addScaledVector(axis, -dot);
 
@@ -23876,23 +24885,30 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
           if (swirlStrength !== 0) {
             const damp = 1.0 / (1.0 + swirlDamp * rt.age[pi]);
-            rt.vel[k + 0] += tang.x * swirlStrength * damp * dt;
-            rt.vel[k + 1] += tang.y * swirlStrength * damp * dt;
-            rt.vel[k + 2] += tang.z * swirlStrength * damp * dt;
+            velA[k + 0] += tang.x * swirlStrength * damp * dt;
+            velA[k + 1] += tang.y * swirlStrength * damp * dt;
+            velA[k + 2] += tang.z * swirlStrength * damp * dt;
           }
 
           if (swirlPull !== 0) {
             const damp = 1.0 / (1.0 + swirlDamp * rt.age[pi]);
-            rt.vel[k + 0] += radial.x * swirlPull * damp * dt;
-            rt.vel[k + 1] += radial.y * swirlPull * damp * dt;
-            rt.vel[k + 2] += radial.z * swirlPull * damp * dt;
+            velA[k + 0] += radial.x * swirlPull * damp * dt;
+            velA[k + 1] += radial.y * swirlPull * damp * dt;
+            velA[k + 2] += radial.z * swirlPull * damp * dt;
           }
         }
 
         if (noiseStrength !== 0 && noiseMode !== "none") {
-          const wx = rt.group.position.x + rt.pos[k + 0];
-          const wy = rt.group.position.y + rt.pos[k + 1];
-          const wz = rt.group.position.z + rt.pos[k + 2];
+          let wx = 0, wy = 0, wz = 0;
+          if (isGlobal) {
+            wx = posA[k + 0];
+            wy = posA[k + 1];
+            wz = posA[k + 2];
+          } else {
+            wx = rt.group.position.x + posA[k + 0];
+            wy = rt.group.position.y + posA[k + 1];
+            wz = rt.group.position.z + posA[k + 2];
+          }
 
           const nx = wx * noiseScale + tNow;
           const ny = wy * noiseScale + tNow * 0.87;
@@ -23909,21 +24925,21 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
               );
           }
 
-          rt.vel[k + 0] += nv.x * noiseStrength * dt;
-          rt.vel[k + 1] += nv.y * noiseStrength * dt;
-          rt.vel[k + 2] += nv.z * noiseStrength * dt;
+          velA[k + 0] += nv.x * noiseStrength * dt;
+          velA[k + 1] += nv.y * noiseStrength * dt;
+          velA[k + 2] += nv.z * noiseStrength * dt;
         }
 
-        rt.vel[k + 1] += gravity * dt;
+        velA[k + 1] += gravity * dt;
 
         const d = Math.max(0.0, 1.0 - (drag * dt));
-        rt.vel[k + 0] *= d;
-        rt.vel[k + 1] *= d;
-        rt.vel[k + 2] *= d;
+        velA[k + 0] *= d;
+        velA[k + 1] *= d;
+        velA[k + 2] *= d;
 
-        rt.pos[k + 0] += rt.vel[k + 0] * dt;
-        rt.pos[k + 1] += rt.vel[k + 1] * dt;
-        rt.pos[k + 2] += rt.vel[k + 2] * dt;
+        posA[k + 0] += velA[k + 0] * dt;
+        posA[k + 1] += velA[k + 1] * dt;
+        posA[k + 2] += velA[k + 2] * dt;
 
         rt.alpha[pi] = (rt.op0[pi] + (rt.op1[pi] - rt.op0[pi]) * t);
         rt.psize[pi] = (rt.size0[pi] + (rt.size1[pi] - rt.size0[pi]) * t) * cfg.scale;
@@ -23931,16 +24947,46 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
         if (rotEnabled && rt.rot && rt.rotVel) {
           rt.rot[pi] += rt.rotVel[pi] * dt;
         }
+
+        if (atlasRandomStart && rt.atlasPhase && rt.aframe && atlasEnabled && atlasTotal > 1) {
+          const fi = pi * 2;
+          const frameIdx = atlasSeqStopped ? (atlasTotal - 1) : ((atlasSeqBaseIdx + (rt.atlasPhase[pi] | 0)) % atlasTotal);
+          rt.aframe[fi + 0] = frameIdx % atlasCols;
+          rt.aframe[fi + 1] = (frameIdx / atlasCols) | 0;
+          rt._aframeDirty = 1;
+        }
       }
 
       rt.aliveCount = aliveCount;
+
+      if (isGlobal) {
+        const inv = emitterTmp.m4.copy(rt.group.matrixWorld).invert();
+        const tv = emitterTmp.v3g || (emitterTmp.v3g = new THREE.Vector3());
+
+        for (let pi = 0; pi < rt.alive.length; pi++) {
+          const k = pi * 3;
+          if (rt.alive[pi] === 0) {
+            rt.pos[k + 0] = 0;
+            rt.pos[k + 1] = 0;
+            rt.pos[k + 2] = 0;
+            continue;
+          }
+          tv.set(posA[k + 0], posA[k + 1], posA[k + 2]).applyMatrix4(inv);
+          rt.pos[k + 0] = tv.x;
+          rt.pos[k + 1] = tv.y;
+          rt.pos[k + 2] = tv.z;
+        }
+      }
 
       rt.geo.attributes.position.needsUpdate = true;
       rt.geo.attributes.color.needsUpdate = true;
       rt.geo.attributes.alpha.needsUpdate = true;
       rt.geo.attributes.psize.needsUpdate = true;
       if (rotEnabled && rt.geo.attributes.rot) rt.geo.attributes.rot.needsUpdate = true;
-      if (rt.geo.attributes.aframe) rt.geo.attributes.aframe.needsUpdate = true;
+      if (rt.geo.attributes.aframe && rt._aframeDirty) {
+        rt.geo.attributes.aframe.needsUpdate = true;
+        rt._aframeDirty = 0;
+      }
 
       if (rt.holder) {
         const showGizmo = !!(worldEditState && worldEditState.enabled);
@@ -23955,14 +25001,15 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
+
+
+
   let emitterGuiState = null;
 
   function syncEmitterGuiFromSelection() {
     if (!emitterGuiState || !emitterGuiState._sync) return;
     emitterGuiState._sync();
   }
-
-
 
 
 
@@ -24135,19 +25182,25 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
       importPresets: () => {
         const input = document.createElement("input");
         input.type = "file";
-        input.accept = ".json,application/json";
-        input.onchange = async (e) => {
+        input.accept = "application/json";
+
+        input.onchange = async (ev) => {
           try {
-            const f = e && e.target && e.target.files && e.target.files[0] ? e.target.files[0] : null;
-            if (!f) return;
+            const file = (ev && ev.target && ev.target.files && ev.target.files[0]) ? ev.target.files[0] : null;
+            if (!file) return;
 
-            const txt = await f.text();
-            const json = JSON.parse(txt);
+            const txt = await file.text();
+            const data = JSON.parse(txt);
 
-            const listFromArray = (arr) => {
-              if (!Array.isArray(arr)) return;
-              for (let i = 0; i < arr.length; i++) {
-                const p = arr[i];
+            const presetsIn = (data && data.presets) ? data.presets : null;
+            if (!Array.isArray(presetsIn) && !(presetsIn && typeof presetsIn === "object")) return;
+
+            const bank = loadEmitterPresetBank();
+            if (!bank.presets || typeof bank.presets !== "object") bank.presets = {};
+
+            if (Array.isArray(presetsIn)) {
+              for (let i = 0; i < presetsIn.length; i++) {
+                const p = presetsIn[i];
                 if (!p || typeof p !== "object") continue;
 
                 const id = String(p.id || "").trim();
@@ -24159,20 +25212,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
                 bank.presets[id] = { id, name, defaults };
               }
-            };
-
-            const bank = loadEmitterPresetBank();
-
-            if (Array.isArray(json)) {
-              listFromArray(json);
-            } else if (json && typeof json === "object" && Array.isArray(json.presets)) {
-              listFromArray(json.presets);
             } else {
-              const presetsIn =
-              (json && typeof json === "object" && json.presets && typeof json.presets === "object")
-              ? json.presets
-              : (json && typeof json === "object" ? json : {});
-
               const keys = Object.keys(presetsIn);
               for (let i = 0; i < keys.length; i++) {
                 const k = keys[i];
@@ -24218,6 +25258,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
 
 
+
   const sel = {
     id: "",
     name: "Emitter",
@@ -24235,6 +25276,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     sizeJitter: 0.05,
     opacity: 0.75,
     color: "#ffffff",
+    tintEnabled: true,
     rotate: false,
     rotationSpeed: 0.0,
     rotationJitter: 0.0,
@@ -24259,11 +25301,15 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     atlasIndex: 1,
     atlasSeqEnabled: false,
     atlasSeqPerParticle: false,
+    atlasSeqRandomStart: false,
     atlasSeqFps: 12,
     atlasSeqLoops: 0,
     loop: true,
-    autoStopMs: 0
+    autoStopMs: 0,
+    global: false
   };
+
+
 
 
 
@@ -24300,9 +25346,12 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (typeof selCtrl.updateDisplay === "function") selCtrl.updateDisplay();
   };
 
+
+
   const applySelToRt = (rt) => {
     if (!rt) return;
     rt.cfg.name = String(sel.name || "Emitter");
+    rt.cfg.global = !!sel.global;
 
     const p = rt.cfg.params;
 
@@ -24318,8 +25367,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     p.drag = Math.max(0, Number(sel.drag ?? 1));
     p.size = Math.max(0.001, Number(sel.size ?? 0.08));
     p.sizeJitter = Math.max(0, Number(sel.sizeJitter ?? 0));
+
+
     p.opacity = clamp(Number(sel.opacity ?? 1), 0, 1);
     p.color = String(sel.color || "#ffffff");
+    p.tintEnabled = (sel.tintEnabled !== false);
 
     p.rotate = !!sel.rotate;
     p.rotationSpeed = Number(sel.rotationSpeed ?? 0);
@@ -24355,8 +25407,11 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     p.atlasSeqEnabled = !!sel.atlasSeqEnabled;
     p.atlasSeqPerParticle = !!sel.atlasSeqPerParticle;
+    p.atlasSeqRandomStart = !!sel.atlasSeqRandomStart;
+    if (p.atlasSeqPerParticle) p.atlasSeqRandomStart = false;
     p.atlasSeqFps = Math.max(1, (Number(sel.atlasSeqFps) | 0) || 12);
     p.atlasSeqLoops = Math.max(0, (sel.atlasSeqLoops | 0) || 0);
+
 
 
 
@@ -24409,6 +25464,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     sel.id = rt.cfg.id;
     sel.name = String(rt.cfg.name || "Emitter");
+    sel.global = !!rt.cfg.global;
     sel.maxParticles = (p.maxParticles | 0) || 160;
     sel.rate = Number(p.rate ?? 0);
     sel.burst = (p.burst | 0) || 0;
@@ -24423,18 +25479,19 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     sel.sizeJitter = Number(p.sizeJitter ?? 0);
     sel.opacity = Number(p.opacity ?? 1);
     sel.color = String(p.color || "#ffffff");
+    sel.tintEnabled = (p.tintEnabled !== false);
 
     sel.rotate = !!p.rotate;
     sel.rotationSpeed = Number(p.rotationSpeed ?? 0);
-    sel.rotationJitter = Math.max(0, Number(p.rotationJitter ?? 0));
+    sel.rotationJitter = Number(p.rotationJitter ?? 0);
 
-    sel.opacityStart = Number(p.opacityStart ?? 1);
-    sel.opacityEnd = Number(p.opacityEnd ?? 0);
+    sel.opacityStart = Number.isFinite(p.opacityStart) ? clamp(Number(p.opacityStart), 0, 1) : 1.0;
+    sel.opacityEnd = Number.isFinite(p.opacityEnd) ? clamp(Number(p.opacityEnd), 0, 1) : 0.0;
 
-    sel.sizeStartMin = Number(p.sizeStartMin);
-    sel.sizeStartMax = Number(p.sizeStartMax);
-    sel.sizeEndMin = Number(p.sizeEndMin);
-    sel.sizeEndMax = Number(p.sizeEndMax);
+    sel.sizeStartMin = Number.isFinite(p.sizeStartMin) ? Number(p.sizeStartMin) : NaN;
+    sel.sizeStartMax = Number.isFinite(p.sizeStartMax) ? Number(p.sizeStartMax) : NaN;
+    sel.sizeEndMin = Number.isFinite(p.sizeEndMin) ? Number(p.sizeEndMin) : NaN;
+    sel.sizeEndMax = Number.isFinite(p.sizeEndMax) ? Number(p.sizeEndMax) : NaN;
 
     sel.seed = (p.seed | 0) || 0;
 
@@ -24454,6 +25511,8 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     sel.atlasIndex = Math.max(1, (Number(p.atlasIndex) | 0) || 1);
     sel.atlasSeqEnabled = !!p.atlasSeqEnabled;
+    sel.atlasSeqPerParticle = !!p.atlasSeqPerParticle;
+    sel.atlasSeqRandomStart = !!p.atlasSeqRandomStart;
     sel.atlasSeqFps = Math.max(1, (Number(p.atlasSeqFps) | 0) || 12);
     sel.atlasSeqLoops = Math.max(0, (Number(p.atlasSeqLoops) | 0) || 0);
 
@@ -24480,6 +25539,15 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
   const ctrls = [];
   const push = (c) => { if (c) ctrls.push(c); return c; };
+
+  push(folder.add(sel, "global").name("Global")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
+    if (rt) {
+      applySelToRt(rt);
+      rebuildEmitterRuntimeForId(rt.cfg.id);
+    }
+  });
 
   push(folder.add(sel, "rate", 0, 400, 1).name("Rate/s")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
@@ -24508,43 +25576,43 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "lifeJitter", 0.0, 2.0, 0.01).name("Life jitter")).onChange(() => {
+  push(folder.add(sel, "lifeJitter", 0.0, 5.0, 0.01).name("Life jitter")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "speed", 0.0, 20.0, 0.01).name("Speed")).onChange(() => {
+  push(folder.add(sel, "speed", 0.0, 15.0, 0.01).name("Speed")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "speedJitter", 0.0, 10.0, 0.01).name("Speed jitter")).onChange(() => {
+  push(folder.add(sel, "speedJitter", 0.0, 15.0, 0.01).name("Speed jitter")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "spread", 0.0, 6.0, 0.01).name("Spread")).onChange(() => {
+  push(folder.add(sel, "spread", 0.0, 3.14, 0.01).name("Spread")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "gravity", -30.0, 30.0, 0.01).name("Gravity")).onChange(() => {
+  push(folder.add(sel, "gravity", -10.0, 10.0, 0.01).name("Gravity")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "drag", 0.0, 8.0, 0.01).name("Drag")).onChange(() => {
+  push(folder.add(sel, "drag", 0.0, 10.0, 0.01).name("Drag")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "size", 0.001, 1.5, 0.001).name("Size")).onChange(() => {
+  push(folder.add(sel, "size", 0.001, 1.0, 0.001).name("Size")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
@@ -24556,13 +25624,20 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "opacity", 0.0, 1.0, 0.001).name("Opacity")).onChange(() => {
+  push(folder.add(sel, "opacity", 0.0, 1.0, 0.01).name("Opacity")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.addColor(sel, "color").name("Color")).onChange(() => {
+  const colorCtrl = push(folder.addColor(sel, "color").name("Color"));
+  colorCtrl.onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
+    if (rt) applySelToRt(rt);
+  });
+
+  push(folder.add(sel, "tintEnabled").name("Tint")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
@@ -24571,10 +25646,7 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
   push(folder.add(sel, "rotate").name("Rotate")).onChange(() => {
     const sid = String(emitterGuiState.selected || "");
     const rt = sid ? emitterState.runtime.get(sid) : null;
-    if (rt) {
-      applySelToRt(rt);
-      rebuildEmitterRuntimeForId(rt.cfg.id);
-    }
+    if (rt) applySelToRt(rt);
   });
 
   push(folder.add(sel, "rotationSpeed", -20.0, 20.0, 0.01).name("Rot speed")).onChange(() => {
@@ -24589,170 +25661,184 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "opacityStart", 0.0, 1.0, 0.001).name("Opacity0")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "opacityStart", 0.0, 1.0, 0.01).name("Op start")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "opacityEnd", 0.0, 1.0, 0.001).name("Opacity1")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "opacityEnd", 0.0, 1.0, 0.01).name("Op end")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "sizeStartMin", 0.001, 0.5, 0.001).name("Size0 min")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "sizeStartMin", 0.001, 2.0, 0.001).name("Size0 min")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "sizeStartMax", 0.001, 0.5, 0.001).name("Size0 max")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "sizeStartMax", 0.001, 2.0, 0.001).name("Size0 max")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "sizeEndMin", 0.001, 0.5, 0.001).name("Size1 min")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "sizeEndMin", 0.001, 2.0, 0.001).name("Size1 min")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "sizeEndMax", 0.001, 0.5, 0.001).name("Size1 max")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "sizeEndMax", 0.001, 2.0, 0.001).name("Size1 max")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  const swirlAxisOpts = { X: "x", Y: "y", Z: "z" };
-  push(folder.add(sel, "swirlAxis", swirlAxisOpts).name("Swirl axis")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "seed", 0, 9999, 1).name("Seed")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "swirlStrength", -30.0, 30.0, 0.1).name("Swirl")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "swirlStrength", -10.0, 10.0, 0.01).name("Swirl")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "swirlPull", -30.0, 30.0, 0.1).name("Vortex pull")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "swirlDamp", 0.0, 10.0, 0.01).name("Swirl damp")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "swirlDamp", 0.0, 20.0, 0.1).name("Swirl damp")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "swirlPull", -10.0, 10.0, 0.01).name("Swirl pull")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  const noiseModeOpts = { None: "none", Turbulence: "turb", Curl: "curl" };
-  push(folder.add(sel, "noiseMode", noiseModeOpts).name("Noise")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "swirlAxis", ["x", "y", "z"]).name("Swirl axis")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "noiseStrength", 0.0, 30.0, 0.1).name("Noise str")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "noiseMode", ["none", "value", "curl"]).name("Noise")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "noiseScale", 0.05, 6.0, 0.05).name("Noise scale")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "noiseStrength", 0.0, 10.0, 0.01).name("Noise str")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  push(folder.add(sel, "noiseSpeed", 0.0, 4.0, 0.05).name("Noise speed")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  push(folder.add(sel, "noiseScale", 0.01, 5.0, 0.01).name("Noise scale")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
+  push(folder.add(sel, "noiseSpeed", 0.0, 5.0, 0.01).name("Noise speed")).onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
+    if (rt) applySelToRt(rt);
+  });
 
-  const shapeOpts = {
-    Square: "square",
-    Dot: "dot",
-    Cross: "cross",
-    Triangle: "triangle",
-    Texture: "tex",
-    Spritesheet: "sprite"
-  };
-
-  push(folder.add(sel, "shape", shapeOpts).name("Particle")).onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  const shapeCtrl = push(folder.add(sel, "shape", ["square", "dot", "cross", "tex", "sprite"]).name("Shape"));
+  shapeCtrl.onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
     updateSpriteControls();
   });
 
   const texturePickCtrl = push(folder.add(sel, "texturePick", getEmitterTextureOptions()).name("Texture"));
   texturePickCtrl.onChange(() => {
-    const t = getEmitterTextureById(sel.texturePick);
-    sel.textureUrl = t && t.path ? String(t.path) : "";
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
     updateSpriteControls();
   });
 
-  push(folder.add(sel, "textureUrl").name("Texture url")).onChange(() => {
-    sel.texturePick = getEmitterTextureIdFromPath(sel.textureUrl);
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+  const textureUrlCtrl = push(folder.add(sel, "textureUrl").name("Texture URL"));
+  textureUrlCtrl.onFinishChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
     updateSpriteControls();
   });
 
-  const atlasIndexCtrl = push(folder.add(sel, "atlasIndex", 1, 16, 1).name("Sprite idx"));
+  const atlasIndexCtrl = push(folder.add(sel, "atlasIndex", 1, 64, 1).name("Atlas index"));
   atlasIndexCtrl.onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  const atlasSeqEnabledCtrl = push(folder.add(sel, "atlasSeqEnabled").name("Use sequence"));
+  const atlasSeqEnabledCtrl = push(folder.add(sel, "atlasSeqEnabled").name("Atlas seq"));
   atlasSeqEnabledCtrl.onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
     updateSpriteControls();
   });
-
-
 
   const atlasSeqPerParticleCtrl = push(folder.add(sel, "atlasSeqPerParticle").name("Seq per particle"));
   atlasSeqPerParticleCtrl.onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
+    updateSpriteControls();
   });
 
-
-
-
-
-
+  const atlasSeqRandomStartCtrl = push(folder.add(sel, "atlasSeqRandomStart").name("Seq random start"));
+  atlasSeqRandomStartCtrl.onChange(() => {
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
+    if (rt) applySelToRt(rt);
+    updateSpriteControls();
+  });
 
   const atlasSeqFpsCtrl = push(folder.add(sel, "atlasSeqFps", 1, 60, 1).name("Seq FPS"));
   atlasSeqFpsCtrl.onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
 
-  const atlasSeqLoopsCtrl = push(folder.add(sel, "atlasSeqLoops", 0, 50, 1).name("Seq loops"));
+  const atlasSeqLoopsCtrl = push(folder.add(sel, "atlasSeqLoops", 0, 20, 1).name("Seq loops"));
   atlasSeqLoopsCtrl.onChange(() => {
-    const rt = emitterState.runtime.get(String(emitterGuiState.selected || ""));
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
     if (rt) applySelToRt(rt);
   });
-
-
 
   function updateSpriteControls() {
-    const shape = String(sel.shape || "square").trim().toLowerCase();
-    const texUrl = String(sel.textureUrl || "").trim();
-    const texId = String(sel.texturePick || "").trim() || (texUrl ? getEmitterTextureIdFromPath(texUrl) : "");
+    const sid = String(emitterGuiState.selected || "");
+    const rt = sid ? emitterState.runtime.get(sid) : null;
+    if (!rt) return;
+
+    const p = rt.cfg.params;
+    const isSprite = String(sel.shape || "square").trim().toLowerCase() === "sprite";
+    const texId = String(sel.texturePick || "").trim();
     const meta = texId ? getEmitterTextureById(texId) : null;
 
-    const isSprite = (shape === "sprite");
     const isAtlas = !!(meta && meta.type === "atlas" && Array.isArray(meta.matrix) && meta.matrix.length >= 2);
-
-    let total = 1;
-    if (isAtlas) {
-      const cols = Math.max(1, (Number(meta.matrix[0]) | 0) || 1);
-      const rows = Math.max(1, (Number(meta.matrix[1]) | 0) || 1);
-      total = Math.max(1, cols * rows);
-    }
+    const cols = isAtlas ? Math.max(1, (Number(meta.matrix[0]) | 0) || 1) : 1;
+    const rows = isAtlas ? Math.max(1, (Number(meta.matrix[1]) | 0) || 1) : 1;
+    const total = Math.max(1, cols * rows);
 
     atlasIndexCtrl.domElement.style.display = (isSprite && isAtlas) ? "" : "none";
     atlasSeqEnabledCtrl.domElement.style.display = (isSprite && isAtlas) ? "" : "none";
     atlasSeqPerParticleCtrl.domElement.style.display = (isSprite && isAtlas && !!sel.atlasSeqEnabled) ? "" : "none";
+    atlasSeqRandomStartCtrl.domElement.style.display = (isSprite && isAtlas && !!sel.atlasSeqEnabled && !sel.atlasSeqPerParticle) ? "" : "none";
     atlasSeqFpsCtrl.domElement.style.display = (isSprite && isAtlas && !!sel.atlasSeqEnabled) ? "" : "none";
     atlasSeqLoopsCtrl.domElement.style.display = (isSprite && isAtlas && !!sel.atlasSeqEnabled) ? "" : "none";
 
@@ -24761,16 +25847,18 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
 
     if (!(isSprite && isAtlas)) sel.atlasSeqEnabled = false;
     if (!(isSprite && isAtlas && !!sel.atlasSeqEnabled)) sel.atlasSeqPerParticle = false;
+    if (!(isSprite && isAtlas && !!sel.atlasSeqEnabled && !sel.atlasSeqPerParticle)) sel.atlasSeqRandomStart = false;
 
     if (typeof atlasIndexCtrl.updateDisplay === "function") atlasIndexCtrl.updateDisplay();
     if (typeof atlasSeqEnabledCtrl.updateDisplay === "function") atlasSeqEnabledCtrl.updateDisplay();
     if (typeof atlasSeqPerParticleCtrl.updateDisplay === "function") atlasSeqPerParticleCtrl.updateDisplay();
+    if (typeof atlasSeqRandomStartCtrl.updateDisplay === "function") atlasSeqRandomStartCtrl.updateDisplay();
     if (typeof atlasSeqFpsCtrl.updateDisplay === "function") atlasSeqFpsCtrl.updateDisplay();
     if (typeof atlasSeqLoopsCtrl.updateDisplay === "function") atlasSeqLoopsCtrl.updateDisplay();
   }
 
-
   updateSpriteControls();
+
 
 
 
@@ -24858,8 +25946,6 @@ function updateSettlers(dt, baseWindX, baseWindZ) {
   folder.close();
   presetsFolder.close();
 }
-
-
 
 
 

@@ -218,7 +218,124 @@
       ],
       "matrix": [6,6],
       "path": "assets/images/textures/atlases/leaf1_6x6_512x512.png"
-    }
+    },
+    {
+      "id": "leafflow1",
+      "name": "Leaf and Flower 1",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [8,8],
+      "path": "assets/images/textures/atlases/leafflow_8x8_512x512.png"
+    },
+
+    {
+      "id": "blow1",
+      "name": "Strange Ball 1",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/blo1_4x4_512x512.png"
+    },
+    {
+      "id": "bfly1",
+      "name": "Butter fly 1",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/bfly_4x4_512x512.png"
+    },
+    {
+      "id": "bfly2",
+      "name": "Butter fly 2",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/bf2_4x4_512x512.png"
+    },
+    {
+      "id": "bfly3",
+      "name": "Butter fly 3",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/bf3_4x4_512x512.png"
+    },
+
+    {
+      "id": "hummingbird1",
+      "name": "Humming Bird 1",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/hb_4x4_512x512.png"
+    },
+
+    {
+      "id": "bats1",
+      "name": "Little Bats 3",
+      "type": "atlas",
+      "size": [
+        512,
+        512
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/bat3_4x4_512x512.png"
+    },    
+
+    {
+      "id": "fire1",
+      "name": "Fire Stone 1",
+      "type": "atlas",
+      "size": [
+        1024,
+        1024
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/fire_4x4_1024x1024.png"
+    },    
+
+    {
+      "id": "fire2",
+      "name": "Fire Stone 2",
+      "type": "atlas",
+      "size": [
+        1024,
+        1024
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/fire2-c_4x4_1024x1024.png"
+    },    
+
+    {
+      "id": "fire3",
+      "name": "Fire Stone 3",
+      "type": "atlas",
+      "size": [
+        1024,
+        1024
+      ],
+      "matrix": [4,4],
+      "path": "assets/images/textures/atlases/fire3-c1_4x4_1024x1024.png"
+    }    
+
 
   ]
 }

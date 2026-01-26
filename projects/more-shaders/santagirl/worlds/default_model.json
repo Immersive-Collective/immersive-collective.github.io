@@ -596,47 +596,72 @@
   },
 
 
-  {
-    "name": "jetpack",
-    "url": "models/vehicles/jetpacks/jetpack.glb",
-    "instances": [
-      {
-        "id": "jetpack_copy",
-        "position": [
-          2.560453124291323,
-          -0.7135154156748085,
-          -4.578173205368428
-        ],
-        "rotation": [
-          0,
-          1.4026286626579993,
-          0
-        ],
-        "scale": 1,
-        "stick": false,
-        "collide": false,
-        "equipment": {
-          "type": "Jetpack",
-          "description": "Personal jetpack One",
-          "action": "jetpack",
-          "attach": {
-            "bone": "mixamorigSpine2",
-            "position": [
-              0,
-              -135.913,
-              3.77000000000001
-            ],
-            "rotation": [
-              0,
-              0,
-              0
-            ],
-            "scale": 1
+   {
+      "name": "backpack",
+      "url": "models/backpacks/backpack1.glb",
+      "instances": [
+        {
+          "id": "backpack1",
+          "position": [
+            19.832548071409395,
+            0.6473491956208283,
+            -22.33063077339725
+          ],
+          "rotation": [
+            0,
+            4.6878985652930485,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Backpack",
+            "description": "Wearable backpack 1",
+            "action": "",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -20.062,
+                -15.829
+              ],
+              "rotation": [
+                2.96040734641021,
+                3.141592653589793,
+                3.1
+              ],
+              "scale": 1
+            },
+            "emitters": [
+              {
+                "id": "eq_backpack1_em_1_r9op",
+                "presetId": "digits",
+                "enabled": true,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": 1,
+                "speedDriver": {
+                  "enabled": true,
+                  "idle": 3.762,
+                  "max": 1,
+                  "mult": 1,
+                  "vyMax": 6
+                }
+              }
+            ]
           }
         }
-      }
-    ]
-  },
+      ]
+    },
 
   {
     "name": "medical",

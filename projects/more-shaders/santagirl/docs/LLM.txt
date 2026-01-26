@@ -90,5 +90,8 @@ Simplfified:
 * avoid providing small helpers or overwriting functions as patches or solutions
 * avoid creating redundant duplicated function they do the same but have different name
 
+*only one answer - never confuse me with 2 answers - I am not a A/B test labolatory rat! fuck you moron
+
+* you are not here to analyze someones language - you are here to provide the best code, state of the art - if you provide literally crap - you will be called names - period.
 
 

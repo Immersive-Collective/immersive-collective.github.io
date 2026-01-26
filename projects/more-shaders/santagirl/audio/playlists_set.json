@@ -63,7 +63,20 @@
       "thumbnail": "obs.png",
       "order": 0,
       "loop": false
-    }        
+    } 
+
+,
+    {
+      "id": "endless",
+      "folder": "endless",
+      "title": "Endless",
+      "artist": "Endles Art",
+      "description": "Endless Music",
+      "thumbnail": "endles.png",
+      "order": 0,
+      "loop": false
+    } 
+
 
   ]
 }

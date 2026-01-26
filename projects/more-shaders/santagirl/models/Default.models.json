@@ -591,47 +591,174 @@
       }
     ]
   },
-  {
-    "name": "jetpack",
-    "url": "models/vehicles/jetpacks/jetpack.glb",
-    "instances": [
-      {
-        "id": "jetpack1",
-        "position": [
-          2.560453124291323,
-          -0.7135154156748085,
-          -4.578173205368428
-        ],
-        "rotation": [
-          0,
-          1.4026286626579993,
-          0
-        ],
-        "scale": 1,
-        "stick": false,
-        "collide": false,
-        "equipment": {
-          "type": "Jetpack",
-          "description": "Personal jetpack One 1",
-          "action": "jetpack",
-          "attach": {
-            "bone": "mixamorigSpine2",
-            "position": [
-              0,
-              -135.913,
-              3.77000000000001
-            ],
-            "rotation": [
-              0,
-              0,
-              0
-            ],
-            "scale": 1
+
+
+    {
+      "name": "jetpack",
+      "url": "models/vehicles/jetpacks/jetpack.glb",
+      "instances": [
+        {
+          "id": "jetpack1",
+          "position": [
+            2.560453124291323,
+            -0.7135154156748085,
+            -4.578173205368428
+          ],
+          "rotation": [
+            0,
+            1.4026286626579993,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Jetpack",
+            "description": "Personal jetpack One 1",
+            "action": "jetpack",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -135.913,
+                3.77000000000001
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": 1
+            }
+          }
+        },
+        {
+          "id": "jetpack_copy",
+          "position": [
+            -12.862415380925153,
+            0.5009050637467318,
+            -6.359126898285431
+          ],
+          "rotation": [
+            0,
+            0.46713873789547117,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Jetpack",
+            "description": "Personal jetpack One 1",
+            "action": "jetpack",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -135.913,
+                3.77000000000001
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": 1
+            },
+            "emitters": [
+              {
+                "id": "eq_jetpack_copy_em_4_wrbn",
+                "presetId": "jetengine1",
+                "enabled": true,
+                "position": [
+                  0,
+                  1.116,
+                  -0.263
+                ],
+                "rotation": [
+                  0,
+                  -1.56959265358979,
+                  1.41440734641021
+                ],
+                "scale": 0.679,
+                "speedDriver": {
+                  "enabled": true,
+                  "idle": 0.02,
+                  "max": 6.435,
+                  "mult": 1,
+                  "vyMax": 39.624
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "jetpack_copy2",
+          "position": [
+            -0.022545965043927085,
+            0.8879974508603332,
+            3.0191971170780434
+          ],
+          "rotation": [
+            0,
+            3.7981314352933433,
+            0
+          ],
+          "scale": 1,
+          "stick": false,
+          "collide": false,
+          "equipment": {
+            "type": "Jetpack",
+            "description": "Personal jetpack One 1",
+            "action": "jetpack",
+            "attach": {
+              "bone": "mixamorigSpine2",
+              "position": [
+                0,
+                -135.913,
+                3.77000000000001
+              ],
+              "rotation": [
+                0,
+                0,
+                0
+              ],
+              "scale": 1
+            },
+            "emitters": [
+              {
+                "id": "eq_jetpack_copy2_em_4_bltc",
+                "presetId": "jetengine1",
+                "enabled": true,
+                "global": true,
+                "position": [
+                  0,
+                  1.334,
+                  -0.26
+                ],
+                "rotation": [
+                  1.57040734641021,
+                  -0.255592653589793,
+                  0.375407346410207
+                ],
+                "scale": 1,
+                "speedDriver": {
+                  "enabled": true,
+                  "idle": 0,
+                  "max": 0.49,
+                  "mult": 1.09,
+                  "vyMax": 21.8
+                }
+              }
+            ]
           }
         }
-      }
-    ]
-  },
+      ]
+    },
+
+
+
+  
   {
     "name": "backpack",
     "url": "models/backpacks/backpack1.glb",
