@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Procedural Engine Synth + lil-gui (single file, functional)</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin:0; background:#0b0d10; color:#e8eef7; font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    .hud {
+      position:fixed; left:12px; right:12px; bottom:12px;
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      padding:10px 12px; border:1px solid #1b2330; background:#0e1218cc; backdrop-filter: blur(8px);
+      border-radius:12px;
+    }
+    .pill { padding:6px 10px; border:1px solid #1b2330; border-radius:999px; background:#0b0f15; color:#b8c6db; }
+    .pill b { color:#e8eef7; }
+    a { color:#88aefc; text-decoration:none; }
+    input[type="file"] { display:none; }
+    code { color:#cfe2ff; }
+  </style>
+</head>
+<body>
+  <div class="hud">
+    <span class="pill">Status: <b id="status">Idle</b></span>
+    <span class="pill">RPM: <b id="rpm">—</b></span>
+    <span class="pill">Gear: <b id="gear">—</b></span>
+    <span class="pill">Note: run on <code>https</code> or <code>http://localhost</code> (AudioWorklet)</span>
+    <label class="pill" style="cursor:pointer;">
+      Import JSON
+      <input id="importFile" type="file" accept="application/json" />
+    </label>
+    <a class="pill" id="exportLink" href="#" download="engine-presets.json">Export JSON</a>
+  </div>
+
+  <script type="module">
+    import GUI from "https://cdn.jsdelivr.net/npm/lil-gui@0.20.0/+esm";
+
+    // ---- AudioWorklet source (kept isolated; WebAudio requires class-based processor) ----
+    const workletSource = `
+      class EngineSynthProcessor extends AudioWorkletProcessor {
+        static get parameterDescriptors() {
+          return [
+            { name:'rpm', defaultValue:900, minValue:0, maxValue:20000, automationRate:'k-rate' },
+            { name:'throttle', defaultValue:0.2, minValue:0, maxValue:1, automationRate:'k-rate' },
+            { name:'tone', defaultValue:0.8, minValue:0, maxValue:1, automationRate:'k-rate' },
+            { name:'noise', defaultValue:0.3, minValue:0, maxValue:1, automationRate:'k-rate' },
+            { name:'whoosh', defaultValue:0.35, minValue:0, maxValue:1, automationRate:'k-rate' },
+            { name:'jitter', defaultValue:0.04, minValue:0, maxValue:0.2, automationRate:'k-rate' },
+            { name:'resonance', defaultValue:0.4, minValue:0, maxValue:1, automationRate:'k-rate' },
+            { name:'profile', defaultValue:0, minValue:0, maxValue:3, automationRate:'k-rate' }, // 0 piston,1 diesel,2 electric,3 jet
+            { name:'cylinders', defaultValue:6, minValue:1, maxValue:16, automationRate:'k-rate' },
+            { name:'speed', defaultValue:0, minValue:0, maxValue:300, automationRate:'k-rate' },
+            { name:'gain', defaultValue:0.7, minValue:0, maxValue:2, automationRate:'k-rate' }
+          ];
+        }
+        constructor() {
+          super();
+          this.phase = 0;
+          this.noiseLP = 0;
+          this.whooshLP = 0;
+          this.rng = 1337;
+        }
+        rand() {
+          this.rng = (1664525 * this.rng + 1013904223) >>> 0;
+          return (this.rng / 4294967296) * 2 - 1;
+        }
+        process(_, outputs, p) {
+          const out = outputs[0];
+          const L = out[0];
+          const R = out[1] || out[0];
+
+          const rpm = p.rpm[0];
+          const throttle = p.throttle[0];
+          const tone = p.tone[0];
+          const noise = p.noise[0];
+          const whoosh = p.whoosh[0];
+          const jitter = p.jitter[0];
+          const resonance = p.resonance[0];
+          const profile = Math.round(p.profile[0]);
+          const cylinders = Math.max(1, Math.round(p.cylinders[0]));
+          const speed = p.speed[0];
+          const gain = p.gain[0];
+
+          // 4-stroke-ish firing fundamental: rpm/60 * cylinders/2
+          let baseHz = (rpm / 60) * (cylinders / 2);
+          if (profile === 1) baseHz *= 0.75;   // diesel
+          if (profile === 2) baseHz *= 1.15;   // electric
+          if (profile === 3) baseHz *= 1.60;   // jet
+
+          baseHz = Math.min(Math.max(baseHz, 8), 1200);
+          const hz = baseHz * (1 + this.rand() * jitter * (0.2 + 0.8 * throttle));
+
+          let harmonics = 18, roll = 1.35;
+          if (profile === 1) { harmonics = 14; roll = 1.55; }
+          if (profile === 2) { harmonics = 10; roll = 1.75; }
+          if (profile === 3) { harmonics = 22; roll = 1.25; }
+
+          const bodyCenter = 160 + 140 * resonance;
+          const bodyQish = 0.012 + 0.02 * resonance;
+
+          for (let i = 0; i < L.length; i++) {
+            this.phase += hz / sampleRate;
+            if (this.phase >= 1) this.phase -= 1;
+
+            const ph = this.phase * 2 * Math.PI;
+
+            // Additive tone
+            let t = 0;
+            for (let h = 1; h <= harmonics; h++) {
+              const amp = 1 / Math.pow(h, roll);
+              const oddBoost = (h % 2) ? (0.9 + 0.6 * throttle) : (0.7 - 0.2 * throttle);
+              const det = 1 + this.rand() * 0.0005 * throttle;
+              t += Math.sin(ph * h * det) * amp * oddBoost;
+            }
+            t *= 0.45 * tone;
+
+            // Body emphasis (cheap proximity curve)
+            const dist = Math.abs(hz - bodyCenter);
+            const body = Math.exp(-dist * dist * bodyQish * bodyQish);
+            t *= (0.75 + 0.75 * resonance * body);
+
+            // Textures
+            const n = this.rand();
+            const noiseCut = 0.02 + 0.22 * throttle + (profile === 3 ? 0.08 : 0);
+            this.noiseLP += (n - this.noiseLP) * noiseCut;
+
+            const wn = this.rand();
+            const whooshCut = 0.01 + 0.12 * Math.min(1, speed / 60);
+            this.whooshLP += (wn - this.whooshLP) * whooshCut;
+
+            let mix = 0;
+            mix += t;
+            mix += this.noiseLP  * (0.35 * noise)  * (0.25 + 0.75 * throttle);
+            mix += this.whooshLP * (0.55 * whoosh) * (0.15 + 0.85 * Math.min(1, speed / 80));
+
+            if (profile === 3) mix += Math.sin(ph * (6 + 8 * throttle)) * 0.12 * (0.2 + 0.8 * throttle);
+
+            mix *= gain;
+
+            L[i] = mix;
+            R[i] = mix;
+          }
+          return true;
+        }
+      }
+      registerProcessor('engine-synth', EngineSynthProcessor);
+    `;
+
+    // ---- Utilities ----
+    const $ = (id) => document.getElementById(id);
+    const statusEl = $("status");
+    const rpmEl = $("rpm");
+    const gearEl = $("gear");
+    const importFile = $("importFile");
+    const exportLink = $("exportLink");
+
+    const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    const profileToIndex = (s) => ({ piston:0, diesel:1, electric:2, jet:3 }[s] ?? 0);
+
+    const driveCurve = (amount) => {
+      const k = 1 + clamp(amount, 0, 1) * 60;
+      const n = 1024;
+      const curve = new Float32Array(n);
+      const denom = Math.tanh(k);
+      for (let i = 0; i < n; i++) {
+        const x = (i * 2) / (n - 1) - 1;
+        curve[i] = Math.tanh(k * x) / denom;
+      }
+      return curve;
+    };
+
+    // Simple stepped gear mapping (replace with real drivetrain later)
+    const computeGearAndRpm = (speed, throttle, map) => {
+      const idle = map.idleRpm;
+      const red = map.redlineRpm;
+      const top = Math.max(1, map.topSpeed);
+      const gears = Math.max(1, Math.round(map.gears));
+
+      const s = clamp(speed / top, 0, 1);
+      const gear = clamp(Math.floor(s * gears) + 1, 1, gears);
+      const gMin = (gear - 1) / gears;
+      const gMax = gear / gears;
+      const gS = (s - gMin) / Math.max(1e-6, (gMax - gMin)); // 0..1 in gear
+      const tBias = 0.25 + 0.75 * throttle;
+      const rpm = idle + (red - idle) * Math.pow(clamp(gS * tBias, 0, 1), 0.85);
+      return { gear, rpm: clamp(rpm, idle, red) };
+    };
+
+    // ---- Presets ----
+    const LS_KEY = "proc_engine_presets_v2";
+
+    const DEFAULT_PRESETS = {
+      "V6 Sport": {
+        profile:"piston", cylinders:6,
+        tone:0.85, noise:0.25, whoosh:0.35, jitter:0.045, resonance:0.45,
+        gain:0.75, lowpassHz:1800, grit:0.35, comp:0.45,
+        mapping:{ idleRpm:900, redlineRpm:7200, topSpeed:70, gears:6 },
+        emitter:{ x:0, y:0, z:0, model:"inverse", refDistance:1, maxDistance:50, rolloffFactor:1 }
+      },
+      "Diesel Truck": {
+        profile:"diesel", cylinders:8,
+        tone:0.70, noise:0.40, whoosh:0.25, jitter:0.060, resonance:0.60,
+        gain:0.80, lowpassHz:1200, grit:0.25, comp:0.55,
+        mapping:{ idleRpm:650, redlineRpm:4200, topSpeed:55, gears:6 },
+        emitter:{ x:0, y:0, z:0, model:"inverse", refDistance:1, maxDistance:60, rolloffFactor:1 }
+      },
+      "Electric": {
+        profile:"electric", cylinders:3,
+        tone:0.65, noise:0.15, whoosh:0.25, jitter:0.010, resonance:0.20,
+        gain:0.70, lowpassHz:5500, grit:0.12, comp:0.25,
+        mapping:{ idleRpm:200, redlineRpm:16000, topSpeed:80, gears:1 },
+        emitter:{ x:0, y:0, z:0, model:"inverse", refDistance:1, maxDistance:50, rolloffFactor:1 }
+      },
+      "Jet Turbine": {
+        profile:"jet", cylinders:12,
+        tone:0.55, noise:0.55, whoosh:0.75, jitter:0.020, resonance:0.25,
+        gain:0.80, lowpassHz:8000, grit:0.15, comp:0.50,
+        mapping:{ idleRpm:1200, redlineRpm:18000, topSpeed:170, gears:1 },
+        emitter:{ x:0, y:0, z:0, model:"inverse", refDistance:3, maxDistance:200, rolloffFactor:1 }
+      }
+    };
+
+    const loadPresets = () => {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) return structuredClone(DEFAULT_PRESETS);
+        const obj = JSON.parse(raw);
+        return { ...structuredClone(DEFAULT_PRESETS), ...obj };
+      } catch {
+        return structuredClone(DEFAULT_PRESETS);
+      }
+    };
+
+    const savePresets = (p) => localStorage.setItem(LS_KEY, JSON.stringify(p, null, 2));
+
+    let presets = loadPresets();
+
+    // ---- Audio graph factory (functional, no classes) ----
+    const createEngine = async () => {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
+
+      // Worklet module from Blob
+      const url = URL.createObjectURL(new Blob([workletSource], { type:"application/javascript" }));
+      await ctx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+
+      const master = ctx.createGain();
+      master.gain.value = 0.8;
+      master.connect(ctx.destination);
+
+      const synth = new AudioWorkletNode(ctx, "engine-synth", {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [2]
+      });
+
+      const lowpass = ctx.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = 1400;
+      lowpass.Q.value = 0.7;
+
+      const drive = ctx.createWaveShaper();
+      drive.oversample = "4x";
+      drive.curve = driveCurve(0.25);
+
+      const comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -18;
+      comp.knee.value = 18;
+      comp.ratio.value = 4;
+      comp.attack.value = 0.003;
+      comp.release.value = 0.12;
+
+      const panner = ctx.createPanner();
+      panner.panningModel = "HRTF";
+      panner.distanceModel = "inverse";
+      panner.refDistance = 1;
+      panner.maxDistance = 50;
+      panner.rolloffFactor = 1;
+
+      // wire
+      synth.connect(lowpass);
+      lowpass.connect(drive);
+      drive.connect(comp);
+      comp.connect(panner);
+      panner.connect(master);
+
+      // internal state (closure)
+      let speed = 0;
+      let throttle = 0.25;
+      let rpm = 900;
+      let gear = 1;
+
+      // smooth param set helper
+      const setParam = (name, value, t = 0.01) => {
+        const p = synth.parameters.get(name);
+        if (!p) return;
+        const now = ctx.currentTime;
+        p.cancelScheduledValues(now);
+        p.setValueAtTime(p.value, now);
+        p.linearRampToValueAtTime(value, now + t);
+      };
+
+      const applyConfig = (cfg) => {
+        setParam("profile", profileToIndex(cfg.profile));
+        setParam("cylinders", cfg.cylinders);
+        setParam("tone", cfg.tone);
+        setParam("noise", cfg.noise);
+        setParam("whoosh", cfg.whoosh);
+        setParam("jitter", cfg.jitter);
+        setParam("resonance", cfg.resonance);
+        setParam("gain", cfg.gain);
+
+        lowpass.frequency.setTargetAtTime(cfg.lowpassHz, ctx.currentTime, 0.02);
+        drive.curve = driveCurve(cfg.grit);
+
+        // "comp amount" by moving ratio/threshold
+        const mix = cfg.comp;
+        comp.threshold.setTargetAtTime(-10 - 20 * mix, ctx.currentTime, 0.02);
+        comp.ratio.setTargetAtTime(2 + 10 * mix, ctx.currentTime, 0.02);
+
+        // emitter params
+        const e = cfg.emitter;
+        if (e) {
+          panner.distanceModel = e.model;
+          panner.refDistance = e.refDistance;
+          panner.maxDistance = e.maxDistance;
+          panner.rolloffFactor = e.rolloffFactor;
+          panner.positionX.value = e.x;
+          panner.positionY.value = e.y;
+          panner.positionZ.value = e.z;
+        }
+      };
+
+      const setMaster = (v) => master.gain.setTargetAtTime(v, ctx.currentTime, 0.02);
+
+      const setSpeed = (v) => {
+        speed = Math.max(0, v);
+        setParam("speed", speed);
+      };
+
+      const setThrottle = (v) => {
+        throttle = clamp(v, 0, 1);
+        setParam("throttle", throttle);
+      };
+
+      const setPosition = (x, y, z) => {
+        panner.positionX.value = x;
+        panner.positionY.value = y;
+        panner.positionZ.value = z;
+      };
+
+      const setListenerPose = (pos, fwd, up) => {
+        // pos: {x,y,z}, fwd/up: {x,y,z}
+        // Works in modern browsers; fallback ignored if not supported.
+        try {
+          const L = ctx.listener;
+          if ("positionX" in L) {
+            L.positionX.value = pos.x; L.positionY.value = pos.y; L.positionZ.value = pos.z;
+            L.forwardX.value = fwd.x; L.forwardY.value = fwd.y; L.forwardZ.value = fwd.z;
+            L.upX.value = up.x; L.upY.value = up.y; L.upZ.value = up.z;
+          } else if (L.setPosition && L.setOrientation) {
+            L.setPosition(pos.x, pos.y, pos.z);
+            L.setOrientation(fwd.x, fwd.y, fwd.z, up.x, up.y, up.z);
+          }
+        } catch {}
+      };
+
+      const tick = (cfg) => {
+        const r = computeGearAndRpm(speed, throttle, cfg.mapping);
+        gear = r.gear;
+        rpm = r.rpm;
+        setParam("rpm", rpm, 0.03);
+        return { rpm, gear, speed, throttle };
+      };
+
+      const stop = async () => {
+        try { synth.disconnect(); } catch {}
+        try { await ctx.close(); } catch {}
+      };
+
+      return {
+        ctx,
+        applyConfig,
+        setMaster,
+        setSpeed,
+        setThrottle,
+        setPosition,
+        setListenerPose,
+        tick,
+        stop
+      };
+    };
+
+    // ---- lil-gui + App state ----
+    const state = {
+      preset: Object.keys(presets)[0] ?? "V6 Sport",
+      // transport
+      start: async () => {},
+      stop: async () => {},
+      master: 0.8,
+      speed: 0,
+      throttle: 0.25,
+
+      // engine params (filled from preset)
+      profile: "piston",
+      cylinders: 6,
+      tone: 0.8,
+      noise: 0.3,
+      whoosh: 0.35,
+      jitter: 0.04,
+      resonance: 0.4,
+      gain: 0.75,
+      lowpassHz: 1400,
+      grit: 0.25,
+      comp: 0.4,
+
+      mapping_idleRpm: 900,
+      mapping_redlineRpm: 7200,
+      mapping_topSpeed: 70,
+      mapping_gears: 6,
+
+      emitter_x: 0,
+      emitter_y: 0,
+      emitter_z: 0,
+      emitter_model: "inverse",
+      emitter_refDistance: 1,
+      emitter_maxDistance: 50,
+      emitter_rolloffFactor: 1,
+
+      // preset ops
+      savePreset: () => {},
+      deletePreset: () => {},
+      resetDefaults: () => {},
+    };
+
+    const packConfig = () => ({
+      profile: state.profile,
+      cylinders: state.cylinders,
+      tone: state.tone,
+      noise: state.noise,
+      whoosh: state.whoosh,
+      jitter: state.jitter,
+      resonance: state.resonance,
+      gain: state.gain,
+      lowpassHz: state.lowpassHz,
+      grit: state.grit,
+      comp: state.comp,
+      mapping: {
+        idleRpm: state.mapping_idleRpm,
+        redlineRpm: state.mapping_redlineRpm,
+        topSpeed: state.mapping_topSpeed,
+        gears: state.mapping_gears
+      },
+      emitter: {
+        x: state.emitter_x, y: state.emitter_y, z: state.emitter_z,
+        model: state.emitter_model,
+        refDistance: state.emitter_refDistance,
+        maxDistance: state.emitter_maxDistance,
+        rolloffFactor: state.emitter_rolloffFactor
+      }
+    });
+
+    const applyConfigToState = (cfg) => {
+      state.profile = cfg.profile;
+      state.cylinders = cfg.cylinders;
+
+      state.tone = cfg.tone;
+      state.noise = cfg.noise;
+      state.whoosh = cfg.whoosh;
+      state.jitter = cfg.jitter;
+      state.resonance = cfg.resonance;
+
+      state.gain = cfg.gain;
+      state.lowpassHz = cfg.lowpassHz;
+      state.grit = cfg.grit;
+      state.comp = cfg.comp;
+
+      state.mapping_idleRpm = cfg.mapping.idleRpm;
+      state.mapping_redlineRpm = cfg.mapping.redlineRpm;
+      state.mapping_topSpeed = cfg.mapping.topSpeed;
+      state.mapping_gears = cfg.mapping.gears;
+
+      state.emitter_x = cfg.emitter.x;
+      state.emitter_y = cfg.emitter.y;
+      state.emitter_z = cfg.emitter.z;
+      state.emitter_model = cfg.emitter.model;
+      state.emitter_refDistance = cfg.emitter.refDistance;
+      state.emitter_maxDistance = cfg.emitter.maxDistance;
+      state.emitter_rolloffFactor = cfg.emitter.rolloffFactor;
+    };
+
+    const loadPresetToState = (name) => {
+      const cfg = presets[name];
+      if (!cfg) return;
+      state.preset = name;
+      applyConfigToState(cfg);
+    };
+
+    loadPresetToState(state.preset);
+
+    // ---- Engine runtime ----
+    let engine = null;
+    let raf = 0;
+
+    const setStatus = (s) => statusEl.textContent = s;
+
+    const startLoop = () => {
+      const loop = () => {
+        if (!engine) return;
+        const cfg = packConfig();
+
+        engine.setMaster(state.master);
+        engine.setSpeed(state.speed);
+        engine.setThrottle(state.throttle);
+
+        engine.setPosition(state.emitter_x, state.emitter_y, state.emitter_z);
+
+        // update distance model live
+        engine.applyConfig(cfg);
+
+        const info = engine.tick(cfg);
+        rpmEl.textContent = String(Math.round(info.rpm));
+        gearEl.textContent = String(info.gear);
+
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+    };
+
+    state.start = async () => {
+      if (engine) return;
+      setStatus("Starting…");
+      try {
+        engine = await createEngine();
+        engine.applyConfig(packConfig());
+        setStatus("Running");
+        startLoop();
+      } catch (e) {
+        console.error(e);
+        engine = null;
+        setStatus("Failed (use https/localhost)");
+      }
+    };
+
+    state.stop = async () => {
+      if (!engine) return;
+      cancelAnimationFrame(raf);
+      raf = 0;
+      await engine.stop();
+      engine = null;
+      rpmEl.textContent = "—";
+      gearEl.textContent = "—";
+      setStatus("Stopped");
+    };
+
+    // ---- Preset management ----
+    const saveCurrentAs = (name) => {
+      const n = (name || "").trim() || "New Preset";
+      presets[n] = packConfig();
+      savePresets(presets);
+      state.preset = n;
+      presetController.setValue(n); // updates GUI dropdown
+    };
+
+    const deletePreset = (name) => {
+      if (!presets[name]) return;
+      delete presets[name];
+      savePresets(presets);
+      const names = Object.keys(presets);
+      const next = names[0] ?? "V6 Sport";
+      if (!presets[next]) presets = structuredClone(DEFAULT_PRESETS);
+      savePresets(presets);
+      loadPresetToState(next);
+      presetController.setValue(next);
+    };
+
+    state.savePreset = () => saveCurrentAs(state.preset);
+    state.deletePreset = () => deletePreset(state.preset);
+    state.resetDefaults = () => {
+      presets = structuredClone(DEFAULT_PRESETS);
+      savePresets(presets);
+      loadPresetToState("V6 Sport");
+      presetController.setValue("V6 Sport");
+    };
+
+    // Export JSON link
+    const refreshExport = () => {
+      const blob = new Blob([JSON.stringify(presets, null, 2)], { type:"application/json" });
+      exportLink.href = URL.createObjectURL(blob);
+    };
+    refreshExport();
+
+    // Import JSON
+    importFile.addEventListener("change", async (ev) => {
+      const file = ev.target.files?.[0];
+      if (!file) return;
+      try {
+        const txt = await file.text();
+        const obj = JSON.parse(txt);
+        presets = { ...structuredClone(DEFAULT_PRESETS), ...obj };
+        savePresets(presets);
+        refreshExport();
+        const first = Object.keys(presets)[0] ?? "V6 Sport";
+        loadPresetToState(first);
+        presetController.setValue(first);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        importFile.value = "";
+      }
+    });
+
+    // ---- lil-gui ----
+    const gui = new GUI({ width: 340, title: "Engine Synth" });
+
+    const presetNames = () => Object.keys(presets).sort((a,b)=>a.localeCompare(b));
+
+    const presetController = gui.add(state, "preset", presetNames()).name("Preset").onChange((name) => {
+      loadPresetToState(name);
+      // force GUI to reflect new state values
+      gui.controllersRecursive().forEach(c => c.updateDisplay());
+    });
+
+    const transport = gui.addFolder("Transport");
+    transport.add(state, "start").name("Start Audio");
+    transport.add(state, "stop").name("Stop");
+    transport.add(state, "master", 0, 1, 0.01).name("Master");
+    transport.add(state, "speed", 0, 200, 0.1).name("Speed (m/s)");
+    transport.add(state, "throttle", 0, 1, 0.01).name("Throttle");
+    transport.open();
+
+    const engineF = gui.addFolder("Engine");
+    engineF.add(state, "profile", ["piston","diesel","electric","jet"]).name("Profile");
+    engineF.add(state, "cylinders", 1, 16, 1).name("Cyl/Blades");
+    engineF.add(state, "tone", 0, 1, 0.01).name("Tone");
+    engineF.add(state, "noise", 0, 1, 0.01).name("Noise");
+    engineF.add(state, "whoosh", 0, 1, 0.01).name("Whoosh");
+    engineF.add(state, "jitter", 0, 0.2, 0.001).name("Jitter");
+    engineF.add(state, "resonance", 0, 1, 0.01).name("Resonance");
+    engineF.add(state, "gain", 0, 2, 0.01).name("Source Gain");
+    engineF.add(state, "lowpassHz", 200, 10000, 10).name("Lowpass (Hz)");
+    engineF.add(state, "grit", 0, 1, 0.01).name("Grit (Drive)");
+    engineF.add(state, "comp", 0, 1, 0.01).name("Comp Amount");
+
+    const mapF = gui.addFolder("Mapping (Speed → RPM)");
+    mapF.add(state, "mapping_idleRpm", 200, 2000, 10).name("Idle RPM");
+    mapF.add(state, "mapping_redlineRpm", 2000, 20000, 50).name("Redline RPM");
+    mapF.add(state, "mapping_topSpeed", 1, 250, 1).name("Top Speed (m/s)");
+    mapF.add(state, "mapping_gears", 1, 10, 1).name("Gears");
+
+    const emitF = gui.addFolder("Emitter (3D)");
+    emitF.add(state, "emitter_x", -100, 100, 0.1).name("X");
+    emitF.add(state, "emitter_y", -100, 100, 0.1).name("Y");
+    emitF.add(state, "emitter_z", -100, 100, 0.1).name("Z");
+    emitF.add(state, "emitter_model", ["inverse","linear","exponential"]).name("Distance Model");
+    emitF.add(state, "emitter_refDistance", 0.1, 50, 0.1).name("Ref Distance");
+    emitF.add(state, "emitter_maxDistance", 1, 500, 1).name("Max Distance");
+    emitF.add(state, "emitter_rolloffFactor", 0, 10, 0.1).name("Rolloff");
+
+    const presetF = gui.addFolder("Preset Ops");
+    presetF.add({ save: () => saveCurrentAs(state.preset) }, "save").name("Save (overwrite)");
+    presetF.add({ saveAs: () => {
+      const n = prompt("Preset name:", state.preset || "New Preset");
+      if (n != null) saveCurrentAs(n);
+      refreshExport();
+      presetController.options(presetNames());
+      presetController.setValue(state.preset);
+    }}, "saveAs").name("Save As…");
+    presetF.add({ del: () => {
+      if (!confirm(`Delete preset "${state.preset}"?`)) return;
+      deletePreset(state.preset);
+      refreshExport();
+      presetController.options(presetNames());
+      presetController.setValue(state.preset);
+      gui.controllersRecursive().forEach(c => c.updateDisplay());
+    }}, "del").name("Delete");
+    presetF.add(state, "resetDefaults").name("Reset Defaults");
+    presetF.open();
+
+    // Update dropdown options after any external change
+    const fixPresetDropdown = () => presetController.options(presetNames());
+
+    // Refresh export link occasionally (cheap)
+    setInterval(() => { refreshExport(); fixPresetDropdown(); }, 1500);
+
+    // ---- Minimal integration notes (global hooks) ----
+    // In a 3D engine, call window.EngineSynth.setSpeed(v), setThrottle(v), setPosition(x,y,z), setListenerPose(...)
+    window.EngineSynth = {
+      start: () => state.start(),
+      stop: () => state.stop(),
+      setSpeed: (v) => (state.speed = v),
+      setThrottle: (v) => (state.throttle = v),
+      setPosition: (x,y,z) => { state.emitter_x=x; state.emitter_y=y; state.emitter_z=z; },
+      setListenerPose: (pos, fwd={x:0,y:0,z:-1}, up={x:0,y:1,z:0}) => {
+        if (!engine) return;
+        engine.setListenerPose(pos, fwd, up);
+      },
+      getPreset: () => structuredClone(packConfig()),
+      setPreset: (cfg) => { applyConfigToState(cfg); gui.controllersRecursive().forEach(c => c.updateDisplay()); }
+    };
+
+    setStatus("Idle");
+  </script>
+</body>
+</html>

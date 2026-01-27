@@ -6337,337 +6337,1503 @@ canvas.world-edit-on {
       return buffer;
     }
 
-    /* Builds/gets an impulse response buffer for a given IR duration (cached). */
-    function getSfxIR(seconds) {
-      if (!audioCtx || !sfxIrCache) return null;
 
-      const s = clamp(Number(seconds || 1.2), 0.2, 6.0);
-      const key = String(s.toFixed(3));
-      if (sfxIrCache.has(key)) return sfxIrCache.get(key);
+/* Builds and manages procedural engine audio presets, plus attachment-driven 3D engine sounds on equipment/vehicles. */
+    const ENGINE_PRESETS_STORAGE_KEY = "engine_presets_v1";
 
-      const ctx = audioCtx;
-      const len = Math.max(1, (s * ctx.sampleRate) | 0);
-      const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    let engineMakerState = null;
+    let enginePresetRegistry = null;
+    let engineBus = null;
 
-      for (let ch = 0; ch < 2; ch++) {
-        const d = ir.getChannelData(ch);
-        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const engineSoundState = {
+      runtime: new Map(),
+      lastEquipRef: null,
+      lastVehRef: null
+    };
+
+    const engineTmpWorldPos = new THREE.Vector3();
+
+
+
+
+
+/* Loads engine presets from localStorage (with a small safe default set) and returns a mutable registry object. */
+    function getEnginePresetRegistry() {
+      if (enginePresetRegistry && typeof enginePresetRegistry === "object") return enginePresetRegistry;
+
+      let fromStore = null;
+      try {
+        const raw = localStorage.getItem(ENGINE_PRESETS_STORAGE_KEY);
+        if (raw) fromStore = JSON.parse(raw);
+      } catch (_) {}
+
+      if (!fromStore || typeof fromStore !== "object" || Array.isArray(fromStore)) fromStore = null;
+
+      if (!fromStore || !fromStore.presets || typeof fromStore.presets !== "object") {
+        fromStore = { presets: {} };
       }
 
-    sfxIrCache.set(key, ir);
-    return ir;
+      if (!fromStore.presets || typeof fromStore.presets !== "object") fromStore.presets = {};
+
+      if (!fromStore.presets.basic) {
+        fromStore.presets.basic = {
+          id: "basic",
+          osc1: { type: "sawtooth", gain: 0.55, detune: 0 },
+          osc2: { type: "square", gain: 0.20, detune: -12 },
+          noise: { gain: 0.06 },
+          filter: { type: "lowpass", baseFreq: 450, maxFreq: 1800, q: 0.8 },
+          pitch: { baseHz: 55, maxHz: 220, curve: 1.15 },
+          amp: { idle: 0.10, max: 0.95 },
+          dist: { amount: 0.0 }
+        };
+      }
+
+      if (!fromStore.presets["V6 Sport"]) {
+        fromStore.presets["V6 Sport"] = {
+          id: "V6 Sport",
+          osc1: { type: "sawtooth", gain: 0.70, detune: 0 },
+          osc2: { type: "square", gain: 0.25, detune: -12 },
+          noise: { gain: 0.04 },
+          filter: { type: "lowpass", baseFreq: 650, maxFreq: 2400, q: 0.9 },
+          pitch: { baseHz: 70, maxHz: 320, curve: 1.10 },
+          amp: { idle: 0.10, max: 0.95 },
+          dist: { amount: 0.10 }
+        };
+      }
+
+      if (!fromStore.presets["Diesel Truck"]) {
+        fromStore.presets["Diesel Truck"] = {
+          id: "Diesel Truck",
+          osc1: { type: "square", gain: 0.70, detune: -12 },
+          osc2: { type: "sawtooth", gain: 0.22, detune: -24 },
+          noise: { gain: 0.07 },
+          filter: { type: "lowpass", baseFreq: 420, maxFreq: 1600, q: 1.1 },
+          pitch: { baseHz: 45, maxHz: 190, curve: 1.18 },
+          amp: { idle: 0.14, max: 0.95 },
+          dist: { amount: 0.14 }
+        };
+      }
+
+      if (!fromStore.presets["Electric"]) {
+        fromStore.presets["Electric"] = {
+          id: "Electric",
+          osc1: { type: "sine", gain: 0.60, detune: 0 },
+          osc2: { type: "triangle", gain: 0.22, detune: 12 },
+          noise: { gain: 0.01 },
+          filter: { type: "lowpass", baseFreq: 1200, maxFreq: 5200, q: 0.6 },
+          pitch: { baseHz: 90, maxHz: 420, curve: 1.00 },
+          amp: { idle: 0.06, max: 0.85 },
+          dist: { amount: 0.02 }
+        };
+      }
+
+      if (!fromStore.presets["Jet Turbine"]) {
+        fromStore.presets["Jet Turbine"] = {
+          id: "Jet Turbine",
+          osc1: { type: "sawtooth", gain: 0.45, detune: 0 },
+          osc2: { type: "square", gain: 0.18, detune: 0 },
+          noise: { gain: 0.14 },
+          filter: { type: "highpass", baseFreq: 220, maxFreq: 1200, q: 0.7 },
+          pitch: { baseHz: 120, maxHz: 520, curve: 1.05 },
+          amp: { idle: 0.10, max: 0.95 },
+          dist: { amount: 0.08 }
+        };
+      }
+
+      enginePresetRegistry = fromStore;
+      return enginePresetRegistry;
+    }
+
+
+
+
+
+
+
+
+/* Persists the current engine preset registry into localStorage. */
+    function saveEnginePresetRegistry() {
+      const reg = getEnginePresetRegistry();
+      try {
+        localStorage.setItem(ENGINE_PRESETS_STORAGE_KEY, JSON.stringify(reg));
+      } catch (_) {}
+    }
+
+/* Returns merged preset options for lil-gui dropdowns (name->name). */
+    function getEnginePresetOptionsMerged() {
+      const reg = getEnginePresetRegistry();
+      const out = {};
+      const presets = reg && reg.presets && typeof reg.presets === "object" ? reg.presets : {};
+      for (const k of Object.keys(presets)) out[k] = k;
+        return out;
+    }
+
+/* Ensures a dedicated engine audio bus exists (GainNode) and is connected to the app's master audio. */
+    function ensureEngineBus() {
+      if (engineBus) return engineBus;
+      if (!audioCtx || !audioMaster) return null;
+
+      engineBus = audioCtx.createGain();
+      engineBus.gain.value = 1.0;
+      engineBus.connect(audioMaster);
+      return engineBus;
+    }
+
+
+
+
+/* Creates a procedural engine voice graph for continuous playback and returns an object with update/dispose. */
+    function createEngineVoiceFromPreset(presetId) {
+      if (!audioCtx) return null;
+
+      const reg = getEnginePresetRegistry();
+      const presets = reg && reg.presets && typeof reg.presets === "object" ? reg.presets : {};
+      const preset = presets[presetId] || presets.basic || null;
+      if (!preset) return null;
+
+      const bus = ensureEngineBus();
+      if (!bus) return null;
+
+      const outGain = audioCtx.createGain();
+      outGain.gain.value = 0.0;
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = (preset.filter && preset.filter.type) ? preset.filter.type : "lowpass";
+      filter.frequency.value = Number(preset.filter && preset.filter.baseFreq) || 450;
+      filter.Q.value = Number(preset.filter && preset.filter.q) || 0.8;
+
+      const osc1 = audioCtx.createOscillator();
+      osc1.type = (preset.osc1 && preset.osc1.type) ? preset.osc1.type : "sawtooth";
+      osc1.detune.value = Number(preset.osc1 && preset.osc1.detune) || 0;
+
+      const osc2 = audioCtx.createOscillator();
+      osc2.type = (preset.osc2 && preset.osc2.type) ? preset.osc2.type : "square";
+      osc2.detune.value = Number(preset.osc2 && preset.osc2.detune) || 0;
+
+      const g1 = audioCtx.createGain();
+      g1.gain.value = Math.max(0, Number(preset.osc1 && preset.osc1.gain) || 0.55);
+
+      const g2 = audioCtx.createGain();
+      g2.gain.value = Math.max(0, Number(preset.osc2 && preset.osc2.gain) || 0.20);
+
+  // Simple noise source (looping buffer) for exhaust/texture.
+      const noiseGain = audioCtx.createGain();
+      noiseGain.gain.value = Math.max(0, Number(preset.noise && preset.noise.gain) || 0.0);
+
+      const noiseBuf = (typeof ensureSfxNoiseBuffer === "function") ? ensureSfxNoiseBuffer() : null;
+      const noise = noiseBuf ? audioCtx.createBufferSource() : null;
+      if (noise) {
+        noise.buffer = noiseBuf;
+        noise.loop = true;
+      }
+
+  // Optional gentle distortion.
+      const shaper = audioCtx.createWaveShaper();
+      const distAmt = Math.max(0, Number(preset.dist && preset.dist.amount) || 0);
+      if (distAmt > 1e-6) {
+        const n = 1024;
+        const curve = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          const x = (i * 2) / (n - 1) - 1;
+          curve[i] = Math.tanh(x * (1 + distAmt * 8));
+        }
+        shaper.curve = curve;
+        shaper.oversample = "2x";
+      } else {
+        shaper.curve = null;
+      }
+
+      osc1.connect(g1);
+      osc2.connect(g2);
+
+      g1.connect(filter);
+      g2.connect(filter);
+
+      if (noise) noise.connect(noiseGain);
+      noiseGain.connect(filter);
+
+      filter.connect(shaper);
+      shaper.connect(outGain);
+
+      outGain.connect(bus);
+
+      const state = {
+        presetId: (preset && preset.id) ? String(preset.id) : String(presetId),
+        outGain,
+        filter,
+        osc1, osc2,
+        g1, g2,
+        noise, noiseGain,
+        shaper,
+        rpmNow: 0.0,
+        alive: true
+      };
+
+      const startT = audioCtx.currentTime + 0.01;
+      osc1.start(startT);
+      osc2.start(startT);
+      if (noise) noise.start(startT);
+
+      const baseHz = Math.max(10, Number(preset.pitch && preset.pitch.baseHz) || 55);
+      const maxHz = Math.max(baseHz + 1, Number(preset.pitch && preset.pitch.maxHz) || 220);
+      const curve = Math.max(0.1, Number(preset.pitch && preset.pitch.curve) || 1.0);
+
+      const idleAmp = clamp(Number(preset.amp && preset.amp.idle) || 0.0, 0, 1);
+      const maxAmp = clamp(Number(preset.amp && preset.amp.max) || 1.0, 0, 1);
+
+      const filterBase = Math.max(20, Number(preset.filter && preset.filter.baseFreq) || 450);
+      const filterMax = Math.max(filterBase, Number(preset.filter && preset.filter.maxFreq) || 1800);
+
+      return {
+        presetId: state.presetId,
+        out: outGain,
+        update: (rpm01, throttle01, gainMul, dt) => {
+          if (!state.alive) return;
+
+          const target = clamp(Number(rpm01) || 0, 0, 1);
+          const alpha = clamp((Number(dt) || 0.016) * 8.0, 0.02, 0.35);
+          state.rpmNow = state.rpmNow + (target - state.rpmNow) * alpha;
+
+          const t = Math.pow(state.rpmNow, curve);
+          const hz = baseHz + (maxHz - baseHz) * t;
+
+          state.osc1.frequency.setValueAtTime(hz, audioCtx.currentTime);
+          state.osc2.frequency.setValueAtTime(hz * 2.0, audioCtx.currentTime);
+
+          const ff = filterBase + (filterMax - filterBase) * t;
+          state.filter.frequency.setValueAtTime(ff, audioCtx.currentTime);
+
+          const thr = clamp(Number(throttle01) || 0, 0, 1);
+          const amp = idleAmp + (maxAmp - idleAmp) * clamp(0.7 * state.rpmNow + 0.3 * thr, 0, 1);
+
+          const mul = clamp(Number(gainMul) || 1, 0, 2);
+          state.outGain.gain.setTargetAtTime(amp * mul, audioCtx.currentTime, 0.03);
+        },
+        dispose: () => {
+          if (!state.alive) return;
+          state.alive = false;
+
+          try { state.outGain.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.03); } catch (_) {}
+
+          const stopT = audioCtx.currentTime + 0.06;
+
+          try { state.osc1.stop(stopT); } catch (_) {}
+          try { state.osc2.stop(stopT); } catch (_) {}
+          if (state.noise) {
+            try { state.noise.stop(stopT); } catch (_) {}
+          }
+
+          try { state.osc1.disconnect(); } catch (_) {}
+          try { state.osc2.disconnect(); } catch (_) {}
+          try { state.g1.disconnect(); } catch (_) {}
+          try { state.g2.disconnect(); } catch (_) {}
+          if (state.noise) {
+            try { state.noise.disconnect(); } catch (_) {}
+          }
+          try { state.noiseGain.disconnect(); } catch (_) {}
+          try { state.filter.disconnect(); } catch (_) {}
+          try { state.shaper.disconnect(); } catch (_) {}
+          try { state.outGain.disconnect(); } catch (_) {}
+        }
+      };
+    }
+
+
+
+
+
+
+/* Creates a procedural engine voice graph for continuous playback and returns an object with update/dispose. */
+/* Builds lil-gui controls for engine presets and live preview (does not affect world objects). */
+    function setupEngineSoundMakerGui(guiRoot) {
+      const folder = guiRoot.addFolder("Engine Sound Maker");
+
+      const reg = getEnginePresetRegistry();
+      const opts = getEnginePresetOptionsMerged();
+      const keys = Object.keys(opts);
+      const first = keys.length ? keys[0] : "basic";
+
+      if (!engineMakerState || typeof engineMakerState !== "object") {
+        engineMakerState = {
+          selected: first,
+          id: first,
+          preview: false,
+          rpm: 0.0,
+          throttle: 0.0,
+          _voice: null,
+          _draft: null,
+
+          newPreset: () => {
+            const name = prompt("New engine preset id:", "engine1");
+            if (!name) return;
+            const id = String(name).trim();
+            if (!id) return;
+
+            const reg = getEnginePresetRegistry();
+            if (!reg.presets || typeof reg.presets !== "object") reg.presets = {};
+            if (reg.presets[id]) {
+              alert("Preset id already exists.");
+              return;
+            }
+
+            reg.presets[id] = JSON.parse(JSON.stringify(reg.presets.basic || {}));
+            reg.presets[id].id = id;
+
+            engineMakerState.selected = id;
+            engineMakerState.id = id;
+
+            saveEnginePresetRegistry();
+            if (typeof showActionToast === "function") showActionToast("Engine preset created");
+          },
+
+          save: () => {
+            const reg = getEnginePresetRegistry();
+            if (!reg.presets || typeof reg.presets !== "object") reg.presets = {};
+
+            const id = String(engineMakerState.id || engineMakerState.selected || "").trim();
+            if (!id) return;
+
+            if (!engineMakerState._draft || typeof engineMakerState._draft !== "object") return;
+
+            const copy = JSON.parse(JSON.stringify(engineMakerState._draft));
+            copy.id = id;
+            reg.presets[id] = copy;
+
+            engineMakerState.selected = id;
+
+            saveEnginePresetRegistry();
+            if (typeof showActionToast === "function") showActionToast("Engine preset saved");
+          },
+
+          del: () => {
+            const id = String(engineMakerState.selected || "").trim();
+            if (!id || id === "basic") return;
+
+            const reg = getEnginePresetRegistry();
+            if (!reg.presets || typeof reg.presets !== "object") return;
+            if (!reg.presets[id]) return;
+
+            delete reg.presets[id];
+            saveEnginePresetRegistry();
+
+            engineMakerState.selected = "basic";
+            engineMakerState.id = "basic";
+            engineMakerState._draft = JSON.parse(JSON.stringify(reg.presets.basic));
+
+            if (typeof showActionToast === "function") showActionToast("Engine preset deleted");
+          },
+
+          export: () => {
+            const reg = getEnginePresetRegistry();
+            if (typeof downloadJson === "function") downloadJson(reg, "engine-presets.json");
+          },
+
+          import: () => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = "application/json";
+
+            input.addEventListener("change", async () => {
+              try {
+                const file = input.files && input.files[0];
+                if (!file) return;
+
+                const text = await file.text();
+                const json = JSON.parse(text);
+
+                if (!json || typeof json !== "object" || Array.isArray(json) || !json.presets || typeof json.presets !== "object") {
+                  alert("Invalid engine presets JSON.");
+                  return;
+                }
+
+                enginePresetRegistry = json;
+                saveEnginePresetRegistry();
+
+                engineMakerState.selected = Object.keys(getEnginePresetOptionsMerged())[0] || "basic";
+                engineMakerState.id = engineMakerState.selected;
+
+                const reg = getEnginePresetRegistry();
+                engineMakerState._draft = JSON.parse(JSON.stringify(reg.presets[engineMakerState.selected] || reg.presets.basic));
+
+                if (typeof showActionToast === "function") showActionToast("Engine presets imported");
+              } catch (err) {
+                console.warn("[engine] import failed:", err);
+                alert("Import failed.");
+              }
+            });
+
+            input.click();
+          }
+        };
+      }
+
+      const ensureDraft = () => {
+        const reg = getEnginePresetRegistry();
+        const p = (reg.presets && reg.presets[engineMakerState.selected]) ? reg.presets[engineMakerState.selected] : (reg.presets.basic || {});
+        engineMakerState._draft = JSON.parse(JSON.stringify(p));
+        engineMakerState.id = String(engineMakerState.selected || p.id || "basic");
+
+        if (!engineMakerState._draft.osc1) engineMakerState._draft.osc1 = { type: "sawtooth", gain: 0.55, detune: 0 };
+        if (!engineMakerState._draft.osc2) engineMakerState._draft.osc2 = { type: "square", gain: 0.20, detune: -12 };
+        if (!engineMakerState._draft.noise) engineMakerState._draft.noise = { gain: 0.0 };
+        if (!engineMakerState._draft.filter) engineMakerState._draft.filter = { type: "lowpass", baseFreq: 450, maxFreq: 1800, q: 0.8 };
+        if (!engineMakerState._draft.pitch) engineMakerState._draft.pitch = { baseHz: 55, maxHz: 220, curve: 1.0 };
+        if (!engineMakerState._draft.amp) engineMakerState._draft.amp = { idle: 0.10, max: 0.95 };
+        if (!engineMakerState._draft.dist) engineMakerState._draft.dist = { amount: 0.0 };
+      };
+
+      ensureDraft();
+
+      const refreshFolder = () => {
+        if (typeof folder.destroy === "function") {
+          const parent = folder.parent;
+          folder.destroy();
+          setupEngineSoundMakerGui(parent || guiRoot);
+        }
+      };
+
+      const putDraftPreviewPreset = () => {
+        const r = getEnginePresetRegistry();
+        if (!r.presets || typeof r.presets !== "object") r.presets = {};
+        const presets = r.presets;
+        const draft = engineMakerState._draft && typeof engineMakerState._draft === "object" ? engineMakerState._draft : {};
+
+        const copy = JSON.parse(JSON.stringify(draft));
+        copy.id = "__preview__";
+
+        try {
+          if (Object.prototype.hasOwnProperty.call(presets, "__preview__")) {
+            presets.__preview__ = copy;
+            try { Object.defineProperty(presets, "__preview__", { value: presets.__preview__, writable: true, configurable: true, enumerable: false }); } catch (_) {}
+          } else {
+            Object.defineProperty(presets, "__preview__", { value: copy, writable: true, configurable: true, enumerable: false });
+          }
+        } catch (_) {
+          presets.__preview__ = copy;
+        }
+      };
+
+      const rebuildPreviewVoiceNow = () => {
+        if (!audioCtx || !audioMaster) return;
+        if (!engineMakerState.preview) return;
+
+        putDraftPreviewPreset();
+
+        if (engineMakerState._voice) {
+          engineMakerState._voice.dispose();
+          engineMakerState._voice = null;
+        }
+
+        engineMakerState._voice = createEngineVoiceFromPreset("__preview__") || createEngineVoiceFromPreset(engineMakerState.selected);
+      };
+
+      const onDraftChanged = () => {
+        rebuildPreviewVoiceNow();
+      };
+
+      folder.add(engineMakerState, "selected", getEnginePresetOptionsMerged()).name("Preset").onChange(() => {
+        ensureDraft();
+        if (engineMakerState._voice) {
+          engineMakerState._voice.dispose();
+          engineMakerState._voice = null;
+        }
+        refreshFolder();
+      });
+
+      folder.add(engineMakerState, "id").name("Id");
+
+      folder.add(engineMakerState, "preview").name("Preview").onChange(() => {
+        if (!audioCtx || !audioMaster) return;
+
+        if (engineMakerState.preview) {
+          rebuildPreviewVoiceNow();
+        } else {
+          if (engineMakerState._voice) engineMakerState._voice.dispose();
+          engineMakerState._voice = null;
+        }
+      });
+
+      folder.add(engineMakerState, "rpm", 0.0, 1.0, 0.001).name("RPM");
+      folder.add(engineMakerState, "throttle", 0.0, 1.0, 0.001).name("Throttle");
+
+      const p = engineMakerState._draft;
+
+      const osc1 = folder.addFolder("Osc 1");
+      osc1.add(p.osc1, "type", { sine: "sine", triangle: "triangle", square: "square", sawtooth: "sawtooth" }).name("Type").onChange(onDraftChanged);
+      osc1.add(p.osc1, "gain", 0.0, 1.5, 0.001).name("Gain").onChange(onDraftChanged);
+      osc1.add(p.osc1, "detune", -48, 48, 1).name("Detune semis").onChange(onDraftChanged);
+      osc1.close();
+
+      const osc2 = folder.addFolder("Osc 2");
+      osc2.add(p.osc2, "type", { sine: "sine", triangle: "triangle", square: "square", sawtooth: "sawtooth" }).name("Type").onChange(onDraftChanged);
+      osc2.add(p.osc2, "gain", 0.0, 1.5, 0.001).name("Gain").onChange(onDraftChanged);
+      osc2.add(p.osc2, "detune", -48, 48, 1).name("Detune semis").onChange(onDraftChanged);
+      osc2.close();
+
+      const noise = folder.addFolder("Noise");
+      noise.add(p.noise, "gain", 0.0, 1.0, 0.001).name("Gain").onChange(onDraftChanged);
+      noise.close();
+
+      const filt = folder.addFolder("Filter");
+      filt.add(p.filter, "type", { lowpass: "lowpass", bandpass: "bandpass", highpass: "highpass" }).name("Type").onChange(onDraftChanged);
+      filt.add(p.filter, "baseFreq", 20, 4000, 1).name("Base Hz").onChange(onDraftChanged);
+      filt.add(p.filter, "maxFreq", 20, 12000, 1).name("Max Hz").onChange(onDraftChanged);
+      filt.add(p.filter, "q", 0.0, 20.0, 0.01).name("Q").onChange(onDraftChanged);
+      filt.close();
+
+      const pitch = folder.addFolder("Pitch");
+      pitch.add(p.pitch, "baseHz", 10, 300, 1).name("Base Hz").onChange(onDraftChanged);
+      pitch.add(p.pitch, "maxHz", 20, 1500, 1).name("Max Hz").onChange(onDraftChanged);
+      pitch.add(p.pitch, "curve", 0.2, 3.0, 0.01).name("Curve").onChange(onDraftChanged);
+      pitch.close();
+
+      const amp = folder.addFolder("Amp");
+      amp.add(p.amp, "idle", 0.0, 1.0, 0.001).name("Idle").onChange(onDraftChanged);
+      amp.add(p.amp, "max", 0.0, 1.0, 0.001).name("Max").onChange(onDraftChanged);
+      amp.close();
+
+      const dist = folder.addFolder("Dist");
+      dist.add(p.dist, "amount", 0.0, 1.0, 0.001).name("Amount").onChange(onDraftChanged);
+      dist.close();
+
+      folder.add(engineMakerState, "newPreset").name("New");
+      folder.add(engineMakerState, "save").name("Save");
+      folder.add(engineMakerState, "del").name("Delete");
+      folder.add(engineMakerState, "export").name("Export");
+      folder.add(engineMakerState, "import").name("Import");
+
+      folder.close();
+    }
+
+
+
+
+/* Clears all attached engine sounds from an equipment item (runtime only). */
+    function clearEquipmentAttachedEnginesNow(e) {
+      if (!e || !e._attachedEngineIds || !Array.isArray(e._attachedEngineIds)) return;
+
+      for (let i = 0; i < e._attachedEngineIds.length; i++) {
+        const id = String(e._attachedEngineIds[i] || "");
+        if (!id) continue;
+
+        const rt = engineSoundState.runtime.get(id);
+        if (rt) {
+          if (rt.group) rt.group.removeFromParent();
+          if (rt.voice && typeof rt.voice.dispose === "function") rt.voice.dispose();
+          if (rt.panner) {
+            try { rt.panner.disconnect(); } catch (_) {}
+          }
+        }
+
+        engineSoundState.runtime.delete(id);
+      }
+
+      e._attachedEngineIds = [];
+    }
+
+/* Rebuilds runtime engine sounds for the currently equipped item from meta.engines. */
+    function rebuildEquipmentAttachedEnginesNow(e) {
+      if (!scene || !avatar || !e || !e.object || !e.meta) return;
+      if (!equipmentState.enabled || equipmentState.item !== e) return;
+      if (!audioCtx || !audioMaster) return;
+
+      clearEquipmentAttachedEnginesNow(e);
+
+      const meta = (e.meta && typeof e.meta === "object") ? e.meta : (e.meta = {});
+      const src = Array.isArray(meta.engines) ? meta.engines : (meta.engines = []);
+
+      const presetOpts = getEnginePresetOptionsMerged();
+      const presetNames = Object.keys(presetOpts);
+      const fallbackPresetId = presetNames.length ? String(presetNames[0] || "basic") : "basic";
+
+      e._attachedEngineIds = [];
+
+      for (let i = 0; i < src.length; i++) {
+        const en = src[i];
+        if (!en || typeof en !== "object") continue;
+
+        const presetId = String(en.presetId || en.preset || fallbackPresetId || "basic").trim() || "basic";
+        const id =
+        String(en.id || "").trim() ||
+      `eq_${String((e.id && String(e.id)) || (e.object && e.object.uuid) || "equipment")}_${makeEmitterId()}`;
+
+      en.id = id;
+      en.presetId = presetId;
+
+      if (typeof en.enabled !== "boolean") en.enabled = true;
+      if (!Array.isArray(en.position) || en.position.length !== 3) en.position = [0, 0, 0];
+      if (!Array.isArray(en.rotation) || en.rotation.length !== 3) en.rotation = [0, 0, 0];
+      if (!Number.isFinite(en.scale)) en.scale = 1;
+
+      if (!en.speedDriver || typeof en.speedDriver !== "object") {
+        en.speedDriver = { enabled: true, min: 0, max: 0, mult: 1, vyMax: 6 };
+      } else {
+        if (typeof en.speedDriver.enabled !== "boolean") en.speedDriver.enabled = true;
+        if (!Number.isFinite(en.speedDriver.min)) en.speedDriver.min = 0;
+        if (!Number.isFinite(en.speedDriver.max)) en.speedDriver.max = 0;
+        if (!Number.isFinite(en.speedDriver.mult)) en.speedDriver.mult = 1;
+        if (!Number.isFinite(en.speedDriver.vyMax)) en.speedDriver.vyMax = 6;
+      }
+
+      const group = new THREE.Group();
+      group.name = `engine_${id}`;
+      group.position.set(Number(en.position[0]) || 0, Number(en.position[1]) || 0, Number(en.position[2]) || 0);
+      group.rotation.set(Number(en.rotation[0]) || 0, Number(en.rotation[1]) || 0, Number(en.rotation[2]) || 0);
+      const s = Math.max(0.001, Number(en.scale) || 1);
+      group.scale.set(s, s, s);
+
+      e.object.add(group);
+
+      const panner = audioCtx.createPanner();
+      panner.panningModel = "HRTF";
+      panner.distanceModel = "inverse";
+      panner.refDistance = 2.0;
+      panner.maxDistance = 80.0;
+      panner.rolloffFactor = 1.0;
+
+      const voice = createEngineVoiceFromPreset(presetId);
+      if (!voice) {
+        try { panner.disconnect(); } catch (_) {}
+        group.removeFromParent();
+        continue;
+      }
+
+      voice.out.disconnect();
+      voice.out.connect(panner);
+      panner.connect(ensureEngineBus());
+
+      engineSoundState.runtime.set(id, { id, kind: "equipment", presetId, cfg: en, group, panner, voice });
+      e._attachedEngineIds.push(id);
+    }
   }
 
+/* Syncs runtime engine transforms/presets to match current meta.engines values. */
+  function syncEquipmentAttachedEnginesNow(e) {
+    if (!e || !e.meta || typeof e.meta !== "object") return;
+    if (!e._attachedEngineIds || !Array.isArray(e._attachedEngineIds) || !e._attachedEngineIds.length) return;
+
+    const meta = e.meta;
+    const src = Array.isArray(meta.engines) ? meta.engines : (meta.engines = []);
+
+    const byId = new Map();
+    for (let i = 0; i < src.length; i++) {
+      const en = src[i];
+      if (en && typeof en === "object" && typeof en.id === "string" && en.id) byId.set(en.id, en);
+    }
+
+    for (let i = 0; i < e._attachedEngineIds.length; i++) {
+      const id = String(e._attachedEngineIds[i] || "");
+      if (!id) continue;
+
+      const cfg = byId.get(id);
+      const rt = engineSoundState.runtime.get(id);
+      if (!cfg || !rt) continue;
+
+      if (!Array.isArray(cfg.position) || cfg.position.length !== 3) cfg.position = [0, 0, 0];
+      if (!Array.isArray(cfg.rotation) || cfg.rotation.length !== 3) cfg.rotation = [0, 0, 0];
+      if (!Number.isFinite(cfg.scale)) cfg.scale = 1;
+      if (typeof cfg.enabled !== "boolean") cfg.enabled = true;
+
+      const presetId = String(cfg.presetId || cfg.preset || rt.presetId || "basic").trim() || "basic";
+      cfg.presetId = presetId;
+
+      rt.cfg = cfg;
+
+      rt.group.position.set(Number(cfg.position[0]) || 0, Number(cfg.position[1]) || 0, Number(cfg.position[2]) || 0);
+      rt.group.rotation.set(Number(cfg.rotation[0]) || 0, Number(cfg.rotation[1]) || 0, Number(cfg.rotation[2]) || 0);
+
+      const s = Math.max(0.001, Number(cfg.scale) || 1);
+      rt.group.scale.set(s, s, s);
+
+      if (rt.presetId !== presetId) {
+        rt.presetId = presetId;
+        if (rt.voice && typeof rt.voice.dispose === "function") rt.voice.dispose();
+        const voice = createEngineVoiceFromPreset(presetId);
+        if (voice) {
+          voice.out.disconnect();
+          voice.out.connect(rt.panner);
+          rt.voice = voice;
+        }
+      }
+    }
+  }
+
+/* Clears all attached engine sounds from a vehicle (runtime only). */
+  function clearVehicleAttachedEnginesNow(v) {
+    if (!v || !v._attachedEngineIds || !Array.isArray(v._attachedEngineIds)) return;
+
+    for (let i = 0; i < v._attachedEngineIds.length; i++) {
+      const id = String(v._attachedEngineIds[i] || "");
+      if (!id) continue;
+
+      const rt = engineSoundState.runtime.get(id);
+      if (rt) {
+        if (rt.group) rt.group.removeFromParent();
+        if (rt.voice && typeof rt.voice.dispose === "function") rt.voice.dispose();
+        if (rt.panner) {
+          try { rt.panner.disconnect(); } catch (_) {}
+        }
+      }
+
+      engineSoundState.runtime.delete(id);
+    }
+
+    v._attachedEngineIds = [];
+  }
+
+/* Rebuilds runtime engine sounds for the currently driven vehicle from meta.engines. */
+  function rebuildVehicleAttachedEnginesNow(v) {
+    if (!scene || !v || !v.object || !v.meta) return;
+    if (!vehicleDriveState.enabled || vehicleDriveState.vehicle !== v) return;
+    if (!audioCtx || !audioMaster) return;
+
+    clearVehicleAttachedEnginesNow(v);
+
+    const meta = (v.meta && typeof v.meta === "object") ? v.meta : (v.meta = {});
+    const src = Array.isArray(meta.engines) ? meta.engines : (meta.engines = []);
+
+    const presetOpts = getEnginePresetOptionsMerged();
+    const presetNames = Object.keys(presetOpts);
+    const fallbackPresetId = presetNames.length ? String(presetNames[0] || "basic") : "basic";
+
+    v._attachedEngineIds = [];
+
+    for (let i = 0; i < src.length; i++) {
+      const en = src[i];
+      if (!en || typeof en !== "object") continue;
+
+      const presetId = String(en.presetId || en.preset || fallbackPresetId || "basic").trim() || "basic";
+      const id =
+      String(en.id || "").trim() ||
+    `veh_${String((v.id && String(v.id)) || (v.object && v.object.uuid) || "vehicle")}_${makeEmitterId()}`;
+
+    en.id = id;
+    en.presetId = presetId;
+
+    if (typeof en.enabled !== "boolean") en.enabled = true;
+    if (!Array.isArray(en.position) || en.position.length !== 3) en.position = [0, 0, 0];
+    if (!Array.isArray(en.rotation) || en.rotation.length !== 3) en.rotation = [0, 0, 0];
+    if (!Number.isFinite(en.scale)) en.scale = 1;
+
+    if (!en.speedDriver || typeof en.speedDriver !== "object") {
+      en.speedDriver = { enabled: true, min: 0, max: 25, mult: 1 };
+    } else {
+      if (typeof en.speedDriver.enabled !== "boolean") en.speedDriver.enabled = true;
+      if (!Number.isFinite(en.speedDriver.min)) en.speedDriver.min = 0;
+      if (!Number.isFinite(en.speedDriver.max)) en.speedDriver.max = 25;
+      if (!Number.isFinite(en.speedDriver.mult)) en.speedDriver.mult = 1;
+    }
+
+    const group = new THREE.Group();
+    group.name = `engine_${id}`;
+    group.position.set(Number(en.position[0]) || 0, Number(en.position[1]) || 0, Number(en.position[2]) || 0);
+    group.rotation.set(Number(en.rotation[0]) || 0, Number(en.rotation[1]) || 0, Number(en.rotation[2]) || 0);
+    const s = Math.max(0.001, Number(en.scale) || 1);
+    group.scale.set(s, s, s);
+
+    v.object.add(group);
+
+    const panner = audioCtx.createPanner();
+    panner.panningModel = "HRTF";
+    panner.distanceModel = "inverse";
+    panner.refDistance = 3.0;
+    panner.maxDistance = 120.0;
+    panner.rolloffFactor = 1.0;
+
+    const voice = createEngineVoiceFromPreset(presetId);
+    if (!voice) {
+      try { panner.disconnect(); } catch (_) {}
+      group.removeFromParent();
+      continue;
+    }
+
+    voice.out.disconnect();
+    voice.out.connect(panner);
+    panner.connect(ensureEngineBus());
+
+    engineSoundState.runtime.set(id, { id, kind: "vehicle", presetId, cfg: en, group, panner, voice });
+    v._attachedEngineIds.push(id);
+  }
+}
+
+/* Syncs runtime vehicle engine transforms/presets to match meta.engines values. */
+function syncVehicleAttachedEnginesNow(v) {
+  if (!v || !v.meta || typeof v.meta !== "object") return;
+  if (!v._attachedEngineIds || !Array.isArray(v._attachedEngineIds) || !v._attachedEngineIds.length) return;
+
+  const meta = v.meta;
+  const src = Array.isArray(meta.engines) ? meta.engines : (meta.engines = []);
+
+  const byId = new Map();
+  for (let i = 0; i < src.length; i++) {
+    const en = src[i];
+    if (en && typeof en === "object" && typeof en.id === "string" && en.id) byId.set(en.id, en);
+  }
+
+  for (let i = 0; i < v._attachedEngineIds.length; i++) {
+    const id = String(v._attachedEngineIds[i] || "");
+    if (!id) continue;
+
+    const cfg = byId.get(id);
+    const rt = engineSoundState.runtime.get(id);
+    if (!cfg || !rt) continue;
+
+    if (!Array.isArray(cfg.position) || cfg.position.length !== 3) cfg.position = [0, 0, 0];
+    if (!Array.isArray(cfg.rotation) || cfg.rotation.length !== 3) cfg.rotation = [0, 0, 0];
+    if (!Number.isFinite(cfg.scale)) cfg.scale = 1;
+    if (typeof cfg.enabled !== "boolean") cfg.enabled = true;
+
+    const presetId = String(cfg.presetId || cfg.preset || rt.presetId || "basic").trim() || "basic";
+    cfg.presetId = presetId;
+
+    rt.cfg = cfg;
+
+    rt.group.position.set(Number(cfg.position[0]) || 0, Number(cfg.position[1]) || 0, Number(cfg.position[2]) || 0);
+    rt.group.rotation.set(Number(cfg.rotation[0]) || 0, Number(cfg.rotation[1]) || 0, Number(cfg.rotation[2]) || 0);
+
+    const s = Math.max(0.001, Number(cfg.scale) || 1);
+    rt.group.scale.set(s, s, s);
+
+    if (rt.presetId !== presetId) {
+      rt.presetId = presetId;
+      if (rt.voice && typeof rt.voice.dispose === "function") rt.voice.dispose();
+      const voice = createEngineVoiceFromPreset(presetId);
+      if (voice) {
+        voice.out.disconnect();
+        voice.out.connect(rt.panner);
+        rt.voice = voice;
+      }
+    }
+  }
+}
+
+/* Builds lil-gui controls for equipment meta.engines and keeps runtime engine sounds synced. */
+function rebuildEquipmentEnginesGui() {
+  if (!equipmentTuningFolder) return;
+
+  if (equipmentTuningFolder.__engineFolder && typeof equipmentTuningFolder.__engineFolder.destroy === "function") {
+    equipmentTuningFolder.__engineFolder.destroy();
+  }
+
+  const enginesFolder = equipmentTuningFolder.addFolder("Engines");
+  equipmentTuningFolder.__engineFolder = enginesFolder;
+
+  const e = getEquipmentTuningTarget();
+  if (!e || !e.meta || typeof e.meta !== "object") {
+    enginesFolder.close();
+    return;
+  }
+
+  const meta = e.meta;
+  if (!Array.isArray(meta.engines)) meta.engines = [];
+  const list = meta.engines;
+
+  const presetOpts = getEnginePresetOptionsMerged();
+  const presetNames = Object.keys(presetOpts);
+  const firstPreset = presetNames.length ? String(presetNames[0] || "basic") : "basic";
+
+  if (!equipmentTuningFolder.__enginesGuiState || typeof equipmentTuningFolder.__enginesGuiState !== "object") {
+    equipmentTuningFolder.__enginesGuiState = {
+      preset: firstPreset,
+      add: () => {
+        const tgt = getEquipmentTuningTarget();
+        if (!tgt || !tgt.meta || typeof tgt.meta !== "object") return;
+
+        const m = tgt.meta;
+        if (!Array.isArray(m.engines)) m.engines = [];
+
+        const idKey = String((tgt.id && String(tgt.id)) || (tgt.object && tgt.object.uuid) || "equipment");
+        const presetId = String(equipmentTuningFolder.__enginesGuiState.preset || firstPreset || "basic").trim() || "basic";
+
+        const entry = {
+          id: `eq_${idKey}_${makeEmitterId()}`,
+          presetId,
+          enabled: true,
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          scale: 1,
+          speedDriver: { enabled: true, min: 0, max: 0, mult: 1, vyMax: 6 }
+        };
+
+        m.engines.push(entry);
+
+        rebuildEquipmentEnginesGui();
+        if (equipmentState.enabled && equipmentState.item === tgt) rebuildEquipmentAttachedEnginesNow(tgt);
+      }
+    };
+  }
+
+  const guiState = equipmentTuningFolder.__enginesGuiState;
+
+  if (presetNames.length) {
+    if (!presetNames.includes(String(guiState.preset || ""))) guiState.preset = firstPreset;
+  } else {
+    guiState.preset = "basic";
+  }
+
+  if (presetNames.length) enginesFolder.add(guiState, "preset", presetOpts).name("Preset");
+  enginesFolder.add(guiState, "add").name("Add");
+
+  for (let i = 0; i < list.length; i++) {
+    const entry = list[i];
+    if (!entry || typeof entry !== "object") continue;
+
+    if (!Array.isArray(entry.position) || entry.position.length !== 3) entry.position = [0, 0, 0];
+    if (!Array.isArray(entry.rotation) || entry.rotation.length !== 3) entry.rotation = [0, 0, 0];
+    if (!Number.isFinite(entry.scale)) entry.scale = 1;
+    if (typeof entry.enabled !== "boolean") entry.enabled = true;
+
+    if (!entry.speedDriver || typeof entry.speedDriver !== "object") {
+      entry.speedDriver = { enabled: true, min: 0, max: 0, mult: 1, vyMax: 6 };
+    } else {
+      if (typeof entry.speedDriver.enabled !== "boolean") entry.speedDriver.enabled = true;
+      if (!Number.isFinite(entry.speedDriver.min)) entry.speedDriver.min = 0;
+      if (!Number.isFinite(entry.speedDriver.max)) entry.speedDriver.max = 0;
+      if (!Number.isFinite(entry.speedDriver.mult)) entry.speedDriver.mult = 1;
+      if (!Number.isFinite(entry.speedDriver.vyMax)) entry.speedDriver.vyMax = 6;
+    }
+
+    const id = String(entry.id || `eq_${makeEmitterId()}`);
+    entry.id = id;
+
+    const ef = enginesFolder.addFolder(`Engine ${i + 1}`);
+    ef.add(entry, "enabled").name("Enabled").onChange(() => {
+      const tgt = getEquipmentTuningTarget();
+      if (equipmentState.enabled && equipmentState.item === tgt) syncEquipmentAttachedEnginesNow(tgt);
+    });
+
+    if (presetNames.length) {
+      ef.add(entry, "presetId", presetOpts).name("Preset").onChange(() => {
+        const tgt = getEquipmentTuningTarget();
+        if (equipmentState.enabled && equipmentState.item === tgt) syncEquipmentAttachedEnginesNow(tgt);
+      });
+    }
+
+    const pos = ef.addFolder("Position");
+    pos.add(entry.position, "0", -3, 3, 0.001).name("X").onChange(() => {
+      const tgt = getEquipmentTuningTarget();
+      if (equipmentState.enabled && equipmentState.item === tgt) syncEquipmentAttachedEnginesNow(tgt);
+    });
+    pos.add(entry.position, "1", -3, 3, 0.001).name("Y").onChange(() => {
+      const tgt = getEquipmentTuningTarget();
+      if (equipmentState.enabled && equipmentState.item === tgt) syncEquipmentAttachedEnginesNow(tgt);
+    });
+    pos.add(entry.position, "2", -3, 3, 0.001).name("Z").onChange(() => {
+      const tgt = getEquipmentTuningTarget();
+      if (equipmentState.enabled && equipmentState.item === tgt) syncEquipmentAttachedEnginesNow(tgt);
+    });
+    pos.close();
+
+    const rot = ef.addFolder("Rotation");
+    rot.add(entry.rotation, "0", -Math.PI, Math.PI, 0.001).name("X").onChange(() => {
+      const tgt = getEquipmentTuningTarget();
+      if (equipmentState.enabled && equipmentState.item === tgt) syncEquipmentAttachedEnginesNow(tgt);
+    });
+    rot.add(entry.rotation, "1", -Math.PI, Math.PI, 0.001).name("Y").onChange(() => {
+      const tgt = getEquipmentTuningTarget();
+      if (equipmentState.enabled && equipmentState.item === tgt) syncEquipmentAttachedEnginesNow(tgt);
+    });
+    rot.add(entry.rotation, "2", -Math.PI, Math.PI, 0.001).name("Z").onChange(() => {
+      const tgt = getEquipmentTuningTarget();
+      if (equipmentState.enabled && equipmentState.item === tgt) syncEquipmentAttachedEnginesNow(tgt);
+    });
+    rot.close();
+
+    ef.add(entry, "scale", 0.01, 10.0, 0.01).name("Scale").onChange(() => {
+      const tgt = getEquipmentTuningTarget();
+      if (equipmentState.enabled && equipmentState.item === tgt) syncEquipmentAttachedEnginesNow(tgt);
+    });
+
+    const drv = ef.addFolder("Speed Driver");
+    drv.add(entry.speedDriver, "enabled").name("Enabled");
+    drv.add(entry.speedDriver, "min", -10, 20, 0.01).name("Min speed");
+    drv.add(entry.speedDriver, "max", -10, 20, 0.01).name("Max speed");
+    drv.add(entry.speedDriver, "mult", 0.0, 10.0, 0.01).name("Mult");
+    drv.add(entry.speedDriver, "vyMax", 0.1, 30.0, 0.01).name("VY max");
+    drv.close();
+
+    ef.add({ remove: () => {
+      const tgt = getEquipmentTuningTarget();
+      if (!tgt || !tgt.meta || typeof tgt.meta !== "object") return;
+
+      const m = tgt.meta;
+      if (!Array.isArray(m.engines)) return;
+
+      for (let k = m.engines.length - 1; k >= 0; k--) {
+        if (m.engines[k] && m.engines[k].id === id) m.engines.splice(k, 1);
+      }
+
+      rebuildEquipmentEnginesGui();
+      if (equipmentState.enabled && equipmentState.item === tgt) rebuildEquipmentAttachedEnginesNow(tgt);
+    } }, "remove").name("Remove");
+
+    ef.close();
+  }
+
+  enginesFolder.close();
+}
+
+/* Builds lil-gui controls for vehicle meta.engines and keeps runtime engine sounds synced. */
+function rebuildVehicleEnginesGui() {
+  if (!vehicleTuningFolder) return;
+
+  if (vehicleTuningFolder.__engineFolder && typeof vehicleTuningFolder.__engineFolder.destroy === "function") {
+    vehicleTuningFolder.__engineFolder.destroy();
+  }
+
+  const enginesFolder = vehicleTuningFolder.addFolder("Engines");
+  vehicleTuningFolder.__engineFolder = enginesFolder;
+
+  const v = getVehicleTuningTarget();
+  if (!v || !v.meta || typeof v.meta !== "object") {
+    enginesFolder.close();
+    return;
+  }
+
+  const meta = v.meta;
+  if (!Array.isArray(meta.engines)) meta.engines = [];
+  const list = meta.engines;
+
+  const presetOpts = getEnginePresetOptionsMerged();
+  const presetNames = Object.keys(presetOpts);
+  const firstPreset = presetNames.length ? String(presetNames[0] || "basic") : "basic";
+
+  if (!vehicleTuningFolder.__enginesGuiState || typeof vehicleTuningFolder.__enginesGuiState !== "object") {
+    vehicleTuningFolder.__enginesGuiState = {
+      preset: firstPreset,
+      add: () => {
+        const tgt = getVehicleTuningTarget();
+        if (!tgt || !tgt.meta || typeof tgt.meta !== "object") return;
+
+        const m = tgt.meta;
+        if (!Array.isArray(m.engines)) m.engines = [];
+
+        const idKey = String((tgt.id && String(tgt.id)) || (tgt.object && tgt.object.uuid) || "vehicle");
+        const presetId = String(vehicleTuningFolder.__enginesGuiState.preset || firstPreset || "basic").trim() || "basic";
+
+        const entry = {
+          id: `veh_${idKey}_${makeEmitterId()}`,
+          presetId,
+          enabled: true,
+          position: [0, 0, 0],
+          rotation: [0, 0, 0],
+          scale: 1,
+          speedDriver: { enabled: true, min: 0, max: 25, mult: 1 }
+        };
+
+        m.engines.push(entry);
+
+        rebuildVehicleEnginesGui();
+        if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) rebuildVehicleAttachedEnginesNow(tgt);
+      }
+    };
+  }
+
+  const guiState = vehicleTuningFolder.__enginesGuiState;
+
+  if (presetNames.length) {
+    if (!presetNames.includes(String(guiState.preset || ""))) guiState.preset = firstPreset;
+  } else {
+    guiState.preset = "basic";
+  }
+
+  if (presetNames.length) enginesFolder.add(guiState, "preset", presetOpts).name("Preset");
+  enginesFolder.add(guiState, "add").name("Add");
+
+  for (let i = 0; i < list.length; i++) {
+    const entry = list[i];
+    if (!entry || typeof entry !== "object") continue;
+
+    if (!Array.isArray(entry.position) || entry.position.length !== 3) entry.position = [0, 0, 0];
+    if (!Array.isArray(entry.rotation) || entry.rotation.length !== 3) entry.rotation = [0, 0, 0];
+    if (!Number.isFinite(entry.scale)) entry.scale = 1;
+    if (typeof entry.enabled !== "boolean") entry.enabled = true;
+
+    if (!entry.speedDriver || typeof entry.speedDriver !== "object") {
+      entry.speedDriver = { enabled: true, min: 0, max: 25, mult: 1 };
+    } else {
+      if (typeof entry.speedDriver.enabled !== "boolean") entry.speedDriver.enabled = true;
+      if (!Number.isFinite(entry.speedDriver.min)) entry.speedDriver.min = 0;
+      if (!Number.isFinite(entry.speedDriver.max)) entry.speedDriver.max = 25;
+      if (!Number.isFinite(entry.speedDriver.mult)) entry.speedDriver.mult = 1;
+    }
+
+    const id = String(entry.id || `veh_${makeEmitterId()}`);
+    entry.id = id;
+
+    const ef = enginesFolder.addFolder(`Engine ${i + 1}`);
+    ef.add(entry, "enabled").name("Enabled").onChange(() => {
+      const tgt = getVehicleTuningTarget();
+      if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) syncVehicleAttachedEnginesNow(tgt);
+    });
+
+    if (presetNames.length) {
+      ef.add(entry, "presetId", presetOpts).name("Preset").onChange(() => {
+        const tgt = getVehicleTuningTarget();
+        if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) syncVehicleAttachedEnginesNow(tgt);
+      });
+    }
+
+    const pos = ef.addFolder("Position");
+    pos.add(entry.position, "0", -5, 5, 0.001).name("X").onChange(() => {
+      const tgt = getVehicleTuningTarget();
+      if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) syncVehicleAttachedEnginesNow(tgt);
+    });
+    pos.add(entry.position, "1", -5, 5, 0.001).name("Y").onChange(() => {
+      const tgt = getVehicleTuningTarget();
+      if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) syncVehicleAttachedEnginesNow(tgt);
+    });
+    pos.add(entry.position, "2", -5, 5, 0.001).name("Z").onChange(() => {
+      const tgt = getVehicleTuningTarget();
+      if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) syncVehicleAttachedEnginesNow(tgt);
+    });
+    pos.close();
+
+    const rot = ef.addFolder("Rotation");
+    rot.add(entry.rotation, "0", -Math.PI, Math.PI, 0.001).name("X").onChange(() => {
+      const tgt = getVehicleTuningTarget();
+      if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) syncVehicleAttachedEnginesNow(tgt);
+    });
+    rot.add(entry.rotation, "1", -Math.PI, Math.PI, 0.001).name("Y").onChange(() => {
+      const tgt = getVehicleTuningTarget();
+      if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) syncVehicleAttachedEnginesNow(tgt);
+    });
+    rot.add(entry.rotation, "2", -Math.PI, Math.PI, 0.001).name("Z").onChange(() => {
+      const tgt = getVehicleTuningTarget();
+      if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) syncVehicleAttachedEnginesNow(tgt);
+    });
+    rot.close();
+
+    ef.add(entry, "scale", 0.01, 10.0, 0.01).name("Scale").onChange(() => {
+      const tgt = getVehicleTuningTarget();
+      if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) syncVehicleAttachedEnginesNow(tgt);
+    });
+
+    const drv = ef.addFolder("Speed Driver");
+    drv.add(entry.speedDriver, "enabled").name("Enabled");
+    drv.add(entry.speedDriver, "min", -10, 60, 0.05).name("Min speed");
+    drv.add(entry.speedDriver, "max", -10, 60, 0.05).name("Max speed");
+    drv.add(entry.speedDriver, "mult", 0.0, 10.0, 0.01).name("Mult");
+    drv.close();
+
+    ef.add({ remove: () => {
+      const tgt = getVehicleTuningTarget();
+      if (!tgt || !tgt.meta || typeof tgt.meta !== "object") return;
+
+      const m = tgt.meta;
+      if (!Array.isArray(m.engines)) return;
+
+      for (let k = m.engines.length - 1; k >= 0; k--) {
+        if (m.engines[k] && m.engines[k].id === id) m.engines.splice(k, 1);
+      }
+
+      rebuildVehicleEnginesGui();
+      if (vehicleDriveState.enabled && vehicleDriveState.vehicle === tgt) rebuildVehicleAttachedEnginesNow(tgt);
+    } }, "remove").name("Remove");
+
+    ef.close();
+  }
+
+  enginesFolder.close();
+}
+
+/* Per-frame update for engine sounds: ensures current attachments exist and drives pitch/volume from speed/throttle. */
+function tickEngineSounds(dt) {
+  if (!audioCtx || !audioMaster) return;
+
+  if (engineMakerState && engineMakerState.preview && engineMakerState._voice) {
+    engineMakerState._voice.update(engineMakerState.rpm, engineMakerState.throttle, 1.0, dt);
+  }
+
+  const equip = (equipmentState && equipmentState.enabled && equipmentState.item) ? equipmentState.item : null;
+  if (engineSoundState.lastEquipRef !== equip) {
+    if (engineSoundState.lastEquipRef) clearEquipmentAttachedEnginesNow(engineSoundState.lastEquipRef);
+    engineSoundState.lastEquipRef = equip;
+    if (equip) rebuildEquipmentAttachedEnginesNow(equip);
+  }
+
+  const veh = (vehicleDriveState && vehicleDriveState.enabled && vehicleDriveState.vehicle) ? vehicleDriveState.vehicle : null;
+  if (engineSoundState.lastVehRef !== veh) {
+    if (engineSoundState.lastVehRef) clearVehicleAttachedEnginesNow(engineSoundState.lastVehRef);
+    engineSoundState.lastVehRef = veh;
+    if (veh) rebuildVehicleAttachedEnginesNow(veh);
+  }
+
+  if (!engineSoundState.runtime.size) return;
+
+  for (const rt of engineSoundState.runtime.values()) {
+    if (!rt || !rt.voice || !rt.group || !rt.cfg) continue;
+
+    const cfg = rt.cfg;
+    const enabled = (cfg.enabled !== false);
+
+    rt.group.updateMatrixWorld(true);
+    rt.group.getWorldPosition(engineTmpWorldPos);
+
+    try {
+      rt.panner.positionX.setValueAtTime(engineTmpWorldPos.x, audioCtx.currentTime);
+      rt.panner.positionY.setValueAtTime(engineTmpWorldPos.y, audioCtx.currentTime);
+      rt.panner.positionZ.setValueAtTime(engineTmpWorldPos.z, audioCtx.currentTime);
+    } catch (_) {}
+
+    if (!enabled) {
+      rt.voice.update(0, 0, 0, dt);
+      continue;
+    }
+
+    let speed = 0.0;
+    let throttle = 0.0;
+
+    if (rt.kind === "vehicle") {
+      speed = Math.abs(Number(vehicleDriveState.speed) || 0);
+      throttle = clamp(Number(vehicleDriveState.throttle) || 0, 0, 1);
+    } else {
+      const vy = (avatarJumpState && Number.isFinite(avatarJumpState.vy)) ? avatarJumpState.vy : 0;
+      speed = Math.max(0, vy);
+      throttle = (avatarJumpState && avatarJumpState.active) ? 1 : 0;
+    }
+
+    const drv = (cfg.speedDriver && typeof cfg.speedDriver === "object") ? cfg.speedDriver : null;
+    let rpm = 0.0;
+
+    if (drv && drv.enabled !== false) {
+      const mult = Number.isFinite(drv.mult) ? drv.mult : 1;
+
+      if (rt.kind === "equipment" && Number.isFinite(drv.vyMax) && drv.vyMax > 0) {
+        rpm = clamp((speed * mult) / drv.vyMax, 0, 1);
+      } else {
+        const min = Number.isFinite(drv.min) ? drv.min : 0;
+        const max = Number.isFinite(drv.max) ? drv.max : 0;
+        const sp = speed * mult;
+
+        if (max !== min) rpm = clamp((sp - min) / (max - min), 0, 1);
+        else rpm = clamp(sp / Math.max(1e-6, Math.abs(max) || 1), 0, 1);
+      }
+    } else {
+      rpm = clamp(speed, 0, 1);
+    }
+
+    const mixRpm = clamp(0.7 * rpm + 0.3 * throttle, 0, 1);
+    rt.voice.update(mixRpm, throttle, 1.0, dt);
+  }
+}
 
 
 
-/* Plays a WebAudio preset by id: playFX("jump"). */
-  // function playFX(id, scale = 1.0, presetOverride = null) {
-  //   if (!params || !params.sfxEnabled) return;
-  //   if (!id) return;
 
-  //   const bus = ensureSfxBus();
-  //   if (!bus || !audioCtx) return;
 
-  //   if (audioCtx.state === "suspended") return;
 
-  //   const presets = (params && params.sfxPresets && typeof params.sfxPresets === "object") ? params.sfxPresets : null;
 
-  //   const p =
-  //   (presetOverride && typeof presetOverride === "object")
-  //   ? presetOverride
-  //   : (presets && presets[id] ? presets[id] : null);
 
-  //   if (!p) return;
 
-  //   const ctx = audioCtx;
-  //   const now = ctx.currentTime;
 
-  //   const kind = String(p.kind || "osc").toLowerCase();
-  //   const oscType = String(p.oscType || "sine");
-  //   const freq = Math.max(1, Number(p.freq || 220));
-  //   const freqEnd = Math.max(1, Number(p.freqEnd || freq));
-  //   const noiseAmt = clamp(Number(p.noise != null ? p.noise : 0), 0.0, 1.0);
 
-  //   const gainBase = clamp(Number(p.gain != null ? p.gain : 0.5), 0.0, 2.0) * clamp(Number(scale || 1), 0.05, 3.0);
-  //   const attack = clamp(Number(p.attack != null ? p.attack : 0.002), 0.0, 0.5);
-  //   const decay = clamp(Number(p.decay != null ? p.decay : 0.10), 0.0, 2.0);
-  //   const release = clamp(Number(p.release != null ? p.release : 0.05), 0.0, 2.0);
-  //   const duration = clamp(Number(p.duration != null ? p.duration : 0.2), 0.02, 6.0);
 
-  //   const filterType = String(p.filterType || "none").toLowerCase();
-  //   const filterFreq = clamp(Number(p.filterFreq != null ? p.filterFreq : 12000), 20, 20000);
-  //   const filterQ = clamp(Number(p.filterQ != null ? p.filterQ : 0.7), 0.0001, 30);
 
-  //   const panVal = clamp(Number(p.pan != null ? p.pan : 0), -1.0, 1.0);
+    /* Builds/gets an impulse response buffer for a given IR duration (cached). */
+function getSfxIR(seconds) {
+  if (!audioCtx || !sfxIrCache) return null;
 
-  //   const reverbMix = clamp(Number(p.reverbMix != null ? p.reverbMix : 0.0), 0.0, 1.0);
-  //   const irSeconds = clamp(Number(p.irSeconds != null ? p.irSeconds : 1.2), 0.2, 6.0);
+  const s = clamp(Number(seconds || 1.2), 0.2, 6.0);
+  const key = String(s.toFixed(3));
+  if (sfxIrCache.has(key)) return sfxIrCache.get(key);
 
-  //   const master = ctx.createGain();
-  //   master.gain.value = 1.0;
+  const ctx = audioCtx;
+  const len = Math.max(1, (s * ctx.sampleRate) | 0);
+  const ir = ctx.createBuffer(2, len, ctx.sampleRate);
 
-  //   const env = ctx.createGain();
-  //   env.gain.setValueAtTime(0.0001, now);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  }
 
-  //   const peak = Math.max(0.0002, gainBase);
-  //   const tA = now + attack;
-  //   const tD = tA + decay;
-  //   const tEnd = now + duration;
-  //   const tRel = tEnd + release;
+sfxIrCache.set(key, ir);
+return ir;
+}
 
-  //   env.gain.exponentialRampToValueAtTime(peak, Math.max(now + 0.0005, tA));
-  //   env.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak * 0.35), Math.max(tA + 0.0005, tD));
-  //   env.gain.exponentialRampToValueAtTime(0.0001, Math.max(tEnd + 0.0005, tRel));
 
-  //   const panner = ctx.createStereoPanner();
-  //   panner.pan.value = panVal;
 
-  //   let post = env;
 
-  //   let filter = null;
-  //   if (filterType !== "none") {
-  //     filter = ctx.createBiquadFilter();
-  //     filter.type = filterType;
-  //     filter.frequency.value = filterFreq;
-  //     filter.Q.value = filterQ;
-  //     env.connect(filter);
-  //     post = filter;
-  //   }
 
-  //   let osc = null;
-  //   if (kind === "osc" || kind === "mix") {
-  //     osc = ctx.createOscillator();
-  //     osc.type = oscType;
-  //     osc.frequency.setValueAtTime(freq, now);
-  //     osc.frequency.exponentialRampToValueAtTime(freqEnd, Math.max(now + 0.01, tEnd));
-  //     osc.connect(env);
-  //   }
 
-  //   let noise = null;
-  //   let noiseGain = null;
-  //   if (kind === "noise" || kind === "mix") {
-  //     const buf = ensureSfxNoiseBuffer();
-  //     if (buf) {
-  //       noise = ctx.createBufferSource();
-  //       noise.buffer = buf;
-  //       noise.loop = true;
-
-  //       noiseGain = ctx.createGain();
-  //       noiseGain.gain.value = noiseAmt;
-
-  //       noise.connect(noiseGain);
-  //       noiseGain.connect(env);
-  //     }
-  //   }
-
-  //   const dry = ctx.createGain();
-  //   const wet = ctx.createGain();
-  //   dry.gain.value = 1.0 - reverbMix;
-  //   wet.gain.value = reverbMix;
-
-  //   post.connect(dry);
-  //   dry.connect(panner);
-
-  //   if (reverbMix > 0.0001) {
-  //     const convolver = ctx.createConvolver();
-  //     convolver.buffer = getSfxIR(irSeconds);
-
-  //     post.connect(convolver);
-  //     convolver.connect(wet);
-  //     wet.connect(panner);
-  //   }
-
-  //   panner.connect(master);
-  //   master.connect(bus);
-
-  //   if (osc) {
-  //     osc.start(now);
-  //     osc.stop(Math.max(now + 0.02, tRel + 0.02));
-  //   }
-  //   if (noise) {
-  //     noise.start(now);
-  //     noise.stop(Math.max(now + 0.02, tRel + 0.02));
-  //   }
-  // }
 
 
 /* Plays a WebAudio preset by id: playFX("jump"). Also records last-failure reason in params.__sfxLast. */
-  function playFX(id, scale = 1.0, presetOverride = null) {
-    const setLast = (ok, reason, extra) => {
-      if (!params || typeof params !== "object") return;
-      params.__sfxLast = {
-        ok: !!ok,
-        id: String(id || ""),
-        reason: reason ? String(reason) : "",
-        ctxState: (audioCtx && audioCtx.state) ? String(audioCtx.state) : "",
-        t: (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now(),
-        extra: extra || null
-      };
-
-      if (params.sfxDebug) {
-        if (ok) console.log("[sfx]", "OK", params.__sfxLast);
-        else console.warn("[sfx]", "FAIL", params.__sfxLast);
-        if (!ok && typeof showActionToast === "function") showActionToast(`SFX FAIL: ${params.__sfxLast.reason}`);
-      }
+function playFX(id, scale = 1.0, presetOverride = null) {
+  const setLast = (ok, reason, extra) => {
+    if (!params || typeof params !== "object") return;
+    params.__sfxLast = {
+      ok: !!ok,
+      id: String(id || ""),
+      reason: reason ? String(reason) : "",
+      ctxState: (audioCtx && audioCtx.state) ? String(audioCtx.state) : "",
+      t: (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now(),
+      extra: extra || null
     };
 
-    if (!params || !params.sfxEnabled) {
-      setLast(false, "disabled", null);
-      return false;
+    if (params.sfxDebug) {
+      if (ok) console.log("[sfx]", "OK", params.__sfxLast);
+      else console.warn("[sfx]", "FAIL", params.__sfxLast);
+      if (!ok && typeof showActionToast === "function") showActionToast(`SFX FAIL: ${params.__sfxLast.reason}`);
     }
+  };
 
-    if (!id) {
-      setLast(false, "missing-id", null);
-      return false;
-    }
-
-    const bus = ensureSfxBus();
-    if (!bus) {
-      setLast(false, "no-sfx-bus", null);
-      return false;
-    }
-
-    if (!audioCtx) {
-      setLast(false, "no-audio-context", null);
-      return false;
-    }
-
-    if (audioCtx.state !== "running") {
-      setLast(false, "audio-context-not-running", { state: audioCtx.state });
-      return false;
-    }
-
-    const presets = (params && params.sfxPresets && typeof params.sfxPresets === "object") ? params.sfxPresets : null;
-
-    const p =
-    (presetOverride && typeof presetOverride === "object")
-    ? presetOverride
-    : (presets && presets[id] ? presets[id] : null);
-
-    if (!p) {
-      setLast(false, "missing-preset", { id: String(id), hasPresets: !!presets });
-      return false;
-    }
-
-    const ctx = audioCtx;
-    const now = ctx.currentTime;
-
-    const kind = String(p.kind || "osc").toLowerCase();
-    const oscType = String(p.oscType || "sine");
-    const freq = Math.max(1, Number(p.freq || 220));
-    const freqEnd = Math.max(1, Number(p.freqEnd || freq));
-    const noiseAmt = clamp(Number(p.noise != null ? p.noise : 0), 0.0, 1.0);
-
-    const gainBase = clamp(Number(p.gain != null ? p.gain : 0.5), 0.0, 2.0) * clamp(Number(scale || 1), 0.05, 3.0);
-    const attack = clamp(Number(p.attack != null ? p.attack : 0.002), 0.0, 0.5);
-    const decay = clamp(Number(p.decay != null ? p.decay : 0.10), 0.0, 2.0);
-    const release = clamp(Number(p.release != null ? p.release : 0.05), 0.0, 2.0);
-    const duration = clamp(Number(p.duration != null ? p.duration : 0.2), 0.02, 6.0);
-
-    const filterType = String(p.filterType || "none").toLowerCase();
-    const filterFreq = clamp(Number(p.filterFreq != null ? p.filterFreq : 12000), 20, 20000);
-    const filterQ = clamp(Number(p.filterQ != null ? p.filterQ : 0.7), 0.0001, 30);
-
-    const panVal = clamp(Number(p.pan != null ? p.pan : 0), -1.0, 1.0);
-
-    const reverbMix = clamp(Number(p.reverbMix != null ? p.reverbMix : 0.0), 0.0, 1.0);
-    const irSeconds = clamp(Number(p.irSeconds != null ? p.irSeconds : 1.2), 0.2, 6.0);
-
-    const master = ctx.createGain();
-    master.gain.value = 1.0;
-
-    const env = ctx.createGain();
-    env.gain.setValueAtTime(0.0001, now);
-
-    const peak = Math.max(0.0002, gainBase);
-    const tA = now + attack;
-    const tD = tA + decay;
-    const tEnd = now + duration;
-    const tRel = tEnd + release;
-
-    env.gain.exponentialRampToValueAtTime(peak, Math.max(now + 0.0005, tA));
-    env.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak * 0.35), Math.max(tA + 0.0005, tD));
-    env.gain.exponentialRampToValueAtTime(0.0001, Math.max(tEnd + 0.0005, tRel));
-
-    const panner = ctx.createStereoPanner();
-    panner.pan.value = panVal;
-
-    let post = env;
-
-    let filter = null;
-    if (filterType !== "none") {
-      filter = ctx.createBiquadFilter();
-      filter.type = filterType;
-      filter.frequency.value = filterFreq;
-      filter.Q.value = filterQ;
-      env.connect(filter);
-      post = filter;
-    }
-
-    let osc = null;
-    if (kind === "osc" || kind === "mix") {
-      osc = ctx.createOscillator();
-      osc.type = oscType;
-      osc.frequency.setValueAtTime(freq, now);
-      osc.frequency.exponentialRampToValueAtTime(freqEnd, Math.max(now + 0.01, tEnd));
-      osc.connect(env);
-    }
-
-    let noise = null;
-    let noiseGain = null;
-    if (kind === "noise" || kind === "mix") {
-      const buf = ensureSfxNoiseBuffer();
-      if (buf) {
-        noise = ctx.createBufferSource();
-        noise.buffer = buf;
-        noise.loop = true;
-
-        noiseGain = ctx.createGain();
-        noiseGain.gain.value = noiseAmt;
-
-        noise.connect(noiseGain);
-        noiseGain.connect(env);
-      }
-    }
-
-    const dry = ctx.createGain();
-    const wet = ctx.createGain();
-    dry.gain.value = 1.0 - reverbMix;
-    wet.gain.value = reverbMix;
-
-    post.connect(dry);
-    dry.connect(panner);
-
-    if (reverbMix > 0.0001) {
-      const convolver = ctx.createConvolver();
-      convolver.buffer = getSfxIR(irSeconds);
-
-      post.connect(convolver);
-      convolver.connect(wet);
-      wet.connect(panner);
-    }
-
-    panner.connect(master);
-    master.connect(bus);
-
-    if (osc) {
-      osc.start(now);
-      osc.stop(Math.max(now + 0.02, tRel + 0.02));
-    }
-    if (noise) {
-      noise.start(now);
-      noise.stop(Math.max(now + 0.02, tRel + 0.02));
-    }
-
-    setLast(true, "ok", null);
-    return true;
+  if (!params || !params.sfxEnabled) {
+    setLast(false, "disabled", null);
+    return false;
   }
 
+  if (!id) {
+    setLast(false, "missing-id", null);
+    return false;
+  }
+
+  const bus = ensureSfxBus();
+  if (!bus) {
+    setLast(false, "no-sfx-bus", null);
+    return false;
+  }
+
+  if (!audioCtx) {
+    setLast(false, "no-audio-context", null);
+    return false;
+  }
+
+  if (audioCtx.state !== "running") {
+    setLast(false, "audio-context-not-running", { state: audioCtx.state });
+    return false;
+  }
+
+  const presets = (params && params.sfxPresets && typeof params.sfxPresets === "object") ? params.sfxPresets : null;
+
+  const p =
+  (presetOverride && typeof presetOverride === "object")
+  ? presetOverride
+  : (presets && presets[id] ? presets[id] : null);
+
+  if (!p) {
+    setLast(false, "missing-preset", { id: String(id), hasPresets: !!presets });
+    return false;
+  }
+
+  const ctx = audioCtx;
+  const now = ctx.currentTime;
+
+  const kind = String(p.kind || "osc").toLowerCase();
+  const oscType = String(p.oscType || "sine");
+  const freq = Math.max(1, Number(p.freq || 220));
+  const freqEnd = Math.max(1, Number(p.freqEnd || freq));
+  const noiseAmt = clamp(Number(p.noise != null ? p.noise : 0), 0.0, 1.0);
+
+  const gainBase = clamp(Number(p.gain != null ? p.gain : 0.5), 0.0, 2.0) * clamp(Number(scale || 1), 0.05, 3.0);
+  const attack = clamp(Number(p.attack != null ? p.attack : 0.002), 0.0, 0.5);
+  const decay = clamp(Number(p.decay != null ? p.decay : 0.10), 0.0, 2.0);
+  const release = clamp(Number(p.release != null ? p.release : 0.05), 0.0, 2.0);
+  const duration = clamp(Number(p.duration != null ? p.duration : 0.2), 0.02, 6.0);
+
+  const filterType = String(p.filterType || "none").toLowerCase();
+  const filterFreq = clamp(Number(p.filterFreq != null ? p.filterFreq : 12000), 20, 20000);
+  const filterQ = clamp(Number(p.filterQ != null ? p.filterQ : 0.7), 0.0001, 30);
+
+  const panVal = clamp(Number(p.pan != null ? p.pan : 0), -1.0, 1.0);
+
+  const reverbMix = clamp(Number(p.reverbMix != null ? p.reverbMix : 0.0), 0.0, 1.0);
+  const irSeconds = clamp(Number(p.irSeconds != null ? p.irSeconds : 1.2), 0.2, 6.0);
+
+  const master = ctx.createGain();
+  master.gain.value = 1.0;
+
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, now);
+
+  const peak = Math.max(0.0002, gainBase);
+  const tA = now + attack;
+  const tD = tA + decay;
+  const tEnd = now + duration;
+  const tRel = tEnd + release;
+
+  env.gain.exponentialRampToValueAtTime(peak, Math.max(now + 0.0005, tA));
+  env.gain.exponentialRampToValueAtTime(Math.max(0.0001, peak * 0.35), Math.max(tA + 0.0005, tD));
+  env.gain.exponentialRampToValueAtTime(0.0001, Math.max(tEnd + 0.0005, tRel));
+
+  const panner = ctx.createStereoPanner();
+  panner.pan.value = panVal;
+
+  let post = env;
+
+  let filter = null;
+  if (filterType !== "none") {
+    filter = ctx.createBiquadFilter();
+    filter.type = filterType;
+    filter.frequency.value = filterFreq;
+    filter.Q.value = filterQ;
+    env.connect(filter);
+    post = filter;
+  }
+
+  let osc = null;
+  if (kind === "osc" || kind === "mix") {
+    osc = ctx.createOscillator();
+    osc.type = oscType;
+    osc.frequency.setValueAtTime(freq, now);
+    osc.frequency.exponentialRampToValueAtTime(freqEnd, Math.max(now + 0.01, tEnd));
+    osc.connect(env);
+  }
+
+  let noise = null;
+  let noiseGain = null;
+  if (kind === "noise" || kind === "mix") {
+    const buf = ensureSfxNoiseBuffer();
+    if (buf) {
+      noise = ctx.createBufferSource();
+      noise.buffer = buf;
+      noise.loop = true;
+
+      noiseGain = ctx.createGain();
+      noiseGain.gain.value = noiseAmt;
+
+      noise.connect(noiseGain);
+      noiseGain.connect(env);
+    }
+  }
+
+  const dry = ctx.createGain();
+  const wet = ctx.createGain();
+  dry.gain.value = 1.0 - reverbMix;
+  wet.gain.value = reverbMix;
+
+  post.connect(dry);
+  dry.connect(panner);
+
+  if (reverbMix > 0.0001) {
+    const convolver = ctx.createConvolver();
+    convolver.buffer = getSfxIR(irSeconds);
+
+    post.connect(convolver);
+    convolver.connect(wet);
+    wet.connect(panner);
+  }
+
+  panner.connect(master);
+  master.connect(bus);
+
+  if (osc) {
+    osc.start(now);
+    osc.stop(Math.max(now + 0.02, tRel + 0.02));
+  }
+  if (noise) {
+    noise.start(now);
+    noise.stop(Math.max(now + 0.02, tRel + 0.02));
+  }
+
+  setLast(true, "ok", null);
+  return true;
+}
 
 
 
-  window.playFX = playFX
+
+window.playFX = playFX
 
 
 
@@ -6698,178 +7864,178 @@ canvas.world-edit-on {
 
 
 
-  async function ensureAudioResumed() {
-    if (!audioCtx) return;
-    if (audioCtx.state === "suspended") {
-      await audioCtx.resume();
-    }
+async function ensureAudioResumed() {
+  if (!audioCtx) return;
+  if (audioCtx.state === "suspended") {
+    await audioCtx.resume();
   }
+}
 
-  async function loadMusicBuffer() {
-    if (musicBuffer) return musicBuffer;
-    if (!audioCtx) return null;
+async function loadMusicBuffer() {
+  if (musicBuffer) return musicBuffer;
+  if (!audioCtx) return null;
 
-    const res = await fetch(MUSIC_URL);
-    const arr = await res.arrayBuffer();
-    musicBuffer = await audioCtx.decodeAudioData(arr);
-    return musicBuffer;
-  }
+  const res = await fetch(MUSIC_URL);
+  const arr = await res.arrayBuffer();
+  musicBuffer = await audioCtx.decodeAudioData(arr);
+  return musicBuffer;
+}
 
-  async function startMusic() {
-    if (!audioListener) initAudio();
-    if (!audioCtx) return;
+async function startMusic() {
+  if (!audioListener) initAudio();
+  if (!audioCtx) return;
 
-    await ensureAudioResumed();
-    const buffer = await loadMusicBuffer();
-    if (!buffer) return;
+  await ensureAudioResumed();
+  const buffer = await loadMusicBuffer();
+  if (!buffer) return;
 
-    if (musicSource) {
-      musicSource.stop();
-      musicSource.disconnect();
-      musicSource = null;
-    }
-
-    const src = audioCtx.createBufferSource();
-    src.buffer = buffer;
-    src.loop = true;
-    src.connect(musicGain);
-    src.start();
-
-    musicSource = src;
-    musicEnabled = true;
-
-    const now = audioCtx.currentTime;
-    musicGain.gain.cancelScheduledValues(now);
-    musicGain.gain.setValueAtTime(musicGain.gain.value, now);
-    musicGain.gain.linearRampToValueAtTime(MUSIC_MAX_GAIN, now + 2.0);
-  }
-
-  function stopMusic() {
-    if (!audioCtx || !musicSource) {
-      musicEnabled = false;
-      return;
-    }
-
-    const now = audioCtx.currentTime;
-    musicGain.gain.cancelScheduledValues(now);
-    musicGain.gain.setValueAtTime(musicGain.gain.value, now);
-    musicGain.gain.linearRampToValueAtTime(0.0, now + 1.5);
-
-    musicSource.stop(now + 1.6);
+  if (musicSource) {
+    musicSource.stop();
     musicSource.disconnect();
     musicSource = null;
-    musicEnabled = false;
   }
+
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  src.loop = true;
+  src.connect(musicGain);
+  src.start();
+
+  musicSource = src;
+  musicEnabled = true;
+
+  const now = audioCtx.currentTime;
+  musicGain.gain.cancelScheduledValues(now);
+  musicGain.gain.setValueAtTime(musicGain.gain.value, now);
+  musicGain.gain.linearRampToValueAtTime(MUSIC_MAX_GAIN, now + 2.0);
+}
+
+function stopMusic() {
+  if (!audioCtx || !musicSource) {
+    musicEnabled = false;
+    return;
+  }
+
+  const now = audioCtx.currentTime;
+  musicGain.gain.cancelScheduledValues(now);
+  musicGain.gain.setValueAtTime(musicGain.gain.value, now);
+  musicGain.gain.linearRampToValueAtTime(0.0, now + 1.5);
+
+  musicSource.stop(now + 1.6);
+  musicSource.disconnect();
+  musicSource = null;
+  musicEnabled = false;
+}
 
       // Short filtered-noise whoosh for gusts
-  function playGustFx(strength) {
-    if (!audioCtx || !audioMaster) return;
-    if (audioCtx.state === "suspended") return;
+function playGustFx(strength) {
+  if (!audioCtx || !audioMaster) return;
+  if (audioCtx.state === "suspended") return;
 
-    const ctx = audioCtx;
-    const duration = 0.8;
-    const now = ctx.currentTime;
+  const ctx = audioCtx;
+  const duration = 0.8;
+  const now = ctx.currentTime;
 
-    const bufferSize = Math.floor(ctx.sampleRate * duration);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
+  const bufferSize = Math.floor(ctx.sampleRate * duration);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
 
-    for (let i = 0; i < bufferSize; i++) {
-      const t = i / bufferSize;
-      const fadeIn = Math.min(1.0, t * 4.0);
-      const fadeOut = 1.0 - t;
-      data[i] = (Math.random() * 2.0 - 1.0) * fadeIn * fadeOut;
-    }
-
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-
-    const bp = ctx.createBiquadFilter();
-    bp.type = "bandpass";
-    bp.frequency.value = 400 + Math.random() * 600;
-    bp.Q.value = 0.8 + Math.random() * 1.2;
-
-    const gain = ctx.createGain();
-    const peak = 0.5 * (strength || 1.0);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(peak, now + 0.1);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-    src.connect(bp);
-    bp.connect(gain);
-    gain.connect(audioMaster);
-
-    src.start(now);
-    src.stop(now + duration + 0.05);
+  for (let i = 0; i < bufferSize; i++) {
+    const t = i / bufferSize;
+    const fadeIn = Math.min(1.0, t * 4.0);
+    const fadeOut = 1.0 - t;
+    data[i] = (Math.random() * 2.0 - 1.0) * fadeIn * fadeOut;
   }
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+
+  const bp = ctx.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 400 + Math.random() * 600;
+  bp.Q.value = 0.8 + Math.random() * 1.2;
+
+  const gain = ctx.createGain();
+  const peak = 0.5 * (strength || 1.0);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(peak, now + 0.1);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  src.connect(bp);
+  bp.connect(gain);
+  gain.connect(audioMaster);
+
+  src.start(now);
+  src.stop(now + duration + 0.05);
+}
 
 
     /* Plays a one-shot landing thump (gap/drop scaled) for stunts/jumps. */
-  function playLandingFx(gapMeters, dropMeters, points) {
-    if (!params || !params.sfxEnabled) return;
-    if (!camera) return;
+function playLandingFx(gapMeters, dropMeters, points) {
+  if (!params || !params.sfxEnabled) return;
+  if (!camera) return;
 
-    if (!audioListener || !audioCtx || !audioMaster) initAudio();
-    if (!audioCtx || !audioMaster) return;
-    if (audioCtx.state === "suspended") return;
+  if (!audioListener || !audioCtx || !audioMaster) initAudio();
+  if (!audioCtx || !audioMaster) return;
+  if (audioCtx.state === "suspended") return;
 
-    const ctx = audioCtx;
-    const now = ctx.currentTime;
+  const ctx = audioCtx;
+  const now = ctx.currentTime;
 
-    const gap = Math.max(0.0, Number(gapMeters || 0));
-    const drop = Math.max(0.0, Number(dropMeters || 0));
-    const pts = Math.max(0, Number(points || 0));
+  const gap = Math.max(0.0, Number(gapMeters || 0));
+  const drop = Math.max(0.0, Number(dropMeters || 0));
+  const pts = Math.max(0, Number(points || 0));
 
-    const intensity = clamp((drop / 5.0) + (gap / 6.0) + (pts * 0.15), 0.08, 1.0);
-    const vol = clamp(Number(params.sfxVolume ?? 0.8), 0.0, 1.0);
+  const intensity = clamp((drop / 5.0) + (gap / 6.0) + (pts * 0.15), 0.08, 1.0);
+  const vol = clamp(Number(params.sfxVolume ?? 0.8), 0.0, 1.0);
 
-    const duration = 0.22 + intensity * 0.18;
+  const duration = 0.22 + intensity * 0.18;
 
-    const bufferSize = Math.floor(ctx.sampleRate * duration);
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
+  const bufferSize = Math.floor(ctx.sampleRate * duration);
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
 
-    for (let i = 0; i < bufferSize; i++) {
-      const t = i / bufferSize;
-      const env = (1.0 - t);
-      data[i] = (Math.random() * 2.0 - 1.0) * env;
-    }
-
-    const src = ctx.createBufferSource();
-    src.buffer = buffer;
-
-    const lp = ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 280 + intensity * 520;
-    lp.Q.value = 0.7;
-
-    const punch = ctx.createOscillator();
-    punch.type = "sine";
-    punch.frequency.setValueAtTime(90 + intensity * 90, now);
-
-    const punchGain = ctx.createGain();
-    punchGain.gain.setValueAtTime(0.0001, now);
-    punchGain.gain.exponentialRampToValueAtTime(0.35 * intensity * vol, now + 0.01);
-    punchGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * intensity), now + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-    src.connect(lp);
-    lp.connect(gain);
-    gain.connect(audioMaster);
-
-    punch.connect(punchGain);
-    punchGain.connect(audioMaster);
-
-    src.start(now);
-    src.stop(now + duration + 0.02);
-
-    punch.start(now);
-    punch.stop(now + 0.14);
+  for (let i = 0; i < bufferSize; i++) {
+    const t = i / bufferSize;
+    const env = (1.0 - t);
+    data[i] = (Math.random() * 2.0 - 1.0) * env;
   }
+
+  const src = ctx.createBufferSource();
+  src.buffer = buffer;
+
+  const lp = ctx.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 280 + intensity * 520;
+  lp.Q.value = 0.7;
+
+  const punch = ctx.createOscillator();
+  punch.type = "sine";
+  punch.frequency.setValueAtTime(90 + intensity * 90, now);
+
+  const punchGain = ctx.createGain();
+  punchGain.gain.setValueAtTime(0.0001, now);
+  punchGain.gain.exponentialRampToValueAtTime(0.35 * intensity * vol, now + 0.01);
+  punchGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol * intensity), now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  src.connect(lp);
+  lp.connect(gain);
+  gain.connect(audioMaster);
+
+  punch.connect(punchGain);
+  punchGain.connect(audioMaster);
+
+  src.start(now);
+  src.stop(now + duration + 0.02);
+
+  punch.start(now);
+  punch.stop(now + 0.14);
+}
 
 
   //   /* Applies mp3 music enable/volume from params WITHOUT restarting playback. */
@@ -13169,6 +14335,7 @@ function loadAllModels() {
 
   // World emitters update (particles)
       tickEmitters(dt);
+      if (typeof tickEngineSounds === "function") tickEngineSounds(dt);
 
   // Keep original per-frame helpers + animation mixer update
       if (typeof window.__avatarLevelHelpersTick === "function") {
@@ -17083,6 +18250,7 @@ function syncEquipmentTuningSelection() {
     equipmentTuningState.bone = "";
     equipmentTuningLastId = "";
     rebuildEquipmentEmittersGui();
+    rebuildEquipmentEnginesGui();
     return;
   }
 
@@ -17099,8 +18267,11 @@ function syncEquipmentTuningSelection() {
   readEquipmentMetaIntoTuningState(e);
 
   rebuildEquipmentEmittersGui();
+  rebuildEquipmentEnginesGui();
   syncEquipmentAttachedEmittersNow(e);
+  syncEquipmentAttachedEnginesNow(e);
 }
+
 
 
 
@@ -17894,12 +19065,10 @@ function syncVehicleAttachedEmittersNow(v) {
 
 
 
-
-
-
 /**
  * Sets up lil-gui controls for the selected equipment attachment transform.
  */
+
 function setupEquipmentTuningGui(folder) {
   equipmentTuningFolder = folder;
 
@@ -17963,6 +19132,7 @@ function setupEquipmentTuningGui(folder) {
   attach.close();
 
   rebuildEquipmentEmittersGui();
+  rebuildEquipmentEnginesGui();
 }
 
 
@@ -18630,6 +19800,9 @@ function writeTuningStateIntoVehicleProfile(v) {
 
 
 
+
+
+
 function syncVehicleTuningFromCurrentVehicle() {
   const v = getVehicleTuningTarget();
 
@@ -18650,9 +19823,12 @@ function syncVehicleTuningFromCurrentVehicle() {
     readVehicleProfileIntoTuningState(v);
 
     rebuildVehicleEmittersGui();
+    rebuildVehicleEnginesGui();
     syncVehicleAttachedEmittersNow(v);
+    syncVehicleAttachedEnginesNow(v);
   }
 }
+
 
 
 
@@ -18999,8 +20175,7 @@ function setupVehicleTuningGui(folder) {
   flight.close();
 
   rebuildVehicleEmittersGui();
-
-
+  rebuildVehicleEnginesGui();  
 
   const actions = {
     exportProfile: async () => {
@@ -19244,7 +20419,10 @@ function tickVehicle(dt) {
   forwardAmount = clamp(forwardAmount, -1, 1);
   steerAmount = clamp(steerAmount, -1, 1);
 
+  vehicleDriveState.throttle = clamp(Math.abs(forwardAmount), 0, 1);
+
   const speedNow = vehicleDriveState.speed;
+
   const speedAbsPrev = Math.abs(speedNow);
 
   const targetSpeed =
@@ -21121,6 +22299,8 @@ function clearWetTrails() {
   }
 }
 
+
+
 function spawnWetTrailMark(x, z, yaw, sx, sz, baseOpacity, life, opts) {
   /* Spawns a single fading decal at world XZ, aligned to yaw, sitting on the snow surface. */
   if (!wetTrailConfig.enabled) return;
@@ -21132,7 +22312,6 @@ function spawnWetTrailMark(x, z, yaw, sx, sz, baseOpacity, life, opts) {
   const y = getSnowSurfaceY(x, z) + wetTrailConfig.lift;
 
   m.position.set(x, y, z);
-  m.rotation.set(0, yaw, 0);
   m.scale.set(Math.max(0.01, sx), 1.0, Math.max(0.01, sz));
 
   m.userData.age = 0.0;
@@ -21157,8 +22336,32 @@ function spawnWetTrailMark(x, z, yaw, sx, sz, baseOpacity, life, opts) {
     m.material.opacity = m.userData.baseOpacity;
   }
 
+  const up = spawnWetTrailMark._up || (spawnWetTrailMark._up = new THREE.Vector3(0, 1, 0));
+  const n = spawnWetTrailMark._n || (spawnWetTrailMark._n = new THREE.Vector3(0, 1, 0));
+  const qTilt = spawnWetTrailMark._qTilt || (spawnWetTrailMark._qTilt = new THREE.Quaternion());
+  const qYaw = spawnWetTrailMark._qYaw || (spawnWetTrailMark._qYaw = new THREE.Quaternion());
+
+  if (typeof getWorldSurfaceNormal === "function") {
+    getWorldSurfaceNormal(x, z, (wetTrailConfig && wetTrailConfig.normalEps) || 0.75, n);
+
+    if (!Number.isFinite(n.x) || !Number.isFinite(n.y) || !Number.isFinite(n.z) || n.lengthSq() < 1e-12) {
+      n.set(0, 1, 0);
+    } else {
+      n.normalize();
+    }
+
+    qTilt.setFromUnitVectors(up, n);
+    qYaw.setFromAxisAngle(n, yaw);
+
+    m.quaternion.copy(qTilt);
+    m.quaternion.premultiply(qYaw);
+  } else {
+    m.rotation.set(0, yaw, 0);
+  }
+
   m.visible = true;
 }
+
 
 
 function updateWetTrails(dt) {
@@ -25966,12 +27169,106 @@ function setupGui() {
   };
 
 
+
+
   const sim = gui.addFolder("Simulation");
   trackController(sim.add(params, "timeScale", 0.05, 2.0, 0.01).name("Time scale"));
   trackController(sim.add(params, "dtMax", 0.008, 0.050, 0.001).name("dt max (clamp)"));
   trackController(sim.add(params, "pixelRatio", 0.5, 2.5, 0.01).name("Pixel ratio"), {
     rebuild: false
   });
+
+  const simActions = {
+    /* Clears browser storage/caches/cookies for this origin and reloads. */
+    resetApplication: async () => {
+      const ok = confirm("Reset Application?\nThis will clear localStorage, sessionStorage, IndexedDB, caches, service workers, and cookies (best effort) for this site, then reload.");
+      if (!ok) return;
+
+      try { localStorage.clear(); } catch (e) {}
+      try { sessionStorage.clear(); } catch (e) {}
+
+      try {
+        if (window.indexedDB) {
+          if (indexedDB.databases) {
+            const dbs = await indexedDB.databases();
+            if (Array.isArray(dbs)) {
+              await Promise.all(dbs.map((d) => {
+                const name = d && d.name ? String(d.name) : "";
+                if (!name) return Promise.resolve();
+                return new Promise((resolve) => {
+                  try {
+                    const req = indexedDB.deleteDatabase(name);
+                    req.onsuccess = () => resolve();
+                    req.onerror = () => resolve();
+                    req.onblocked = () => resolve();
+                  } catch (e) { resolve(); }
+                });
+              }));
+            }
+          }
+        }
+      } catch (e) {}
+
+      try {
+        if (window.caches && caches.keys) {
+          const keys = await caches.keys();
+          if (Array.isArray(keys)) {
+            await Promise.all(keys.map((k) => caches.delete(k)));
+          }
+        }
+      } catch (e) {}
+
+      try {
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          if (Array.isArray(regs)) {
+            await Promise.all(regs.map((r) => {
+              try { return r.unregister(); } catch (e) { return Promise.resolve(false); }
+            }));
+          }
+        }
+      } catch (e) {}
+
+      try {
+        const raw = String(document.cookie || "");
+        const parts = raw ? raw.split(";") : [];
+        const host = String(location.hostname || "");
+        const isIP = /^[0-9.]+$/.test(host);
+        const domainA = host;
+        const domainB = (!isIP && host.indexOf(".") >= 0) ? ("." + host) : "";
+
+        const expire = "Thu, 01 Jan 1970 00:00:00 GMT";
+        const pathA = "/";
+        const pathB = (location.pathname && location.pathname.indexOf("/") === 0)
+        ? location.pathname.split("/").slice(0, 2).join("/") || "/"
+        : "/";
+
+        for (let i = 0; i < parts.length; i++) {
+          const p = parts[i];
+          const eq = p.indexOf("=");
+          const name = (eq >= 0 ? p.slice(0, eq) : p).trim();
+          if (!name) continue;
+
+          document.cookie = `${name}=; expires=${expire}; path=${pathA}`;
+          document.cookie = `${name}=; expires=${expire}; path=${pathB}`;
+
+          if (domainA) {
+            document.cookie = `${name}=; expires=${expire}; path=${pathA}; domain=${domainA}`;
+            document.cookie = `${name}=; expires=${expire}; path=${pathB}; domain=${domainA}`;
+          }
+          if (domainB) {
+            document.cookie = `${name}=; expires=${expire}; path=${pathA}; domain=${domainB}`;
+            document.cookie = `${name}=; expires=${expire}; path=${pathB}; domain=${domainB}`;
+          }
+        }
+      } catch (e) {}
+
+      try { location.reload(); } catch (e) {}
+    }
+  };
+
+  trackController(sim.add(simActions, "resetApplication").name("Reset Application"));
+
 
   const perf = gui.addFolder("Performance");
 
@@ -26321,15 +27618,8 @@ function setupGui() {
 
 
 
+  setupEngineSoundMakerGui(gui);
 
-
-
-
-
-
-
-
-        //wind.open();
 
   const envSound = gui.addFolder("Environmental Sounds");
 
