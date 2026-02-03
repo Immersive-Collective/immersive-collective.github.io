@@ -1,133 +1,178 @@
+# Halftone Video Effect (WebGL) + lil-gui
 
+WebGL real-time video stylisation: halftone shapes, ASCII renderer, gradients (background + dots palette), and a controllable “Mixer” that blends real video bitmap back into the generated dots.
 
-# Halftone Video Effect with lil-gui
-
-# Live Demo
+## Live Demo
 https://immersive-collective.org/projects/more-shaders/halftone/index.html
-
-
 
 https://github.com/user-attachments/assets/dbd55c2e-79d8-4361-994a-f17256410d2c
 
-
-
-This project is a WebGL-based halftone video effect that allows you to apply a customizable halftone pattern to a video in real-time. Using WebGL shaders, you can modify the dot size and color scheme dynamically via an interactive GUI powered by lil-gui.
-
-### **Concept: Halftone Video Effect Shader**
-This **WebGL shader** creates a **halftone effect** on a video by sampling pixel brightness and rendering dots of varying sizes based on intensity.
-
 ---
 
-### **Implementation:**
-1. **Vertex Shader**  
-   - Defines screen-space coordinates and texture mapping.
-   - Fixes texture Y-flip issue.
+## What It Does
 
-2. **Fragment Shader (Halftone Effect)**  
-   - Samples video texture and converts it to grayscale using **luminance**.
-   - Divides the image into a **dot grid** based on `u_dotSize`.
-   - Computes **circle radius per grid cell** (larger for dark areas, smaller for bright areas).
-   - Uses **mix() function** to interpolate colors between `u_color1` and `u_color2`.
-   - Outputs the final color per fragment.
+A WebGL fragment shader samples a video texture, converts it to luminance, and renders a grid of procedural shapes whose size is driven by brightness. Colors are fully controllable (solid, gradients, multi-stop palettes), and an optional Mixer can inject the original video bitmap back into the dots using different distribution modes.
 
 ---
-
-### **Key Uniforms:**
-- `u_dotSize`: Controls dot spacing.
-- `u_color1`, `u_color2`: Define the color gradient.
-- `u_image`: The video texture.
-- `u_resolution`: Canvas resolution.
-
----
-
-### **Rendering Pipeline:**
-1. **WebGL initializes the video as a texture.**
-2. **Shader computes dot sizes dynamically based on pixel brightness.**
-3. **The effect is drawn frame-by-frame, creating a real-time halftone filter on video.**
-
 
 ## Features
 
-- Real-time halftone video processing using a WebGL fragment shader.
-- Interactive controls with lil-gui for adjusting effect parameters.
-- Customizable dot size and colors.
-- Save and load configurations as JSON files.
-- Auto-load configuration file on startup.
-
-## Demo
-
-To see the effect in action, open `index.html` in a web browser.
+- Real-time WebGL halftone rendering from a video texture
+- Shape renderer (per-cell):
+  - Circle, Square, Cross, Line, Vertical Line, Diagonal Line, Rhomb
+- Dot sizing driven by video luminance
+- Color pipeline:
+  - Background solid color (`Color 1`) + optional **Background Gradient** (linear / radial + direction)
+  - Dots:
+    - Solid dot color
+    - Optional **Dot Gradient** (linear / radial + direction)
+    - Multi-stop dot gradient palette (2–8 colors) with Add/Remove color controls
+- Image adjustments:
+  - Hue
+  - Contrast
+  - Threshold + Black & White mode
+- ASCII Mode:
+  - Renders colored ASCII characters from the video (uses the same dot-size as cell size)
+- Mixer (video bitmap injection into dots):
+  - Enable/Disable
+  - Amount (0..1)
+  - Mode:
+    - Random
+    - Dither (Bayer-style thresholding)
+    - Seed (stable noise field controlled by seed)
+- Video loader:
+  - Load a local video file via GUI
+- Config workflow:
+  - Save current settings to JSON
+  - Load settings from JSON
+  - Config includes palette + mixer settings
+- Fullscreen toggle: press `F`
 
 ---
 
 ## Setup & Usage
 
-### 1. Clone the Repository
-
+### 1) Clone
 ```sh
 git clone https://github.com/YOUR_USERNAME/Halftone-Video-Effect.git
 cd Halftone-Video-Effect
+````
+
+### 2) Serve Locally
+
+Browsers block local video/JSON access via `file://`. Use a local server:
+
+**Python**
+
+```sh
+python -m http.server 8080
 ```
 
-### 2. Serve Locally
+**Node**
 
-Since the project loads videos and JSON files, some browsers block local file access. Use a simple HTTP server:
+```sh
+npx http-server -p 8080
+```
 
-- With Python 3:
+Open:
 
-  ```sh
-  python -m http.server 8080
-  ```
+```txt
+http://localhost:8080
+```
 
-- With Node.js (http-server package):
+### 3) Use Your Own Video
 
-  ```sh
-  npx http-server -p 8080
-  ```
-
-Then open `http://localhost:8080` in your browser.
-
-### 3. Add Your Own Video
-
-Replace `videos/northface-we-play-different.mp4` with your own MP4 or WebM video inside the `videos/` folder.
+* Place a video in `videos/` and update the `<video src="...">` in `index.html`, or
+* Use the GUI button **Load Video** and pick a local file
 
 ---
 
-## Configuration
+## Controls Overview (lil-gui)
 
-### Customization via GUI
+### Core
 
-Modify these settings dynamically via the GUI:
+* Dot Size
+* Color 1 (background base)
+* Color 2 (legacy color control used by some gradient mixes)
 
-- `Dot Size`: Controls the halftone dot size.
-- `Color 1`: The primary background color.
-- `Color 2`: The color of the halftone dots.
+### Background Gradient
 
-### Save & Load Configurations
+* Enabled
+* Type: Linear / Radial
+* Direction (CSS-like directions)
 
-1. **Save Configuration**  
-   Click "Save Config," and a JSON file will be downloaded.
+### Dot Colors
 
-2. **Load Configuration**  
-   Click "Load Config" and select a previously saved JSON file.
+* Solid Color
 
-### Load Config Automatically
+#### Dot Gradient (nested)
 
-By default, the script attempts to load a preset config file on startup:
+* Enabled
+* Type: Linear / Radial
+* Direction
+* Stops (2–8 colors)
+* Add Color / Remove Color
 
-```js
-loadConfigFromURL("presets/halftone_default.json", params, gui);
-```
+### Mixer
 
-To use a custom preset, change the file path inside `index.html` and create your JSON file in `presets/`.
+* Enabled
+* Amount (0..1)
+* Mode: Random / Dither / Seed
+* Seed (used by Seed mode)
 
-Example `halftone_default.json`:
+### Image / Output
+
+* Shape
+* ASCII Mode
+* Hue
+* Contrast
+* Threshold
+* Black & White
+
+### IO
+
+* Load Video
+* Save Config
+* Load Config
+
+---
+
+## Configuration (JSON)
+
+### Save / Load
+
+* **Save Config** downloads a JSON snapshot of all parameters.
+* **Load Config** restores parameters and rebuilds GUI controls.
+
+### Example
 
 ```json
 {
-  "dotSize": 15,
-  "color1": "#222222",
-  "color2": "#ff5500"
+  "dotSize": 12,
+  "color1": "#000000",
+  "color2": "#69bef7",
+
+  "gradientEnabled": true,
+  "gradientType": "linear",
+  "gradientDirection": "top-to-bottom",
+
+  "dotSolidColor": "#69bef7",
+  "dotGradientEnabled": true,
+  "dotGradientType": "radial",
+  "dotGradientDirection": "top-to-bottom",
+  "dotGradientColors": ["#69bef7", "#ffffff", "#ff00ff"],
+
+  "mixerEnabled": true,
+  "mixerAmount": 0.35,
+  "mixerMode": 1,
+  "mixerSeed": 1337,
+
+  "shape": 0,
+  "hue": 0,
+  "contrast": 1,
+  "threshold": 0.5,
+  "blackAndWhite": false,
+  "asciiMode": false
 }
 ```
 
@@ -135,19 +180,18 @@ Example `halftone_default.json`:
 
 ## File Structure
 
-```
+```txt
 Halftone-Video-Effect
- ├── videos                # Video files for processing
- ├── presets               # JSON configuration files
- ├── index.html            # Main application
- ├── README.md             # Project documentation
- ├── package.json          # (optional) Node dependencies
+ ├── videos/               # Video files
+ ├── config/               # Optional preset JSON configs (if used)
+ ├── index.html            # Main app
+ ├── README.md             # Docs
 ```
 
 ---
 
 ## Dependencies
 
-- WebGL
-- lil-gui (Lightweight GUI library)
-```
+* WebGL (runs in modern browsers)
+* lil-gui (loaded via CDN import map)
+

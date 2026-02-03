@@ -5,61 +5,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Halftone Video Effect with Shapes</title>
+
     <style>
-        .lil-gui { position: absolute; top: 10px; right: 10px; z-index: 100; }
+      .lil-gui.root { position: fixed; top: 10px; right: 10px; z-index: 100; }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background: black;
-        }
-
-        #container {
-            display: flex;
-            flex-direction: row;
-            width: 90vw;
-            max-width: 1920px;
-        }
-
-        #player, #halftoneCanvas {
-            flex: 1;
-            overflow: hidden;
-        }
-
-        video, canvas {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-
-/* Responsive layout: When screen is narrow, stack elements vertically */
-@media (max-width: 768px) {
-    #container {
-        flex-direction: column;
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
     }
-}
 
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background: black;
+    }
 
+    #container {
+        display: flex;
+        flex-direction: row;
+        width: 90vw;
+        max-width: 1920px;
+    }
 
+    #player, #halftoneCanvas {
+        flex: 1;
+        overflow: hidden;
+    }
+
+    video, canvas {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+
+    /* Responsive layout: When screen is narrow, stack elements vertically */
+    @media (max-width: 768px) {
+        #container { flex-direction: column; }
+    }
 </style>
 </head>
 
 <body>
     <div id="container">
-        <div id="player">
-            <video id="video" src="videos/it-seq1.mp4" autoplay loop muted controls></video>
-        </div>
-        <canvas id="halftoneCanvas"></canvas>
         <canvas id="asciiCanvas" style="display: none;"></canvas>
+        <canvas id="halftoneCanvas"></canvas>
+
+        <div id="player">
+            <video id="video" src="videos/hum.mp4" autoplay loop muted controls></video>
+        </div>
     </div>
+
     <script type="importmap">
         {
             "imports": {
@@ -67,16 +65,23 @@
             }
         }
     </script>
-    <script type="module">
 
+    <script type="module">
         import { GUI } from 'lil-gui';
-        
+
         function createHalftoneVideoEffect() {
 
             const canvas = document.getElementById("halftoneCanvas");
             const video = document.getElementById("video");
-            const gl = canvas.getContext("webgl");
+
+            const gl = canvas.getContext("webgl", {
+                alpha: true,
+                antialias: true,
+                preserveDrawingBuffer: true
+            });
             if (!gl) return console.error("WebGL not supported.");
+
+
             function updateCanvasSize() {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
@@ -85,9 +90,7 @@
             video.addEventListener("loadedmetadata", updateCanvasSize);
             window.addEventListener("resize", updateCanvasSize);
 
-
             const vertexShaderSource = `
-
                 attribute vec2 a_position;
                 attribute vec2 a_texCoord;
                 varying vec2 v_texCoord;
@@ -95,303 +98,509 @@
                     gl_Position = vec4(a_position, 0, 1);
                     v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
                 }
-
             `;
+
+
+
+
 
 
             const fragmentShaderSource = `
+precision mediump float;
+varying vec2 v_texCoord;
 
+uniform sampler2D u_video;
+uniform sampler2D u_ascii;
 
-                precision mediump float;
-                varying vec2 v_texCoord;
-                uniform sampler2D u_image;
-                uniform vec2 u_resolution;
-                uniform float u_dotSize;
-                uniform vec3 u_color1;
-                uniform vec3 u_color2;
-                uniform int u_shape;
-                uniform float u_hue;       // Hue adjustment
-                uniform float u_contrast;  // Contrast adjustment
-                uniform float u_threshold; // Threshold adjustment
-                uniform bool u_blackAndWhite; // Black and white mode
-                uniform bool u_asciiMode;  // ASCII mode toggle
+uniform vec2 u_resolution;
+uniform float u_dotSize;
+uniform vec3 u_color1;
+uniform vec3 u_color2;
+uniform int u_shape;
+uniform float u_hue;
+uniform float u_contrast;
+uniform float u_threshold;
+uniform bool u_blackAndWhite;
+uniform bool u_asciiMode;
 
-                // Function to adjust hue
-                vec3 adjustHue(vec3 color, float hue) {
-                    const vec3 k = vec3(0.57735, 0.57735, 0.57735); // 1/sqrt(3)
-                    float cosHue = cos(hue);
-                    return color * cosHue + cross(k, color) * sin(hue) + k * dot(k, color) * (1.0 - cosHue);
-                }
+uniform bool u_gradientEnabled;
+uniform int u_gradientType;   // 0=linear, 1=radial
+uniform vec2 u_gradientDir;   // normalized-ish direction for linear gradients
 
-                // Manually map brightness to ASCII-like sizes
-                float getASCIIIntensity(float value) {
-                    if (value < 0.1) return 0.0; // Space
-                    if (value < 0.2) return 0.1; // .
-                    if (value < 0.3) return 0.2; // ,
-                    if (value < 0.4) return 0.3; // :
-                    if (value < 0.5) return 0.4; // ;
-                    if (value < 0.6) return 0.5; // o
-                    if (value < 0.7) return 0.6; // x
-                    if (value < 0.8) return 0.7; // %
-                    if (value < 0.9) return 0.8; // #
-                    return 1.0;                  // @
-                }
+uniform vec3 u_dotSolidColor;
+uniform bool u_dotGradientEnabled;
+uniform int u_dotGradientType;   // 0=linear, 1=radial
+uniform vec2 u_dotGradientDir;
 
-                void main() {
-                    vec2 coord = v_texCoord * u_resolution;
-                    vec2 grid = floor(coord / u_dotSize) * u_dotSize;
-                    vec2 delta = coord - grid;
-                    vec3 color = texture2D(u_image, grid / u_resolution).rgb;
+uniform int u_paletteCount;
+uniform vec3 u_palette0;
+uniform vec3 u_palette1;
+uniform vec3 u_palette2;
+uniform vec3 u_palette3;
+uniform vec3 u_palette4;
+uniform vec3 u_palette5;
+uniform vec3 u_palette6;
+uniform vec3 u_palette7;
 
-                    // Adjust hue
-                    color = adjustHue(color, u_hue);
+uniform bool u_mixerEnabled;
+uniform float u_mixerAmount;   // 0..1
+uniform int u_mixerMode;       // 0=random, 1=dither, 2=seed
+uniform float u_mixerSeed;
 
-                    // Calculate intensity (grayscale brightness)
-                    float intensity = dot(color, vec3(0.299, 0.587, 0.114));
+uniform float u_time;
 
-                    // Apply contrast
-                    intensity = (intensity - 0.5) * u_contrast + 0.5;
+uniform bool u_takeoverEnabled;
+uniform float u_takeoverAmount;   // 0..1 (distribution)
+uniform int u_takeoverMode;       // 0=random, 1=dither, 2=seed
+uniform float u_takeoverSeed;
+uniform int u_takeoverShape;      // 0..6
+uniform bool u_takeoverBlink;     // time-varying mask
+uniform int u_takeoverBlendMode;  // 0=replace, 1=overlay
 
-                    // Apply threshold only if black and white mode is enabled
-                    if (u_blackAndWhite) {
-                        intensity = step(u_threshold, intensity);
-                    }
+uniform bool u_shapeMixEnabled;
+uniform float u_shapeMixAmount;   // 0..1 (distribution)
+uniform int u_shapeMixMode;       // 0=random, 1=dither, 2=seed
+uniform float u_shapeMixSeed;
+uniform int u_shapeMixShape;      // 0..6
+uniform bool u_shapeMixBlink;     // time toggle, positions stay fixed
 
-                    intensity = clamp(intensity, 0.0, 1.0);
+vec3 adjustHue(vec3 color, float hue) {
+    const vec3 k = vec3(0.57735, 0.57735, 0.57735);
+    float cosHue = cos(hue);
+    return color * cosHue + cross(k, color) * sin(hue) + k * dot(k, color) * (1.0 - cosHue);
+}
 
-                    // ASCII Mode
-                    if (u_asciiMode) {
-                        vec4 asciiTex = texture2D(u_image, v_texCoord);
-                        gl_FragColor = vec4(asciiTex.rgb, 1.0);
-                        return;
-                    }
+vec3 getBackgroundGradientColor(vec2 uv) {
+    if (!u_gradientEnabled) return u_color1;
 
+    if (u_gradientType == 1) {
+        float t = clamp(length(uv - vec2(0.5)) / 0.70710678, 0.0, 1.0);
+        return mix(u_color1, u_color2, t);
+    }
 
-                    // Regular Halftone Shapes Mode
-                    float radius = (u_dotSize / 2.0) * intensity;
-                    float dist = length(delta - vec2(u_dotSize / 2.0));
+    vec2 d = u_gradientDir;
+    float dl = max(length(d), 0.00001);
+    d /= dl;
 
-                    vec3 halftoneColor = mix(u_color1, u_color2, intensity);
-                    bool drawShape = false;
+    float t = dot(uv - vec2(0.5), d) / 0.70710678;
+    t = clamp(t * 0.5 + 0.5, 0.0, 1.0);
+    return mix(u_color1, u_color2, t);
+}
 
-                    if (u_shape == 0) { // Circle
-                        drawShape = dist < radius;
-                    } else if (u_shape == 1) { // Square
-                        drawShape = abs(delta.x - u_dotSize / 2.0) < radius && abs(delta.y - u_dotSize / 2.0) < radius;
-                    } else if (u_shape == 2) { // Cross
-                        drawShape = abs(delta.x - u_dotSize / 2.0) < radius || abs(delta.y - u_dotSize / 2.0) < radius;
-                    } else if (u_shape == 3) { // Horizontal Line
-                        drawShape = abs(delta.y - u_dotSize / 2.0) < radius;
-                    } else if (u_shape == 4) { // Vertical Line
-                        drawShape = abs(delta.x - u_dotSize / 2.0) < radius;
-                    } else if (u_shape == 5) { // Diagonal Line
-                        drawShape = abs(delta.x - delta.y) < radius;
-                    } else if (u_shape == 6) { // Rhomb (Diamond)
-                        drawShape = abs(delta.x - u_dotSize / 2.0) + abs(delta.y - u_dotSize / 2.0) < radius;
-                    }
+vec3 paletteAt(int i) {
+    if (i == 0) return u_palette0;
+    if (i == 1) return u_palette1;
+    if (i == 2) return u_palette2;
+    if (i == 3) return u_palette3;
+    if (i == 4) return u_palette4;
+    if (i == 5) return u_palette5;
+    if (i == 6) return u_palette6;
+    return u_palette7;
+}
 
-                    gl_FragColor = drawShape ? vec4(halftoneColor, 1) : vec4(u_color1, 1);
-                }
+vec3 paletteColorAt(float t) {
+    int c = u_paletteCount;
+    if (c <= 1) return u_palette0;
+    if (c == 2) return mix(u_palette0, u_palette1, t);
 
+    float scaled = t * float(c - 1);
+    float fi = floor(scaled);
+    int i = int(fi);
+    if (i < 0) i = 0;
+    if (i > c - 2) i = c - 2;
 
+    float f = scaled - fi;
+    vec3 a = paletteAt(i);
+    vec3 b = paletteAt(i + 1);
+    return mix(a, b, f);
+}
 
+vec3 getDotGradientColor(vec2 uv) {
+    if (!u_dotGradientEnabled) return u_dotSolidColor;
 
+    float t = 0.0;
+
+    if (u_dotGradientType == 1) {
+        t = clamp(length(uv - vec2(0.5)) / 0.70710678, 0.0, 1.0);
+    } else {
+        vec2 d = u_dotGradientDir;
+        float dl = max(length(d), 0.00001);
+        d /= dl;
+
+        t = dot(uv - vec2(0.5), d) / 0.70710678;
+        t = clamp(t * 0.5 + 0.5, 0.0, 1.0);
+    }
+
+    return paletteColorAt(t);
+}
+
+float hash12(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+float bayer4(vec2 p) {
+    vec2 ip = mod(floor(p), 4.0);
+    float x = ip.x;
+    float y = ip.y;
+
+    if (x == 0.0 && y == 0.0) return 0.0/16.0;
+    if (x == 2.0 && y == 0.0) return 2.0/16.0;
+    if (x == 0.0 && y == 2.0) return 3.0/16.0;
+    if (x == 2.0 && y == 2.0) return 1.0/16.0;
+
+    if (x == 1.0 && y == 1.0) return 4.0/16.0;
+    if (x == 3.0 && y == 1.0) return 6.0/16.0;
+    if (x == 1.0 && y == 3.0) return 7.0/16.0;
+    if (x == 3.0 && y == 3.0) return 5.0/16.0;
+
+    if (x == 1.0 && y == 0.0) return 8.0/16.0;
+    if (x == 3.0 && y == 0.0) return 10.0/16.0;
+    if (x == 1.0 && y == 2.0) return 11.0/16.0;
+    if (x == 3.0 && y == 2.0) return 9.0/16.0;
+
+    if (x == 0.0 && y == 1.0) return 12.0/16.0;
+    if (x == 2.0 && y == 1.0) return 14.0/16.0;
+    if (x == 0.0 && y == 3.0) return 15.0/16.0;
+    return 13.0/16.0;
+}
+
+float mixerMask(vec2 uv, float amount) {
+    amount = clamp(amount, 0.0, 1.0);
+    if (amount <= 0.0) return 0.0;
+    if (amount >= 1.0) return 1.0;
+
+    vec2 px = uv * u_resolution;
+
+    if (u_mixerMode == 1) {
+        float t = bayer4(px);
+        return step(t, amount);
+    }
+
+    if (u_mixerMode == 2) {
+        float r = hash12(px + vec2(u_mixerSeed, u_mixerSeed * 0.37));
+        return step(r, amount);
+    }
+
+    float r0 = hash12(px);
+    return step(r0, amount);
+}
+
+float cellSelectMask(vec2 cellId, float amount, int mode, float seed) {
+    amount = clamp(amount, 0.0, 1.0);
+    if (amount <= 0.0) return 0.0;
+    if (amount >= 1.0) return 1.0;
+
+    if (mode == 1) {
+        float t = bayer4(cellId);
+        return step(t, amount);
+    }
+
+    if (mode == 2) {
+        float r = hash12(cellId + vec2(seed, seed * 0.37));
+        return step(r, amount);
+    }
+
+    float r0 = hash12(cellId);
+    return step(r0, amount);
+}
+
+float shapeMask(int shape, vec2 delta, float dotSize, float radius) {
+    vec2 c = vec2(dotSize * 0.5);
+    float dist = length(delta - c);
+
+    if (shape == 0) { // Circle
+        return step(dist, radius);
+    } else if (shape == 1) { // Square
+        float mx = step(abs(delta.x - c.x), radius);
+        float my = step(abs(delta.y - c.y), radius);
+        return mx * my;
+    } else if (shape == 2) { // Cross
+        float vx = step(abs(delta.x - c.x), radius);
+        float vy = step(abs(delta.y - c.y), radius);
+        return max(vx, vy);
+    } else if (shape == 3) { // Horizontal Line
+        return step(abs(delta.y - c.y), radius);
+    } else if (shape == 4) { // Vertical Line
+        return step(abs(delta.x - c.x), radius);
+    } else if (shape == 5) { // Diagonal Line
+        return step(abs(delta.x - delta.y), radius);
+    } else if (shape == 6) { // Rhomb
+        float m = abs(delta.x - c.x) + abs(delta.y - c.y);
+        return step(m, radius);
+    }
+
+    return step(dist, radius);
+}
+
+void main() {
+    if (u_asciiMode && !u_mixerEnabled) {
+        vec3 a = texture2D(u_ascii, v_texCoord).rgb;
+        gl_FragColor = vec4(a, 1.0);
+        return;
+    }
+
+    vec2 coord = v_texCoord * u_resolution;
+    vec2 grid = floor(coord / u_dotSize) * u_dotSize;
+    vec2 delta = coord - grid;
+
+    vec3 sampled = texture2D(u_video, grid / u_resolution).rgb;
+    sampled = adjustHue(sampled, u_hue);
+
+    float intensity = dot(sampled, vec3(0.299, 0.587, 0.114));
+    intensity = (intensity - 0.5) * u_contrast + 0.5;
+
+    if (u_blackAndWhite) {
+        intensity = step(u_threshold, intensity);
+    }
+
+    intensity = clamp(intensity, 0.0, 1.0);
+
+    vec3 backgroundColor = getBackgroundGradientColor(v_texCoord);
+    vec3 dotColor = getDotGradientColor(v_texCoord);
+
+    float radius = (u_dotSize * 0.5) * intensity;
+    vec2 cellId = floor(coord / u_dotSize);
+
+    float baseM = shapeMask(u_shape, delta, u_dotSize, radius);
+
+    if (u_shapeMixEnabled) {
+        float selMix = cellSelectMask(cellId, u_shapeMixAmount, u_shapeMixMode, u_shapeMixSeed);
+
+        if (u_shapeMixBlink) {
+            float blink = step(0.5, fract(u_time * 30.0));
+            selMix *= blink;
+        }
+
+        float mixM = shapeMask(u_shapeMixShape, delta, u_dotSize, radius);
+        baseM = (selMix > 0.5) ? mixM : baseM;
+    }
+
+    float drawM = baseM;
+
+    if (u_takeoverEnabled) {
+        float sel = cellSelectMask(cellId, u_takeoverAmount, u_takeoverMode, u_takeoverSeed);
+
+        if (u_takeoverBlink) {
+            float blink = step(0.5, fract(u_time * 30.0));
+            sel *= blink;
+        }
+
+        float takeoverM = shapeMask(u_takeoverShape, delta, u_dotSize, radius);
+
+        if (u_takeoverBlendMode == 1) {
+            drawM = max(baseM, takeoverM * sel);
+        } else {
+            drawM = (sel > 0.5) ? takeoverM : baseM;
+        }
+    }
+
+    if (drawM <= 0.0) {
+        gl_FragColor = vec4(backgroundColor, 1.0);
+        return;
+    }
+
+    vec3 finalDot = dotColor;
+
+    if (u_mixerEnabled) {
+        float m = mixerMask(v_texCoord, u_mixerAmount);
+        vec3 src = u_asciiMode ? texture2D(u_ascii, v_texCoord).rgb : sampled;
+        finalDot = mix(dotColor, src, m);
+    }
+
+    gl_FragColor = vec4(finalDot, 1.0);
+}
             `;
 
 
-            async function loadDefaultConfig(params, gui) {
-                try {
-            const response = await fetch("config/halftone_default.json"); // Adjust path if needed
-            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-            const config = await response.json();
-            params.dotSize = config.dotSize || params.dotSize;
-            params.color1 = config.color1 || params.color1;
-            params.color2 = config.color2 || params.color2;
-            gui.updateDisplay();
-            console.log("✅ Default configuration loaded successfully.");
-        } catch (error) {
-            console.warn("⚠️ Failed to load default config:", error);
-        }
-    }
 
 
-    function createShader(gl, type, source) {
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            console.error("Shader compilation error:", gl.getShaderInfoLog(shader));
-            return null;
-        }
-        return shader;
-    }
-    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
-    if (!vertexShader || !fragmentShader) return;
-    const program = gl.createProgram();
-    gl.attachShader(program, vertexShader);
-    gl.attachShader(program, fragmentShader);
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.error("Shader linking error:", gl.getProgramInfoLog(program));
-        return;
-    }
-    gl.useProgram(program);
-    const positionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-        -1, -1, 1, -1, -1, 1,
-        -1, 1, 1, -1, 1, 1
-    ]), gl.STATIC_DRAW);
-    const texCoordBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-        0, 1, 1, 1, 0, 0,
-        0, 0, 1, 1, 1, 0
-    ]), gl.STATIC_DRAW);
-    const positionLocation = gl.getAttribLocation(program, "a_position");
-    const texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
-    gl.enableVertexAttribArray(positionLocation);
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-    gl.enableVertexAttribArray(texCoordLocation);
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
-    gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+            function createShader(gl, type, source) {
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    console.error("Shader compilation error:", gl.getShaderInfoLog(shader));
+                    return null;
+                }
+                return shader;
+            }
 
-    const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
-    const dotSizeLocation = gl.getUniformLocation(program, "u_dotSize");
-    const color1Location = gl.getUniformLocation(program, "u_color1");
-    const color2Location = gl.getUniformLocation(program, "u_color2");
-    const shapeLocation = gl.getUniformLocation(program, "u_shape");
-    const hueLocation = gl.getUniformLocation(program, "u_hue");
-    const contrastLocation = gl.getUniformLocation(program, "u_contrast");
-    const thresholdLocation = gl.getUniformLocation(program, "u_threshold");
+            const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+            const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+            if (!vertexShader || !fragmentShader) return;
 
-    const texture = gl.createTexture();
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error("Shader linking error:", gl.getProgramInfoLog(program));
+                return;
+            }
+            gl.useProgram(program);
 
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                -1, -1, 1, -1, -1, 1,
+                -1, 1, 1, -1, 1, 1
+            ]), gl.STATIC_DRAW);
+
+            const texCoordBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+                0, 1, 1, 1, 0, 0,
+                0, 0, 1, 1, 1, 0
+            ]), gl.STATIC_DRAW);
+
+            const positionLocation = gl.getAttribLocation(program, "a_position");
+            const texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
+            gl.enableVertexAttribArray(positionLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(texCoordLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+            gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
 
-    function rebuildGUI() {
-        gui.destroy();
-        gui = new GUI();
 
-        gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
-        gui.addColor(params, "color1").name("Color 1");
-        gui.addColor(params, "color2").name("Color 2");
-        gui.add(params, "shape", shapeOptions).name("Shape");
+            const videoSamplerLocation = gl.getUniformLocation(program, "u_video");
+            const asciiSamplerLocation = gl.getUniformLocation(program, "u_ascii");
 
-        gui.add(params, "asciiMode").name("ASCII Mode").onChange(updateASCII);
+            const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+            const dotSizeLocation = gl.getUniformLocation(program, "u_dotSize");
+            const color1Location = gl.getUniformLocation(program, "u_color1");
+            const color2Location = gl.getUniformLocation(program, "u_color2");
+            const shapeLocation = gl.getUniformLocation(program, "u_shape");
+            const hueLocation = gl.getUniformLocation(program, "u_hue");
+            const contrastLocation = gl.getUniformLocation(program, "u_contrast");
+            const thresholdLocation = gl.getUniformLocation(program, "u_threshold");
 
-        gui.add(params, "hue", -3.14, 3.14, 0.01).name("Hue");
-        gui.add(params, "contrast", 0.0, 2.0, 0.01).name("Contrast");
-        gui.add(params, "threshold", 0.0, 1.0, 0.01).name("Threshold");
-        gui.add(params, "blackAndWhite").name("Black & White");
-        gui.add(params, "loadVideo").name("Load Video");
-        gui.add(params, "saveConfig").name("Save Config");
-        gui.add(params, "loadConfig").name("Load Config");
-    }
+            const gradientEnabledLocation = gl.getUniformLocation(program, "u_gradientEnabled");
+            const gradientTypeLocation = gl.getUniformLocation(program, "u_gradientType");
+            const gradientDirLocation = gl.getUniformLocation(program, "u_gradientDir");
+
+            const dotSolidColorLocation = gl.getUniformLocation(program, "u_dotSolidColor");
+            const dotGradientEnabledLocation = gl.getUniformLocation(program, "u_dotGradientEnabled");
+            const dotGradientTypeLocation = gl.getUniformLocation(program, "u_dotGradientType");
+            const dotGradientDirLocation = gl.getUniformLocation(program, "u_dotGradientDir");
+
+            const paletteCountLocation = gl.getUniformLocation(program, "u_paletteCount");
+            const palette0Location = gl.getUniformLocation(program, "u_palette0");
+            const palette1Location = gl.getUniformLocation(program, "u_palette1");
+            const palette2Location = gl.getUniformLocation(program, "u_palette2");
+            const palette3Location = gl.getUniformLocation(program, "u_palette3");
+            const palette4Location = gl.getUniformLocation(program, "u_palette4");
+            const palette5Location = gl.getUniformLocation(program, "u_palette5");
+            const palette6Location = gl.getUniformLocation(program, "u_palette6");
+            const palette7Location = gl.getUniformLocation(program, "u_palette7");
+
+            const mixerEnabledLocation = gl.getUniformLocation(program, "u_mixerEnabled");
+            const mixerAmountLocation = gl.getUniformLocation(program, "u_mixerAmount");
+            const mixerModeLocation = gl.getUniformLocation(program, "u_mixerMode");
+            const mixerSeedLocation = gl.getUniformLocation(program, "u_mixerSeed");
+
+            const timeLocation = gl.getUniformLocation(program, "u_time");
+
+            const takeoverEnabledLocation   = gl.getUniformLocation(program, "u_takeoverEnabled");
+            const takeoverAmountLocation    = gl.getUniformLocation(program, "u_takeoverAmount");
+            const takeoverModeLocation      = gl.getUniformLocation(program, "u_takeoverMode");
+            const takeoverSeedLocation      = gl.getUniformLocation(program, "u_takeoverSeed");
+            const takeoverShapeLocation     = gl.getUniformLocation(program, "u_takeoverShape");
+            const takeoverBlinkLocation     = gl.getUniformLocation(program, "u_takeoverBlink");
+            const takeoverBlendModeLocation = gl.getUniformLocation(program, "u_takeoverBlendMode");
+
+            const shapeMixEnabledLocation = gl.getUniformLocation(program, "u_shapeMixEnabled");
+            const shapeMixAmountLocation  = gl.getUniformLocation(program, "u_shapeMixAmount");
+            const shapeMixModeLocation    = gl.getUniformLocation(program, "u_shapeMixMode");
+            const shapeMixSeedLocation    = gl.getUniformLocation(program, "u_shapeMixSeed");
+            const shapeMixShapeLocation   = gl.getUniformLocation(program, "u_shapeMixShape");
+            const shapeMixBlinkLocation   = gl.getUniformLocation(program, "u_shapeMixBlink");
 
 
+
+
+
+
+
+
+            const texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
             // ASCII Character Mapping
-    const asciiCanvas = document.getElementById("asciiCanvas");
-    const asciiCtx = asciiCanvas.getContext("2d");
+            const asciiCanvas = document.getElementById("asciiCanvas");
+            const asciiCtx = asciiCanvas.getContext("2d");
 
-            // ASCII character set (from darkest to brightest)
-            // const asciiChars = " .,-+";
-            // const asciiChars = " ░▒▓█■▀▄▞▛"
-            // const asciiChars = " ▁▂▃▄▅▆▇█";
-            // const asciiChars = " ╴╵╶╷┌┐└┘├┤";
-            // const asciiChars = " ╱╲╳⟋⟍＼／〳〵";
-            // const asciiChars = " ◢◣◤◥◧◨◩◪◫";
-    const asciiChars = " ⠁⠃⠇⡇⣇⣧⣷⣿░▒▓█";
+            const asciiPresets = {
+                "Simple": " .,-+",
+                "Blocks": " ░▒▓█■▀▄▞▛",
+                "Bars": " ▁▂▃▄▅▆▇█",
+                "Box Drawing": " ╴╵╶╷┌┐└┘├┤",
+                "Diagonals": " ╱╲╳⟋⟍＼／〳〵",
+                "Triangles": " ◢◣◤◥◧◨◩◪◫",
+                "Braille+Blocks": " ⠁⠃⠇⡇⣇⣧⣷⣿░▒▓█"
+            };
 
-            // const asciiChars = [
-            //     ' ',  // Darkest
-            //     '.',  // Slightly brighter
-            //     '\'', // Small dot
-            //     '`',  // Tiny accent mark
-            //     ',',  // Light speck
-            //     ':',  // Small colon
-            //     ';',  // Slightly larger colon
-            //     '-',  // Small dash
-            //     '_',  // Underscore
-            //     '+',  // Small plus
-            //     '!',  // Exclamation mark
-            //     '*',  // Small star
-            //     'o',  // Small circle
-            //     'x',  // Medium cross
-            //     's',  // Small letter
-            //     'z',  // Small slanted letter
-            //     'v',  // Slightly bigger
-            //     'u',  // Rounded shape
-            //     'T',  // Capital letter
-            //     'C',  // Larger letter
-            //     'L',  // Block-like shape
-            //     'Y',  // Large letter
-            //     'O',  // Big circle
-            //     'X',  // Large cross
-            //     '%',  // Dense percentage sign
-            //     '#',  // Thick hash
-            //     '@'   // Brightest and densest
-            // ];
+            const asciiPresetList = [
+                "Braille+Blocks",
+                "Blocks",
+                "Bars",
+                "Box Drawing",
+                "Diagonals",
+                "Triangles",
+                "Simple",
+                "Custom"
+            ];
 
+            let asciiChars = asciiPresets["Braille+Blocks"];
 
-            // Convert brightness to ASCII character
-    function getASCIIChar(value) {
-        const index = Math.floor(value * (asciiChars.length - 1));
-        return asciiChars[index];
-    }
-
-
-    function renderASCII() {
-        const w = Math.floor(video.videoWidth / params.dotSize);
-        const h = Math.floor(video.videoHeight / params.dotSize);
-
-        asciiCanvas.width = w * params.dotSize;
-        asciiCanvas.height = h * params.dotSize;
-        asciiCtx.clearRect(0, 0, asciiCanvas.width, asciiCanvas.height);
-                // asciiCtx.font = `${params.dotSize}px monospace`;
-        asciiCtx.font = `${params.dotSize}px Avenir`;
-        asciiCtx.textAlign = "center";
-        asciiCtx.textBaseline = "middle";
-
-                // Draw video frame to an offscreen canvas for pixel data
-        const offCanvas = document.createElement("canvas");
-        offCanvas.width = w;
-        offCanvas.height = h;
-        const offCtx = offCanvas.getContext("2d");
-        offCtx.drawImage(video, 0, 0, w, h);
-        const imageData = offCtx.getImageData(0, 0, w, h).data;
-
-                // Draw ASCII characters with their original color
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-                const index = (y * w + x) * 4;
-                const r = imageData[index];
-                const g = imageData[index + 1];
-                const b = imageData[index + 2];
-
-                        // Convert brightness to ASCII character
-                const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
-                const char = getASCIIChar(brightness);
-
-                        // Set text color to the original pixel color
-                asciiCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-
-                        // Draw the character
-                asciiCtx.fillText(char, x * params.dotSize + params.dotSize / 2, y * params.dotSize + params.dotSize / 2);
-            }
-        }
-
-                updateASCIICanvasTexture(); // Ensure WebGL updates the colored ASCII canvas
+            function getASCIIChar(value) {
+                const index = Math.floor(value * (asciiChars.length - 1));
+                return asciiChars[index];
             }
 
+            function renderASCII() {
+                const w = Math.floor(video.videoWidth / params.dotSize);
+                const h = Math.floor(video.videoHeight / params.dotSize);
+
+                asciiCanvas.width = w * params.dotSize;
+                asciiCanvas.height = h * params.dotSize;
+                asciiCtx.clearRect(0, 0, asciiCanvas.width, asciiCanvas.height);
+
+                asciiCtx.font = `${params.dotSize}px Avenir`;
+                asciiCtx.textAlign = "center";
+                asciiCtx.textBaseline = "middle";
+
+                const offCanvas = document.createElement("canvas");
+                offCanvas.width = w;
+                offCanvas.height = h;
+                const offCtx = offCanvas.getContext("2d");
+                offCtx.drawImage(video, 0, 0, w, h);
+                const imageData = offCtx.getImageData(0, 0, w, h).data;
+
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const index = (y * w + x) * 4;
+                        const r = imageData[index];
+                        const g = imageData[index + 1];
+                        const b = imageData[index + 2];
+
+                        const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+                        const char = getASCIIChar(brightness);
+
+                        asciiCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                        asciiCtx.fillText(char, x * params.dotSize + params.dotSize / 2, y * params.dotSize + params.dotSize / 2);
+                    }
+                }
+
+                updateASCIICanvasTexture();
+            }
 
             const asciiTexture = gl.createTexture();
 
@@ -404,20 +613,150 @@
             }
 
 
+
+
+
+            function hexToVec3(hex) {
+                return hex.match(/\w\w/g).map(x => parseInt(x, 16) / 255);
+            }
+
+            function getGradientDirVec(direction) {
+                if (direction === "top-to-bottom") return [0, 1];
+                if (direction === "bottom-to-top") return [0, -1];
+                if (direction === "left-to-right") return [1, 0];
+                if (direction === "right-to-left") return [-1, 0];
+                if (direction === "top-left-to-bottom-right") return [1, 1];
+                if (direction === "bottom-right-to-top-left") return [-1, -1];
+                if (direction === "top-right-to-bottom-left") return [-1, 1];
+                if (direction === "bottom-left-to-top-right") return [1, -1];
+                return [0, 1];
+            }
+
+            function setPaletteUniforms(gl, params) {
+                const MAX = 8;
+                const stops = Array.isArray(params.dotGradientColors) ? params.dotGradientColors : [];
+                const safeStops = stops.slice(0, MAX);
+
+                while (safeStops.length < 2) safeStops.push("#ffffff");
+                while (safeStops.length < MAX) safeStops.push(safeStops[safeStops.length - 1]);
+
+                gl.uniform1i(paletteCountLocation, Math.min(stops.length, MAX));
+
+                gl.uniform3fv(palette0Location, hexToVec3(safeStops[0]));
+                gl.uniform3fv(palette1Location, hexToVec3(safeStops[1]));
+                gl.uniform3fv(palette2Location, hexToVec3(safeStops[2]));
+                gl.uniform3fv(palette3Location, hexToVec3(safeStops[3]));
+                gl.uniform3fv(palette4Location, hexToVec3(safeStops[4]));
+                gl.uniform3fv(palette5Location, hexToVec3(safeStops[5]));
+                gl.uniform3fv(palette6Location, hexToVec3(safeStops[6]));
+                gl.uniform3fv(palette7Location, hexToVec3(safeStops[7]));
+            }
+
+            // shape options
+            const shapeOptions = {
+                Circle: 0,
+                Square: 1,
+                Cross: 2,
+                Line: 3,
+                VerticalLine: 4,
+                DiagonalLine: 5,
+                Rhomb: 6
+            };
+
+            const gradientTypeOptions = {
+                Linear: "linear",
+                Radial: "radial"
+            };
+
+            const gradientDirectionOptions = {
+                "Top → Bottom": "top-to-bottom",
+                "Bottom → Top": "bottom-to-top",
+                "Left → Right": "left-to-right",
+                "Right → Left": "right-to-left",
+                "Top-Left → Bottom-Right": "top-left-to-bottom-right",
+                "Bottom-Right → Top-Left": "bottom-right-to-top-left",
+                "Top-Right → Bottom-Left": "top-right-to-bottom-left",
+                "Bottom-Left → Top-Right": "bottom-left-to-top-right"
+            };
+
+            const mixerModeOptions = {
+                Random: 0,
+                Dither: 1,
+                Seed: 2
+            };
+
             // params
             //
             let videoObjectURL = null;
+
+
+
+
+
+
+
+
+
+
 
             const params = {
                 dotSize: 12.0,
                 color1: "#000000",
                 color2: "#69bef7",
+
+                gradientEnabled: false,
+                gradientType: "linear",
+                gradientDirection: "top-to-bottom",
+
+                dotSolidColor: "#69bef7",
+                dotGradientEnabled: false,
+                dotGradientType: "linear",
+                dotGradientDirection: "top-to-bottom",
+                dotGradientColors: ["#69bef7", "#ffffff"],
+
+                mixerEnabled: false,
+                mixerAmount: 0.35,
+                mixerMode: 1,
+                mixerSeed: 1337.0,
+
+                shapeMixEnabled: false,
+                shapeMixAmount: 0.20,
+                shapeMixMode: 2,
+                shapeMixSeed: 9001.0,
+                shapeMixShape: 2,
+                shapeMixBlink: true,
+
+                takeoverEnabled: false,
+                takeoverAmount: 0.15,
+                takeoverMode: 0,
+                takeoverSeed: 4242.0,
+                takeoverShape: 2,
+                takeoverBlink: true,
+                takeoverBlendMode: 0,
+
                 shape: 0,
                 asciiMode: false,
+                asciiPreset: "Braille+Blocks",
+                asciiCustomChars: asciiPresets["Braille+Blocks"],
+
                 hue: 0.0,
                 contrast: 1.0,
                 threshold: 0.5,
                 blackAndWhite: false,
+
+                addDotGradientColor: function () {
+                    const MAX = 8;
+                    if (params.dotGradientColors.length >= MAX) return;
+                    const last = params.dotGradientColors[params.dotGradientColors.length - 1] || "#ffffff";
+                    params.dotGradientColors.push(last);
+                    rebuildGUI();
+                },
+
+                removeDotGradientColor: function () {
+                    if (params.dotGradientColors.length <= 2) return;
+                    params.dotGradientColors.pop();
+                    rebuildGUI();
+                },
 
                 loadVideo: function () {
                     const input = document.createElement("input");
@@ -441,8 +780,6 @@
                     input.click();
                 },
 
-                // save config
-                //
                 saveConfig: function () {
                     const now = new Date();
                     const filename = `halftone_config_${now.toISOString().replace(/[-T:.Z]/g, "").slice(2, 14)}.json`;
@@ -451,13 +788,48 @@
                         dotSize: params.dotSize,
                         color1: params.color1,
                         color2: params.color2,
+
+                        gradientEnabled: params.gradientEnabled,
+                        gradientType: params.gradientType,
+                        gradientDirection: params.gradientDirection,
+
+                        dotSolidColor: params.dotSolidColor,
+                        dotGradientEnabled: params.dotGradientEnabled,
+                        dotGradientType: params.dotGradientType,
+                        dotGradientDirection: params.dotGradientDirection,
+                        dotGradientColors: params.dotGradientColors,
+
+                        mixerEnabled: params.mixerEnabled,
+                        mixerAmount: params.mixerAmount,
+                        mixerMode: params.mixerMode,
+                        mixerSeed: params.mixerSeed,
+
+                        shapeMixEnabled: params.shapeMixEnabled,
+                        shapeMixAmount: params.shapeMixAmount,
+                        shapeMixMode: params.shapeMixMode,
+                        shapeMixSeed: params.shapeMixSeed,
+                        shapeMixShape: params.shapeMixShape,
+                        shapeMixBlink: params.shapeMixBlink,
+
+                        takeoverEnabled: params.takeoverEnabled,
+                        takeoverAmount: params.takeoverAmount,
+                        takeoverMode: params.takeoverMode,
+                        takeoverSeed: params.takeoverSeed,
+                        takeoverShape: params.takeoverShape,
+                        takeoverBlink: params.takeoverBlink,
+                        takeoverBlendMode: params.takeoverBlendMode,
+
                         shape: params.shape,
                         hue: params.hue,
                         contrast: params.contrast,
                         threshold: params.threshold,
                         blackAndWhite: params.blackAndWhite,
+
                         asciiMode: params.asciiMode,
+                        asciiPreset: params.asciiPreset,
+                        asciiCustomChars: params.asciiCustomChars,
                         asciiChars: asciiChars,
+
                         font: params.font,
                         filename: filename
                     };
@@ -473,8 +845,6 @@
                     console.log(`Configuration saved: ${filename}`);
                 },
 
-                // load config
-                //
                 loadConfig: function () {
                     const input = document.createElement("input");
                     input.type = "file";
@@ -494,9 +864,52 @@
                                     }
                                 });
 
-                                if (config.asciiChars) {
-                                    asciiChars = config.asciiChars;
+                                if (config.asciiPreset && typeof config.asciiPreset === "string") {
+                                    params.asciiPreset = config.asciiPreset;
                                 }
+
+                                if (config.asciiCustomChars && typeof config.asciiCustomChars === "string") {
+                                    params.asciiCustomChars = config.asciiCustomChars;
+                                }
+
+                                if (params.asciiPreset === "Custom") {
+                                    asciiChars = (params.asciiCustomChars && params.asciiCustomChars.length) ? params.asciiCustomChars : asciiPresets["Simple"];
+                                } else if (asciiPresets[params.asciiPreset]) {
+                                    asciiChars = asciiPresets[params.asciiPreset];
+                                    params.asciiCustomChars = asciiChars;
+                                } else {
+                                    params.asciiPreset = "Braille+Blocks";
+                                    asciiChars = asciiPresets["Braille+Blocks"];
+                                    params.asciiCustomChars = asciiChars;
+                                }
+
+                                if (!Array.isArray(params.dotGradientColors) || params.dotGradientColors.length < 2) {
+                                    params.dotGradientColors = ["#69bef7", "#ffffff"];
+                                }
+
+                                if (!params.dotSolidColor || typeof params.dotSolidColor !== "string") {
+                                    params.dotSolidColor = "#69bef7";
+                                }
+
+                                if (typeof params.mixerEnabled !== "boolean") params.mixerEnabled = false;
+                                if (typeof params.mixerAmount !== "number") params.mixerAmount = 0.35;
+                                if (typeof params.mixerMode !== "number") params.mixerMode = 1;
+                                if (typeof params.mixerSeed !== "number") params.mixerSeed = 1337.0;
+
+                                if (typeof params.shapeMixEnabled !== "boolean") params.shapeMixEnabled = false;
+                                if (typeof params.shapeMixAmount !== "number") params.shapeMixAmount = 0.20;
+                                if (typeof params.shapeMixMode !== "number") params.shapeMixMode = 2;
+                                if (typeof params.shapeMixSeed !== "number") params.shapeMixSeed = 9001.0;
+                                if (typeof params.shapeMixShape !== "number") params.shapeMixShape = 2;
+                                if (typeof params.shapeMixBlink !== "boolean") params.shapeMixBlink = true;
+
+                                if (typeof params.takeoverEnabled !== "boolean") params.takeoverEnabled = false;
+                                if (typeof params.takeoverAmount !== "number") params.takeoverAmount = 0.15;
+                                if (typeof params.takeoverMode !== "number") params.takeoverMode = 0;
+                                if (typeof params.takeoverSeed !== "number") params.takeoverSeed = 4242.0;
+                                if (typeof params.takeoverShape !== "number") params.takeoverShape = 2;
+                                if (typeof params.takeoverBlink !== "boolean") params.takeoverBlink = true;
+                                if (typeof params.takeoverBlendMode !== "number") params.takeoverBlendMode = 0;
 
                                 rebuildGUI();
 
@@ -508,44 +921,150 @@
                         reader.readAsText(file);
                     };
                     input.click();
+                },
+
+                exportPNG: function () {
+                    /* Exports the current halftone canvas as a PNG image. */
+                    const now = new Date();
+                    const filename = `halftone_export_${now.toISOString().replace(/[-T:.Z]/g, "").slice(2, 14)}.png`;
+
+                    const link = document.createElement("a");
+                    link.download = filename;
+                    link.href = canvas.toDataURL("image/png");
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                 }
             };
 
 
 
-            
 
-            // shape options
-            const shapeOptions = {
-                Circle: 0,
-                Square: 1,
-                Cross: 2,
-                Line: 3,
-                VerticalLine: 4, // Vertical lines
-                DiagonalLine: 5, // Diagonal lines
-                Rhomb: 6        // Rhombs (diamonds)
-            };
 
-            //gui
+
+
+
+
+
             //gui
             let gui = new GUI();
-            gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size");
-            gui.addColor(params, "color1").name("Color 1");
-            gui.addColor(params, "color2").name("Color 2");
 
-            gui.add(params, "shape", shapeOptions).name("Shape");
-            gui.add(params, "asciiMode").name("ASCII Mode");
-
-            gui.add(params, "hue", -3.14, 3.14, 0.01).name("Hue");
-            gui.add(params, "contrast", 0.0, 2.0, 0.01).name("Contrast");
-            gui.add(params, "threshold", 0.0, 1.0, 0.01).name("Threshold");
-            gui.add(params, "blackAndWhite").name("Black & White");
-            gui.add(params, "loadVideo").name("Load Video");
-            gui.add(params, "saveConfig").name("Save Config");
-            gui.add(params, "loadConfig").name("Load Config");
+            let rootControllers = [];
+            let rootFolders = [];
 
 
-            // render
+            function rebuildGUI() {
+                for (let i = rootControllers.length - 1; i >= 0; i--) rootControllers[i].destroy();
+                    rootControllers.length = 0;
+
+                for (let i = rootFolders.length - 1; i >= 0; i--) rootFolders[i].destroy();
+                    rootFolders.length = 0;
+
+                rootControllers.push(gui.add(params, "dotSize", 1.0, 200.0, 1).name("Dot Size"));
+                rootControllers.push(gui.addColor(params, "color1").name("Color 1"));
+                rootControllers.push(gui.addColor(params, "color2").name("Color 2"));
+
+                const bgFolder = gui.addFolder("Background Gradient");
+                rootFolders.push(bgFolder);
+                bgFolder.add(params, "gradientEnabled").name("Enabled");
+                bgFolder.add(params, "gradientType", gradientTypeOptions).name("Type");
+                bgFolder.add(params, "gradientDirection", gradientDirectionOptions).name("Direction");
+                bgFolder.open();
+
+                const dotFolder = gui.addFolder("Dot Colors");
+                rootFolders.push(dotFolder);
+                dotFolder.addColor(params, "dotSolidColor").name("Solid Color");
+
+                const dotGradFolder = dotFolder.addFolder("Dot Gradient");
+                rootFolders.push(dotGradFolder);
+                dotGradFolder.add(params, "dotGradientEnabled").name("Enabled");
+                dotGradFolder.add(params, "dotGradientType", gradientTypeOptions).name("Type");
+                dotGradFolder.add(params, "dotGradientDirection", gradientDirectionOptions).name("Direction");
+
+                for (let i = 0; i < params.dotGradientColors.length; i++) {
+                    dotGradFolder.addColor(params.dotGradientColors, i).name(`Stop ${i + 1}`);
+                }
+
+                dotGradFolder.add(params, "addDotGradientColor").name("Add Color");
+                dotGradFolder.add(params, "removeDotGradientColor").name("Remove Color");
+
+                dotFolder.open();
+                dotGradFolder.open();
+
+                const mixerFolder = gui.addFolder("Mixer");
+                rootFolders.push(mixerFolder);
+
+                mixerFolder.add(params, "mixerEnabled").name("Enabled");
+                mixerFolder.add(params, "mixerAmount", 0.0, 1.0, 0.01).name("Amount");
+                mixerFolder.add(params, "mixerMode", mixerModeOptions).name("Mode");
+                mixerFolder.add(params, "mixerSeed", 0.0, 99999.0, 1.0).name("Seed");
+
+                const shapeMixFolder = mixerFolder.addFolder("Shape Mix");
+                rootFolders.push(shapeMixFolder);
+                shapeMixFolder.add(params, "shapeMixEnabled").name("Enabled");
+                shapeMixFolder.add(params, "shapeMixShape", shapeOptions).name("Shape");
+                shapeMixFolder.add(params, "shapeMixAmount", 0.0, 1.0, 0.01).name("Amount");
+                shapeMixFolder.add(params, "shapeMixMode", mixerModeOptions).name("Distribution");
+                shapeMixFolder.add(params, "shapeMixSeed", 0.0, 99999.0, 1.0).name("Seed");
+                shapeMixFolder.add(params, "shapeMixBlink").name("Blink");
+
+                const takeoverFolder = mixerFolder.addFolder("Takeover");
+                rootFolders.push(takeoverFolder);
+                takeoverFolder.add(params, "takeoverEnabled").name("Enabled");
+                takeoverFolder.add(params, "takeoverShape", shapeOptions).name("Shape");
+                takeoverFolder.add(params, "takeoverAmount", 0.0, 1.0, 0.01).name("Amount");
+                takeoverFolder.add(params, "takeoverMode", mixerModeOptions).name("Distribution");
+                takeoverFolder.add(params, "takeoverSeed", 0.0, 99999.0, 1.0).name("Seed");
+                takeoverFolder.add(params, "takeoverBlink").name("Blink");
+                takeoverFolder.add(params, "takeoverBlendMode", { Replace: 0, Overlay: 1 }).name("Blend");
+
+                mixerFolder.open();
+                shapeMixFolder.open();
+
+                rootControllers.push(gui.add(params, "shape", shapeOptions).name("Shape"));
+
+                rootControllers.push(gui.add(params, "asciiMode").name("ASCII Mode"));
+
+                rootControllers.push(
+                    gui.add(params, "asciiPreset", asciiPresetList)
+                    .name("ASCII Preset")
+                    .onChange((v) => {
+                        if (v === "Custom") {
+                            asciiChars = (params.asciiCustomChars && params.asciiCustomChars.length) ? params.asciiCustomChars : asciiPresets["Simple"];
+                        } else if (asciiPresets[v]) {
+                            asciiChars = asciiPresets[v];
+                            params.asciiCustomChars = asciiChars;
+                        }
+                    })
+                    );
+
+                rootControllers.push(
+                    gui.add(params, "asciiCustomChars")
+                    .name("ASCII Custom")
+                    .onChange((v) => {
+                        params.asciiPreset = "Custom";
+                        asciiChars = (v && v.length) ? v : asciiPresets["Simple"];
+                    })
+                    );
+
+                rootControllers.push(gui.add(params, "hue", -3.14, 3.14, 0.01).name("Hue"));
+                rootControllers.push(gui.add(params, "contrast", 0.0, 2.0, 0.01).name("Contrast"));
+                rootControllers.push(gui.add(params, "threshold", 0.0, 1.0, 0.01).name("Threshold"));
+                rootControllers.push(gui.add(params, "blackAndWhite").name("Black & White"));
+                rootControllers.push(gui.add(params, "loadVideo").name("Load Video"));
+                rootControllers.push(gui.add(params, "saveConfig").name("Save Config"));
+                rootControllers.push(gui.add(params, "loadConfig").name("Load Config"));
+                rootControllers.push(gui.add(params, "exportPNG").name("Export PNG"));
+            }
+
+
+
+            rebuildGUI();
+
+
+
+
+
 
             function render() {
                 if (video.readyState >= 2) {
@@ -553,26 +1072,67 @@
                     gl.clearColor(0, 0, 0, 0);
                     gl.clear(gl.COLOR_BUFFER_BIT);
 
-                    if (params.asciiMode) {
-                        renderASCII(); // Draw ASCII characters on the canvas
-                        updateASCIICanvasTexture(); // Update ASCII texture for WebGL
-                        gl.bindTexture(gl.TEXTURE_2D, asciiTexture); // Use ASCII texture
-                    } else {
-                        gl.activeTexture(gl.TEXTURE0);
-                        gl.bindTexture(gl.TEXTURE_2D, texture); // Use video texture
-                        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
-                    }
-
                     gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
                     gl.uniform1f(dotSizeLocation, params.dotSize);
-                    gl.uniform3fv(color1Location, params.color1.match(/\w\w/g).map(x => parseInt(x, 16) / 255));
-                    gl.uniform3fv(color2Location, params.color2.match(/\w\w/g).map(x => parseInt(x, 16) / 255));
+                    gl.uniform3fv(color1Location, hexToVec3(params.color1));
+                    gl.uniform3fv(color2Location, hexToVec3(params.color2));
                     gl.uniform1i(shapeLocation, params.shape);
                     gl.uniform1f(hueLocation, params.hue);
                     gl.uniform1f(contrastLocation, params.contrast);
                     gl.uniform1f(thresholdLocation, params.threshold);
-                    gl.uniform1i(gl.getUniformLocation(program, "u_blackAndWhite"), params.blackAndWhite);
-                    gl.uniform1i(gl.getUniformLocation(program, "u_asciiMode"), params.asciiMode);
+                    gl.uniform1i(gl.getUniformLocation(program, "u_blackAndWhite"), params.blackAndWhite ? 1 : 0);
+                    gl.uniform1i(gl.getUniformLocation(program, "u_asciiMode"), params.asciiMode ? 1 : 0);
+
+                    gl.uniform1i(gradientEnabledLocation, params.gradientEnabled ? 1 : 0);
+                    gl.uniform1i(gradientTypeLocation, params.gradientType === "radial" ? 1 : 0);
+                    const bgd = getGradientDirVec(params.gradientDirection);
+                    gl.uniform2f(gradientDirLocation, bgd[0], bgd[1]);
+
+                    gl.uniform3fv(dotSolidColorLocation, hexToVec3(params.dotSolidColor));
+                    gl.uniform1i(dotGradientEnabledLocation, params.dotGradientEnabled ? 1 : 0);
+                    gl.uniform1i(dotGradientTypeLocation, params.dotGradientType === "radial" ? 1 : 0);
+                    const dgd = getGradientDirVec(params.dotGradientDirection);
+                    gl.uniform2f(dotGradientDirLocation, dgd[0], dgd[1]);
+
+                    setPaletteUniforms(gl, params);
+
+                    gl.uniform1i(mixerEnabledLocation, params.mixerEnabled ? 1 : 0);
+                    gl.uniform1f(mixerAmountLocation, params.mixerAmount);
+                    gl.uniform1i(mixerModeLocation, params.mixerMode | 0);
+                    gl.uniform1f(mixerSeedLocation, params.mixerSeed);
+
+                    if (timeLocation) gl.uniform1f(timeLocation, performance.now() * 0.001);
+
+                    if (shapeMixEnabledLocation) gl.uniform1i(shapeMixEnabledLocation, params.shapeMixEnabled ? 1 : 0);
+                    if (shapeMixAmountLocation)  gl.uniform1f(shapeMixAmountLocation, params.shapeMixAmount);
+                    if (shapeMixModeLocation)    gl.uniform1i(shapeMixModeLocation, params.shapeMixMode | 0);
+                    if (shapeMixSeedLocation)    gl.uniform1f(shapeMixSeedLocation, params.shapeMixSeed);
+                    if (shapeMixShapeLocation)   gl.uniform1i(shapeMixShapeLocation, params.shapeMixShape | 0);
+                    if (shapeMixBlinkLocation)   gl.uniform1i(shapeMixBlinkLocation, params.shapeMixBlink ? 1 : 0);
+
+                    if (takeoverEnabledLocation)   gl.uniform1i(takeoverEnabledLocation, params.takeoverEnabled ? 1 : 0);
+                    if (takeoverAmountLocation)    gl.uniform1f(takeoverAmountLocation, params.takeoverAmount);
+                    if (takeoverModeLocation)      gl.uniform1i(takeoverModeLocation, params.takeoverMode | 0);
+                    if (takeoverSeedLocation)      gl.uniform1f(takeoverSeedLocation, params.takeoverSeed);
+                    if (takeoverShapeLocation)     gl.uniform1i(takeoverShapeLocation, params.takeoverShape | 0);
+                    if (takeoverBlinkLocation)     gl.uniform1i(takeoverBlinkLocation, params.takeoverBlink ? 1 : 0);
+                    if (takeoverBlendModeLocation) gl.uniform1i(takeoverBlendModeLocation, params.takeoverBlendMode | 0);
+
+                    if (videoSamplerLocation) gl.uniform1i(videoSamplerLocation, 0);
+                    if (asciiSamplerLocation) gl.uniform1i(asciiSamplerLocation, 1);
+
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, texture);
+                    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, video);
+
+                    if (params.asciiMode) {
+                        if (params.asciiPreset === "Custom") {
+                            asciiChars = (params.asciiCustomChars && params.asciiCustomChars.length) ? params.asciiCustomChars : asciiPresets["Simple"];
+                        }
+                        renderASCII();
+                        gl.activeTexture(gl.TEXTURE1);
+                        gl.bindTexture(gl.TEXTURE_2D, asciiTexture);
+                    }
 
                     gl.drawArrays(gl.TRIANGLES, 0, 6);
                 }
@@ -583,16 +1143,14 @@
 
 
 
-            video.addEventListener("play", () => render());
 
+
+            video.addEventListener("play", () => render());
         }
-        
 
         createHalftoneVideoEffect();
 
-
-// fulscreen
-
+        // fulscreen
         document.addEventListener("keydown", (event) => {
             if (event.key === "f" || event.key === "F") {
                 toggleFullscreen();
@@ -605,45 +1163,37 @@
             const ribbon = document.querySelector(".corner-ribbon");
 
             if (!document.fullscreenElement) {
-        // Enter fullscreen
                 if (canvas.requestFullscreen) {
                     canvas.requestFullscreen();
-        } else if (canvas.mozRequestFullScreen) { // Firefox
-            canvas.mozRequestFullScreen();
-        } else if (canvas.webkitRequestFullscreen) { // Chrome, Safari, Opera
-            canvas.webkitRequestFullscreen();
-        } else if (canvas.msRequestFullscreen) { // IE/Edge
-            canvas.msRequestFullscreen();
+                } else if (canvas.mozRequestFullScreen) {
+                    canvas.mozRequestFullScreen();
+                } else if (canvas.webkitRequestFullscreen) {
+                    canvas.webkitRequestFullscreen();
+                } else if (canvas.msRequestFullscreen) {
+                    canvas.msRequestFullscreen();
+                }
+
+                if (gui) gui.style.display = "none";
+                if (ribbon) ribbon.style.display = "none";
+
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+
+                if (gui) gui.style.display = "block";
+                if (ribbon) ribbon.style.display = "flex";
+            }
         }
+    </script>
 
-        // Hide GUI and ribbon
-        if (gui) gui.style.display = "none";
-        if (ribbon) ribbon.style.display = "none";
-
-    } else {
-        // Exit fullscreen
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.mozCancelFullScreen) { // Firefox
-            document.mozCancelFullScreen();
-        } else if (document.webkitExitFullscreen) { // Chrome, Safari, Opera
-            document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) { // IE/Edge
-            document.msExitFullscreen();
-        }
-
-        // Restore GUI and ribbon after exiting fullscreen
-        if (gui) gui.style.display = "block";
-        if (ribbon) ribbon.style.display = "flex"; // Ensuring flex display restores properly
-    }
-}
-
-
-
-
-
-</script>
-<script src="https://immersive-collective.org/projects/ic-badge/ic.js"></script>
+    <script src="https://immersive-collective.org/projects/ic-badge/ic.js"></script>
 </body>
 
 </html>
