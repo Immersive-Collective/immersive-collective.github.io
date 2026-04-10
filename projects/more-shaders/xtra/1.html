@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reactive WebGL Caustics Background</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0b0d12;
+    }
+
+    body {
+      font-family: system-ui, sans-serif;
+      touch-action: none;
+    }
+
+    #glcanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="glcanvas"></canvas>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('glcanvas');
+      const gl = canvas.getContext('webgl', {
+        alpha: false,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: false,
+      });
+
+      if (!gl) {
+        document.body.innerHTML = '<div style="color:white;padding:24px">WebGL is not supported in this browser.</div>';
+        return;
+      }
+
+      const MAX_POINTS = 32;
+      const POINT_LIFE = 1.55;
+
+      const vertexShaderSource = `
+        attribute vec2 a_position;
+        varying vec2 v_uv;
+
+        void main() {
+          v_uv = a_position * 0.5 + 0.5;
+          gl_Position = vec4(a_position, 0.0, 1.0);
+        }
+      `;
+
+      const fragmentShaderSource = `
+        precision highp float;
+
+        varying vec2 v_uv;
+
+        uniform vec2 u_resolution;
+        uniform float u_time;
+        uniform int u_pointCount;
+        uniform vec4 u_points[${MAX_POINTS}];
+        uniform vec4 u_vels[${MAX_POINTS}];
+
+        #define TAU 6.28318530718
+
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+        }
+
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          vec2 u = f * f * (3.0 - 2.0 * f);
+
+          float a = hash(i + vec2(0.0, 0.0));
+          float b = hash(i + vec2(1.0, 0.0));
+          float c = hash(i + vec2(0.0, 1.0));
+          float d = hash(i + vec2(1.0, 1.0));
+
+          return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+        }
+
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amp = 0.5;
+          mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
+          for (int i = 0; i < 5; i++) {
+            value += noise(p) * amp;
+            p = m * p * 1.12;
+            amp *= 0.52;
+          }
+          return value;
+        }
+
+        float ridged(vec2 p) {
+          float value = 0.0;
+          float amp = 0.55;
+          mat2 m = mat2(1.7, 1.1, -1.1, 1.7);
+          for (int i = 0; i < 5; i++) {
+            float n = noise(p);
+            n = 1.0 - abs(n * 2.0 - 1.0);
+            value += n * n * amp;
+            p = m * p * 1.18;
+            amp *= 0.58;
+          }
+          return value;
+        }
+
+        vec3 palette(float t) {
+          return 0.56 + 0.44 * cos(TAU * (vec3(0.0, 0.33, 0.67) + t));
+        }
+
+        void main() {
+          vec2 uv = v_uv;
+          vec2 p = uv * 2.0 - 1.0;
+          p.x *= u_resolution.x / u_resolution.y;
+
+          vec2 flow = vec2(0.0);
+          float activity = 0.0;
+          vec3 rainbowAccum = vec3(0.0);
+
+          for (int i = 0; i < ${MAX_POINTS}; i++) {
+            if (i >= u_pointCount) {
+              continue;
+            }
+
+            vec2 point = u_points[i].xy * 2.0 - 1.0;
+            point.x *= u_resolution.x / u_resolution.y;
+
+            float age = u_points[i].z;
+            float speed = u_points[i].w;
+
+            vec2 vel = u_vels[i].xy;
+            float signedSpin = u_vels[i].z;
+
+            vec2 toFrag = p - point;
+            float d = length(toFrag);
+            float influence = exp(-d * 7.5) * exp(-age * 1.9);
+            float swirl = exp(-d * 10.0) * exp(-age * 2.4);
+
+            vec2 tangent = vec2(-toFrag.y, toFrag.x);
+            float speedBoost = 0.15 + speed * 1.65;
+            flow += vel * influence * speedBoost;
+            flow += tangent * swirl * signedSpin * (0.20 + speed * 1.25);
+
+            float hue = atan(vel.y, vel.x) / TAU + 0.5;
+            float localActivity = influence * clamp(speed * 1.6, 0.0, 1.0);
+            rainbowAccum += palette(hue + d * 0.12 + u_time * 0.03) * localActivity;
+            activity += localActivity;
+          }
+
+          vec2 drift = vec2(
+            sin(u_time * 0.15 + p.y * 1.6),
+            cos(u_time * 0.12 + p.x * 1.4)
+          ) * 0.045;
+
+          vec2 warped = p * 1.55 + drift + flow * 1.1;
+
+          float baseA = ridged(warped * 2.9 + vec2(u_time * 0.10, -u_time * 0.06));
+          float baseB = ridged(warped * 4.4 - vec2(u_time * 0.07, u_time * 0.10) + flow * 1.5);
+          float baseC = fbm(warped * 6.8 + flow * 3.0 + vec2(0.0, u_time * 0.08));
+
+          float caustics = pow(clamp(baseA * 0.8 + baseB * 0.9 + baseC * 0.4, 0.0, 1.0), 2.7);
+
+          float shimmer = 0.0;
+          shimmer += pow(max(0.0, 1.0 - abs(sin((warped.x + baseB * 0.35) * 12.0 + u_time * 1.1))), 8.0);
+          shimmer += pow(max(0.0, 1.0 - abs(cos((warped.y - baseA * 0.25) * 11.0 - u_time * 0.95))), 8.0);
+          shimmer *= 0.13;
+
+          float waveBands = 0.5 + 0.5 * sin((warped.x * 2.2 + warped.y * 1.3 + baseC * 2.8) * 5.2 - u_time * 1.0);
+          waveBands *= 0.18 + min(activity, 1.0) * 0.35;
+
+          vec3 grayBase = vec3(0.055, 0.060, 0.070);
+          vec3 grayLight = vec3(0.38, 0.41, 0.46);
+          vec3 color = grayBase + grayLight * (caustics * 1.05 + shimmer + waveBands);
+
+          float rainbowMix = smoothstep(0.03, 0.42, activity);
+          vec3 rainbow = rainbowAccum / max(activity, 0.0001);
+          color = mix(color, color + rainbow * (0.16 + caustics * 0.95 + waveBands * 0.9), rainbowMix);
+
+          float vignette = smoothstep(1.45, 0.20, length(p));
+          color *= 0.84 + vignette * 0.28;
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `;
+
+      function createShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const info = gl.getShaderInfoLog(shader);
+          gl.deleteShader(shader);
+          throw new Error(info || 'Shader compile failed');
+        }
+        return shader;
+      }
+
+      function createProgram(vsSource, fsSource) {
+        const program = gl.createProgram();
+        const vs = createShader(gl.VERTEX_SHADER, vsSource);
+        const fs = createShader(gl.FRAGMENT_SHADER, fsSource);
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          const info = gl.getProgramInfoLog(program);
+          gl.deleteProgram(program);
+          throw new Error(info || 'Program link failed');
+        }
+        gl.deleteShader(vs);
+        gl.deleteShader(fs);
+        return program;
+      }
+
+      let program;
+      try {
+        program = createProgram(vertexShaderSource, fragmentShaderSource);
+      } catch (error) {
+        document.body.innerHTML = `<div style="color:white;padding:24px;white-space:pre-wrap">${error.message}</div>`;
+        return;
+      }
+
+      const positionLocation = gl.getAttribLocation(program, 'a_position');
+      const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+      const timeLocation = gl.getUniformLocation(program, 'u_time');
+      const pointCountLocation = gl.getUniformLocation(program, 'u_pointCount');
+      const pointsLocation = gl.getUniformLocation(program, 'u_points[0]');
+      const velsLocation = gl.getUniformLocation(program, 'u_vels[0]');
+
+      const quadBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([
+          -1, -1,
+           1, -1,
+          -1,  1,
+          -1,  1,
+           1, -1,
+           1,  1,
+        ]),
+        gl.STATIC_DRAW
+      );
+
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      const points = [];
+      const pointer = {
+        x: 0.5,
+        y: 0.5,
+        px: 0.5,
+        py: 0.5,
+        initialized: false,
+        moved: false,
+        lastMoveTime: 0,
+      };
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function addPoint(nx, ny, vx, vy, dt) {
+        const speed = clamp(Math.hypot(vx, vy) * 0.9, 0, 1.8);
+        const spin = clamp(vx * vy >= 0 ? vx - vy : vx + vy, -1.0, 1.0);
+
+        points.unshift({
+          x: nx,
+          y: ny,
+          age: 0,
+          speed,
+          vx,
+          vy,
+          spin,
+        });
+
+        if (points.length > MAX_POINTS) {
+          points.length = MAX_POINTS;
+        }
+      }
+
+      function updatePointer(clientX, clientY, now) {
+        const rect = canvas.getBoundingClientRect();
+        const nx = clamp((clientX - rect.left) / rect.width, 0, 1);
+        const ny = clamp(1 - (clientY - rect.top) / rect.height, 0, 1);
+
+        if (!pointer.initialized) {
+          pointer.x = pointer.px = nx;
+          pointer.y = pointer.py = ny;
+          pointer.initialized = true;
+          pointer.lastMoveTime = now;
+          addPoint(nx, ny, 0.0, 0.0, 0.016);
+          return;
+        }
+
+        const dt = Math.max(0.008, Math.min(0.05, (now - pointer.lastMoveTime) / 1000 || 0.016));
+        const dx = nx - pointer.x;
+        const dy = ny - pointer.y;
+        const dist = Math.hypot(dx, dy);
+
+        pointer.px = pointer.x;
+        pointer.py = pointer.y;
+        pointer.x = nx;
+        pointer.y = ny;
+        pointer.lastMoveTime = now;
+
+        const vx = dx / dt;
+        const vy = dy / dt;
+
+        if (dist > 0.0004) {
+          const steps = Math.min(6, Math.max(1, Math.ceil(dist * 42)));
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            addPoint(
+              pointer.px + (pointer.x - pointer.px) * t,
+              pointer.py + (pointer.y - pointer.py) * t,
+              vx,
+              vy,
+              dt
+            );
+          }
+          pointer.moved = true;
+        }
+      }
+
+      function handleMouse(event) {
+        updatePointer(event.clientX, event.clientY, performance.now());
+      }
+
+      function handleTouch(event) {
+        if (event.touches.length > 0) {
+          const t = event.touches[0];
+          updatePointer(t.clientX, t.clientY, performance.now());
+        }
+      }
+
+      window.addEventListener('mousemove', handleMouse, { passive: true });
+      window.addEventListener('touchstart', handleTouch, { passive: true });
+      window.addEventListener('touchmove', handleTouch, { passive: true });
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(1, Math.floor(window.innerWidth * dpr));
+        const height = Math.max(1, Math.floor(window.innerHeight * dpr));
+
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+          gl.viewport(0, 0, width, height);
+        }
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+
+      const pointData = new Float32Array(MAX_POINTS * 4);
+      const velData = new Float32Array(MAX_POINTS * 4);
+      let lastTime = performance.now();
+      const startTime = lastTime;
+
+      function frame(now) {
+        resize();
+        const dt = Math.min(0.033, (now - lastTime) / 1000 || 0.016);
+        lastTime = now;
+
+        if (!pointer.moved) {
+          const idleX = 0.5 + Math.cos(now * 0.00018) * 0.12;
+          const idleY = 0.5 + Math.sin(now * 0.00022) * 0.10;
+          updatePointer(idleX * canvas.clientWidth, (1 - idleY) * canvas.clientHeight, now);
+        }
+
+        for (let i = points.length - 1; i >= 0; i--) {
+          points[i].age += dt;
+          if (points[i].age > POINT_LIFE) {
+            points.splice(i, 1);
+          }
+        }
+
+        pointData.fill(0);
+        velData.fill(0);
+
+        const count = Math.min(points.length, MAX_POINTS);
+        for (let i = 0; i < count; i++) {
+          const p = points[i];
+          pointData[i * 4 + 0] = p.x;
+          pointData[i * 4 + 1] = p.y;
+          pointData[i * 4 + 2] = p.age;
+          pointData[i * 4 + 3] = p.speed;
+
+          velData[i * 4 + 0] = p.vx;
+          velData[i * 4 + 1] = p.vy;
+          velData[i * 4 + 2] = p.spin;
+          velData[i * 4 + 3] = 1.0;
+        }
+
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.useProgram(program);
+        gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+        gl.uniform1f(timeLocation, (now - startTime) * 0.001);
+        gl.uniform1i(pointCountLocation, count);
+        gl.uniform4fv(pointsLocation, pointData);
+        gl.uniform4fv(velsLocation, velData);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+        requestAnimationFrame(frame);
+      }
+
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reactive WebGL DNA Waves</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #080a10;
+    }
+
+    body {
+      touch-action: none;
+      font-family: Inter, system-ui, sans-serif;
+      color: #e9edf6;
+    }
+
+    #glcanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #gui {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      width: 290px;
+      max-height: calc(100vh - 24px);
+      overflow: auto;
+      padding: 10px 10px 12px;
+      box-sizing: border-box;
+      border-radius: 10px;
+      background: rgba(18, 20, 27, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(10px);
+      z-index: 5;
+      user-select: none;
+    }
+
+    #gui::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #gui::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+    }
+
+    .gui-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 8px;
+    }
+
+    .gui-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .gui-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .gui-button {
+      border: 0;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font: inherit;
+      font-size: 11px;
+      line-height: 1;
+      color: #eef3ff;
+      background: rgba(255, 255, 255, 0.09);
+      cursor: pointer;
+    }
+
+    .gui-button:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .gui-group {
+      margin-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 9px;
+    }
+
+    .gui-group-title {
+      margin-bottom: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .gui-row {
+      display: grid;
+      grid-template-columns: 86px 1fr 44px;
+      align-items: center;
+      gap: 8px;
+      min-height: 28px;
+      margin-bottom: 6px;
+    }
+
+    .gui-row label {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.82);
+    }
+
+    .gui-value {
+      font-size: 11px;
+      text-align: right;
+      color: rgba(255, 255, 255, 0.64);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .gui-row input[type="range"] {
+      width: 100%;
+      margin: 0;
+      accent-color: #8fa7ff;
+      cursor: pointer;
+    }
+
+    .gui-row input[type="color"] {
+      width: 100%;
+      height: 22px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .gui-hint {
+      margin-top: 8px;
+      font-size: 11px;
+      line-height: 1.35;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    body.gui-collapsed #gui {
+      width: auto;
+      padding: 10px;
+      overflow: visible;
+    }
+
+    body.gui-collapsed .gui-group,
+    body.gui-collapsed .gui-hint,
+    body.gui-collapsed #guiRows {
+      display: none;
+    }
+
+    @media (max-width: 720px) {
+      #gui {
+        width: min(290px, calc(100vw - 24px));
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="glcanvas"></canvas>
+
+  <div id="gui">
+    <div class="gui-header">
+      <div class="gui-title">DNA Waves Controls</div>
+      <div class="gui-actions">
+        <button class="gui-button" id="resetButton" type="button">Reset</button>
+        <button class="gui-button" id="toggleButton" type="button">Hide</button>
+      </div>
+    </div>
+    <div id="guiRows"></div>
+    <div class="gui-hint">Move the pointer faster to push stronger rainbow turbulence through the helix field.</div>
+  </div>
+
+  <script>
+    (() => {
+      const canvas = document.getElementById('glcanvas');
+      const gl = canvas.getContext('webgl', {
+        alpha: false,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: false,
+      });
+
+      if (!gl) {
+        document.body.innerHTML = '<div style="color:white;padding:24px">WebGL is not supported in this browser.</div>';
+        return;
+      }
+
+      const MAX_POINTS = 56;
+      const defaults = {
+        helixScale: 1.0,
+        animationSpeed: 1.0,
+        turbulence: 1.15,
+        mouseForce: 1.25,
+        drift: 1.0,
+        swirl: 1.0,
+        bridge: 1.0,
+        laneFreqA: 3.7,
+        laneFreqB: 4.9,
+        ampA: 0.19,
+        ampB: 0.145,
+        widthA: 0.024,
+        widthB: 0.02,
+        rainbowStrength: 1.0,
+        hueShift: 0.0,
+        saturation: 1.0,
+        trailLife: 1.85,
+        idleMotion: 0.14,
+        grayBase: '#0a0c12',
+        grayLight: '#6b7486',
+        shadowTint: '#243042',
+      };
+
+      const config = { ...defaults };
+
+      const groups = [
+        {
+          title: 'Motion',
+          items: [
+            { key: 'helixScale', label: 'Scale', type: 'range', min: 0.55, max: 1.8, step: 0.01 },
+            { key: 'animationSpeed', label: 'Speed', type: 'range', min: 0.1, max: 3.0, step: 0.01 },
+            { key: 'turbulence', label: 'Turbulence', type: 'range', min: 0.0, max: 2.5, step: 0.01 },
+            { key: 'mouseForce', label: 'Mouse force', type: 'range', min: 0.1, max: 3.5, step: 0.01 },
+            { key: 'drift', label: 'Drift', type: 'range', min: 0.0, max: 2.0, step: 0.01 },
+            { key: 'swirl', label: 'Swirl', type: 'range', min: 0.0, max: 2.5, step: 0.01 },
+            { key: 'bridge', label: 'Bridge glow', type: 'range', min: 0.0, max: 2.0, step: 0.01 },
+            { key: 'trailLife', label: 'Trail life', type: 'range', min: 0.25, max: 4.0, step: 0.01 },
+            { key: 'idleMotion', label: 'Idle motion', type: 'range', min: 0.0, max: 0.35, step: 0.005 },
+          ],
+        },
+        {
+          title: 'Helix A',
+          items: [
+            { key: 'laneFreqA', label: 'Frequency', type: 'range', min: 1.5, max: 8.0, step: 0.01 },
+            { key: 'ampA', label: 'Amplitude', type: 'range', min: 0.04, max: 0.4, step: 0.001 },
+            { key: 'widthA', label: 'Width', type: 'range', min: 0.004, max: 0.06, step: 0.001 },
+          ],
+        },
+        {
+          title: 'Helix B',
+          items: [
+            { key: 'laneFreqB', label: 'Frequency', type: 'range', min: 1.5, max: 8.0, step: 0.01 },
+            { key: 'ampB', label: 'Amplitude', type: 'range', min: 0.04, max: 0.4, step: 0.001 },
+            { key: 'widthB', label: 'Width', type: 'range', min: 0.004, max: 0.06, step: 0.001 },
+          ],
+        },
+        {
+          title: 'Color',
+          items: [
+            { key: 'rainbowStrength', label: 'Rainbow', type: 'range', min: 0.0, max: 2.5, step: 0.01 },
+            { key: 'hueShift', label: 'Hue shift', type: 'range', min: -1.0, max: 1.0, step: 0.01 },
+            { key: 'saturation', label: 'Saturation', type: 'range', min: 0.0, max: 1.6, step: 0.01 },
+            { key: 'grayBase', label: 'Base', type: 'color' },
+            { key: 'grayLight', label: 'Glow', type: 'color' },
+            { key: 'shadowTint', label: 'Fog', type: 'color' },
+          ],
+        },
+      ];
+
+      const guiRows = document.getElementById('guiRows');
+      const toggleButton = document.getElementById('toggleButton');
+      const resetButton = document.getElementById('resetButton');
+      const valueMap = new Map();
+      const inputMap = new Map();
+
+      function formatValue(key, value) {
+        if (typeof value === 'string') return value.toUpperCase();
+        if (key === 'idleMotion') return value.toFixed(3);
+        if (Math.abs(value) >= 10) return value.toFixed(1);
+        if (Math.abs(value) >= 1) return value.toFixed(2);
+        return value.toFixed(3);
+      }
+
+      function createGui() {
+        groups.forEach((group) => {
+          const wrap = document.createElement('div');
+          wrap.className = 'gui-group';
+
+          const title = document.createElement('div');
+          title.className = 'gui-group-title';
+          title.textContent = group.title;
+          wrap.appendChild(title);
+
+          group.items.forEach((item) => {
+            const row = document.createElement('div');
+            row.className = 'gui-row';
+
+            const label = document.createElement('label');
+            label.textContent = item.label;
+            row.appendChild(label);
+
+            const input = document.createElement('input');
+            input.dataset.key = item.key;
+            input.type = item.type;
+
+            if (item.type === 'range') {
+              input.min = item.min;
+              input.max = item.max;
+              input.step = item.step;
+              input.value = config[item.key];
+            } else {
+              input.value = config[item.key];
+            }
+
+            const value = document.createElement('div');
+            value.className = 'gui-value';
+            value.textContent = formatValue(item.key, config[item.key]);
+
+            input.addEventListener('input', () => {
+              const nextValue = item.type === 'range' ? Number(input.value) : input.value;
+              config[item.key] = nextValue;
+              value.textContent = formatValue(item.key, nextValue);
+            });
+
+            row.appendChild(input);
+            row.appendChild(value);
+            wrap.appendChild(row);
+
+            valueMap.set(item.key, value);
+            inputMap.set(item.key, input);
+          });
+
+          guiRows.appendChild(wrap);
+        });
+      }
+
+      createGui();
+
+      toggleButton.addEventListener('click', () => {
+        document.body.classList.toggle('gui-collapsed');
+        toggleButton.textContent = document.body.classList.contains('gui-collapsed') ? 'Show' : 'Hide';
+      });
+
+      resetButton.addEventListener('click', () => {
+        Object.assign(config, defaults);
+        for (const [key, input] of inputMap.entries()) {
+          input.value = config[key];
+        }
+        for (const [key, output] of valueMap.entries()) {
+          output.textContent = formatValue(key, config[key]);
+        }
+      });
+
+      function hexToRgb(hex) {
+        const clean = hex.replace('#', '');
+        const value = clean.length === 3
+          ? clean.split('').map((ch) => ch + ch).join('')
+          : clean;
+        const int = parseInt(value, 16);
+        return [
+          ((int >> 16) & 255) / 255,
+          ((int >> 8) & 255) / 255,
+          (int & 255) / 255,
+        ];
+      }
+
+      const vertexShaderSource = `
+        attribute vec2 a_position;
+        varying vec2 v_uv;
+
+        void main() {
+          v_uv = a_position * 0.5 + 0.5;
+          gl_Position = vec4(a_position, 0.0, 1.0);
+        }
+      `;
+
+      const fragmentShaderSource = `
+        precision highp float;
+
+        varying vec2 v_uv;
+
+        uniform vec2 u_resolution;
+        uniform float u_time;
+        uniform int u_pointCount;
+        uniform vec4 u_points[${MAX_POINTS}];
+        uniform vec4 u_vels[${MAX_POINTS}];
+        uniform vec4 u_global;
+        uniform vec4 u_shapeA;
+        uniform vec4 u_shapeB;
+        uniform vec4 u_motion;
+        uniform vec4 u_colorCtrl;
+        uniform vec3 u_grayBase;
+        uniform vec3 u_grayLight;
+        uniform vec3 u_shadowTint;
+
+        #define TAU 6.28318530718
+
+        mat2 rot(float a) {
+          float s = sin(a);
+          float c = cos(a);
+          return mat2(c, -s, s, c);
+        }
+
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+        }
+
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          vec2 u = f * f * (3.0 - 2.0 * f);
+
+          float a = hash(i + vec2(0.0, 0.0));
+          float b = hash(i + vec2(1.0, 0.0));
+          float c = hash(i + vec2(0.0, 1.0));
+          float d = hash(i + vec2(1.0, 1.0));
+
+          return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+        }
+
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amp = 0.5;
+          mat2 m = mat2(1.7, 1.2, -1.2, 1.7);
+          for (int i = 0; i < 5; i++) {
+            value += noise(p) * amp;
+            p = m * p * 1.13;
+            amp *= 0.55;
+          }
+          return value;
+        }
+
+        vec3 palette(float t, float hueShift, float saturation) {
+          vec3 c = 0.5 + 0.5 * cos(TAU * (vec3(0.0, 0.33, 0.67) + t + hueShift));
+          float luma = dot(c, vec3(0.299, 0.587, 0.114));
+          return mix(vec3(luma), c, saturation);
+        }
+
+        vec2 helixField(vec2 p, float phase, float laneFreq, float amp, float width, float travel, float bridgeStrength) {
+          vec2 q = p;
+          q.x *= laneFreq;
+          q.y *= 2.35;
+
+          float lane = floor(q.x + 0.5);
+          float localX = fract(q.x + 0.5) - 0.5;
+          float y = q.y + lane * 0.82 + phase;
+          float cycle = y * 2.4 - travel;
+
+          float wave = sin(cycle);
+          float twist = cos(cycle);
+          float laneAmp = amp * (0.84 + 0.16 * sin(lane * 2.97 + phase * 0.7));
+
+          float x1 = wave * laneAmp;
+          float x2 = -wave * laneAmp;
+
+          float d1 = abs(localX - x1);
+          float d2 = abs(localX - x2);
+
+          float strand1 = exp(-pow(d1 / max(width, 0.0001), 1.45));
+          float strand2 = exp(-pow(d2 / max(width, 0.0001), 1.45));
+          float strand = strand1 + strand2;
+
+          float bridgeMask = smoothstep(laneAmp * 1.18 + 0.02, laneAmp * 0.08, abs(localX));
+          float frontBridge = bridgeMask * pow(max(0.0, twist), 5.0) * bridgeStrength;
+          float backBridge = bridgeMask * pow(max(0.0, -twist), 4.0) * 0.28 * bridgeStrength;
+
+          return vec2(strand, frontBridge + backBridge);
+        }
+
+        void main() {
+          vec2 uv = v_uv;
+          vec2 p = uv * 2.0 - 1.0;
+          p.x *= u_resolution.x / u_resolution.y;
+          p *= u_global.x;
+
+          vec2 flow = vec2(0.0);
+          float activity = 0.0;
+          vec3 rainbowAccum = vec3(0.0);
+
+          for (int i = 0; i < ${MAX_POINTS}; i++) {
+            if (i >= u_pointCount) {
+              continue;
+            }
+
+            vec2 point = u_points[i].xy * 2.0 - 1.0;
+            point.x *= u_resolution.x / u_resolution.y;
+            point *= u_global.x;
+
+            float age = u_points[i].z;
+            float speed = u_points[i].w;
+            vec2 vel = u_vels[i].xy;
+            float spin = u_vels[i].z;
+
+            vec2 toFrag = p - point;
+            float d = length(toFrag);
+            float influence = exp(-d * (5.4 + u_global.z * 1.7)) * exp(-age * 1.5);
+            float swirl = exp(-d * (7.6 + u_global.z * 1.4)) * exp(-age * 1.95);
+
+            vec2 tangent = vec2(-toFrag.y, toFrag.x);
+            float push = (0.2 + speed * 1.95) * u_global.w;
+            flow += vel * influence * push;
+            flow += tangent * swirl * spin * (0.24 + speed * 1.55) * u_motion.y;
+
+            float hue = atan(vel.y, vel.x) / TAU + 0.5;
+            float localActivity = influence * clamp(speed * 1.2 * u_global.w, 0.0, 1.8);
+            rainbowAccum += palette(hue + d * 0.17 + u_time * 0.025, u_colorCtrl.y, u_colorCtrl.z) * localActivity;
+            activity += localActivity;
+          }
+
+          float react = clamp(activity, 0.0, 1.7);
+          vec2 drift = vec2(
+            sin(u_time * 0.16 * u_global.y + p.y * 1.3),
+            cos(u_time * 0.14 * u_global.y + p.x * 1.1)
+          ) * (0.05 * u_motion.x);
+
+          float grain = fbm(p * (2.0 + u_global.z * 0.7) + flow * (1.0 + u_global.w) + vec2(0.0, u_time * 0.06 * u_global.y));
+          vec2 warp = flow * (0.95 + react * 1.65) * (0.7 + u_global.z * 0.65);
+          warp += vec2(
+            grain - 0.5,
+            fbm(p.yx * 2.2 - flow * 1.1 + vec2(u_time * 0.04 * u_global.y, 0.0)) - 0.5
+          ) * (0.05 + react * 0.13) * u_global.z;
+
+          vec2 q1 = rot(0.32 + react * 0.10) * (p * 1.05 + drift + warp);
+          vec2 q2 = rot(-0.41 - react * 0.07) * (p * 1.28 - drift * 0.8 + warp * 1.12);
+
+          float ampA = u_shapeA.y * (0.88 + react * 0.45);
+          float ampB = u_shapeB.y * (0.9 + react * 0.34);
+          float widthA = max(u_shapeA.z - react * 0.005, 0.004);
+          float widthB = max(u_shapeB.z - react * 0.004, 0.004);
+
+          vec2 helixA = helixField(q1, u_shapeA.w, u_shapeA.x, ampA, widthA, u_time * u_global.y * (0.9 + react * 0.95), u_motion.z);
+          vec2 helixB = helixField(q2 + vec2(0.0, 0.12), u_shapeB.w, u_shapeB.x, ampB, widthB, -u_time * u_global.y * (0.7 + react * 0.7), u_motion.z);
+
+          float strands = helixA.x * 1.0 + helixB.x * 0.74;
+          float bridges = helixA.y * 0.9 + helixB.y * 0.58;
+
+          float crest = pow(clamp(strands * 0.42, 0.0, 1.0), 1.55);
+          float shimmer = pow(clamp(bridges * 0.8 + strands * 0.12, 0.0, 1.0), 1.9);
+          float fog = fbm((p + warp * 0.45) * 3.2 - vec2(0.0, u_time * 0.05 * u_global.y));
+
+          vec3 color = u_grayBase;
+          color += u_grayLight * (crest * 0.95 + shimmer * 0.55);
+          color += u_shadowTint * fog * 0.33;
+
+          float rainbowMix = smoothstep(0.03, 0.65, activity) * u_colorCtrl.x;
+          vec3 rainbow = rainbowAccum / max(activity, 0.0001);
+          rainbow *= (0.5 + crest * 0.9 + react * 0.48) * u_colorCtrl.x;
+          color = mix(color, color + rainbow, clamp(rainbowMix, 0.0, 1.0));
+          color += rainbow * smoothstep(0.0, 1.2, react) * 0.18 * u_colorCtrl.x;
+
+          float vignette = smoothstep(1.7, 0.25, length(p));
+          color *= 0.76 + vignette * 0.34;
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `;
+
+      function createShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const info = gl.getShaderInfoLog(shader);
+          gl.deleteShader(shader);
+          throw new Error(info || 'Shader compile failed');
+        }
+        return shader;
+      }
+
+      function createProgram(vsSource, fsSource) {
+        const program = gl.createProgram();
+        const vs = createShader(gl.VERTEX_SHADER, vsSource);
+        const fs = createShader(gl.FRAGMENT_SHADER, fsSource);
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          const info = gl.getProgramInfoLog(program);
+          gl.deleteProgram(program);
+          throw new Error(info || 'Program link failed');
+        }
+        gl.deleteShader(vs);
+        gl.deleteShader(fs);
+        return program;
+      }
+
+      let program;
+      try {
+        program = createProgram(vertexShaderSource, fragmentShaderSource);
+      } catch (error) {
+        document.body.innerHTML = `<div style="color:white;padding:24px;white-space:pre-wrap">${error.message}</div>`;
+        return;
+      }
+
+      const positionLocation = gl.getAttribLocation(program, 'a_position');
+      const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+      const timeLocation = gl.getUniformLocation(program, 'u_time');
+      const pointCountLocation = gl.getUniformLocation(program, 'u_pointCount');
+      const pointsLocation = gl.getUniformLocation(program, 'u_points[0]');
+      const velsLocation = gl.getUniformLocation(program, 'u_vels[0]');
+      const globalLocation = gl.getUniformLocation(program, 'u_global');
+      const shapeALocation = gl.getUniformLocation(program, 'u_shapeA');
+      const shapeBLocation = gl.getUniformLocation(program, 'u_shapeB');
+      const motionLocation = gl.getUniformLocation(program, 'u_motion');
+      const colorCtrlLocation = gl.getUniformLocation(program, 'u_colorCtrl');
+      const grayBaseLocation = gl.getUniformLocation(program, 'u_grayBase');
+      const grayLightLocation = gl.getUniformLocation(program, 'u_grayLight');
+      const shadowTintLocation = gl.getUniformLocation(program, 'u_shadowTint');
+
+      const quadBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([
+          -1, -1,
+           1, -1,
+          -1,  1,
+          -1,  1,
+           1, -1,
+           1,  1,
+        ]),
+        gl.STATIC_DRAW
+      );
+
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      const points = [];
+      const pointer = {
+        x: 0.5,
+        y: 0.5,
+        px: 0.5,
+        py: 0.5,
+        initialized: false,
+        moved: false,
+        lastMoveTime: 0,
+      };
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function addPoint(nx, ny, vx, vy) {
+        const speed = clamp(Math.hypot(vx, vy) * 0.95, 0, 2.8);
+        const spin = clamp((vx - vy) * 0.6 + (vx + vy) * 0.25, -1.8, 1.8);
+
+        points.unshift({ x: nx, y: ny, age: 0, speed, vx, vy, spin });
+        if (points.length > MAX_POINTS) points.length = MAX_POINTS;
+      }
+
+      function updatePointer(clientX, clientY, now) {
+        const rect = canvas.getBoundingClientRect();
+        const nx = clamp((clientX - rect.left) / rect.width, 0, 1);
+        const ny = clamp(1 - (clientY - rect.top) / rect.height, 0, 1);
+
+        if (!pointer.initialized) {
+          pointer.x = pointer.px = nx;
+          pointer.y = pointer.py = ny;
+          pointer.initialized = true;
+          pointer.lastMoveTime = now;
+          addPoint(nx, ny, 0.0, 0.0);
+          return;
+        }
+
+        const dt = Math.max(0.008, Math.min(0.05, (now - pointer.lastMoveTime) / 1000 || 0.016));
+        const dx = nx - pointer.x;
+        const dy = ny - pointer.y;
+        const dist = Math.hypot(dx, dy);
+
+        pointer.px = pointer.x;
+        pointer.py = pointer.y;
+        pointer.x = nx;
+        pointer.y = ny;
+        pointer.lastMoveTime = now;
+
+        const vx = dx / dt;
+        const vy = dy / dt;
+
+        if (dist > 0.00035) {
+          const steps = Math.min(10, Math.max(1, Math.ceil(dist * 60)));
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            addPoint(
+              pointer.px + (pointer.x - pointer.px) * t,
+              pointer.py + (pointer.y - pointer.py) * t,
+              vx,
+              vy
+            );
+          }
+          pointer.moved = true;
+        }
+      }
+
+      function handleMouse(event) {
+        updatePointer(event.clientX, event.clientY, performance.now());
+      }
+
+      function handleTouch(event) {
+        if (event.touches.length > 0) {
+          const t = event.touches[0];
+          updatePointer(t.clientX, t.clientY, performance.now());
+        }
+      }
+
+      window.addEventListener('mousemove', handleMouse, { passive: true });
+      window.addEventListener('touchstart', handleTouch, { passive: true });
+      window.addEventListener('touchmove', handleTouch, { passive: true });
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(1, Math.floor(window.innerWidth * dpr));
+        const height = Math.max(1, Math.floor(window.innerHeight * dpr));
+
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+          gl.viewport(0, 0, width, height);
+        }
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+
+      const pointData = new Float32Array(MAX_POINTS * 4);
+      const velData = new Float32Array(MAX_POINTS * 4);
+      let lastTime = performance.now();
+      const startTime = lastTime;
+
+      function frame(now) {
+        resize();
+        const dt = Math.min(0.033, (now - lastTime) / 1000 || 0.016);
+        lastTime = now;
+
+        if (!pointer.moved && config.idleMotion > 0.0) {
+          const idleX = 0.5 + Math.cos(now * 0.00018 * config.animationSpeed) * config.idleMotion;
+          const idleY = 0.5 + Math.sin(now * 0.00021 * config.animationSpeed) * (config.idleMotion * 1.35);
+          updatePointer(idleX * canvas.clientWidth, (1 - idleY) * canvas.clientHeight, now);
+        }
+
+        for (let i = points.length - 1; i >= 0; i--) {
+          points[i].age += dt;
+          if (points[i].age > config.trailLife) {
+            points.splice(i, 1);
+          }
+        }
+
+        pointData.fill(0);
+        velData.fill(0);
+
+        const count = Math.min(points.length, MAX_POINTS);
+        for (let i = 0; i < count; i++) {
+          const p = points[i];
+          pointData[i * 4 + 0] = p.x;
+          pointData[i * 4 + 1] = p.y;
+          pointData[i * 4 + 2] = p.age;
+          pointData[i * 4 + 3] = p.speed;
+
+          velData[i * 4 + 0] = p.vx;
+          velData[i * 4 + 1] = p.vy;
+          velData[i * 4 + 2] = p.spin;
+          velData[i * 4 + 3] = 1.0;
+        }
+
+        const grayBase = hexToRgb(config.grayBase);
+        const grayLight = hexToRgb(config.grayLight);
+        const shadowTint = hexToRgb(config.shadowTint);
+
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.useProgram(program);
+        gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+        gl.uniform1f(timeLocation, (now - startTime) * 0.001);
+        gl.uniform1i(pointCountLocation, count);
+        gl.uniform4fv(pointsLocation, pointData);
+        gl.uniform4fv(velsLocation, velData);
+        gl.uniform4f(globalLocation, config.helixScale, config.animationSpeed, config.turbulence, config.mouseForce);
+        gl.uniform4f(shapeALocation, config.laneFreqA, config.ampA, config.widthA, 0.2);
+        gl.uniform4f(shapeBLocation, config.laneFreqB, config.ampB, config.widthB, 1.6);
+        gl.uniform4f(motionLocation, config.drift, config.swirl, config.bridge, config.trailLife);
+        gl.uniform4f(colorCtrlLocation, config.rainbowStrength, config.hueShift, config.saturation, 0.0);
+        gl.uniform3f(grayBaseLocation, grayBase[0], grayBase[1], grayBase[2]);
+        gl.uniform3f(grayLightLocation, grayLight[0], grayLight[1], grayLight[2]);
+        gl.uniform3f(shadowTintLocation, shadowTint[0], shadowTint[1], shadowTint[2]);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+        requestAnimationFrame(frame);
+      }
+
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
