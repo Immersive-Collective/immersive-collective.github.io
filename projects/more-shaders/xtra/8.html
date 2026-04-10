@@ -1,0 +1,1994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reactive WebGL DNA Waves</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #080a10;
+    }
+
+    body {
+      touch-action: none;
+      font-family: Inter, system-ui, sans-serif;
+      color: #e9edf6;
+    }
+
+    #glcanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #importPresetInput {
+      display: none;
+    }
+
+    .lil-gui {
+      --width: 320px;
+      --name-width: 46%;
+      --background-color: rgba(18, 20, 27, 0.9);
+      --title-background-color: rgba(30, 34, 44, 0.98);
+      --widget-color: #202532;
+      --focus-color: #5d8cff;
+      --hover-color: #2c3445;
+      --text-color: #eef3ff;
+      --number-color: #8fa7ff;
+      --string-color: #f6d06f;
+      --padding: 8px;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38);
+    }
+
+    .lil-gui.root {
+      max-height: calc(100vh - 20px);
+      overflow-y: auto;
+      top: 10px;
+      right: 10px;
+    }
+
+    .lil-gui .title {
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    .lil-gui .controller.option select,
+    .lil-gui input[type="text"] {
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 720px) {
+      .lil-gui {
+        --width: min(320px, calc(100vw - 20px));
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="glcanvas"></canvas>
+  <input id="importPresetInput" type="file" accept="application/json,.json" />
+
+  <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.21"></script>
+  <script>
+    (() => {
+      const canvas = document.getElementById('glcanvas');
+      const importPresetInput = document.getElementById('importPresetInput');
+
+      if (!window.lil || !window.lil.GUI) {
+        document.body.innerHTML = '<div style="color:white;padding:24px">lil-gui failed to load. Check your connection and reload.</div>';
+        return;
+      }
+
+      const gl = canvas.getContext('webgl', {
+        alpha: false,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: false,
+      });
+
+      if (!gl) {
+        document.body.innerHTML = '<div style="color:white;padding:24px">WebGL is not supported in this browser.</div>';
+        return;
+      }
+
+      const GUI = window.lil.GUI;
+      const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+      const MAX_POINTS = 56;
+      const LS_KEYS = {
+        session: 'dnaWaves.session',
+        presetNames: 'dnaWaves.presetNames',
+      };
+      const DB_NAME = 'dna-waves-state';
+      const DB_VERSION = 1;
+      const PRESET_STORE = 'presets';
+      const META_STORE = 'meta';
+
+      const AUDIO_SCALE_OPTIONS = {
+        'Major pentatonic': 'majorPentatonic',
+        'Minor pentatonic': 'minorPentatonic',
+        Dorian: 'dorian',
+        Lydian: 'lydian',
+        'Dream major': 'dreamMajor',
+      };
+
+      const AUDIO_ROOT_OPTIONS = {
+        C: 'C',
+        'C#': 'C#',
+        D: 'D',
+        'D#': 'D#',
+        E: 'E',
+        F: 'F',
+        'F#': 'F#',
+        G: 'G',
+        'G#': 'G#',
+        A: 'A',
+        'A#': 'A#',
+        B: 'B',
+      };
+
+      const defaults = {
+        helixScale: 1.0,
+        animationSpeed: 1.0,
+        turbulence: 1.15,
+        mouseForce: 1.25,
+        drift: 1.0,
+        swirl: 1.0,
+        bridge: 1.0,
+        laneFreqA: 3.7,
+        laneFreqB: 4.9,
+        ampA: 0.19,
+        ampB: 0.145,
+        widthA: 0.024,
+        widthB: 0.02,
+        rainbowStrength: 1.0,
+        hueShift: 0.0,
+        saturation: 1.0,
+        trailLife: 1.85,
+        idleMotion: 0.14,
+        grayBase: '#0a0c12',
+        grayLight: '#6b7486',
+        shadowTint: '#243042',
+        audioEnabled: true,
+        audioMaster: 0.28,
+        audioDensity: 0.82,
+        audioReactivity: 1.05,
+        audioBrightness: 0.72,
+        audioDamping: 0.62,
+        audioReverb: 0.42,
+        audioStereo: 0.75,
+        audioVoices: 3,
+        audioOctaveSpan: 2,
+        audioScale: 'majorPentatonic',
+        audioRoot: 'D',
+      };
+
+      const TRANSITION_DEFAULTS = {
+        smoothPresetTransitions: true,
+        transitionDuration: 1.1,
+        transitionEasing: 'easeInOutCubic',
+      };
+
+      const EASING_OPTIONS = {
+        Linear: 'linear',
+        'Ease in/out sine': 'easeInOutSine',
+        'Ease in/out quad': 'easeInOutQuad',
+        'Ease in/out cubic': 'easeInOutCubic',
+        'Ease in/out expo': 'easeInOutExpo',
+        Smootherstep: 'smootherstep',
+      };
+
+      const EASING_VALUES = Object.values(EASING_OPTIONS);
+
+      const config = { ...defaults };
+      const renderConfig = { ...defaults };
+      const renderColors = {
+        grayBase: [0, 0, 0],
+        grayLight: [0, 0, 0],
+        shadowTint: [0, 0, 0],
+      };
+      const controllers = [];
+      const folders = new Map();
+
+      let dbPromise = null;
+      let persistTimer = 0;
+      let presetNames = [];
+      let applyingState = false;
+
+      const transitionSettings = { ...TRANSITION_DEFAULTS };
+      const transitionState = {
+        active: false,
+        startTime: 0,
+        duration: TRANSITION_DEFAULTS.transitionDuration,
+        easing: TRANSITION_DEFAULTS.transitionEasing,
+        fromConfig: { ...defaults },
+        toConfig: { ...defaults },
+        fromColors: {
+          grayBase: [0, 0, 0],
+          grayLight: [0, 0, 0],
+          shadowTint: [0, 0, 0],
+        },
+        toColors: {
+          grayBase: [0, 0, 0],
+          grayLight: [0, 0, 0],
+          shadowTint: [0, 0, 0],
+        },
+      };
+
+      const audioUi = {
+        status: 'Locked — click once',
+        unlockAudio: () => {
+          void unlockAudioContext();
+        },
+        previewChord: () => {
+          void previewAudioChord();
+        },
+      };
+
+      const audioRuntime = {
+        ctx: null,
+        wave: null,
+        masterGain: null,
+        dryInput: null,
+        dryTone: null,
+        wetInput: null,
+        wetGain: null,
+        convolver: null,
+        wetTone: null,
+        compressor: null,
+        nextStepTime: 0,
+        lastGestureTime: 0,
+        pluckNoiseBuffer: null,
+      };
+
+      const audioMotion = {
+        targetSpeed: 0,
+        speed: 0,
+        targetAngle: 0,
+        angle: 0,
+        targetTurn: 0,
+        turn: 0,
+        pointerX: 0.5,
+        pointerY: 0.5,
+      };
+
+      const AUDIO_SCALES = {
+        majorPentatonic: [0, 2, 4, 7, 9],
+        minorPentatonic: [0, 3, 5, 7, 10],
+        dorian: [0, 2, 3, 5, 7, 9, 10],
+        lydian: [0, 2, 4, 6, 7, 9, 11],
+        dreamMajor: [0, 2, 4, 7, 9, 11],
+      };
+
+      const AUDIO_ROOTS = {
+        C: 0,
+        'C#': 1,
+        D: 2,
+        'D#': 3,
+        E: 4,
+        F: 5,
+        'F#': 6,
+        G: 7,
+        'G#': 8,
+        A: 9,
+        'A#': 10,
+        B: 11,
+      };
+
+      const groups = [
+        {
+          title: 'Motion',
+          items: [
+            { key: 'helixScale', label: 'Scale', min: 0.55, max: 1.8, step: 0.01, decimals: 2 },
+            { key: 'animationSpeed', label: 'Speed', min: 0.1, max: 3.0, step: 0.01, decimals: 2 },
+            { key: 'turbulence', label: 'Turbulence', min: 0.0, max: 2.5, step: 0.01, decimals: 2 },
+            { key: 'mouseForce', label: 'Mouse force', min: 0.1, max: 3.5, step: 0.01, decimals: 2 },
+            { key: 'drift', label: 'Drift', min: 0.0, max: 2.0, step: 0.01, decimals: 2 },
+            { key: 'swirl', label: 'Swirl', min: 0.0, max: 2.5, step: 0.01, decimals: 2 },
+            { key: 'bridge', label: 'Bridge glow', min: 0.0, max: 2.0, step: 0.01, decimals: 2 },
+            { key: 'trailLife', label: 'Trail life', min: 0.25, max: 4.0, step: 0.01, decimals: 2 },
+            { key: 'idleMotion', label: 'Idle motion', min: 0.0, max: 0.35, step: 0.005, decimals: 3 },
+          ],
+        },
+        {
+          title: 'Helix A',
+          items: [
+            { key: 'laneFreqA', label: 'Frequency', min: 1.5, max: 8.0, step: 0.01, decimals: 2 },
+            { key: 'ampA', label: 'Amplitude', min: 0.04, max: 0.4, step: 0.001, decimals: 3 },
+            { key: 'widthA', label: 'Width', min: 0.004, max: 0.06, step: 0.001, decimals: 3 },
+          ],
+        },
+        {
+          title: 'Helix B',
+          items: [
+            { key: 'laneFreqB', label: 'Frequency', min: 1.5, max: 8.0, step: 0.01, decimals: 2 },
+            { key: 'ampB', label: 'Amplitude', min: 0.04, max: 0.4, step: 0.001, decimals: 3 },
+            { key: 'widthB', label: 'Width', min: 0.004, max: 0.06, step: 0.001, decimals: 3 },
+          ],
+        },
+        {
+          title: 'Color',
+          items: [
+            { key: 'rainbowStrength', label: 'Rainbow', min: 0.0, max: 2.5, step: 0.01, decimals: 2 },
+            { key: 'hueShift', label: 'Hue shift', min: -1.0, max: 1.0, step: 0.01, decimals: 2 },
+            { key: 'saturation', label: 'Saturation', min: 0.0, max: 1.6, step: 0.01, decimals: 2 },
+            { key: 'grayBase', label: 'Base', color: true },
+            { key: 'grayLight', label: 'Glow', color: true },
+            { key: 'shadowTint', label: 'Fog', color: true },
+          ],
+        },
+        {
+          title: 'Harp',
+          items: [
+            { key: 'audioEnabled', label: 'Enabled', boolean: true },
+            { key: 'audioMaster', label: 'Master', min: 0.0, max: 1.0, step: 0.01, decimals: 2 },
+            { key: 'audioDensity', label: 'Density', min: 0.3, max: 1.8, step: 0.01, decimals: 2 },
+            { key: 'audioReactivity', label: 'Reactivity', min: 0.2, max: 2.2, step: 0.01, decimals: 2 },
+            { key: 'audioBrightness', label: 'Brightness', min: 0.2, max: 1.5, step: 0.01, decimals: 2 },
+            { key: 'audioDamping', label: 'Damping', min: 0.2, max: 1.4, step: 0.01, decimals: 2 },
+            { key: 'audioReverb', label: 'Reverb', min: 0.0, max: 1.0, step: 0.01, decimals: 2 },
+            { key: 'audioStereo', label: 'Stereo', min: 0.0, max: 1.0, step: 0.01, decimals: 2 },
+            { key: 'audioVoices', label: 'Strings', min: 1, max: 4, step: 1, decimals: 0 },
+            { key: 'audioOctaveSpan', label: 'Octaves', min: 1, max: 3, step: 1, decimals: 0 },
+            { key: 'audioRoot', label: 'Root', options: AUDIO_ROOT_OPTIONS },
+            { key: 'audioScale', label: 'Scale', options: AUDIO_SCALE_OPTIONS },
+          ],
+        },
+      ];
+
+
+      let gui;
+      let presetSelectController;
+      let transitionEnabledController;
+      let transitionDurationController;
+      let transitionEasingController;
+      let audioStatusController = null;
+      let audioUnlockController = null;
+      let audioPreviewController = null;
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function readJSON(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        } catch (_) {
+          return fallback;
+        }
+      }
+
+      function writeJSON(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch (_) {}
+      }
+
+      function sanitizeConfig(input) {
+        const next = {};
+        for (const key of Object.keys(defaults)) {
+          const def = defaults[key];
+          const value = input && Object.prototype.hasOwnProperty.call(input, key) ? input[key] : def;
+          if (typeof def === 'number') {
+            next[key] = Number.isFinite(Number(value)) ? Number(value) : def;
+          } else if (typeof def === 'boolean') {
+            next[key] = typeof value === 'boolean' ? value : !!def;
+          } else if (typeof def === 'string') {
+            next[key] = typeof value === 'string' ? value : def;
+          } else {
+            next[key] = def;
+          }
+        }
+        return next;
+      }
+
+      function applyConfig(input, updateDisplay = true) {
+        const next = sanitizeConfig(input);
+        Object.assign(config, next);
+        stopTransition(false);
+        setRenderStateFromConfig(next);
+        if (updateDisplay) {
+          controllers.forEach((controller) => controller.updateDisplay());
+        }
+      }
+
+      function captureConfig() {
+        return sanitizeConfig(config);
+      }
+
+      function captureTransitionSettings() {
+        return {
+          smoothPresetTransitions: !!transitionSettings.smoothPresetTransitions,
+          transitionDuration: clamp(Number(transitionSettings.transitionDuration) || TRANSITION_DEFAULTS.transitionDuration, 0.05, 6.0),
+          transitionEasing: EASING_VALUES.includes(transitionSettings.transitionEasing)
+            ? transitionSettings.transitionEasing
+            : TRANSITION_DEFAULTS.transitionEasing,
+        };
+      }
+
+      function setRenderStateFromConfig(input) {
+        const next = sanitizeConfig(input);
+        Object.assign(renderConfig, next);
+        renderColors.grayBase = hexToRgb(next.grayBase);
+        renderColors.grayLight = hexToRgb(next.grayLight);
+        renderColors.shadowTint = hexToRgb(next.shadowTint);
+        updateAudioStatus();
+      }
+
+      function stopTransition(syncToTarget = true) {
+        transitionState.active = false;
+        if (syncToTarget) {
+          setRenderStateFromConfig(config);
+        }
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function easingValue(mode, t) {
+        const clamped = clamp(t, 0, 1);
+        switch (mode) {
+          case 'easeInOutSine':
+            return -(Math.cos(Math.PI * clamped) - 1) * 0.5;
+          case 'easeInOutQuad':
+            return clamped < 0.5
+              ? 2 * clamped * clamped
+              : 1 - Math.pow(-2 * clamped + 2, 2) * 0.5;
+          case 'easeInOutCubic':
+            return clamped < 0.5
+              ? 4 * clamped * clamped * clamped
+              : 1 - Math.pow(-2 * clamped + 2, 3) * 0.5;
+          case 'easeInOutExpo':
+            if (clamped === 0 || clamped === 1) return clamped;
+            return clamped < 0.5
+              ? Math.pow(2, 20 * clamped - 10) * 0.5
+              : (2 - Math.pow(2, -20 * clamped + 10)) * 0.5;
+          case 'smootherstep':
+            return clamped * clamped * clamped * (clamped * (clamped * 6 - 15) + 10);
+          case 'linear':
+          default:
+            return clamped;
+        }
+      }
+
+      function startConfigTransition(targetInput, now = performance.now()) {
+        const target = sanitizeConfig(targetInput);
+        Object.assign(config, target);
+
+        const smooth = !!transitionSettings.smoothPresetTransitions;
+        const duration = clamp(Number(transitionSettings.transitionDuration) || TRANSITION_DEFAULTS.transitionDuration, 0.05, 6.0);
+        const easing = EASING_VALUES.includes(transitionSettings.transitionEasing)
+          ? transitionSettings.transitionEasing
+          : TRANSITION_DEFAULTS.transitionEasing;
+
+        if (!smooth || duration <= 0.05) {
+          stopTransition(false);
+          setRenderStateFromConfig(target);
+          return;
+        }
+
+        transitionState.active = true;
+        transitionState.startTime = now;
+        transitionState.duration = duration;
+        transitionState.easing = easing;
+        transitionState.fromConfig = sanitizeConfig(renderConfig);
+        transitionState.toConfig = target;
+        transitionState.fromColors = {
+          grayBase: renderColors.grayBase.slice(),
+          grayLight: renderColors.grayLight.slice(),
+          shadowTint: renderColors.shadowTint.slice(),
+        };
+        transitionState.toColors = {
+          grayBase: hexToRgb(target.grayBase),
+          grayLight: hexToRgb(target.grayLight),
+          shadowTint: hexToRgb(target.shadowTint),
+        };
+      }
+
+      function stepTransition(now) {
+        if (!transitionState.active) return;
+
+        const rawT = clamp((now - transitionState.startTime) / Math.max(transitionState.duration * 1000, 1), 0, 1);
+        const t = easingValue(transitionState.easing, rawT);
+
+        for (const key of Object.keys(defaults)) {
+          if (typeof defaults[key] === 'number') {
+            renderConfig[key] = lerp(transitionState.fromConfig[key], transitionState.toConfig[key], t);
+          } else {
+            renderConfig[key] = transitionState.toConfig[key];
+          }
+        }
+
+        renderColors.grayBase = transitionState.fromColors.grayBase.map((value, index) => lerp(value, transitionState.toColors.grayBase[index], t));
+        renderColors.grayLight = transitionState.fromColors.grayLight.map((value, index) => lerp(value, transitionState.toColors.grayLight[index], t));
+        renderColors.shadowTint = transitionState.fromColors.shadowTint.map((value, index) => lerp(value, transitionState.toColors.shadowTint[index], t));
+
+        if (rawT >= 1) {
+          transitionState.active = false;
+          setRenderStateFromConfig(transitionState.toConfig);
+        }
+      }
+
+      function applyTransitionSettings(input) {
+        if (!input || typeof input !== 'object') return;
+        if (Object.prototype.hasOwnProperty.call(input, 'smoothPresetTransitions')) {
+          transitionSettings.smoothPresetTransitions = !!input.smoothPresetTransitions;
+        }
+        if (Object.prototype.hasOwnProperty.call(input, 'transitionDuration')) {
+          const next = Number(input.transitionDuration);
+          transitionSettings.transitionDuration = Number.isFinite(next)
+            ? clamp(next, 0.05, 6.0)
+            : TRANSITION_DEFAULTS.transitionDuration;
+        }
+        if (Object.prototype.hasOwnProperty.call(input, 'transitionEasing')) {
+          transitionSettings.transitionEasing = EASING_VALUES.includes(input.transitionEasing)
+            ? input.transitionEasing
+            : TRANSITION_DEFAULTS.transitionEasing;
+        }
+      }
+
+      function makeSessionPayload() {
+        return {
+          updatedAt: Date.now(),
+          config: captureConfig(),
+          transitions: captureTransitionSettings(),
+          ui: {
+            rootClosed: !!gui._closed,
+            folders: getFolderStateMap(),
+          },
+          selectedPreset: presetState.selectedPreset,
+          lastPresetName: presetState.lastPresetName,
+          presetNames: presetNames.slice(),
+        };
+      }
+
+      async function openDb() {
+        if (!('indexedDB' in window)) return null;
+        if (dbPromise) return dbPromise;
+
+        dbPromise = new Promise((resolve) => {
+          const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+          request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(PRESET_STORE)) {
+              db.createObjectStore(PRESET_STORE, { keyPath: 'name' });
+            }
+            if (!db.objectStoreNames.contains(META_STORE)) {
+              db.createObjectStore(META_STORE, { keyPath: 'key' });
+            }
+          };
+
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => resolve(null);
+        });
+
+        return dbPromise;
+      }
+
+      async function getMeta(key) {
+        const db = await openDb();
+        if (!db) return null;
+        return new Promise((resolve) => {
+          const tx = db.transaction(META_STORE, 'readonly');
+          const request = tx.objectStore(META_STORE).get(key);
+          request.onsuccess = () => resolve(request.result ? request.result.value : null);
+          request.onerror = () => resolve(null);
+        });
+      }
+
+      async function setMeta(key, value) {
+        const db = await openDb();
+        if (!db) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction(META_STORE, 'readwrite');
+          tx.objectStore(META_STORE).put({ key, value });
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+          tx.onabort = () => resolve(false);
+        });
+      }
+
+      async function getPreset(name) {
+        const db = await openDb();
+        if (!db || !name) return null;
+        return new Promise((resolve) => {
+          const tx = db.transaction(PRESET_STORE, 'readonly');
+          const request = tx.objectStore(PRESET_STORE).get(name);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => resolve(null);
+        });
+      }
+
+      async function putPreset(record) {
+        const db = await openDb();
+        if (!db) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction(PRESET_STORE, 'readwrite');
+          tx.objectStore(PRESET_STORE).put(record);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+          tx.onabort = () => resolve(false);
+        });
+      }
+
+      async function deletePresetFromDb(name) {
+        const db = await openDb();
+        if (!db || !name) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction(PRESET_STORE, 'readwrite');
+          tx.objectStore(PRESET_STORE).delete(name);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+          tx.onabort = () => resolve(false);
+        });
+      }
+
+      async function getAllPresetNames() {
+        const db = await openDb();
+        if (!db) return presetNames.slice();
+        return new Promise((resolve) => {
+          const tx = db.transaction(PRESET_STORE, 'readonly');
+          const store = tx.objectStore(PRESET_STORE);
+          let request;
+          if (store.getAllKeys) {
+            request = store.getAllKeys();
+          } else {
+            request = store.getAll();
+          }
+          request.onsuccess = () => {
+            const result = request.result || [];
+            const names = Array.isArray(result)
+              ? result.map((item) => typeof item === 'string' ? item : item && item.name).filter(Boolean)
+              : [];
+            resolve(names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })));
+          };
+          request.onerror = () => resolve(presetNames.slice());
+        });
+      }
+
+      function sanitizePresetName(name) {
+        return String(name || '')
+          .replace(/[\\/:*?"<>|]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 64);
+      }
+
+      function fileSafeName(name) {
+        return sanitizePresetName(name).replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-_]+/g, '_') || 'preset';
+      }
+
+      function timestampSlug(date = new Date()) {
+        const pad = (value) => String(value).padStart(2, '0');
+        return [
+          date.getFullYear(),
+          pad(date.getMonth() + 1),
+          pad(date.getDate()),
+        ].join('') + '-' + [
+          pad(date.getHours()),
+          pad(date.getMinutes()),
+          pad(date.getSeconds()),
+        ].join('');
+      }
+
+      function hexToRgb(hex) {
+        const clean = String(hex || '#000000').replace('#', '');
+        const value = clean.length === 3
+          ? clean.split('').map((ch) => ch + ch).join('')
+          : clean;
+        const int = parseInt(value, 16);
+        return [
+          ((int >> 16) & 255) / 255,
+          ((int >> 8) & 255) / 255,
+          (int & 255) / 255,
+        ];
+      }
+
+      function shortestAngleDelta(a, b) {
+        let delta = b - a;
+        while (delta > Math.PI) delta -= Math.PI * 2;
+        while (delta < -Math.PI) delta += Math.PI * 2;
+        return delta;
+      }
+
+      function updateAudioStatus() {
+        if (!audioRuntime.ctx) {
+          audioUi.status = 'Waiting for gesture';
+        } else if (audioRuntime.ctx.state === 'running') {
+          audioUi.status = renderConfig.audioEnabled ? 'Running' : 'Muted';
+        } else if (audioRuntime.ctx.state === 'suspended') {
+          audioUi.status = 'Suspended — click to resume';
+        } else {
+          audioUi.status = audioRuntime.ctx.state;
+        }
+        if (audioStatusController) audioStatusController.updateDisplay();
+      }
+
+      function createNoiseBuffer(context, durationSeconds) {
+        const frameCount = Math.max(1, Math.floor(context.sampleRate * durationSeconds));
+        const buffer = context.createBuffer(1, frameCount, context.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < frameCount; i++) {
+          data[i] = (Math.random() * 2 - 1) * (1 - i / frameCount);
+        }
+        return buffer;
+      }
+
+      function createImpulseResponse(context, durationSeconds = 3.8, decay = 3.1) {
+        const length = Math.max(1, Math.floor(context.sampleRate * durationSeconds));
+        const buffer = context.createBuffer(2, length, context.sampleRate);
+
+        for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+          const data = buffer.getChannelData(channel);
+          for (let i = 0; i < length; i++) {
+            const t = i / length;
+            const shape = Math.pow(1 - t, decay);
+            data[i] = (Math.random() * 2 - 1) * shape * (0.65 - channel * 0.08);
+          }
+        }
+
+        return buffer;
+      }
+
+      function createHarpWave(context) {
+        const real = new Float32Array(10);
+        const imag = new Float32Array(10);
+        imag[1] = 1.0;
+        imag[2] = 0.52;
+        imag[3] = 0.28;
+        imag[4] = 0.16;
+        imag[5] = 0.11;
+        imag[6] = 0.07;
+        imag[7] = 0.04;
+        imag[8] = 0.025;
+        imag[9] = 0.015;
+        return context.createPeriodicWave(real, imag, { disableNormalization: false });
+      }
+
+      function createAudioGraph() {
+        if (!AudioContextCtor) {
+          throw new Error('Web Audio API is not available in this browser.');
+        }
+        const context = new AudioContextCtor();
+        const masterGain = context.createGain();
+        const dryInput = context.createGain();
+        const dryTone = context.createBiquadFilter();
+        dryTone.type = 'lowpass';
+        dryTone.frequency.value = 5200;
+        dryTone.Q.value = 0.6;
+
+        const wetInput = context.createGain();
+        const convolver = context.createConvolver();
+        convolver.normalize = true;
+        convolver.buffer = createImpulseResponse(context);
+
+        const wetTone = context.createBiquadFilter();
+        wetTone.type = 'lowpass';
+        wetTone.frequency.value = 5200;
+        wetTone.Q.value = 0.3;
+
+        const wetGain = context.createGain();
+        const compressor = context.createDynamicsCompressor();
+        compressor.threshold.value = -22;
+        compressor.knee.value = 24;
+        compressor.ratio.value = 3;
+        compressor.attack.value = 0.003;
+        compressor.release.value = 0.22;
+
+        masterGain.gain.value = 0.0001;
+        wetInput.gain.value = 0.65;
+        wetGain.gain.value = 0.2;
+
+        dryInput.connect(dryTone);
+        dryTone.connect(masterGain);
+
+        wetInput.connect(convolver);
+        convolver.connect(wetTone);
+        wetTone.connect(wetGain);
+        wetGain.connect(masterGain);
+
+        masterGain.connect(compressor);
+        compressor.connect(context.destination);
+
+        audioRuntime.ctx = context;
+        audioRuntime.wave = createHarpWave(context);
+        audioRuntime.pluckNoiseBuffer = createNoiseBuffer(context, 0.05);
+        audioRuntime.masterGain = masterGain;
+        audioRuntime.dryInput = dryInput;
+        audioRuntime.dryTone = dryTone;
+        audioRuntime.wetInput = wetInput;
+        audioRuntime.wetGain = wetGain;
+        audioRuntime.convolver = convolver;
+        audioRuntime.wetTone = wetTone;
+        audioRuntime.compressor = compressor;
+        audioRuntime.nextStepTime = 0;
+
+        context.onstatechange = () => updateAudioStatus();
+        updateAudioStatus();
+        return context;
+      }
+
+      async function unlockAudioContext() {
+        let context = audioRuntime.ctx;
+        try {
+          context = context || createAudioGraph();
+          if (context.state !== 'running') {
+            try {
+              await context.resume();
+            } catch (_) {}
+          }
+        } catch (error) {
+          console.error(error);
+          audioUi.status = 'Web Audio unavailable';
+          if (audioStatusController) audioStatusController.updateDisplay();
+          return;
+        }
+
+        if (context && context.state === 'running') {
+          unbindInitialAudioUnlock();
+        }
+
+        updateAudioStatus();
+      }
+
+      function scaleIndexToSemitone(scale, scaleIndex) {
+        const length = scale.length;
+        const octave = Math.floor(scaleIndex / length);
+        const wrappedIndex = ((scaleIndex % length) + length) % length;
+        return octave * 12 + scale[wrappedIndex];
+      }
+
+      function midiFromScale(rootName, scaleName, scaleIndex, octave) {
+        const scale = AUDIO_SCALES[scaleName] || AUDIO_SCALES.majorPentatonic;
+        const root = AUDIO_ROOTS[rootName] ?? AUDIO_ROOTS.D;
+        return 12 * (octave + 1) + root + scaleIndexToSemitone(scale, scaleIndex);
+      }
+
+      function buildChordIndices(scaleLength, rootIndex) {
+        const span = Math.max(scaleLength, 5);
+        return [
+          rootIndex,
+          rootIndex + 2,
+          rootIndex + 4,
+          rootIndex + Math.min(span > 5 ? 6 : 5, scaleLength + 1),
+        ];
+      }
+
+      function updateAudioMotionTargets(nx, ny, vx, vy, dt, now) {
+        const speedValue = clamp(Math.hypot(vx, vy) * 0.028 * renderConfig.audioReactivity, 0, 1.35);
+        const angle = Math.atan2(vy, vx || 0.0001);
+        const turnRate = shortestAngleDelta(audioMotion.targetAngle, angle) / Math.max(dt, 0.016);
+
+        audioMotion.targetSpeed = speedValue;
+        audioMotion.targetAngle = angle;
+        audioMotion.targetTurn = clamp(turnRate * 0.08, -1.5, 1.5);
+        audioMotion.pointerX = nx;
+        audioMotion.pointerY = ny;
+        audioRuntime.lastGestureTime = now;
+      }
+
+      function stepAudioMotion(dt, now) {
+        const sinceGesture = now - audioRuntime.lastGestureTime;
+        const targetSpeed = sinceGesture < 1100 ? audioMotion.targetSpeed : 0;
+        const targetTurn = sinceGesture < 450 ? audioMotion.targetTurn : 0;
+
+        audioMotion.speed += (targetSpeed - audioMotion.speed) * Math.min(1, dt * 8.5);
+        audioMotion.turn += (targetTurn - audioMotion.turn) * Math.min(1, dt * 7.5);
+        audioMotion.angle += shortestAngleDelta(audioMotion.angle, audioMotion.targetAngle) * Math.min(1, dt * 8.5);
+      }
+
+      function updateAudioBus(nowSeconds) {
+        if (!audioRuntime.ctx) return;
+
+        const brightness = clamp(renderConfig.audioBrightness, 0.2, 1.5);
+        const motionLift = audioMotion.speed * 1800;
+        const targetMaster = renderConfig.audioEnabled ? renderConfig.audioMaster * 0.9 : 0.0001;
+        const dryToneHz = 1500 + brightness * 4200 + motionLift;
+        const wetToneHz = 1100 + brightness * 2600 + motionLift * 0.45;
+        const wetAmount = clamp(renderConfig.audioReverb * 0.65, 0, 0.9);
+
+        audioRuntime.masterGain.gain.setTargetAtTime(targetMaster, nowSeconds, 0.045);
+        audioRuntime.dryTone.frequency.setTargetAtTime(dryToneHz, nowSeconds, 0.08);
+        audioRuntime.wetTone.frequency.setTargetAtTime(wetToneHz, nowSeconds, 0.11);
+        audioRuntime.wetGain.gain.setTargetAtTime(wetAmount, nowSeconds, 0.12);
+      }
+
+      function playHarpVoice(time, midi, velocity, panValue) {
+        if (!audioRuntime.ctx || audioRuntime.ctx.state !== 'running') return;
+
+        const context = audioRuntime.ctx;
+        const frequency = 440 * Math.pow(2, (midi - 69) / 12);
+        const brightness = clamp(renderConfig.audioBrightness, 0.2, 1.5);
+        const damping = clamp(renderConfig.audioDamping, 0.2, 1.4);
+        const decay = 1.2 + (1.55 - damping) * 1.9 + brightness * 0.2;
+        const peakLevel = 0.0001 + velocity * 0.42;
+
+        const mainOsc = context.createOscillator();
+        mainOsc.setPeriodicWave(audioRuntime.wave);
+        mainOsc.frequency.setValueAtTime(frequency, time);
+
+        const shimmerOsc = context.createOscillator();
+        shimmerOsc.type = 'sine';
+        shimmerOsc.frequency.setValueAtTime(frequency * 2.0, time);
+        shimmerOsc.detune.setValueAtTime(7, time);
+
+        const bodyFilter = context.createBiquadFilter();
+        bodyFilter.type = 'lowpass';
+        bodyFilter.frequency.setValueAtTime(900 + brightness * 2400 + frequency * 1.25, time);
+        bodyFilter.Q.setValueAtTime(0.9 + brightness * 0.45, time);
+
+        const noiseFilter = context.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.setValueAtTime(Math.max(450, frequency * (2.0 + brightness * 1.25)), time);
+        noiseFilter.Q.setValueAtTime(1.2, time);
+
+        const mainGain = context.createGain();
+        const shimmerGain = context.createGain();
+        const noiseGain = context.createGain();
+        const outputGain = context.createGain();
+        const pan = context.createStereoPanner();
+
+        const noise = context.createBufferSource();
+        noise.buffer = audioRuntime.pluckNoiseBuffer;
+
+        pan.pan.setValueAtTime(clamp(panValue, -1, 1), time);
+
+        mainGain.gain.setValueAtTime(0.0001, time);
+        mainGain.gain.linearRampToValueAtTime(peakLevel, time + 0.004);
+        mainGain.gain.exponentialRampToValueAtTime(0.00012, time + decay);
+
+        shimmerGain.gain.setValueAtTime(0.0001, time);
+        shimmerGain.gain.linearRampToValueAtTime(peakLevel * (0.28 + brightness * 0.08), time + 0.006);
+        shimmerGain.gain.exponentialRampToValueAtTime(0.00011, time + decay * 0.75);
+
+        noiseGain.gain.setValueAtTime(0.0001, time);
+        noiseGain.gain.linearRampToValueAtTime(peakLevel * 0.34, time + 0.0025);
+        noiseGain.gain.exponentialRampToValueAtTime(0.00011, time + 0.065 + brightness * 0.02);
+
+        outputGain.gain.setValueAtTime(1.0, time);
+
+        mainOsc.connect(mainGain);
+        shimmerOsc.connect(shimmerGain);
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+
+        mainGain.connect(bodyFilter);
+        shimmerGain.connect(bodyFilter);
+        noiseGain.connect(bodyFilter);
+
+        bodyFilter.connect(outputGain);
+        outputGain.connect(pan);
+        pan.connect(audioRuntime.dryInput);
+        pan.connect(audioRuntime.wetInput);
+
+        const stopAt = time + decay + 0.18;
+        mainOsc.start(time);
+        shimmerOsc.start(time);
+        noise.start(time);
+
+        mainOsc.stop(stopAt);
+        shimmerOsc.stop(stopAt * 0.985 + 0.01);
+        noise.stop(time + 0.09);
+
+        const cleanup = () => {
+          try { mainOsc.disconnect(); } catch (_) {}
+          try { shimmerOsc.disconnect(); } catch (_) {}
+          try { noise.disconnect(); } catch (_) {}
+          try { mainGain.disconnect(); } catch (_) {}
+          try { shimmerGain.disconnect(); } catch (_) {}
+          try { noiseGain.disconnect(); } catch (_) {}
+          try { noiseFilter.disconnect(); } catch (_) {}
+          try { bodyFilter.disconnect(); } catch (_) {}
+          try { outputGain.disconnect(); } catch (_) {}
+          try { pan.disconnect(); } catch (_) {}
+        };
+
+        mainOsc.addEventListener('ended', cleanup, { once: true });
+      }
+
+      function scheduleHarpStep(time) {
+        if (!audioRuntime.ctx || audioRuntime.ctx.state !== 'running') return;
+        if (!renderConfig.audioEnabled || renderConfig.audioMaster <= 0.001) return;
+        if (audioMotion.speed < 0.045) return;
+
+        const scale = AUDIO_SCALES[renderConfig.audioScale] || AUDIO_SCALES.majorPentatonic;
+        const sectorCount = 8;
+        const angleNorm = (audioMotion.angle + Math.PI) / (Math.PI * 2);
+        const sector = ((Math.floor(angleNorm * sectorCount) % sectorCount) + sectorCount) % sectorCount;
+        const chordMap = scale.length >= 6 ? [0, 2, 4, 1, 3, 5, 2, 4] : [0, 1, 2, 0, 3, 4, 1, 2];
+        const rootIndex = chordMap[sector] % scale.length;
+        const chordIndices = buildChordIndices(scale.length, rootIndex);
+        const directionUp = audioMotion.turn >= 0;
+        const patternPool = directionUp
+          ? [[0, 1, 2, 1], [0, 2, 1, 3], [1, 2, 3, 2]]
+          : [[2, 1, 0, 1], [3, 2, 1, 0], [2, 0, 1, 0]];
+        const pattern = patternPool[(sector + Math.abs(Math.round(audioMotion.turn * 10))) % patternPool.length];
+        const stringCount = Math.max(1, Math.min(4, Math.round(1 + audioMotion.speed * (renderConfig.audioVoices - 1))));
+        const baseOctave = clamp(3 + Math.floor((1 - audioMotion.pointerY) * renderConfig.audioOctaveSpan), 3, 5);
+        const brightness = clamp(renderConfig.audioBrightness, 0.2, 1.5);
+        const dynamic = clamp(0.16 + audioMotion.speed * 0.42 * renderConfig.audioReactivity, 0.12, 0.62);
+        const strumGap = 0.012 + (1 - Math.min(audioMotion.speed, 1)) * 0.02;
+
+        for (let i = 0; i < stringCount; i++) {
+          const patternIndex = pattern[(Math.floor(time * 8) + i) % pattern.length];
+          let scaleIndex = chordIndices[patternIndex % chordIndices.length];
+          if (i >= 2 && audioMotion.speed > 0.68) {
+            scaleIndex += scale.length;
+          }
+
+          const midi = midiFromScale(
+            renderConfig.audioRoot,
+            renderConfig.audioScale,
+            scaleIndex,
+            baseOctave + (i === stringCount - 1 && audioMotion.speed > 0.82 ? 1 : 0)
+          );
+
+          const pan = clamp(
+            (audioMotion.pointerX - 0.5) * 2 * renderConfig.audioStereo + (i - (stringCount - 1) * 0.5) * 0.18,
+            -1,
+            1
+          );
+
+          playHarpVoice(
+            time + i * strumGap,
+            midi,
+            dynamic * (1 - i * 0.08 + brightness * 0.04),
+            pan
+          );
+        }
+      }
+
+      function getStepDurationSeconds() {
+        const speed = Math.min(audioMotion.speed, 1);
+        const bpm = 48 + renderConfig.audioDensity * 52 + speed * 82 * renderConfig.audioReactivity;
+        const beat = 60 / bpm;
+        const subdivision = speed > 0.82 ? 4 : speed > 0.48 ? 3 : 2;
+        return beat / subdivision;
+      }
+
+      function updateAudioEngine(nowMs) {
+        if (!audioRuntime.ctx) return;
+
+        const context = audioRuntime.ctx;
+        const now = context.currentTime;
+        updateAudioBus(now);
+
+        if (context.state !== 'running') return;
+        if (!renderConfig.audioEnabled) return;
+
+        if (audioMotion.speed < 0.04 || nowMs - audioRuntime.lastGestureTime > 1600) {
+          audioRuntime.nextStepTime = Math.max(audioRuntime.nextStepTime, now + 0.04);
+          return;
+        }
+
+        if (!audioRuntime.nextStepTime || audioRuntime.nextStepTime < now) {
+          audioRuntime.nextStepTime = now + 0.02;
+        }
+
+        const lookAhead = 0.11;
+        while (audioRuntime.nextStepTime < now + lookAhead) {
+          scheduleHarpStep(audioRuntime.nextStepTime);
+          audioRuntime.nextStepTime += getStepDurationSeconds();
+        }
+      }
+
+      async function previewAudioChord() {
+        await unlockAudioContext();
+        if (!audioRuntime.ctx || audioRuntime.ctx.state !== 'running') return;
+        const now = audioRuntime.ctx.currentTime + 0.03;
+        const previewNotes = [0, 2, 4];
+        previewNotes.forEach((index, noteIndex) => {
+          const midi = midiFromScale(renderConfig.audioRoot, renderConfig.audioScale, index, 4 + (noteIndex === 2 ? 1 : 0));
+          playHarpVoice(now + noteIndex * 0.03, midi, 0.32, (noteIndex - 1) * 0.25);
+        });
+      }
+
+      
+      const sessionFromStorage = readJSON(LS_KEYS.session, null);
+      if (sessionFromStorage && sessionFromStorage.config) {
+        applyConfig(sessionFromStorage.config, false);
+      }
+
+      if (sessionFromStorage && sessionFromStorage.transitions) {
+        applyTransitionSettings(sessionFromStorage.transitions);
+      }
+
+      const cachedPresetNames = readJSON(LS_KEYS.presetNames, []);
+      if (Array.isArray(cachedPresetNames)) {
+        presetNames = cachedPresetNames.filter((name) => typeof name === 'string');
+      }
+
+      async function loadPresetByName(name, options = {}) {
+        const cleanName = sanitizePresetName(name);
+        if (!cleanName || cleanName === '(current)') return false;
+
+        const alertOnMissing = options.alertOnMissing !== false;
+        const shouldTransition = options.transition !== false;
+
+        const record = await getPreset(cleanName);
+        if (!record || !record.data) {
+          if (alertOnMissing) {
+            alert('Preset was not found.');
+          }
+          if (presetState.selectedPreset === cleanName) {
+            presetState.selectedPreset = '(current)';
+            refreshPresetSelector();
+          }
+          return false;
+        }
+
+        presetState.selectedPreset = cleanName;
+        presetState.lastPresetName = cleanName;
+
+        if (shouldTransition) {
+          startConfigTransition(record.data, performance.now());
+          controllers.forEach((controller) => controller.updateDisplay());
+        } else {
+          applyConfig(record.data, true);
+        }
+
+        refreshPresetSelector();
+        scheduleSessionPersist();
+        return true;
+      }
+
+      const presetState = {
+        lastPresetName: sanitizePresetName(sessionFromStorage && (sessionFromStorage.lastPresetName || sessionFromStorage.presetName)) || 'My Preset',
+        selectedPreset: sanitizePresetName(sessionFromStorage && sessionFromStorage.selectedPreset) || '(current)',
+        savePreset: async () => {
+          const suggestedName = presetState.selectedPreset !== '(current)'
+            ? presetState.selectedPreset
+            : (presetState.lastPresetName || 'My Preset');
+
+          const entered = window.prompt('Preset name:', suggestedName);
+          if (entered === null) return;
+
+          const name = sanitizePresetName(entered);
+          if (!name) {
+            alert('Preset name cannot be empty.');
+            return;
+          }
+
+          const exists = presetNames.includes(name);
+          if (exists && !window.confirm(`Preset "${name}" already exists. Overwrite it?`)) {
+            return;
+          }
+
+          const record = {
+            name,
+            updatedAt: Date.now(),
+            version: 1,
+            data: captureConfig(),
+          };
+
+          const ok = await putPreset(record);
+          if (!ok) {
+            alert('Preset could not be saved.');
+            return;
+          }
+
+          if (!exists) {
+            presetNames.push(name);
+            presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+          }
+
+          presetState.lastPresetName = name;
+          presetState.selectedPreset = name;
+          refreshPresetSelector();
+          scheduleSessionPersist();
+        },
+        deleteSelectedPreset: async () => {
+          const name = sanitizePresetName(presetState.selectedPreset);
+          if (!name || name === '(current)') return;
+          const ok = await deletePresetFromDb(name);
+          if (!ok) {
+            alert('Preset could not be deleted.');
+            return;
+          }
+
+          presetNames = presetNames.filter((entry) => entry !== name);
+          presetState.selectedPreset = '(current)';
+          if (presetState.lastPresetName === name) {
+            presetState.lastPresetName = 'My Preset';
+          }
+          refreshPresetSelector();
+          scheduleSessionPersist();
+        },
+        exportPreset: async () => {
+          const chosenName = sanitizePresetName(presetState.selectedPreset);
+          let exportName = sanitizePresetName(presetState.lastPresetName) || 'Preset';
+          let exportData = captureConfig();
+
+          if (chosenName && chosenName !== '(current)') {
+            const record = await getPreset(chosenName);
+            if (record && record.data) {
+              exportName = chosenName;
+              exportData = sanitizeConfig(record.data);
+            }
+          }
+
+          const payload = {
+            name: exportName,
+            exportedAt: new Date().toISOString(),
+            version: 1,
+            data: exportData,
+          };
+
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          const href = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = href;
+          link.download = `${fileSafeName(exportName)}-${timestampSlug()}.json`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(href), 0);
+        },
+        importPreset: () => {
+          importPresetInput.value = '';
+          importPresetInput.click();
+        },
+        resetCurrent: () => {
+          applyConfig(defaults, true);
+          presetState.selectedPreset = '(current)';
+          scheduleSessionPersist();
+          refreshPresetSelector();
+        },
+      };
+
+      function getFolderStateMap() {
+        const states = {};
+        folders.forEach((folder, title) => {
+          states[title] = !folder._closed;
+        });
+        return states;
+      }
+
+      function applyFolderStateMap(folderStateMap) {
+        if (!folderStateMap || typeof folderStateMap !== 'object') return;
+        folders.forEach((folder, title) => {
+          const shouldOpen = folderStateMap[title];
+          if (typeof shouldOpen === 'boolean') {
+            shouldOpen ? folder.open(false) : folder.close(false);
+          }
+        });
+      }
+
+      function persistNow() {
+        const payload = makeSessionPayload();
+        writeJSON(LS_KEYS.session, payload);
+        writeJSON(LS_KEYS.presetNames, presetNames);
+        void setMeta('sessionState', payload);
+        void setMeta('presetNames', presetNames);
+      }
+
+      function scheduleSessionPersist() {
+        if (applyingState) return;
+        clearTimeout(persistTimer);
+        persistTimer = setTimeout(persistNow, 120);
+      }
+
+      function refreshPresetSelector() {
+        if (!presetSelectController) return;
+        const options = ['(current)', ...presetNames];
+        presetSelectController.options(options);
+        if (!options.includes(presetState.selectedPreset)) {
+          presetState.selectedPreset = '(current)';
+        }
+        presetSelectController.updateDisplay();
+      }
+
+      function setControllerEnabled(controller, enabled) {
+        if (!controller || !controller.domElement) return;
+        controller.domElement.style.pointerEvents = enabled ? '' : 'none';
+        controller.domElement.style.opacity = enabled ? '' : '0.45';
+
+        const input = controller.domElement.querySelector('input, select, button');
+        if (input) {
+          input.disabled = !enabled;
+        }
+      }
+
+      function updateTransitionControllerState() {
+        const enabled = !!transitionSettings.smoothPresetTransitions;
+        setControllerEnabled(transitionDurationController, enabled);
+        setControllerEnabled(transitionEasingController, enabled);
+      }
+
+      let audioUnlockListenersBound = false;
+
+      function handleInitialAudioGesture() {
+        void unlockAudioContext();
+      }
+
+      function bindInitialAudioUnlock() {
+        if (audioUnlockListenersBound) return;
+        audioUnlockListenersBound = true;
+        const options = { passive: true };
+        window.addEventListener('pointerdown', handleInitialAudioGesture, options);
+        window.addEventListener('touchstart', handleInitialAudioGesture, options);
+        window.addEventListener('keydown', handleInitialAudioGesture);
+      }
+
+      function unbindInitialAudioUnlock() {
+        if (!audioUnlockListenersBound) return;
+        audioUnlockListenersBound = false;
+        window.removeEventListener('pointerdown', handleInitialAudioGesture);
+        window.removeEventListener('touchstart', handleInitialAudioGesture);
+        window.removeEventListener('keydown', handleInitialAudioGesture);
+      }
+
+      function addController(folder, item) {
+        let controller;
+        if (item.color) {
+          controller = folder.addColor(config, item.key).name(item.label);
+        } else if (item.options) {
+          controller = folder.add(config, item.key, item.options).name(item.label);
+        } else if (item.boolean || typeof defaults[item.key] === 'boolean') {
+          controller = folder.add(config, item.key).name(item.label);
+        } else {
+          controller = folder.add(config, item.key, item.min, item.max, item.step).name(item.label);
+          if (typeof item.decimals === 'number' && controller.decimals) controller.decimals(item.decimals);
+        }
+
+        controller.onChange(() => {
+          stopTransition(false);
+          setRenderStateFromConfig(config);
+          scheduleSessionPersist();
+          updateAudioStatus();
+        });
+
+        controllers.push(controller);
+        return controller;
+      }
+
+      function buildGui() {
+        gui = new GUI({
+          title: 'DNA Waves Controls',
+          width: 320,
+        });
+
+        gui.domElement.classList.add('root');
+
+        const presetsFolder = gui.addFolder('Presets');
+        folders.set('Presets', presetsFolder);
+
+        presetSelectController = presetsFolder
+          .add(presetState, 'selectedPreset', ['(current)', ...presetNames])
+          .name('Preset')
+          .onChange(async (value) => {
+            if (value === '(current)') {
+              presetState.selectedPreset = '(current)';
+              scheduleSessionPersist();
+              return;
+            }
+            await loadPresetByName(value, { alertOnMissing: true, transition: true });
+          });
+
+        transitionEnabledController = presetsFolder
+          .add(transitionSettings, 'smoothPresetTransitions')
+          .name('Smooth transitions')
+          .onChange((value) => {
+            transitionSettings.smoothPresetTransitions = !!value;
+            if (!transitionSettings.smoothPresetTransitions) {
+              stopTransition(true);
+            }
+            updateTransitionControllerState();
+            scheduleSessionPersist();
+          });
+
+        transitionDurationController = presetsFolder
+          .add(transitionSettings, 'transitionDuration', 0.05, 6.0, 0.01)
+          .name('Transition sec')
+          .onChange((value) => {
+            transitionSettings.transitionDuration = clamp(Number(value) || TRANSITION_DEFAULTS.transitionDuration, 0.05, 6.0);
+            scheduleSessionPersist();
+          });
+
+        if (transitionDurationController.decimals) {
+          transitionDurationController.decimals(2);
+        }
+
+        transitionEasingController = presetsFolder
+          .add(transitionSettings, 'transitionEasing', EASING_OPTIONS)
+          .name('Easing')
+          .onChange((value) => {
+            transitionSettings.transitionEasing = EASING_VALUES.includes(value)
+              ? value
+              : TRANSITION_DEFAULTS.transitionEasing;
+            scheduleSessionPersist();
+          });
+
+        presetsFolder.add(presetState, 'savePreset').name('Save preset...');
+        presetsFolder.add(presetState, 'deleteSelectedPreset').name('Delete selected');
+        presetsFolder.add(presetState, 'exportPreset').name('Export selected');
+        presetsFolder.add(presetState, 'importPreset').name('Import JSON');
+        presetsFolder.add(presetState, 'resetCurrent').name('Reset current');
+
+        const audioEngineFolder = gui.addFolder('Audio Engine');
+        folders.set('Audio Engine', audioEngineFolder);
+
+        audioStatusController = audioEngineFolder.add(audioUi, 'status').name('Status');
+        audioUnlockController = audioEngineFolder.add(audioUi, 'unlockAudio').name('Unlock audio');
+        audioPreviewController = audioEngineFolder.add(audioUi, 'previewChord').name('Preview chord');
+
+        if (audioStatusController && audioStatusController.domElement) {
+          const input = audioStatusController.domElement.querySelector('input');
+          if (input) {
+            input.setAttribute('readonly', 'readonly');
+            input.tabIndex = -1;
+          }
+          audioStatusController.domElement.style.pointerEvents = 'none';
+          audioStatusController.domElement.style.opacity = '0.78';
+        }
+
+        groups.forEach((group) => {
+          const folder = gui.addFolder(group.title);
+          folders.set(group.title, folder);
+          group.items.forEach((item) => addController(folder, item));
+        });
+
+        gui.onChange(() => scheduleSessionPersist());
+        gui.onFinishChange(() => scheduleSessionPersist());
+
+        gui.onOpenClose(() => scheduleSessionPersist());
+        folders.forEach((folder) => {
+          folder.onOpenClose(() => scheduleSessionPersist());
+        });
+
+        const uiState = sessionFromStorage && sessionFromStorage.ui;
+        if (uiState && typeof uiState.rootClosed === 'boolean') {
+          uiState.rootClosed ? gui.close(false) : gui.open(false);
+        }
+        if (uiState && uiState.folders) {
+          applyFolderStateMap(uiState.folders);
+        }
+
+        updateTransitionControllerState();
+        refreshPresetSelector();
+        updateAudioStatus();
+      }
+
+      buildGui();
+      bindInitialAudioUnlock();
+
+      importPresetInput.addEventListener('change', async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          const incomingConfig = parsed && parsed.data ? parsed.data : parsed;
+          const importedName = sanitizePresetName(parsed && parsed.name ? parsed.name : file.name.replace(/\.json$/i, '')) || 'Imported Preset';
+
+          applyConfig(incomingConfig, true);
+
+          const record = {
+            name: importedName,
+            updatedAt: Date.now(),
+            version: Number(parsed && parsed.version) || 1,
+            data: captureConfig(),
+          };
+
+          const ok = await putPreset(record);
+          if (!ok) {
+            alert('Imported preset could not be saved.');
+            return;
+          }
+
+          if (!presetNames.includes(importedName)) {
+            presetNames.push(importedName);
+            presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+          }
+
+          presetState.lastPresetName = importedName;
+          presetState.selectedPreset = importedName;
+          refreshPresetSelector();
+          scheduleSessionPersist();
+        } catch (error) {
+          console.error(error);
+          alert('That JSON file could not be imported.');
+        }
+      });
+
+      async function restoreFromIndexedDb() {
+        const session = await getMeta('sessionState');
+        if (session && session.config && (!sessionFromStorage || Number(session.updatedAt) > Number(sessionFromStorage.updatedAt || 0))) {
+          applyingState = true;
+          applyConfig(session.config, true);
+          if (typeof session.lastPresetName === 'string' || typeof session.presetName === 'string') {
+            presetState.lastPresetName = sanitizePresetName(session.lastPresetName || session.presetName) || presetState.lastPresetName;
+          }
+          if (typeof session.selectedPreset === 'string') {
+            presetState.selectedPreset = sanitizePresetName(session.selectedPreset) || '(current)';
+          }
+          if (session.transitions) {
+            applyTransitionSettings(session.transitions);
+          }
+          if (session.ui && typeof session.ui.rootClosed === 'boolean') {
+            session.ui.rootClosed ? gui.close(false) : gui.open(false);
+          }
+          if (session.ui && session.ui.folders) {
+            applyFolderStateMap(session.ui.folders);
+          }
+          applyingState = false;
+          refreshPresetSelector();
+        }
+
+        const namesFromDb = await getAllPresetNames();
+        if (Array.isArray(namesFromDb) && namesFromDb.length) {
+          presetNames = namesFromDb;
+        } else {
+          const namesFromMeta = await getMeta('presetNames');
+          if (Array.isArray(namesFromMeta)) {
+            presetNames = namesFromMeta;
+          }
+        }
+
+        updateTransitionControllerState();
+        if (transitionEnabledController) transitionEnabledController.updateDisplay();
+        if (transitionDurationController) transitionDurationController.updateDisplay();
+        if (transitionEasingController) transitionEasingController.updateDisplay();
+        refreshPresetSelector();
+
+        if (presetState.selectedPreset && presetState.selectedPreset !== '(current)' && presetNames.includes(presetState.selectedPreset)) {
+          await loadPresetByName(presetState.selectedPreset, { alertOnMissing: false, transition: false });
+        }
+
+        scheduleSessionPersist();
+      }
+
+      void restoreFromIndexedDb();
+
+      const vertexShaderSource = `
+        attribute vec2 a_position;
+        varying vec2 v_uv;
+
+        void main() {
+          v_uv = a_position * 0.5 + 0.5;
+          gl_Position = vec4(a_position, 0.0, 1.0);
+        }
+      `;
+
+      const fragmentShaderSource = `
+        precision highp float;
+
+        varying vec2 v_uv;
+
+        uniform vec2 u_resolution;
+        uniform float u_time;
+        uniform int u_pointCount;
+        uniform vec4 u_points[${MAX_POINTS}];
+        uniform vec4 u_vels[${MAX_POINTS}];
+        uniform vec4 u_global;
+        uniform vec4 u_shapeA;
+        uniform vec4 u_shapeB;
+        uniform vec4 u_motion;
+        uniform vec4 u_colorCtrl;
+        uniform vec3 u_grayBase;
+        uniform vec3 u_grayLight;
+        uniform vec3 u_shadowTint;
+
+        #define TAU 6.28318530718
+
+        mat2 rot(float a) {
+          float s = sin(a);
+          float c = cos(a);
+          return mat2(c, -s, s, c);
+        }
+
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+        }
+
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          vec2 u = f * f * (3.0 - 2.0 * f);
+
+          float a = hash(i + vec2(0.0, 0.0));
+          float b = hash(i + vec2(1.0, 0.0));
+          float c = hash(i + vec2(0.0, 1.0));
+          float d = hash(i + vec2(1.0, 1.0));
+
+          return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+        }
+
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amp = 0.5;
+          mat2 m = mat2(1.7, 1.2, -1.2, 1.7);
+          for (int i = 0; i < 5; i++) {
+            value += noise(p) * amp;
+            p = m * p * 1.13;
+            amp *= 0.55;
+          }
+          return value;
+        }
+
+        vec3 palette(float t, float hueShift, float saturation) {
+          vec3 c = 0.5 + 0.5 * cos(TAU * (vec3(0.0, 0.33, 0.67) + t + hueShift));
+          float luma = dot(c, vec3(0.299, 0.587, 0.114));
+          return mix(vec3(luma), c, saturation);
+        }
+
+        vec2 helixField(vec2 p, float phase, float laneFreq, float amp, float width, float travel, float bridgeStrength) {
+          vec2 q = p;
+          q.x *= laneFreq;
+          q.y *= 2.35;
+
+          float lane = floor(q.x + 0.5);
+          float localX = fract(q.x + 0.5) - 0.5;
+          float y = q.y + lane * 0.82 + phase;
+          float cycle = y * 2.4 - travel;
+
+          float wave = sin(cycle);
+          float twist = cos(cycle);
+          float laneAmp = amp * (0.84 + 0.16 * sin(lane * 2.97 + phase * 0.7));
+
+          float x1 = wave * laneAmp;
+          float x2 = -wave * laneAmp;
+
+          float d1 = abs(localX - x1);
+          float d2 = abs(localX - x2);
+
+          float strand1 = exp(-pow(d1 / max(width, 0.0001), 1.45));
+          float strand2 = exp(-pow(d2 / max(width, 0.0001), 1.45));
+          float strand = strand1 + strand2;
+
+          float bridgeMask = smoothstep(laneAmp * 1.18 + 0.02, laneAmp * 0.08, abs(localX));
+          float frontBridge = bridgeMask * pow(max(0.0, twist), 5.0) * bridgeStrength;
+          float backBridge = bridgeMask * pow(max(0.0, -twist), 4.0) * 0.28 * bridgeStrength;
+
+          return vec2(strand, frontBridge + backBridge);
+        }
+
+        void main() {
+          vec2 uv = v_uv;
+          vec2 p = uv * 2.0 - 1.0;
+          p.x *= u_resolution.x / u_resolution.y;
+          p *= u_global.x;
+
+          vec2 flow = vec2(0.0);
+          float activity = 0.0;
+          vec3 rainbowAccum = vec3(0.0);
+
+          for (int i = 0; i < ${MAX_POINTS}; i++) {
+            if (i >= u_pointCount) {
+              continue;
+            }
+
+            vec2 point = u_points[i].xy * 2.0 - 1.0;
+            point.x *= u_resolution.x / u_resolution.y;
+            point *= u_global.x;
+
+            float age = u_points[i].z;
+            float speed = u_points[i].w;
+            vec2 vel = u_vels[i].xy;
+            float spin = u_vels[i].z;
+
+            vec2 toFrag = p - point;
+            float d = length(toFrag);
+            float influence = exp(-d * (5.4 + u_global.z * 1.7)) * exp(-age * 1.5);
+            float swirl = exp(-d * (7.6 + u_global.z * 1.4)) * exp(-age * 1.95);
+
+            vec2 tangent = vec2(-toFrag.y, toFrag.x);
+            float push = (0.2 + speed * 1.95) * u_global.w;
+            flow += vel * influence * push;
+            flow += tangent * swirl * spin * (0.24 + speed * 1.55) * u_motion.y;
+
+            float hue = atan(vel.y, vel.x) / TAU + 0.5;
+            float localActivity = influence * clamp(speed * 1.2 * u_global.w, 0.0, 1.8);
+            rainbowAccum += palette(hue + d * 0.17 + u_time * 0.025, u_colorCtrl.y, u_colorCtrl.z) * localActivity;
+            activity += localActivity;
+          }
+
+          float react = clamp(activity, 0.0, 1.7);
+          vec2 drift = vec2(
+            sin(u_time * 0.16 * u_global.y + p.y * 1.3),
+            cos(u_time * 0.14 * u_global.y + p.x * 1.1)
+          ) * (0.05 * u_motion.x);
+
+          float grain = fbm(p * (2.0 + u_global.z * 0.7) + flow * (1.0 + u_global.w) + vec2(0.0, u_time * 0.06 * u_global.y));
+          vec2 warp = flow * (0.95 + react * 1.65) * (0.7 + u_global.z * 0.65);
+          warp += vec2(
+            grain - 0.5,
+            fbm(p.yx * 2.2 - flow * 1.1 + vec2(u_time * 0.04 * u_global.y, 0.0)) - 0.5
+          ) * (0.05 + react * 0.13) * u_global.z;
+
+          vec2 q1 = rot(0.32 + react * 0.10) * (p * 1.05 + drift + warp);
+          vec2 q2 = rot(-0.41 - react * 0.07) * (p * 1.28 - drift * 0.8 + warp * 1.12);
+
+          float ampA = u_shapeA.y * (0.88 + react * 0.45);
+          float ampB = u_shapeB.y * (0.9 + react * 0.34);
+          float widthA = max(u_shapeA.z - react * 0.005, 0.004);
+          float widthB = max(u_shapeB.z - react * 0.004, 0.004);
+
+          vec2 helixA = helixField(q1, u_shapeA.w, u_shapeA.x, ampA, widthA, u_time * u_global.y * (0.9 + react * 0.95), u_motion.z);
+          vec2 helixB = helixField(q2 + vec2(0.0, 0.12), u_shapeB.w, u_shapeB.x, ampB, widthB, -u_time * u_global.y * (0.7 + react * 0.7), u_motion.z);
+
+          float strands = helixA.x * 1.0 + helixB.x * 0.74;
+          float bridges = helixA.y * 0.9 + helixB.y * 0.58;
+
+          float crest = pow(clamp(strands * 0.42, 0.0, 1.0), 1.55);
+          float shimmer = pow(clamp(bridges * 0.8 + strands * 0.12, 0.0, 1.0), 1.9);
+          float fog = fbm((p + warp * 0.45) * 3.2 - vec2(0.0, u_time * 0.05 * u_global.y));
+
+          vec3 color = u_grayBase;
+          color += u_grayLight * (crest * 0.95 + shimmer * 0.55);
+          color += u_shadowTint * fog * 0.33;
+
+          float rainbowMix = smoothstep(0.03, 0.65, activity) * u_colorCtrl.x;
+          vec3 rainbow = rainbowAccum / max(activity, 0.0001);
+          rainbow *= (0.5 + crest * 0.9 + react * 0.48) * u_colorCtrl.x;
+          color = mix(color, color + rainbow, clamp(rainbowMix, 0.0, 1.0));
+          color += rainbow * smoothstep(0.0, 1.2, react) * 0.18 * u_colorCtrl.x;
+
+          float vignette = smoothstep(1.7, 0.25, length(p));
+          color *= 0.76 + vignette * 0.34;
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `;
+
+      function createShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const info = gl.getShaderInfoLog(shader);
+          gl.deleteShader(shader);
+          throw new Error(info || 'Shader compile failed');
+        }
+        return shader;
+      }
+
+      function createProgram(vsSource, fsSource) {
+        const program = gl.createProgram();
+        const vs = createShader(gl.VERTEX_SHADER, vsSource);
+        const fs = createShader(gl.FRAGMENT_SHADER, fsSource);
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          const info = gl.getProgramInfoLog(program);
+          gl.deleteProgram(program);
+          throw new Error(info || 'Program link failed');
+        }
+        gl.deleteShader(vs);
+        gl.deleteShader(fs);
+        return program;
+      }
+
+      let program;
+      try {
+        program = createProgram(vertexShaderSource, fragmentShaderSource);
+      } catch (error) {
+        document.body.innerHTML = '<div style="color:white;padding:24px;white-space:pre-wrap">' + error.message + '</div>';
+        return;
+      }
+
+      const positionLocation = gl.getAttribLocation(program, 'a_position');
+      const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+      const timeLocation = gl.getUniformLocation(program, 'u_time');
+      const pointCountLocation = gl.getUniformLocation(program, 'u_pointCount');
+      const pointsLocation = gl.getUniformLocation(program, 'u_points[0]');
+      const velsLocation = gl.getUniformLocation(program, 'u_vels[0]');
+      const globalLocation = gl.getUniformLocation(program, 'u_global');
+      const shapeALocation = gl.getUniformLocation(program, 'u_shapeA');
+      const shapeBLocation = gl.getUniformLocation(program, 'u_shapeB');
+      const motionLocation = gl.getUniformLocation(program, 'u_motion');
+      const colorCtrlLocation = gl.getUniformLocation(program, 'u_colorCtrl');
+      const grayBaseLocation = gl.getUniformLocation(program, 'u_grayBase');
+      const grayLightLocation = gl.getUniformLocation(program, 'u_grayLight');
+      const shadowTintLocation = gl.getUniformLocation(program, 'u_shadowTint');
+
+      const quadBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([
+          -1, -1,
+           1, -1,
+          -1,  1,
+          -1,  1,
+           1, -1,
+           1,  1,
+        ]),
+        gl.STATIC_DRAW
+      );
+
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      const points = [];
+      const pointer = {
+        x: 0.5,
+        y: 0.5,
+        px: 0.5,
+        py: 0.5,
+        initialized: false,
+        moved: false,
+        lastMoveTime: 0,
+      };
+
+      function addPoint(nx, ny, vx, vy) {
+        const speed = clamp(Math.hypot(vx, vy) * 0.95, 0, 2.8);
+        const spin = clamp((vx - vy) * 0.6 + (vx + vy) * 0.25, -1.8, 1.8);
+
+        points.unshift({ x: nx, y: ny, age: 0, speed, vx, vy, spin });
+        if (points.length > MAX_POINTS) points.length = MAX_POINTS;
+      }
+
+      function updatePointer(clientX, clientY, now, synthetic = false) {
+        const rect = canvas.getBoundingClientRect();
+        const nx = clamp((clientX - rect.left) / rect.width, 0, 1);
+        const ny = clamp(1 - (clientY - rect.top) / rect.height, 0, 1);
+
+        if (!pointer.initialized) {
+          pointer.x = pointer.px = nx;
+          pointer.y = pointer.py = ny;
+          pointer.initialized = true;
+          pointer.lastMoveTime = now;
+          addPoint(nx, ny, 0.0, 0.0);
+          return;
+        }
+
+        const dt = Math.max(0.008, Math.min(0.05, (now - pointer.lastMoveTime) / 1000 || 0.016));
+        const dx = nx - pointer.x;
+        const dy = ny - pointer.y;
+        const dist = Math.hypot(dx, dy);
+
+        pointer.px = pointer.x;
+        pointer.py = pointer.y;
+        pointer.x = nx;
+        pointer.y = ny;
+        pointer.lastMoveTime = now;
+
+        const vx = dx / dt;
+        const vy = dy / dt;
+
+        if (dist > 0.00035) {
+          const steps = Math.min(10, Math.max(1, Math.ceil(dist * 60)));
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            addPoint(
+              pointer.px + (pointer.x - pointer.px) * t,
+              pointer.py + (pointer.y - pointer.py) * t,
+              vx,
+              vy
+            );
+          }
+          pointer.moved = true;
+
+          if (!synthetic) {
+            updateAudioMotionTargets(nx, ny, vx, vy, dt, now);
+          }
+        }
+      }
+
+      function handleMouse(event) {
+        updatePointer(event.clientX, event.clientY, performance.now(), false);
+      }
+
+      function handleTouch(event) {
+        if (event.touches.length > 0) {
+          const t = event.touches[0];
+          updatePointer(t.clientX, t.clientY, performance.now(), false);
+        }
+      }
+
+      window.addEventListener('mousemove', handleMouse, { passive: true });
+      window.addEventListener('touchstart', handleTouch, { passive: true });
+      window.addEventListener('touchmove', handleTouch, { passive: true });
+
+      const tryUnlockAudioFromGesture = () => {
+        void unlockAudioContext();
+      };
+
+      window.addEventListener('pointerdown', tryUnlockAudioFromGesture, { passive: true });
+      window.addEventListener('keydown', tryUnlockAudioFromGesture);
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(1, Math.floor(window.innerWidth * dpr));
+        const height = Math.max(1, Math.floor(window.innerHeight * dpr));
+
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+          gl.viewport(0, 0, width, height);
+        }
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+
+      const pointData = new Float32Array(MAX_POINTS * 4);
+      const velData = new Float32Array(MAX_POINTS * 4);
+      let lastTime = performance.now();
+      const startTime = lastTime;
+
+      setRenderStateFromConfig(config);
+
+      function frame(now) {
+        resize();
+        const dt = Math.min(0.033, (now - lastTime) / 1000 || 0.016);
+        lastTime = now;
+
+        stepTransition(now);
+        stepAudioMotion(dt, now);
+        updateAudioEngine(now);
+
+        if (!pointer.moved && renderConfig.idleMotion > 0.0) {
+          const idleX = 0.5 + Math.cos(now * 0.00018 * renderConfig.animationSpeed) * renderConfig.idleMotion;
+          const idleY = 0.5 + Math.sin(now * 0.00021 * renderConfig.animationSpeed) * (renderConfig.idleMotion * 1.35);
+          updatePointer(idleX * canvas.clientWidth, (1 - idleY) * canvas.clientHeight, now, true);
+        }
+
+        for (let i = points.length - 1; i >= 0; i--) {
+          points[i].age += dt;
+          if (points[i].age > renderConfig.trailLife) {
+            points.splice(i, 1);
+          }
+        }
+
+        pointData.fill(0);
+        velData.fill(0);
+
+        const count = Math.min(points.length, MAX_POINTS);
+        for (let i = 0; i < count; i++) {
+          const p = points[i];
+          pointData[i * 4 + 0] = p.x;
+          pointData[i * 4 + 1] = p.y;
+          pointData[i * 4 + 2] = p.age;
+          pointData[i * 4 + 3] = p.speed;
+
+          velData[i * 4 + 0] = p.vx;
+          velData[i * 4 + 1] = p.vy;
+          velData[i * 4 + 2] = p.spin;
+          velData[i * 4 + 3] = 1.0;
+        }
+
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.useProgram(program);
+        gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+        gl.uniform1f(timeLocation, (now - startTime) * 0.001);
+        gl.uniform1i(pointCountLocation, count);
+        gl.uniform4fv(pointsLocation, pointData);
+        gl.uniform4fv(velsLocation, velData);
+        gl.uniform4f(globalLocation, renderConfig.helixScale, renderConfig.animationSpeed, renderConfig.turbulence, renderConfig.mouseForce);
+        gl.uniform4f(shapeALocation, renderConfig.laneFreqA, renderConfig.ampA, renderConfig.widthA, 0.2);
+        gl.uniform4f(shapeBLocation, renderConfig.laneFreqB, renderConfig.ampB, renderConfig.widthB, 1.6);
+        gl.uniform4f(motionLocation, renderConfig.drift, renderConfig.swirl, renderConfig.bridge, renderConfig.trailLife);
+        gl.uniform4f(colorCtrlLocation, renderConfig.rainbowStrength, renderConfig.hueShift, renderConfig.saturation, 0.0);
+        gl.uniform3f(grayBaseLocation, renderColors.grayBase[0], renderColors.grayBase[1], renderColors.grayBase[2]);
+        gl.uniform3f(grayLightLocation, renderColors.grayLight[0], renderColors.grayLight[1], renderColors.grayLight[2]);
+        gl.uniform3f(shadowTintLocation, renderColors.shadowTint[0], renderColors.shadowTint[1], renderColors.shadowTint[2]);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+        requestAnimationFrame(frame);
+      }
+
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
