@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reactive WebGL DNA Waves</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #080a10;
+    }
+
+    body {
+      touch-action: none;
+      font-family: Inter, system-ui, sans-serif;
+      color: #e9edf6;
+    }
+
+    #glcanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #importPresetInput {
+      display: none;
+    }
+
+    .lil-gui {
+      --width: 320px;
+      --name-width: 46%;
+      --background-color: rgba(18, 20, 27, 0.9);
+      --title-background-color: rgba(30, 34, 44, 0.98);
+      --widget-color: #202532;
+      --focus-color: #5d8cff;
+      --hover-color: #2c3445;
+      --text-color: #eef3ff;
+      --number-color: #8fa7ff;
+      --string-color: #f6d06f;
+      --padding: 8px;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38);
+    }
+
+    .lil-gui.root {
+      max-height: calc(100vh - 20px);
+      overflow-y: auto;
+      top: 10px;
+      right: 10px;
+    }
+
+    .lil-gui .title {
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 700;
+      font-size: 11px;
+    }
+
+    .lil-gui .controller.option select,
+    .lil-gui input[type="text"] {
+      text-overflow: ellipsis;
+    }
+
+    @media (max-width: 720px) {
+      .lil-gui {
+        --width: min(320px, calc(100vw - 20px));
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="glcanvas"></canvas>
+  <input id="importPresetInput" type="file" accept="application/json,.json" />
+
+  <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.21"></script>
+  <script>
+    (() => {
+      const canvas = document.getElementById('glcanvas');
+      const importPresetInput = document.getElementById('importPresetInput');
+
+      if (!window.lil || !window.lil.GUI) {
+        document.body.innerHTML = '<div style="color:white;padding:24px">lil-gui failed to load. Check your connection and reload.</div>';
+        return;
+      }
+
+      const gl = canvas.getContext('webgl', {
+        alpha: false,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: false,
+      });
+
+      if (!gl) {
+        document.body.innerHTML = '<div style="color:white;padding:24px">WebGL is not supported in this browser.</div>';
+        return;
+      }
+
+      const GUI = window.lil.GUI;
+      const MAX_POINTS = 56;
+      const LS_KEYS = {
+        session: 'dnaWaves.session',
+        presetNames: 'dnaWaves.presetNames',
+      };
+      const DB_NAME = 'dna-waves-state';
+      const DB_VERSION = 1;
+      const PRESET_STORE = 'presets';
+      const META_STORE = 'meta';
+
+      const defaults = {
+        helixScale: 1.0,
+        animationSpeed: 1.0,
+        turbulence: 1.15,
+        mouseForce: 1.25,
+        drift: 1.0,
+        swirl: 1.0,
+        bridge: 1.0,
+        laneFreqA: 3.7,
+        laneFreqB: 4.9,
+        ampA: 0.19,
+        ampB: 0.145,
+        widthA: 0.024,
+        widthB: 0.02,
+        rainbowStrength: 1.0,
+        hueShift: 0.0,
+        saturation: 1.0,
+        trailLife: 1.85,
+        idleMotion: 0.14,
+        grayBase: '#0a0c12',
+        grayLight: '#6b7486',
+        shadowTint: '#243042',
+      };
+
+      const config = { ...defaults };
+      const controllers = [];
+      const folders = new Map();
+
+      let dbPromise = null;
+      let persistTimer = 0;
+      let presetNames = [];
+      let applyingState = false;
+
+      const groups = [
+        {
+          title: 'Motion',
+          items: [
+            { key: 'helixScale', label: 'Scale', min: 0.55, max: 1.8, step: 0.01, decimals: 2 },
+            { key: 'animationSpeed', label: 'Speed', min: 0.1, max: 3.0, step: 0.01, decimals: 2 },
+            { key: 'turbulence', label: 'Turbulence', min: 0.0, max: 2.5, step: 0.01, decimals: 2 },
+            { key: 'mouseForce', label: 'Mouse force', min: 0.1, max: 3.5, step: 0.01, decimals: 2 },
+            { key: 'drift', label: 'Drift', min: 0.0, max: 2.0, step: 0.01, decimals: 2 },
+            { key: 'swirl', label: 'Swirl', min: 0.0, max: 2.5, step: 0.01, decimals: 2 },
+            { key: 'bridge', label: 'Bridge glow', min: 0.0, max: 2.0, step: 0.01, decimals: 2 },
+            { key: 'trailLife', label: 'Trail life', min: 0.25, max: 4.0, step: 0.01, decimals: 2 },
+            { key: 'idleMotion', label: 'Idle motion', min: 0.0, max: 0.35, step: 0.005, decimals: 3 },
+          ],
+        },
+        {
+          title: 'Helix A',
+          items: [
+            { key: 'laneFreqA', label: 'Frequency', min: 1.5, max: 8.0, step: 0.01, decimals: 2 },
+            { key: 'ampA', label: 'Amplitude', min: 0.04, max: 0.4, step: 0.001, decimals: 3 },
+            { key: 'widthA', label: 'Width', min: 0.004, max: 0.06, step: 0.001, decimals: 3 },
+          ],
+        },
+        {
+          title: 'Helix B',
+          items: [
+            { key: 'laneFreqB', label: 'Frequency', min: 1.5, max: 8.0, step: 0.01, decimals: 2 },
+            { key: 'ampB', label: 'Amplitude', min: 0.04, max: 0.4, step: 0.001, decimals: 3 },
+            { key: 'widthB', label: 'Width', min: 0.004, max: 0.06, step: 0.001, decimals: 3 },
+          ],
+        },
+        {
+          title: 'Color',
+          items: [
+            { key: 'rainbowStrength', label: 'Rainbow', min: 0.0, max: 2.5, step: 0.01, decimals: 2 },
+            { key: 'hueShift', label: 'Hue shift', min: -1.0, max: 1.0, step: 0.01, decimals: 2 },
+            { key: 'saturation', label: 'Saturation', min: 0.0, max: 1.6, step: 0.01, decimals: 2 },
+            { key: 'grayBase', label: 'Base', color: true },
+            { key: 'grayLight', label: 'Glow', color: true },
+            { key: 'shadowTint', label: 'Fog', color: true },
+          ],
+        },
+      ];
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function readJSON(key, fallback) {
+        try {
+          const raw = localStorage.getItem(key);
+          return raw ? JSON.parse(raw) : fallback;
+        } catch (_) {
+          return fallback;
+        }
+      }
+
+      function writeJSON(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch (_) {}
+      }
+
+      function sanitizeConfig(input) {
+        const next = {};
+        for (const key of Object.keys(defaults)) {
+          const def = defaults[key];
+          const value = input && Object.prototype.hasOwnProperty.call(input, key) ? input[key] : def;
+          if (typeof def === 'number') {
+            next[key] = Number.isFinite(Number(value)) ? Number(value) : def;
+          } else if (typeof def === 'string') {
+            next[key] = typeof value === 'string' ? value : def;
+          } else {
+            next[key] = def;
+          }
+        }
+        return next;
+      }
+
+      function applyConfig(input, updateDisplay = true) {
+        const next = sanitizeConfig(input);
+        Object.assign(config, next);
+        if (updateDisplay) {
+          controllers.forEach((controller) => controller.updateDisplay());
+        }
+      }
+
+      function captureConfig() {
+        return sanitizeConfig(config);
+      }
+
+      function makeSessionPayload() {
+        return {
+          updatedAt: Date.now(),
+          config: captureConfig(),
+          ui: {
+            rootClosed: !!gui._closed,
+            folders: getFolderStateMap(),
+          },
+          selectedPreset: presetState.selectedPreset,
+          presetName: presetState.presetName,
+          presetNames: presetNames.slice(),
+        };
+      }
+
+      async function openDb() {
+        if (!('indexedDB' in window)) return null;
+        if (dbPromise) return dbPromise;
+
+        dbPromise = new Promise((resolve) => {
+          const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+          request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(PRESET_STORE)) {
+              db.createObjectStore(PRESET_STORE, { keyPath: 'name' });
+            }
+            if (!db.objectStoreNames.contains(META_STORE)) {
+              db.createObjectStore(META_STORE, { keyPath: 'key' });
+            }
+          };
+
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => resolve(null);
+        });
+
+        return dbPromise;
+      }
+
+      async function getMeta(key) {
+        const db = await openDb();
+        if (!db) return null;
+        return new Promise((resolve) => {
+          const tx = db.transaction(META_STORE, 'readonly');
+          const request = tx.objectStore(META_STORE).get(key);
+          request.onsuccess = () => resolve(request.result ? request.result.value : null);
+          request.onerror = () => resolve(null);
+        });
+      }
+
+      async function setMeta(key, value) {
+        const db = await openDb();
+        if (!db) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction(META_STORE, 'readwrite');
+          tx.objectStore(META_STORE).put({ key, value });
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+          tx.onabort = () => resolve(false);
+        });
+      }
+
+      async function getPreset(name) {
+        const db = await openDb();
+        if (!db || !name) return null;
+        return new Promise((resolve) => {
+          const tx = db.transaction(PRESET_STORE, 'readonly');
+          const request = tx.objectStore(PRESET_STORE).get(name);
+          request.onsuccess = () => resolve(request.result || null);
+          request.onerror = () => resolve(null);
+        });
+      }
+
+      async function putPreset(record) {
+        const db = await openDb();
+        if (!db) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction(PRESET_STORE, 'readwrite');
+          tx.objectStore(PRESET_STORE).put(record);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+          tx.onabort = () => resolve(false);
+        });
+      }
+
+      async function deletePresetFromDb(name) {
+        const db = await openDb();
+        if (!db || !name) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction(PRESET_STORE, 'readwrite');
+          tx.objectStore(PRESET_STORE).delete(name);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+          tx.onabort = () => resolve(false);
+        });
+      }
+
+      async function getAllPresetNames() {
+        const db = await openDb();
+        if (!db) return presetNames.slice();
+        return new Promise((resolve) => {
+          const tx = db.transaction(PRESET_STORE, 'readonly');
+          const store = tx.objectStore(PRESET_STORE);
+          let request;
+          if (store.getAllKeys) {
+            request = store.getAllKeys();
+          } else {
+            request = store.getAll();
+          }
+          request.onsuccess = () => {
+            const result = request.result || [];
+            const names = Array.isArray(result)
+              ? result.map((item) => typeof item === 'string' ? item : item && item.name).filter(Boolean)
+              : [];
+            resolve(names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })));
+          };
+          request.onerror = () => resolve(presetNames.slice());
+        });
+      }
+
+      function sanitizePresetName(name) {
+        return String(name || '')
+          .replace(/[\\/:*?"<>|]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 64);
+      }
+
+      function fileSafeName(name) {
+        return sanitizePresetName(name).replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-_]+/g, '_') || 'preset';
+      }
+
+      function timestampSlug(date = new Date()) {
+        const pad = (value) => String(value).padStart(2, '0');
+        return [
+          date.getFullYear(),
+          pad(date.getMonth() + 1),
+          pad(date.getDate()),
+        ].join('') + '-' + [
+          pad(date.getHours()),
+          pad(date.getMinutes()),
+          pad(date.getSeconds()),
+        ].join('');
+      }
+
+      function hexToRgb(hex) {
+        const clean = String(hex || '#000000').replace('#', '');
+        const value = clean.length === 3
+          ? clean.split('').map((ch) => ch + ch).join('')
+          : clean;
+        const int = parseInt(value, 16);
+        return [
+          ((int >> 16) & 255) / 255,
+          ((int >> 8) & 255) / 255,
+          (int & 255) / 255,
+        ];
+      }
+
+      const sessionFromStorage = readJSON(LS_KEYS.session, null);
+      if (sessionFromStorage && sessionFromStorage.config) {
+        applyConfig(sessionFromStorage.config, false);
+      }
+
+      const cachedPresetNames = readJSON(LS_KEYS.presetNames, []);
+      if (Array.isArray(cachedPresetNames)) {
+        presetNames = cachedPresetNames.filter((name) => typeof name === 'string');
+      }
+
+      const presetState = {
+        presetName: sanitizePresetName(sessionFromStorage && sessionFromStorage.presetName) || 'My Preset',
+        selectedPreset: sanitizePresetName(sessionFromStorage && sessionFromStorage.selectedPreset) || '(current)',
+        savePreset: async () => {
+          const name = sanitizePresetName(presetState.presetName);
+          if (!name) {
+            alert('Enter a preset name first.');
+            return;
+          }
+
+          const record = {
+            name,
+            updatedAt: Date.now(),
+            version: 1,
+            data: captureConfig(),
+          };
+
+          const ok = await putPreset(record);
+          if (!ok) {
+            alert('Preset could not be saved.');
+            return;
+          }
+
+          if (!presetNames.includes(name)) {
+            presetNames.push(name);
+            presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+          }
+
+          presetState.selectedPreset = name;
+          refreshPresetSelector();
+          scheduleSessionPersist();
+        },
+        loadSelectedPreset: async () => {
+          const name = sanitizePresetName(presetState.selectedPreset);
+          if (!name || name === '(current)') return;
+          const record = await getPreset(name);
+          if (!record || !record.data) {
+            alert('Preset was not found.');
+            return;
+          }
+          applyConfig(record.data, true);
+          presetState.presetName = name;
+          scheduleSessionPersist();
+          refreshPresetSelector();
+        },
+        deleteSelectedPreset: async () => {
+          const name = sanitizePresetName(presetState.selectedPreset);
+          if (!name || name === '(current)') return;
+          const ok = await deletePresetFromDb(name);
+          if (!ok) {
+            alert('Preset could not be deleted.');
+            return;
+          }
+
+          presetNames = presetNames.filter((entry) => entry !== name);
+          presetState.selectedPreset = '(current)';
+          if (presetState.presetName === name) {
+            presetState.presetName = 'My Preset';
+          }
+          refreshPresetSelector();
+          scheduleSessionPersist();
+        },
+        exportPreset: async () => {
+          const chosenName = sanitizePresetName(presetState.selectedPreset);
+          let exportName = sanitizePresetName(presetState.presetName) || 'Preset';
+          let exportData = captureConfig();
+
+          if (chosenName && chosenName !== '(current)') {
+            const record = await getPreset(chosenName);
+            if (record && record.data) {
+              exportName = chosenName;
+              exportData = sanitizeConfig(record.data);
+            }
+          }
+
+          const payload = {
+            name: exportName,
+            exportedAt: new Date().toISOString(),
+            version: 1,
+            data: exportData,
+          };
+
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          const href = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = href;
+          link.download = `${fileSafeName(exportName)}-${timestampSlug()}.json`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(href), 0);
+        },
+        importPreset: () => {
+          importPresetInput.value = '';
+          importPresetInput.click();
+        },
+        resetCurrent: () => {
+          applyConfig(defaults, true);
+          presetState.selectedPreset = '(current)';
+          scheduleSessionPersist();
+          refreshPresetSelector();
+        },
+      };
+
+      let gui;
+      let presetSelectController;
+      let presetNameController;
+
+      function getFolderStateMap() {
+        const states = {};
+        folders.forEach((folder, title) => {
+          states[title] = !folder._closed;
+        });
+        return states;
+      }
+
+      function applyFolderStateMap(folderStateMap) {
+        if (!folderStateMap || typeof folderStateMap !== 'object') return;
+        folders.forEach((folder, title) => {
+          const shouldOpen = folderStateMap[title];
+          if (typeof shouldOpen === 'boolean') {
+            shouldOpen ? folder.open(false) : folder.close(false);
+          }
+        });
+      }
+
+      function persistNow() {
+        const payload = makeSessionPayload();
+        writeJSON(LS_KEYS.session, payload);
+        writeJSON(LS_KEYS.presetNames, presetNames);
+        void setMeta('sessionState', payload);
+        void setMeta('presetNames', presetNames);
+      }
+
+      function scheduleSessionPersist() {
+        if (applyingState) return;
+        clearTimeout(persistTimer);
+        persistTimer = setTimeout(persistNow, 120);
+      }
+
+      function refreshPresetSelector() {
+        if (!presetSelectController) return;
+        const options = ['(current)', ...presetNames];
+        presetSelectController.options(options);
+        if (!options.includes(presetState.selectedPreset)) {
+          presetState.selectedPreset = '(current)';
+        }
+        presetSelectController.updateDisplay();
+        if (presetNameController) presetNameController.updateDisplay();
+      }
+
+      function addController(folder, item) {
+        let controller;
+        if (item.color) {
+          controller = folder.addColor(config, item.key).name(item.label);
+        } else {
+          controller = folder.add(config, item.key, item.min, item.max, item.step).name(item.label);
+          if (typeof item.decimals === 'number') controller.decimals(item.decimals);
+        }
+        controller.onChange(() => scheduleSessionPersist());
+        controllers.push(controller);
+        return controller;
+      }
+
+      function buildGui() {
+        gui = new GUI({
+          title: 'DNA Waves Controls',
+          width: 320,
+        });
+
+        gui.domElement.classList.add('root');
+
+        const presetsFolder = gui.addFolder('Presets');
+        folders.set('Presets', presetsFolder);
+
+        presetNameController = presetsFolder
+          .add(presetState, 'presetName')
+          .name('Preset name')
+          .onFinishChange((value) => {
+            presetState.presetName = sanitizePresetName(value) || 'My Preset';
+            presetNameController.updateDisplay();
+            scheduleSessionPersist();
+          });
+
+        presetSelectController = presetsFolder
+          .add(presetState, 'selectedPreset', ['(current)', ...presetNames])
+          .name('Selected preset')
+          .onChange((value) => {
+            presetState.selectedPreset = value;
+            if (value !== '(current)') {
+              presetState.presetName = value;
+              if (presetNameController) presetNameController.updateDisplay();
+            }
+            scheduleSessionPersist();
+          });
+
+        presetsFolder.add(presetState, 'savePreset').name('Save / overwrite');
+        presetsFolder.add(presetState, 'loadSelectedPreset').name('Load selected');
+        presetsFolder.add(presetState, 'deleteSelectedPreset').name('Delete selected');
+        presetsFolder.add(presetState, 'exportPreset').name('Export selected');
+        presetsFolder.add(presetState, 'importPreset').name('Import JSON');
+        presetsFolder.add(presetState, 'resetCurrent').name('Reset current');
+
+        groups.forEach((group) => {
+          const folder = gui.addFolder(group.title);
+          folders.set(group.title, folder);
+          group.items.forEach((item) => addController(folder, item));
+        });
+
+        gui.onChange(() => scheduleSessionPersist());
+        gui.onFinishChange(() => scheduleSessionPersist());
+
+        gui.onOpenClose(() => scheduleSessionPersist());
+        folders.forEach((folder) => {
+          folder.onOpenClose(() => scheduleSessionPersist());
+        });
+
+        const uiState = sessionFromStorage && sessionFromStorage.ui;
+        if (uiState && typeof uiState.rootClosed === 'boolean') {
+          uiState.rootClosed ? gui.close(false) : gui.open(false);
+        }
+        if (uiState && uiState.folders) {
+          applyFolderStateMap(uiState.folders);
+        }
+
+        refreshPresetSelector();
+      }
+
+      buildGui();
+
+      importPresetInput.addEventListener('change', async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+
+        try {
+          const text = await file.text();
+          const parsed = JSON.parse(text);
+          const incomingConfig = parsed && parsed.data ? parsed.data : parsed;
+          const importedName = sanitizePresetName(parsed && parsed.name ? parsed.name : file.name.replace(/\.json$/i, '')) || 'Imported Preset';
+
+          applyConfig(incomingConfig, true);
+
+          const record = {
+            name: importedName,
+            updatedAt: Date.now(),
+            version: Number(parsed && parsed.version) || 1,
+            data: captureConfig(),
+          };
+
+          const ok = await putPreset(record);
+          if (!ok) {
+            alert('Imported preset could not be saved.');
+            return;
+          }
+
+          if (!presetNames.includes(importedName)) {
+            presetNames.push(importedName);
+            presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+          }
+
+          presetState.presetName = importedName;
+          presetState.selectedPreset = importedName;
+          refreshPresetSelector();
+          scheduleSessionPersist();
+        } catch (error) {
+          console.error(error);
+          alert('That JSON file could not be imported.');
+        }
+      });
+
+      async function restoreFromIndexedDb() {
+        const session = await getMeta('sessionState');
+        if (session && session.config && (!sessionFromStorage || Number(session.updatedAt) > Number(sessionFromStorage.updatedAt || 0))) {
+          applyingState = true;
+          applyConfig(session.config, true);
+          if (typeof session.presetName === 'string') {
+            presetState.presetName = sanitizePresetName(session.presetName) || presetState.presetName;
+          }
+          if (typeof session.selectedPreset === 'string') {
+            presetState.selectedPreset = sanitizePresetName(session.selectedPreset) || '(current)';
+          }
+          if (session.ui && typeof session.ui.rootClosed === 'boolean') {
+            session.ui.rootClosed ? gui.close(false) : gui.open(false);
+          }
+          if (session.ui && session.ui.folders) {
+            applyFolderStateMap(session.ui.folders);
+          }
+          applyingState = false;
+          refreshPresetSelector();
+        }
+
+        const namesFromDb = await getAllPresetNames();
+        if (Array.isArray(namesFromDb) && namesFromDb.length) {
+          presetNames = namesFromDb;
+        } else {
+          const namesFromMeta = await getMeta('presetNames');
+          if (Array.isArray(namesFromMeta)) {
+            presetNames = namesFromMeta;
+          }
+        }
+        refreshPresetSelector();
+        scheduleSessionPersist();
+      }
+
+      void restoreFromIndexedDb();
+
+      const vertexShaderSource = `
+        attribute vec2 a_position;
+        varying vec2 v_uv;
+
+        void main() {
+          v_uv = a_position * 0.5 + 0.5;
+          gl_Position = vec4(a_position, 0.0, 1.0);
+        }
+      `;
+
+      const fragmentShaderSource = `
+        precision highp float;
+
+        varying vec2 v_uv;
+
+        uniform vec2 u_resolution;
+        uniform float u_time;
+        uniform int u_pointCount;
+        uniform vec4 u_points[${MAX_POINTS}];
+        uniform vec4 u_vels[${MAX_POINTS}];
+        uniform vec4 u_global;
+        uniform vec4 u_shapeA;
+        uniform vec4 u_shapeB;
+        uniform vec4 u_motion;
+        uniform vec4 u_colorCtrl;
+        uniform vec3 u_grayBase;
+        uniform vec3 u_grayLight;
+        uniform vec3 u_shadowTint;
+
+        #define TAU 6.28318530718
+
+        mat2 rot(float a) {
+          float s = sin(a);
+          float c = cos(a);
+          return mat2(c, -s, s, c);
+        }
+
+        float hash(vec2 p) {
+          return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+        }
+
+        float noise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          vec2 u = f * f * (3.0 - 2.0 * f);
+
+          float a = hash(i + vec2(0.0, 0.0));
+          float b = hash(i + vec2(1.0, 0.0));
+          float c = hash(i + vec2(0.0, 1.0));
+          float d = hash(i + vec2(1.0, 1.0));
+
+          return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+        }
+
+        float fbm(vec2 p) {
+          float value = 0.0;
+          float amp = 0.5;
+          mat2 m = mat2(1.7, 1.2, -1.2, 1.7);
+          for (int i = 0; i < 5; i++) {
+            value += noise(p) * amp;
+            p = m * p * 1.13;
+            amp *= 0.55;
+          }
+          return value;
+        }
+
+        vec3 palette(float t, float hueShift, float saturation) {
+          vec3 c = 0.5 + 0.5 * cos(TAU * (vec3(0.0, 0.33, 0.67) + t + hueShift));
+          float luma = dot(c, vec3(0.299, 0.587, 0.114));
+          return mix(vec3(luma), c, saturation);
+        }
+
+        vec2 helixField(vec2 p, float phase, float laneFreq, float amp, float width, float travel, float bridgeStrength) {
+          vec2 q = p;
+          q.x *= laneFreq;
+          q.y *= 2.35;
+
+          float lane = floor(q.x + 0.5);
+          float localX = fract(q.x + 0.5) - 0.5;
+          float y = q.y + lane * 0.82 + phase;
+          float cycle = y * 2.4 - travel;
+
+          float wave = sin(cycle);
+          float twist = cos(cycle);
+          float laneAmp = amp * (0.84 + 0.16 * sin(lane * 2.97 + phase * 0.7));
+
+          float x1 = wave * laneAmp;
+          float x2 = -wave * laneAmp;
+
+          float d1 = abs(localX - x1);
+          float d2 = abs(localX - x2);
+
+          float strand1 = exp(-pow(d1 / max(width, 0.0001), 1.45));
+          float strand2 = exp(-pow(d2 / max(width, 0.0001), 1.45));
+          float strand = strand1 + strand2;
+
+          float bridgeMask = smoothstep(laneAmp * 1.18 + 0.02, laneAmp * 0.08, abs(localX));
+          float frontBridge = bridgeMask * pow(max(0.0, twist), 5.0) * bridgeStrength;
+          float backBridge = bridgeMask * pow(max(0.0, -twist), 4.0) * 0.28 * bridgeStrength;
+
+          return vec2(strand, frontBridge + backBridge);
+        }
+
+        void main() {
+          vec2 uv = v_uv;
+          vec2 p = uv * 2.0 - 1.0;
+          p.x *= u_resolution.x / u_resolution.y;
+          p *= u_global.x;
+
+          vec2 flow = vec2(0.0);
+          float activity = 0.0;
+          vec3 rainbowAccum = vec3(0.0);
+
+          for (int i = 0; i < ${MAX_POINTS}; i++) {
+            if (i >= u_pointCount) {
+              continue;
+            }
+
+            vec2 point = u_points[i].xy * 2.0 - 1.0;
+            point.x *= u_resolution.x / u_resolution.y;
+            point *= u_global.x;
+
+            float age = u_points[i].z;
+            float speed = u_points[i].w;
+            vec2 vel = u_vels[i].xy;
+            float spin = u_vels[i].z;
+
+            vec2 toFrag = p - point;
+            float d = length(toFrag);
+            float influence = exp(-d * (5.4 + u_global.z * 1.7)) * exp(-age * 1.5);
+            float swirl = exp(-d * (7.6 + u_global.z * 1.4)) * exp(-age * 1.95);
+
+            vec2 tangent = vec2(-toFrag.y, toFrag.x);
+            float push = (0.2 + speed * 1.95) * u_global.w;
+            flow += vel * influence * push;
+            flow += tangent * swirl * spin * (0.24 + speed * 1.55) * u_motion.y;
+
+            float hue = atan(vel.y, vel.x) / TAU + 0.5;
+            float localActivity = influence * clamp(speed * 1.2 * u_global.w, 0.0, 1.8);
+            rainbowAccum += palette(hue + d * 0.17 + u_time * 0.025, u_colorCtrl.y, u_colorCtrl.z) * localActivity;
+            activity += localActivity;
+          }
+
+          float react = clamp(activity, 0.0, 1.7);
+          vec2 drift = vec2(
+            sin(u_time * 0.16 * u_global.y + p.y * 1.3),
+            cos(u_time * 0.14 * u_global.y + p.x * 1.1)
+          ) * (0.05 * u_motion.x);
+
+          float grain = fbm(p * (2.0 + u_global.z * 0.7) + flow * (1.0 + u_global.w) + vec2(0.0, u_time * 0.06 * u_global.y));
+          vec2 warp = flow * (0.95 + react * 1.65) * (0.7 + u_global.z * 0.65);
+          warp += vec2(
+            grain - 0.5,
+            fbm(p.yx * 2.2 - flow * 1.1 + vec2(u_time * 0.04 * u_global.y, 0.0)) - 0.5
+          ) * (0.05 + react * 0.13) * u_global.z;
+
+          vec2 q1 = rot(0.32 + react * 0.10) * (p * 1.05 + drift + warp);
+          vec2 q2 = rot(-0.41 - react * 0.07) * (p * 1.28 - drift * 0.8 + warp * 1.12);
+
+          float ampA = u_shapeA.y * (0.88 + react * 0.45);
+          float ampB = u_shapeB.y * (0.9 + react * 0.34);
+          float widthA = max(u_shapeA.z - react * 0.005, 0.004);
+          float widthB = max(u_shapeB.z - react * 0.004, 0.004);
+
+          vec2 helixA = helixField(q1, u_shapeA.w, u_shapeA.x, ampA, widthA, u_time * u_global.y * (0.9 + react * 0.95), u_motion.z);
+          vec2 helixB = helixField(q2 + vec2(0.0, 0.12), u_shapeB.w, u_shapeB.x, ampB, widthB, -u_time * u_global.y * (0.7 + react * 0.7), u_motion.z);
+
+          float strands = helixA.x * 1.0 + helixB.x * 0.74;
+          float bridges = helixA.y * 0.9 + helixB.y * 0.58;
+
+          float crest = pow(clamp(strands * 0.42, 0.0, 1.0), 1.55);
+          float shimmer = pow(clamp(bridges * 0.8 + strands * 0.12, 0.0, 1.0), 1.9);
+          float fog = fbm((p + warp * 0.45) * 3.2 - vec2(0.0, u_time * 0.05 * u_global.y));
+
+          vec3 color = u_grayBase;
+          color += u_grayLight * (crest * 0.95 + shimmer * 0.55);
+          color += u_shadowTint * fog * 0.33;
+
+          float rainbowMix = smoothstep(0.03, 0.65, activity) * u_colorCtrl.x;
+          vec3 rainbow = rainbowAccum / max(activity, 0.0001);
+          rainbow *= (0.5 + crest * 0.9 + react * 0.48) * u_colorCtrl.x;
+          color = mix(color, color + rainbow, clamp(rainbowMix, 0.0, 1.0));
+          color += rainbow * smoothstep(0.0, 1.2, react) * 0.18 * u_colorCtrl.x;
+
+          float vignette = smoothstep(1.7, 0.25, length(p));
+          color *= 0.76 + vignette * 0.34;
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `;
+
+      function createShader(type, source) {
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+          const info = gl.getShaderInfoLog(shader);
+          gl.deleteShader(shader);
+          throw new Error(info || 'Shader compile failed');
+        }
+        return shader;
+      }
+
+      function createProgram(vsSource, fsSource) {
+        const program = gl.createProgram();
+        const vs = createShader(gl.VERTEX_SHADER, vsSource);
+        const fs = createShader(gl.FRAGMENT_SHADER, fsSource);
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          const info = gl.getProgramInfoLog(program);
+          gl.deleteProgram(program);
+          throw new Error(info || 'Program link failed');
+        }
+        gl.deleteShader(vs);
+        gl.deleteShader(fs);
+        return program;
+      }
+
+      let program;
+      try {
+        program = createProgram(vertexShaderSource, fragmentShaderSource);
+      } catch (error) {
+        document.body.innerHTML = '<div style="color:white;padding:24px;white-space:pre-wrap">' + error.message + '</div>';
+        return;
+      }
+
+      const positionLocation = gl.getAttribLocation(program, 'a_position');
+      const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+      const timeLocation = gl.getUniformLocation(program, 'u_time');
+      const pointCountLocation = gl.getUniformLocation(program, 'u_pointCount');
+      const pointsLocation = gl.getUniformLocation(program, 'u_points[0]');
+      const velsLocation = gl.getUniformLocation(program, 'u_vels[0]');
+      const globalLocation = gl.getUniformLocation(program, 'u_global');
+      const shapeALocation = gl.getUniformLocation(program, 'u_shapeA');
+      const shapeBLocation = gl.getUniformLocation(program, 'u_shapeB');
+      const motionLocation = gl.getUniformLocation(program, 'u_motion');
+      const colorCtrlLocation = gl.getUniformLocation(program, 'u_colorCtrl');
+      const grayBaseLocation = gl.getUniformLocation(program, 'u_grayBase');
+      const grayLightLocation = gl.getUniformLocation(program, 'u_grayLight');
+      const shadowTintLocation = gl.getUniformLocation(program, 'u_shadowTint');
+
+      const quadBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([
+          -1, -1,
+           1, -1,
+          -1,  1,
+          -1,  1,
+           1, -1,
+           1,  1,
+        ]),
+        gl.STATIC_DRAW
+      );
+
+      gl.useProgram(program);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+      gl.enableVertexAttribArray(positionLocation);
+      gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+      const points = [];
+      const pointer = {
+        x: 0.5,
+        y: 0.5,
+        px: 0.5,
+        py: 0.5,
+        initialized: false,
+        moved: false,
+        lastMoveTime: 0,
+      };
+
+      function addPoint(nx, ny, vx, vy) {
+        const speed = clamp(Math.hypot(vx, vy) * 0.95, 0, 2.8);
+        const spin = clamp((vx - vy) * 0.6 + (vx + vy) * 0.25, -1.8, 1.8);
+
+        points.unshift({ x: nx, y: ny, age: 0, speed, vx, vy, spin });
+        if (points.length > MAX_POINTS) points.length = MAX_POINTS;
+      }
+
+      function updatePointer(clientX, clientY, now) {
+        const rect = canvas.getBoundingClientRect();
+        const nx = clamp((clientX - rect.left) / rect.width, 0, 1);
+        const ny = clamp(1 - (clientY - rect.top) / rect.height, 0, 1);
+
+        if (!pointer.initialized) {
+          pointer.x = pointer.px = nx;
+          pointer.y = pointer.py = ny;
+          pointer.initialized = true;
+          pointer.lastMoveTime = now;
+          addPoint(nx, ny, 0.0, 0.0);
+          return;
+        }
+
+        const dt = Math.max(0.008, Math.min(0.05, (now - pointer.lastMoveTime) / 1000 || 0.016));
+        const dx = nx - pointer.x;
+        const dy = ny - pointer.y;
+        const dist = Math.hypot(dx, dy);
+
+        pointer.px = pointer.x;
+        pointer.py = pointer.y;
+        pointer.x = nx;
+        pointer.y = ny;
+        pointer.lastMoveTime = now;
+
+        const vx = dx / dt;
+        const vy = dy / dt;
+
+        if (dist > 0.00035) {
+          const steps = Math.min(10, Math.max(1, Math.ceil(dist * 60)));
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            addPoint(
+              pointer.px + (pointer.x - pointer.px) * t,
+              pointer.py + (pointer.y - pointer.py) * t,
+              vx,
+              vy
+            );
+          }
+          pointer.moved = true;
+        }
+      }
+
+      function handleMouse(event) {
+        updatePointer(event.clientX, event.clientY, performance.now());
+      }
+
+      function handleTouch(event) {
+        if (event.touches.length > 0) {
+          const t = event.touches[0];
+          updatePointer(t.clientX, t.clientY, performance.now());
+        }
+      }
+
+      window.addEventListener('mousemove', handleMouse, { passive: true });
+      window.addEventListener('touchstart', handleTouch, { passive: true });
+      window.addEventListener('touchmove', handleTouch, { passive: true });
+
+      function resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(1, Math.floor(window.innerWidth * dpr));
+        const height = Math.max(1, Math.floor(window.innerHeight * dpr));
+
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+          gl.viewport(0, 0, width, height);
+        }
+      }
+
+      window.addEventListener('resize', resize);
+      resize();
+
+      const pointData = new Float32Array(MAX_POINTS * 4);
+      const velData = new Float32Array(MAX_POINTS * 4);
+      let lastTime = performance.now();
+      const startTime = lastTime;
+
+      function frame(now) {
+        resize();
+        const dt = Math.min(0.033, (now - lastTime) / 1000 || 0.016);
+        lastTime = now;
+
+        if (!pointer.moved && config.idleMotion > 0.0) {
+          const idleX = 0.5 + Math.cos(now * 0.00018 * config.animationSpeed) * config.idleMotion;
+          const idleY = 0.5 + Math.sin(now * 0.00021 * config.animationSpeed) * (config.idleMotion * 1.35);
+          updatePointer(idleX * canvas.clientWidth, (1 - idleY) * canvas.clientHeight, now);
+        }
+
+        for (let i = points.length - 1; i >= 0; i--) {
+          points[i].age += dt;
+          if (points[i].age > config.trailLife) {
+            points.splice(i, 1);
+          }
+        }
+
+        pointData.fill(0);
+        velData.fill(0);
+
+        const count = Math.min(points.length, MAX_POINTS);
+        for (let i = 0; i < count; i++) {
+          const p = points[i];
+          pointData[i * 4 + 0] = p.x;
+          pointData[i * 4 + 1] = p.y;
+          pointData[i * 4 + 2] = p.age;
+          pointData[i * 4 + 3] = p.speed;
+
+          velData[i * 4 + 0] = p.vx;
+          velData[i * 4 + 1] = p.vy;
+          velData[i * 4 + 2] = p.spin;
+          velData[i * 4 + 3] = 1.0;
+        }
+
+        const grayBase = hexToRgb(config.grayBase);
+        const grayLight = hexToRgb(config.grayLight);
+        const shadowTint = hexToRgb(config.shadowTint);
+
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.useProgram(program);
+        gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+        gl.uniform1f(timeLocation, (now - startTime) * 0.001);
+        gl.uniform1i(pointCountLocation, count);
+        gl.uniform4fv(pointsLocation, pointData);
+        gl.uniform4fv(velsLocation, velData);
+        gl.uniform4f(globalLocation, config.helixScale, config.animationSpeed, config.turbulence, config.mouseForce);
+        gl.uniform4f(shapeALocation, config.laneFreqA, config.ampA, config.widthA, 0.2);
+        gl.uniform4f(shapeBLocation, config.laneFreqB, config.ampB, config.widthB, 1.6);
+        gl.uniform4f(motionLocation, config.drift, config.swirl, config.bridge, config.trailLife);
+        gl.uniform4f(colorCtrlLocation, config.rainbowStrength, config.hueShift, config.saturation, 0.0);
+        gl.uniform3f(grayBaseLocation, grayBase[0], grayBase[1], grayBase[2]);
+        gl.uniform3f(grayLightLocation, grayLight[0], grayLight[1], grayLight[2]);
+        gl.uniform3f(shadowTintLocation, shadowTint[0], shadowTint[1], shadowTint[2]);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+        requestAnimationFrame(frame);
+      }
+
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
