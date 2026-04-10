@@ -1,0 +1,28 @@
+{
+  "name": "Lemon Grass 2",
+  "exportedAt": "2026-04-10T04:57:52.560Z",
+  "version": 1,
+  "data": {
+    "helixScale": 1.8,
+    "animationSpeed": 3,
+    "turbulence": 0,
+    "mouseForce": 0.1,
+    "drift": 2,
+    "swirl": 2.5,
+    "bridge": 0,
+    "laneFreqA": 8,
+    "laneFreqB": 8,
+    "ampA": 0.4,
+    "ampB": 0.4,
+    "widthA": 0.06,
+    "widthB": 0.06,
+    "rainbowStrength": 2.5,
+    "hueShift": 0,
+    "saturation": 0.82,
+    "trailLife": 4,
+    "idleMotion": 0.35,
+    "grayBase": "#000000",
+    "grayLight": "#eeff00",
+    "shadowTint": "#00ff88"
+  }
+}
