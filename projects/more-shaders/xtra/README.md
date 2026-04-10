@@ -1,5 +1,9 @@
 # Reactive WebGL DNA Waves
 
+https://github.com/user-attachments/assets/dcb2d784-45a5-4c1a-9355-d9681ae3d84a
+
+
+
 A single-file **WebGL background** that renders animated **DNA-like wave / helix bands** across the full screen and reacts to mouse or touch movement.
 
 At rest, the scene stays mostly in a dark gray / metallic range. As the pointer moves, the shader receives a trail of motion samples and turns that motion into:
