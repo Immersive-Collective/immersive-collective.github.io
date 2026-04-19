@@ -1,0 +1,2283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pink Ball Fluid</title>
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+      radial-gradient(circle at 20% 15%, rgba(255, 166, 210, 0.14), transparent 32%),
+      radial-gradient(circle at 80% 20%, rgba(255, 126, 186, 0.18), transparent 30%),
+      linear-gradient(180deg, #421426 0%, #2d0f1e 42%, #190812 100%);
+    }
+
+    body {
+      position: relative;
+      cursor: default;
+      touch-action: none;
+      font-family: Inter, system-ui, sans-serif;
+    }
+
+    #app {
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    #fallback {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: rgba(255, 233, 244, 0.9);
+      font-size: 14px;
+      letter-spacing: 0.02em;
+      background: linear-gradient(180deg, rgba(15, 3, 16, 0.94), rgba(15, 3, 16, 0.98));
+      z-index: 2;
+    }
+
+    #fallback.hidden {
+      display: none;
+    }
+
+    #configImport {
+      display: none;
+    }
+
+    #scoreHud {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      z-index: 3;
+      min-width: 112px;
+      padding: 10px 14px 12px;
+      border: 0px solid rgba(255, 226, 133, 0.34);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(33, 15, 10, 0.1), rgba(18, 7, 10, 0.2));
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24);
+      color: rgba(255, 244, 186, 0.96);
+      pointer-events: none;
+      user-select: none;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    #scoreLabel {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(255, 229, 122, 0.82);
+    }
+
+    #scoreValue {
+      margin-top: 4px;
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      color: #ffe45d;
+      text-shadow: 0 0 18px rgba(255, 216, 77, 0.22);
+    }
+
+    #guiToggleButton,
+    #restartButton {
+      position: absolute;
+      bottom: 4px;
+      z-index: 6;
+      display: grid;
+      place-items: center;
+      width: 46px;
+      height: 46px;
+      padding: 0;
+      border: 0px solid rgba(255, 228, 93, 0.28);
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(37, 18, 22, 0.1), rgba(16, 7, 11, 0.22));
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+      color: rgba(255, 232, 126, 0.96);
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    #guiToggleButton {
+      right: 4px;
+      display: none;
+    }
+
+    #restartButton {
+      left: 4px;
+    }
+
+    #guiToggleButton img,
+    #restartButton img {
+      display: block;
+      width: 20px;
+      height: 20px;
+      max-width: 20px;
+      max-height: 20px;
+      object-fit: contain;
+      pointer-events: none;
+      user-select: none;
+      filter: brightness(0) saturate(100%) invert(92%) sepia(26%) saturate(804%) hue-rotate(328deg) brightness(104%) contrast(100%);
+      transform: translateZ(0);
+    }
+
+    #guiToggleButton:active,
+    #restartButton:active {
+      transform: scale(0.96);
+    }
+
+    @media (pointer: coarse), (max-width: 900px) {
+      #guiToggleButton {
+        display: grid;
+      }
+
+      body.gui-mobile-hidden .lil-gui {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(18px) scale(0.98);
+      }
+
+      body.gui-mobile-open .lil-gui {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: none;
+      }
+
+      .lil-gui {
+        z-index: 5;
+        max-height: calc(100vh - 92px);
+        overflow-y: auto;
+        transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="scoreHud"><div id="scoreLabel">Score</div><div id="scoreValue">0000</div></div>
+  <button id="restartButton" type="button" aria-label="Restart scene"><img src="assets/icons/reload.svg" alt="" /></button>
+  <button id="guiToggleButton" type="button" aria-label="Toggle controls" aria-pressed="false"><img src="assets/icons/cog.svg" alt="" /></button>
+  <div id="fallback">WebGL is required.</div>
+  <input id="configImport" type="file" accept="application/json,.json" />
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.184.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+    import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+    import { GUI } from 'https://cdn.jsdelivr.net/npm/lil-gui@0.21.0/dist/lil-gui.esm.min.js';
+    import RAPIER from 'https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.19.3/+esm';
+
+    const app = document.getElementById('app');
+    const fallback = document.getElementById('fallback');
+    const configImportInput = document.getElementById('configImport');
+    const scoreValue = document.getElementById('scoreValue');
+    const restartButton = document.getElementById('restartButton');
+    const guiToggleButton = document.getElementById('guiToggleButton');
+
+    if (!window.WebGLRenderingContext) {
+      throw new Error('WebGL not supported');
+    }
+
+    await RAPIER.init();
+
+    fallback.classList.add('hidden');
+
+    const STORAGE_KEY = 'pink-fluid-config-current-v3';
+    const DB_NAME = 'pink-fluid-db';
+    const DB_STORE = 'configs';
+    const DB_CURRENT_KEY = 'current';
+    const CONFIG_VERSION = 3;
+    const DEFAULT_CONFIG_URL = 'config/default.json';
+
+    const DEFAULT_CONFIG = {
+      objectCount: 180,
+      minSize: 0.34,
+      maxSize: 0.62,
+      colorMode: 'solid',
+      solidColor: '#ff9cca',
+      colorA: '#ff7dbe',
+      colorB: '#ffe2f1',
+      geometryMode: 'mix',
+      monoGeometry: 'sphere',
+      sphereWeight: 34,
+      cubeWeight: 18,
+      pyramidWeight: 14,
+      octaWeight: 12,
+      icosaWeight: 11,
+      dodecaWeight: 11,
+      glb_workWeight: 10,
+      glb_funWeight: 10,
+      popImpulse: 1.25,
+      spawnHeight: 0.58,
+      gravity: 18,
+      roughness: 0.12,
+      clearcoat: 1,
+      opacity: 1,
+      dispersion: 0.32,
+      envMapIntensity: 1.0,
+      outputColorSpace: 'srgb',
+      toneMapping: 'aces',
+      toneMappingExposure: 1.18,
+      environmentRotation: 0,
+      environmentRotationSpeed: 0,
+      ambientLightColor: '#ffffff',
+      ambientLightIntensity: 1.65,
+      hemiSkyColor: '#fff8fc',
+      hemiGroundColor: '#6b213f',
+      hemiLightIntensity: 1.85,
+      fillLightColor: '#ffdbe9',
+      fillLightIntensity: 1.35,
+      rimLightColor: '#ff9dcc',
+      rimLightIntensity: 0.9,
+      mouseLightColor: '#ffffff',
+      mouseLightIntensity: 150,
+      accentLightColor: '#ff93ca',
+      accentLightIntensity: 30
+    };
+
+    const GEOMETRY_DEFS = {
+      sphere: { label: 'Sphere', build: () => new THREE.SphereGeometry(0.5, 26, 26) },
+      cube: { label: 'Cube', build: () => new THREE.BoxGeometry(1, 1, 1, 2, 2, 2) },
+      pyramid: { label: 'Pyramid', build: () => new THREE.TetrahedronGeometry(0.82, 0) },
+      octa: { label: 'Octa', build: () => new THREE.OctahedronGeometry(0.74, 0) },
+      icosa: { label: 'Icosa', build: () => new THREE.IcosahedronGeometry(0.68, 0) },
+      dodeca: { label: 'Dodeca', build: () => new THREE.DodecahedronGeometry(0.72, 0) }
+    };
+
+    const GEOMETRY_KEYS = Object.keys(GEOMETRY_DEFS);
+
+    /* GLB model files loaded as instanced trimesh geometry entries alongside primitives. */
+    const GLB_MODELS = [
+      { key: 'glb_work', label: 'Work', file: 'assets/models/work2.glb', weight: 10 },
+      { key: 'glb_fun',  label: 'Fun',  file: 'assets/models/fun2.glb',  weight: 10 }
+    ];
+
+
+
+
+/* Clamps incoming config values so GUI, JSON import, and stored state stay valid. */
+    function sanitizeConfig(source) {
+      const next = { ...DEFAULT_CONFIG, ...(source || {}) };
+
+      next.objectCount = Math.max(12, Math.min(420, Math.round(Number(next.objectCount) || DEFAULT_CONFIG.objectCount)));
+      next.minSize = Math.max(0.05, Math.min(4.0, Number(next.minSize) || DEFAULT_CONFIG.minSize));
+      next.maxSize = Math.max(next.minSize, Math.min(4.0, Number(next.maxSize) || DEFAULT_CONFIG.maxSize));
+      next.popImpulse = Math.max(0, Math.min(5, Number(next.popImpulse) || DEFAULT_CONFIG.popImpulse));
+      next.spawnHeight = Math.max(0.2, Math.min(0.9, Number(next.spawnHeight) || DEFAULT_CONFIG.spawnHeight));
+      next.gravity = Math.max(4, Math.min(42, Number(next.gravity) || DEFAULT_CONFIG.gravity));
+      next.roughness = Math.max(0.02, Math.min(0.95, Number(next.roughness) || DEFAULT_CONFIG.roughness));
+      next.clearcoat = Math.max(0, Math.min(1, Number(next.clearcoat) || DEFAULT_CONFIG.clearcoat));
+      next.opacity = Math.max(0.35, Math.min(1, Number(next.opacity) || DEFAULT_CONFIG.opacity));
+      next.dispersion = Math.max(0, Math.min(1, Number(next.dispersion) || DEFAULT_CONFIG.dispersion));
+      next.envMapIntensity = Math.max(0, Math.min(6, Number(next.envMapIntensity) || DEFAULT_CONFIG.envMapIntensity));
+      next.toneMappingExposure = Math.max(0, Math.min(4, Number(next.toneMappingExposure) || DEFAULT_CONFIG.toneMappingExposure));
+      next.environmentRotation = Number.isFinite(Number(next.environmentRotation)) ? ((Number(next.environmentRotation) % 360) + 360) % 360 : DEFAULT_CONFIG.environmentRotation;
+      next.environmentRotationSpeed = Math.max(-180, Math.min(180, Number(next.environmentRotationSpeed) || DEFAULT_CONFIG.environmentRotationSpeed));
+
+      next.ambientLightIntensity = Math.max(0, Math.min(10, Number(next.ambientLightIntensity) || DEFAULT_CONFIG.ambientLightIntensity));
+      next.hemiLightIntensity = Math.max(0, Math.min(10, Number(next.hemiLightIntensity) || DEFAULT_CONFIG.hemiLightIntensity));
+      next.fillLightIntensity = Math.max(0, Math.min(10, Number(next.fillLightIntensity) || DEFAULT_CONFIG.fillLightIntensity));
+      next.rimLightIntensity = Math.max(0, Math.min(10, Number(next.rimLightIntensity) || DEFAULT_CONFIG.rimLightIntensity));
+      next.mouseLightIntensity = Math.max(0, Math.min(300, Number(next.mouseLightIntensity) || DEFAULT_CONFIG.mouseLightIntensity));
+      next.accentLightIntensity = Math.max(0, Math.min(120, Number(next.accentLightIntensity) || DEFAULT_CONFIG.accentLightIntensity));
+
+      next.colorMode = next.colorMode === 'random' ? 'random' : 'solid';
+      next.geometryMode = next.geometryMode === 'mix' ? 'mix' : 'mono';
+      next.monoGeometry = GEOMETRY_DEFS[next.monoGeometry] ? next.monoGeometry : DEFAULT_CONFIG.monoGeometry;
+
+      const allowedOutputColorSpaces = ['srgb', 'linear'];
+      const allowedToneMappings = ['none', 'linear', 'reinhard', 'cineon', 'aces'];
+
+      next.outputColorSpace = allowedOutputColorSpaces.includes(next.outputColorSpace)
+      ? next.outputColorSpace
+      : DEFAULT_CONFIG.outputColorSpace;
+
+      next.toneMapping = allowedToneMappings.includes(next.toneMapping)
+      ? next.toneMapping
+      : DEFAULT_CONFIG.toneMapping;
+
+      let totalWeight = 0;
+      for (const key of GEOMETRY_KEYS) {
+        const weightKey = key + 'Weight';
+        next[weightKey] = Math.max(0, Math.min(100, Number(next[weightKey]) || 0));
+        totalWeight += next[weightKey];
+      }
+
+      for (const def of GLB_MODELS) {
+        const weightKey = def.key + 'Weight';
+        next[weightKey] = Math.max(0, Math.min(100, Number(next[weightKey]) || def.weight));
+        totalWeight += next[weightKey];
+      }
+
+      if (next.geometryMode === 'mix' && totalWeight <= 1) {
+        next.sphereWeight = DEFAULT_CONFIG.sphereWeight;
+        next.cubeWeight = DEFAULT_CONFIG.cubeWeight;
+        next.pyramidWeight = DEFAULT_CONFIG.pyramidWeight;
+        next.octaWeight = DEFAULT_CONFIG.octaWeight;
+        next.icosaWeight = DEFAULT_CONFIG.icosaWeight;
+        next.dodecaWeight = DEFAULT_CONFIG.dodecaWeight;
+      }
+
+      next.solidColor = typeof next.solidColor === 'string' ? next.solidColor : DEFAULT_CONFIG.solidColor;
+      next.colorA = typeof next.colorA === 'string' ? next.colorA : DEFAULT_CONFIG.colorA;
+      next.colorB = typeof next.colorB === 'string' ? next.colorB : DEFAULT_CONFIG.colorB;
+
+      next.ambientLightColor = typeof next.ambientLightColor === 'string' ? next.ambientLightColor : DEFAULT_CONFIG.ambientLightColor;
+      next.hemiSkyColor = typeof next.hemiSkyColor === 'string' ? next.hemiSkyColor : DEFAULT_CONFIG.hemiSkyColor;
+      next.hemiGroundColor = typeof next.hemiGroundColor === 'string' ? next.hemiGroundColor : DEFAULT_CONFIG.hemiGroundColor;
+      next.fillLightColor = typeof next.fillLightColor === 'string' ? next.fillLightColor : DEFAULT_CONFIG.fillLightColor;
+      next.rimLightColor = typeof next.rimLightColor === 'string' ? next.rimLightColor : DEFAULT_CONFIG.rimLightColor;
+      next.mouseLightColor = typeof next.mouseLightColor === 'string' ? next.mouseLightColor : DEFAULT_CONFIG.mouseLightColor;
+      next.accentLightColor = typeof next.accentLightColor === 'string' ? next.accentLightColor : DEFAULT_CONFIG.accentLightColor;
+
+      return next;
+    }
+
+
+
+
+    /* Reads the locally cached config and returns a sanitized version when present. */
+    function loadLocalConfig() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw);
+        return sanitizeConfig(parsed && parsed.config ? parsed.config : parsed);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    /* Loads the default simulation config from the bundled JSON file when available. */
+    async function loadDefaultConfigFromFile() {
+      try {
+        const response = await fetch(DEFAULT_CONFIG_URL, { cache: 'no-store' });
+        if (!response.ok) {
+          return null;
+        }
+        const parsed = await response.json();
+        return sanitizeConfig(parsed && parsed.config ? parsed.config : parsed);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    const loadedDefaultConfig = await loadDefaultConfigFromFile();
+    let config = sanitizeConfig(loadLocalConfig() || loadedDefaultConfig || DEFAULT_CONFIG);
+
+
+
+/* Creates the renderer, the environment source, and the GUI-controlled light rig. */
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1;
+    renderer.setClearColor(0x000000, 0);
+    app.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    const roomEnv = new RoomEnvironment();
+    const envTexture = pmremGenerator.fromScene(roomEnv, 0.04).texture;
+    scene.environment = envTexture;
+    roomEnv.dispose();
+    pmremGenerator.dispose();
+    scene.fog = new THREE.FogExp2(0x2f1020, 0.009);
+
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+    camera.position.set(0, 0, 20);
+    camera.lookAt(0, 0, 0);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.65);
+    scene.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0xfff8fc, 0x6b213f, 1.85);
+    scene.add(hemiLight);
+
+    const fillLight = new THREE.DirectionalLight(0xffdbe9, 1.35);
+    fillLight.position.set(-6, 10, 8);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.DirectionalLight(0xff9dcc, 0.9);
+    rimLight.position.set(7, 2, 10);
+    scene.add(rimLight);
+
+    const mouseLight = new THREE.PointLight(0xffffff, 150, 72, 2);
+    mouseLight.position.set(0, 6, 10);
+    scene.add(mouseLight);
+
+    const accentLight = new THREE.PointLight(0xff93ca, 30, 44, 2);
+    accentLight.position.set(0, -4, 7);
+    scene.add(accentLight);
+
+    scene.backgroundBlurriness = 0.1;
+
+    const world = new RAPIER.World({ x: 0, y: -config.gravity, z: 0 });
+    world.timestep = 1 / 60;
+
+    const clock = new THREE.Clock();
+    const pointer = new THREE.Vector2(0, 0);
+    const lightTarget = new THREE.Vector3(0, 0, 10);
+    const tempMatrix = new THREE.Matrix4();
+    const tempPosition = new THREE.Vector3();
+    const tempQuaternion = new THREE.Quaternion();
+    const tempScale = new THREE.Vector3();
+    const tempColor = new THREE.Color();
+
+    let accumulator = 0;
+    let nextObjectId = 1;
+    let boundaryBodies = [];
+    let boundaryFrame = null;
+    let boundaryGlow = null;
+    let indexedDb = null;
+    let persistTimer = 0;
+
+    const geometryCache = {};
+    const geometryMeshes = {};
+    const objects = [];
+    const pops = [];
+
+    const specialSphereGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+    const specialSphereMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x050505,
+      roughness: 0.22,
+      metalness: 0.04,
+      transmission: 0,
+      clearcoat: 0.72,
+      clearcoatRoughness: 0.14,
+      envMapIntensity: 0.7
+    });
+
+    const targetCubeGeometry = new THREE.BoxGeometry(1, 1, 1, 2, 2, 2);
+    const targetCubeMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xffdf53,
+      emissive: 0x6a4f00,
+      emissiveIntensity: 1.2,
+      roughness: 0.2,
+      metalness: 0.08,
+      clearcoat: 0.88,
+      clearcoatRoughness: 0.12,
+      envMapIntensity: 1.05
+    });
+    const targetCubeMesh = new THREE.Mesh(targetCubeGeometry, targetCubeMaterial);
+    targetCubeMesh.frustumCulled = false;
+    targetCubeMesh.renderOrder = 3;
+    scene.add(targetCubeMesh);
+
+    const dragState = {
+      active: false,
+      pointerId: null,
+      object: null,
+      offsetX: 0,
+      offsetY: 0,
+      targetX: 0,
+      targetY: 0,
+      targetZ: 0,
+      lastX: 0,
+      lastY: 0,
+      lastZ: 0,
+      velocityX: 0,
+      velocityY: 0,
+      velocityZ: 0
+    };
+
+    const audioState = {
+      context: null,
+      master: null
+    };
+
+    const targetState = {
+      size: Math.max(config.maxSize * 1.8, 0.72),
+      halfSize: 0,
+      x: 0,
+      y: 0,
+      z: 0,
+      travel: 1,
+      moveSpeed: 0.42,
+      spinSpeedX: 0.55,
+      spinSpeedY: 0.9,
+      spinSpeedZ: 0.38
+    };
+
+    const worldState = {
+      width: 0,
+      height: 0,
+      depth: 1.55,
+      floorY: 0,
+      leftX: 0,
+      rightX: 0,
+      backZ: 0,
+      frontZ: 0
+    };
+
+    let simulationTime = 0;
+    let score = 0;
+    let specialBlackSphere = null;
+
+    /* Builds the shared MeshPhysicalMaterial used for all geometry instances. */
+    function buildMaterial() {
+      return new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        roughness: config.roughness,
+        metalness: 0.0,
+        transmission: 1.0,
+        thickness: 1.2,
+        ior: 1.5,
+        dispersion: config.dispersion,
+        clearcoat: config.clearcoat,
+        clearcoatRoughness: 0.05,
+        transparent: true,
+        opacity: config.opacity,
+        depthWrite: false,
+        flatShading: false,
+        envMapIntensity: config.envMapIntensity
+      });
+    }
+
+    for (const key of GEOMETRY_KEYS) {
+      const geometry = GEOMETRY_DEFS[key].build();
+      geometry.computeBoundingSphere();
+      geometry.computeVertexNormals();
+      geometryCache[key] = {
+        geometry,
+        baseRadius: geometry.boundingSphere ? geometry.boundingSphere.radius : 0.5,
+        material: buildMaterial()
+      };
+    }
+
+    /* Loads all GLB models, merges their meshes into a single BufferGeometry per file, and registers them in geometryCache. */
+    async function loadGlbModels() {
+      const dracoLoader = new DRACOLoader();
+      dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.184.0/examples/jsm/libs/draco/');
+      const gltfLoader = new GLTFLoader();
+      gltfLoader.setDRACOLoader(dracoLoader);
+
+      for (const def of GLB_MODELS) {
+        try {
+          const gltf = await gltfLoader.loadAsync(def.file);
+          const meshes = [];
+          gltf.scene.traverse((node) => {
+            if (node.isMesh && node.geometry) {
+              const g = node.geometry.clone();
+              node.updateWorldMatrix(true, false);
+              g.applyMatrix4(node.matrixWorld);
+              meshes.push(g);
+            }
+          });
+
+          if (!meshes.length) continue;
+
+          const merged = meshes.length === 1 ? meshes[0] : (mergeGeometries(meshes) || meshes[0]);
+
+          merged.computeBoundingSphere();
+          merged.computeVertexNormals();
+
+          const baseRadius = merged.boundingSphere ? merged.boundingSphere.radius : 0.5;
+
+          /* Normalise so the geometry fits within a unit sphere (radius = 0.5) */
+          const normScale = 0.5 / baseRadius;
+          merged.scale(normScale, normScale, normScale);
+          merged.computeBoundingSphere();
+
+          geometryCache[def.key] = {
+            geometry: merged,
+            baseRadius: merged.boundingSphere ? merged.boundingSphere.radius : 0.5,
+            material: buildMaterial(),
+            isGlb: true
+          };
+
+          GEOMETRY_DEFS[def.key] = { label: def.label, build: null };
+          if (!GEOMETRY_KEYS.includes(def.key)) GEOMETRY_KEYS.push(def.key);
+
+          createGeometryMesh(def.key, Math.max(config.objectCount, 1));
+
+          if (!(def.key + 'Weight' in config)) {
+            config[def.key + 'Weight'] = def.weight;
+          }
+        } catch (e) {
+          console.warn('GLB failed to load:', def.file, e);
+        }
+      }
+
+      dracoLoader.dispose();
+    }
+
+    /* Creates one instanced mesh bucket for a specific geometry type. */
+    function createGeometryMesh(key, capacity) {
+      const entry = geometryCache[key];
+      const mesh = new THREE.InstancedMesh(entry.geometry, entry.material, capacity);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.frustumCulled = false;
+      mesh.userData.geometryKey = key;
+      mesh.renderOrder = 1;
+      scene.add(mesh);
+      geometryMeshes[key] = mesh;
+    }
+
+    for (const key of GEOMETRY_KEYS) {
+      createGeometryMesh(key, Math.max(config.objectCount, 1));
+    }
+
+    const popMesh = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(0.5, 18, 18),
+      new THREE.MeshPhongMaterial({
+        color: 0xffd8ec,
+        emissive: 0x25101a,
+        emissiveIntensity: 0.22,
+        transparent: true,
+        opacity: 0.34,
+        specular: new THREE.Color(0xffffff),
+        shininess: 120,
+        depthWrite: false
+      }),
+      64
+      );
+    popMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    popMesh.frustumCulled = false;
+    scene.add(popMesh);
+
+
+
+/* Maps GUI material settings to the shared MeshPhysicalMaterial instances. */
+    function applyMaterialConfig() {
+      for (const key of GEOMETRY_KEYS) {
+        const material = geometryCache[key].material;
+        material.roughness = config.roughness;
+        material.clearcoat = config.clearcoat;
+        material.clearcoatRoughness = Math.max(0.04, config.roughness * 0.6);
+        material.transparent = true;
+        material.opacity = config.opacity;
+        material.dispersion = config.dispersion;
+        material.depthWrite = config.opacity >= 1;
+        material.envMapIntensity = config.envMapIntensity;
+        material.needsUpdate = true;
+      }
+
+      specialSphereMaterial.envMapIntensity = Math.max(0.45, config.envMapIntensity * 0.7);
+      specialSphereMaterial.needsUpdate = true;
+
+      targetCubeMaterial.envMapIntensity = Math.max(0.7, config.envMapIntensity * 1.1);
+      targetCubeMaterial.needsUpdate = true;
+    }
+
+
+/* Advances the environment rotation and applies it to the active environment texture. */
+    function updateEnvironmentRotation(delta) {
+      if (config.environmentRotationSpeed !== 0) {
+        config.environmentRotation = (config.environmentRotation + config.environmentRotationSpeed * delta) % 360;
+        if (config.environmentRotation < 0) {
+          config.environmentRotation += 360;
+        }
+      }
+
+      const radians = THREE.MathUtils.degToRad(config.environmentRotation);
+
+      if (scene.environmentRotation && typeof scene.environmentRotation.set === 'function') {
+        scene.environmentRotation.set(0, radians, 0);
+      }
+
+      if (scene.backgroundRotation && typeof scene.backgroundRotation.set === 'function') {
+        scene.backgroundRotation.set(0, radians, 0);
+      }
+    }
+
+
+/* Applies renderer color-space, tone-mapping, and environment-display settings. */
+    function applyDisplayConfig() {
+      const outputColorSpaceMap = {
+        srgb: THREE.SRGBColorSpace,
+        linear: THREE.LinearSRGBColorSpace
+      };
+
+      const toneMappingMap = {
+        none: THREE.NoToneMapping,
+        linear: THREE.LinearToneMapping,
+        reinhard: THREE.ReinhardToneMapping,
+        cineon: THREE.CineonToneMapping,
+        aces: THREE.ACESFilmicToneMapping
+      };
+
+      renderer.outputColorSpace = outputColorSpaceMap[config.outputColorSpace] || THREE.SRGBColorSpace;
+      renderer.toneMapping = toneMappingMap[config.toneMapping] || THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = config.toneMappingExposure;
+
+      updateEnvironmentRotation(0);
+    }
+
+
+/* Applies GUI-controlled light colours and intensities to the current light rig. */
+    function applyLightingConfig() {
+      ambientLight.color.set(config.ambientLightColor);
+      ambientLight.intensity = config.ambientLightIntensity;
+
+      hemiLight.color.set(config.hemiSkyColor);
+      hemiLight.groundColor.set(config.hemiGroundColor);
+      hemiLight.intensity = config.hemiLightIntensity;
+
+      fillLight.color.set(config.fillLightColor);
+      fillLight.intensity = config.fillLightIntensity;
+
+      rimLight.color.set(config.rimLightColor);
+      rimLight.intensity = config.rimLightIntensity;
+
+      mouseLight.color.set(config.mouseLightColor);
+      mouseLight.intensity = config.mouseLightIntensity;
+
+      accentLight.color.set(config.accentLightColor);
+      accentLight.intensity = config.accentLightIntensity;
+    }
+
+
+    /* Builds a filesystem-safe timestamp for exported config files. */
+    function makeTimestamp() {
+      return new Date().toISOString().replace(/[:.]/g, '-');
+    }
+
+    /* Updates the score overlay with the current intercepted-object total. */
+    function updateScoreDisplay() {
+      scoreValue.textContent = String(score).padStart(4, '0');
+    }
+
+    /* Rebuilds the current scene state and resets score-driven gameplay progress. */
+    function restartScene() {
+      endSpecialSphereDrag();
+      accumulator = 0;
+      simulationTime = 0;
+      score = 0;
+      updateScoreDisplay();
+      pops.length = 0;
+      popMesh.count = 0;
+      popMesh.instanceMatrix.needsUpdate = true;
+      if (popMesh.instanceColor) {
+        popMesh.instanceColor.needsUpdate = true;
+      }
+      clearObjects();
+      resizeScene();
+      synchronizePopulation({ preserveExisting: false });
+      updateTargetCube(simulationTime);
+    }
+
+    /* Unlocks WebAudio on user interaction so generated sound effects can play. */
+    function prepareAudio() {
+      if (!audioState.context) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextClass) {
+          return;
+        }
+        audioState.context = new AudioContextClass();
+        audioState.master = audioState.context.createGain();
+        audioState.master.gain.value = 0.12;
+        audioState.master.connect(audioState.context.destination);
+      }
+
+      if (audioState.context.state === 'suspended') {
+        audioState.context.resume();
+      }
+    }
+
+    /* Plays lightweight synthesized sound effects for gameplay interactions. */
+    function playSoundEffect(kind) {
+      prepareAudio();
+      if (!audioState.context || !audioState.master) {
+        return;
+      }
+
+      const context = audioState.context;
+      const now = context.currentTime;
+      const voice = (from, to, duration, gainFrom, gainTo, type) => {
+        const oscillator = context.createOscillator();
+        const gainNode = context.createGain();
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(from, now);
+        oscillator.frequency.exponentialRampToValueAtTime(Math.max(0.001, to), now + duration);
+        gainNode.gain.setValueAtTime(gainFrom, now);
+        gainNode.gain.exponentialRampToValueAtTime(Math.max(0.0001, gainTo), now + duration);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioState.master);
+        oscillator.start(now);
+        oscillator.stop(now + duration);
+      };
+
+      if (kind === 'pop') {
+        voice(540, 120, 0.09, 0.028, 0.0001, 'triangle');
+        voice(820, 260, 0.05, 0.014, 0.0001, 'sine');
+        return;
+      }
+
+      if (kind === 'bounce') {
+        voice(160, 110, 0.07, 0.022, 0.0001, 'square');
+        return;
+      }
+
+      if (kind === 'intercept') {
+        voice(260, 640, 0.12, 0.026, 0.0001, 'sawtooth');
+        return;
+      }
+
+      if (kind === 'point') {
+        voice(720, 1080, 0.08, 0.024, 0.0001, 'triangle');
+        voice(960, 1440, 0.1, 0.016, 0.0001, 'sine');
+      }
+    }
+
+    /* Positions the moving yellow interception cube along the top lane. */
+    function updateTargetCube(time) {
+      targetState.size = Math.max(config.maxSize * 1.8, 0.72);
+      targetState.halfSize = targetState.size * 0.5;
+      targetState.travel = Math.max(worldState.width * 0.5 - targetState.halfSize * 1.6, 0.6);
+      targetState.x = Math.sin(time * targetState.moveSpeed) * targetState.travel;
+      targetState.y = camera.top - targetState.halfSize * 1.45;
+      targetState.z = 0;
+
+      targetCubeMesh.position.set(targetState.x, targetState.y, targetState.z);
+      targetCubeMesh.rotation.set(time * targetState.spinSpeedX, time * targetState.spinSpeedY, time * targetState.spinSpeedZ);
+      targetCubeMesh.scale.setScalar(targetState.size);
+    }
+
+    /* Creates the visible per-instance color from the current color mode and GUI palette. */
+    function colorFromConfig() {
+      if (config.colorMode === 'solid') {
+        const solid = new THREE.Color(config.solidColor);
+        const hsl = { h: 0, s: 0, l: 0 };
+        solid.getHSL(hsl);
+        solid.setHSL(
+          hsl.h,
+          Math.min(1, Math.max(0.62, hsl.s * 1.02)),
+          Math.min(0.82, Math.max(0.52, hsl.l * 1.06))
+          );
+        return solid;
+      }
+
+      const colorA = new THREE.Color(config.colorA);
+      const colorB = new THREE.Color(config.colorB);
+      const mixed = colorA.lerp(colorB, Math.random());
+      const hsl = { h: 0, s: 0, l: 0 };
+      mixed.getHSL(hsl);
+      mixed.setHSL(
+        (hsl.h + (Math.random() - 0.5) * 0.08 + 1) % 1,
+        Math.min(1, Math.max(0.58, hsl.s * (0.98 + Math.random() * 0.16))),
+        Math.min(0.86, Math.max(0.5, hsl.l * (1.02 + Math.random() * 0.18)))
+        );
+      return mixed;
+    }
+
+    /* Re-assigns a fresh colour to every live object and flushes the instance colour buffers. */
+    function recolourAllObjects() {
+      for (const object of objects) {
+        if (!object.isSpecialBlackSphere) {
+          object.color = colorFromConfig();
+        }
+      }
+      for (const key of GEOMETRY_KEYS) {
+        const mesh = geometryMeshes[key];
+        if (mesh.instanceColor) {
+          mesh.instanceColor.needsUpdate = true;
+        }
+      }
+      schedulePersist();
+    }
+
+    /* Returns the active geometry weights for mono mode or weighted mixed mode. */
+    function getActiveGeometryWeights() {
+      if (config.geometryMode === 'mono') {
+        return [{ key: config.monoGeometry, weight: 1 }];
+      }
+
+      const weights = [];
+      for (const key of GEOMETRY_KEYS) {
+        const weight = Number(config[key + 'Weight']) || 0;
+        if (weight > 0) {
+          weights.push({ key, weight });
+        }
+      }
+
+      if (!weights.length) {
+        weights.push({ key: 'sphere', weight: 1 });
+      }
+
+      return weights;
+    }
+
+    /* Chooses the next geometry key using the configured mono or weighted mix setup. */
+    function chooseGeometryKey() {
+      const weights = getActiveGeometryWeights();
+      if (weights.length === 1) {
+        return weights[0].key;
+      }
+
+      let total = 0;
+      for (const entry of weights) {
+        total += entry.weight;
+      }
+
+      let pick = Math.random() * total;
+      for (const entry of weights) {
+        pick -= entry.weight;
+        if (pick <= 0) {
+          return entry.key;
+        }
+      }
+
+      return weights[weights.length - 1].key;
+    }
+
+    /* Creates a regular random spawn position inside the container volume. */
+    function computeSpawnPosition() {
+      const maxRadius = Math.max(config.minSize, config.maxSize);
+      const padding = maxRadius * 1.5;
+      const width = Math.max(worldState.rightX - worldState.leftX - padding * 2, maxRadius * 4);
+      const depth = Math.max(worldState.frontZ - worldState.backZ - padding * 2, maxRadius * 2);
+      const x = worldState.leftX + padding + Math.random() * width;
+      const y = worldState.floorY + worldState.height * config.spawnHeight + Math.random() * maxRadius * 3.2;
+      const z = worldState.backZ + padding + Math.random() * depth;
+      return { x, y, z };
+    }
+
+    /* Creates the pop replacement spawn from the middle and above the visible top edge. */
+    function computeTopCenterSpawnPosition() {
+      const maxRadius = Math.max(config.minSize, config.maxSize);
+      return {
+        x: 0,
+        y: camera.top + maxRadius * 3.8,
+        z: 0
+      };
+    }
+
+    /* Converts a physics radius into a render scale for the selected geometry. */
+    function computeScaleVector(geometryKey, radius) {
+      const baseRadius = geometryCache[geometryKey].baseRadius;
+      const scalar = radius / baseRadius;
+      return { x: scalar, y: scalar, z: scalar };
+    }
+
+    /* Creates one Rapier dynamic body with a spherical collider for stable mixed-geometry simulation. */
+    function createPhysicsBody(position, radius) {
+      const body = world.createRigidBody(
+        RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(position.x, position.y, position.z)
+        .setCanSleep(false)
+        .setLinearDamping(1.08)
+        .setAngularDamping(1.85)
+        );
+
+      world.createCollider(
+        RAPIER.ColliderDesc.ball(radius)
+        .setDensity(1.15)
+        .setFriction(0.04)
+        .setRestitution(0.06),
+        body
+        );
+
+      return body;
+    }
+
+    /* Creates one simulated renderable object using the current geometry, size, and color setup. */
+    function createObject(spawnPosition) {
+      const radius = config.minSize + Math.random() * Math.max(config.maxSize - config.minSize, 0.0001);
+      const geometryKey = chooseGeometryKey();
+      const position = spawnPosition || computeSpawnPosition();
+      const body = createPhysicsBody(position, radius);
+      const color = colorFromConfig();
+
+      const object = {
+        id: nextObjectId++,
+        geometryKey,
+        radius,
+        scale: computeScaleVector(geometryKey, radius),
+        color,
+        body,
+        spin: {
+          x: (Math.random() - 0.5) * 1.3,
+          y: (Math.random() - 0.5) * 1.3,
+          z: (Math.random() - 0.5) * 1.3
+        }
+      };
+
+      objects.push(object);
+      body.applyTorqueImpulse(object.spin, true);
+      return object;
+    }
+
+    /* Creates the draggable black sphere as a regular physics body with its own standalone mesh. */
+    function createSpecialBlackSphere() {
+      const radius = Math.max(config.minSize * 1.1, config.maxSize * 1.16);
+      const position = {
+        x: 0,
+        y: worldState.floorY + worldState.height * 0.74,
+        z: 0
+      };
+      const body = createPhysicsBody(position, radius);
+      const mesh = new THREE.Mesh(specialSphereGeometry, specialSphereMaterial);
+      const object = {
+        id: nextObjectId++,
+        geometryKey: 'sphere',
+        radius,
+        scale: computeScaleVector('sphere', radius),
+        color: new THREE.Color(0x050505),
+        body,
+        mesh,
+        isSpecialBlackSphere: true,
+        spin: {
+          x: (Math.random() - 0.5) * 1.1,
+          y: (Math.random() - 0.5) * 1.1,
+          z: (Math.random() - 0.5) * 1.1
+        }
+      };
+
+      mesh.frustumCulled = false;
+      mesh.renderOrder = 2;
+      scene.add(mesh);
+      objects.push(object);
+      specialBlackSphere = object;
+      body.applyTorqueImpulse(object.spin, true);
+      return object;
+    }
+
+    /* Marks objects recently hit by the black sphere so the yellow cube can intercept them. */
+    function tagObjectsTouchedByBlackSphere() {
+      if (!specialBlackSphere || !specialBlackSphere.body) {
+        return;
+      }
+
+      const blackPosition = specialBlackSphere.body.translation();
+      const blackVelocity = specialBlackSphere.body.linvel();
+
+      for (const object of objects) {
+        if (object.isSpecialBlackSphere || object.intercepting || !object.body) {
+          continue;
+        }
+
+        const position = object.body.translation();
+        const velocity = object.body.linvel();
+        const dx = position.x - blackPosition.x;
+        const dy = position.y - blackPosition.y;
+        const dz = position.z - blackPosition.z;
+        const limit = specialBlackSphere.radius + object.radius + 0.08;
+
+        if (dx * dx + dy * dy + dz * dz > limit * limit) {
+          continue;
+        }
+
+        const relX = velocity.x - blackVelocity.x;
+        const relY = velocity.y - blackVelocity.y;
+        const relZ = velocity.z - blackVelocity.z;
+        const relativeSpeed = Math.sqrt(relX * relX + relY * relY + relZ * relZ);
+
+        if (relativeSpeed < 1.15 && !dragState.active) {
+          continue;
+        }
+
+        object.markedByBlackUntil = simulationTime + 2.4;
+
+        if (!object.lastBlackBounceSoundAt || simulationTime - object.lastBlackBounceSoundAt > 0.12) {
+          object.lastBlackBounceSoundAt = simulationTime;
+          playSoundEffect('bounce');
+        }
+      }
+    }
+
+    /* Shrinks intercepted objects to zero before removing them from the live scene. */
+    function interceptObjectAt(index) {
+      const object = objects[index];
+      if (!object || object.isSpecialBlackSphere || object.intercepting || !object.body) {
+        return;
+      }
+
+      const position = object.body.translation();
+      const rotation = object.body.rotation();
+
+      object.intercepting = true;
+      object.interceptAge = 0;
+      object.interceptDuration = 0.22;
+      object.interceptPosition = { x: position.x, y: position.y, z: position.z };
+      object.interceptRotation = { x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w };
+      object.markedByBlackUntil = 0;
+
+      world.removeRigidBody(object.body);
+      object.body = null;
+
+      score += 1;
+      updateScoreDisplay();
+      playSoundEffect('intercept');
+      playSoundEffect('point');
+    }
+
+    /* Applies interception checks against the moving yellow cube and advances shrink-out removal. */
+    function updateInterceptions(delta) {
+      for (let i = objects.length - 1; i >= 0; i -= 1) {
+        const object = objects[i];
+
+        if (object.intercepting) {
+          object.interceptAge += delta;
+          if (object.interceptAge >= object.interceptDuration) {
+            objects.splice(i, 1);
+          }
+          continue;
+        }
+
+        if (object.isSpecialBlackSphere || !object.body || (object.markedByBlackUntil || 0) < simulationTime) {
+          continue;
+        }
+
+        const position = object.body.translation();
+        if (Math.abs(position.x - targetState.x) > targetState.halfSize + object.radius) {
+          continue;
+        }
+        if (Math.abs(position.y - targetState.y) > targetState.halfSize + object.radius) {
+          continue;
+        }
+        if (Math.abs(position.z - targetState.z) > targetState.halfSize + object.radius) {
+          continue;
+        }
+
+        interceptObjectAt(i);
+      }
+    }
+
+    /* Starts dragging the special black sphere by switching it to kinematic motion. */
+    function beginSpecialSphereDrag(event, object) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const position = object.body.translation();
+      const pointerWorldX = camera.left + ((event.clientX - rect.left) / rect.width) * (camera.right - camera.left);
+      const pointerWorldY = camera.top - ((event.clientY - rect.top) / rect.height) * (camera.top - camera.bottom);
+
+      dragState.active = true;
+      dragState.pointerId = event.pointerId;
+      dragState.object = object;
+      dragState.offsetX = position.x - pointerWorldX;
+      dragState.offsetY = position.y - pointerWorldY;
+      dragState.targetX = position.x;
+      dragState.targetY = position.y;
+      dragState.targetZ = position.z;
+      dragState.lastX = position.x;
+      dragState.lastY = position.y;
+      dragState.lastZ = position.z;
+      dragState.velocityX = 0;
+      dragState.velocityY = 0;
+      dragState.velocityZ = 0;
+
+      object.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      object.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      object.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+
+      if (renderer.domElement.setPointerCapture) {
+        try {
+          renderer.domElement.setPointerCapture(event.pointerId);
+        } catch (error) {
+        }
+      }
+
+      updateSpecialSphereDrag(event);
+    }
+
+    /* Updates the special black sphere drag target in world space for desktop and mobile pointer input. */
+    function updateSpecialSphereDrag(event) {
+      if (!dragState.active || dragState.pointerId !== event.pointerId || !dragState.object) {
+        return;
+      }
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      const pointerWorldX = camera.left + ((event.clientX - rect.left) / rect.width) * (camera.right - camera.left);
+      const pointerWorldY = camera.top - ((event.clientY - rect.top) / rect.height) * (camera.top - camera.bottom);
+      const radius = dragState.object.radius;
+      const clampX = worldState.width * 0.5 - radius * 0.9;
+      const minY = worldState.floorY + radius * 0.8;
+      const maxY = camera.top - radius * 0.8;
+
+      dragState.targetX = Math.min(clampX, Math.max(-clampX, pointerWorldX + dragState.offsetX));
+      dragState.targetY = Math.min(maxY, Math.max(minY, pointerWorldY + dragState.offsetY));
+      dragState.targetZ = dragState.object.body.translation().z;
+    }
+
+    /* Releases the special black sphere back into dynamic simulation with carried momentum. */
+    function endSpecialSphereDrag(event) {
+      if (!dragState.active || (event && dragState.pointerId !== event.pointerId)) {
+        return;
+      }
+
+      if (renderer.domElement.releasePointerCapture && dragState.pointerId !== null) {
+        try {
+          renderer.domElement.releasePointerCapture(dragState.pointerId);
+        } catch (error) {
+        }
+      }
+
+      if (dragState.object && objects.includes(dragState.object)) {
+        dragState.object.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
+        dragState.object.body.setTranslation({
+          x: dragState.targetX,
+          y: dragState.targetY,
+          z: dragState.targetZ
+        }, true);
+        dragState.object.body.setLinvel({
+          x: Math.max(-14, Math.min(14, dragState.velocityX)),
+          y: Math.max(-14, Math.min(14, dragState.velocityY)),
+          z: Math.max(-14, Math.min(14, dragState.velocityZ))
+        }, true);
+        dragState.object.body.wakeUp();
+      }
+
+      dragState.active = false;
+      dragState.pointerId = null;
+      dragState.object = null;
+      dragState.offsetX = 0;
+      dragState.offsetY = 0;
+      dragState.targetX = 0;
+      dragState.targetY = 0;
+      dragState.targetZ = 0;
+      dragState.lastX = 0;
+      dragState.lastY = 0;
+      dragState.lastZ = 0;
+      dragState.velocityX = 0;
+      dragState.velocityY = 0;
+      dragState.velocityZ = 0;
+    }
+
+    /* Removes one object from physics and the object list by index. */
+    function removeObjectAt(index) {
+      const object = objects[index];
+      if (!object) {
+        return null;
+      }
+
+      if (dragState.object === object) {
+        endSpecialSphereDrag();
+      }
+
+      if (object === specialBlackSphere) {
+        specialBlackSphere = null;
+      }
+
+      if (object.mesh) {
+        scene.remove(object.mesh);
+      }
+
+      if (object.body) {
+        world.removeRigidBody(object.body);
+      }
+
+      objects.splice(index, 1);
+      return object;
+    }
+
+    /* Creates a short-lived bubble shell used for the pop effect. */
+    function spawnPopEffect(position, radius, color) {
+      pops.push({
+        position: { x: position.x, y: position.y, z: position.z },
+        radius,
+        color: color.clone ? color.clone() : new THREE.Color(color),
+        age: 0,
+        duration: 0.36
+      });
+    }
+
+
+
+
+/* Rebuilds the collision box so its visible frame matches the full window bounds. */
+    function rebuildBoundaries() {
+      for (const body of boundaryBodies) {
+        world.removeRigidBody(body);
+      }
+      boundaryBodies = [];
+
+      const wallThickness = Math.max(config.maxSize * 0.95, 0.18);
+      const innerLeft = worldState.leftX;
+      const innerRight = worldState.rightX;
+      const innerBottom = worldState.floorY;
+      const innerTop = camera.top;
+      const innerFront = worldState.frontZ;
+      const innerBack = worldState.backZ;
+      const wallHeight = innerTop - innerBottom;
+      const wallDepth = worldState.depth * 0.5 + config.maxSize * 1.25;
+      const floorHalfWidth = worldState.width * 0.5 + wallThickness;
+
+      const floorBody = world.createRigidBody(
+        RAPIER.RigidBodyDesc.fixed().setTranslation(0, innerBottom - wallThickness * 0.5, 0)
+        );
+      world.createCollider(
+        RAPIER.ColliderDesc.cuboid(floorHalfWidth, wallThickness * 0.5, wallDepth),
+        floorBody
+        );
+      boundaryBodies.push(floorBody);
+
+      const leftBody = world.createRigidBody(
+        RAPIER.RigidBodyDesc.fixed().setTranslation(
+          innerLeft - wallThickness * 0.5,
+          innerBottom + wallHeight * 0.5,
+          0
+          )
+        );
+      world.createCollider(
+        RAPIER.ColliderDesc.cuboid(wallThickness * 0.5, wallHeight * 0.5, wallDepth),
+        leftBody
+        );
+      boundaryBodies.push(leftBody);
+
+      const rightBody = world.createRigidBody(
+        RAPIER.RigidBodyDesc.fixed().setTranslation(
+          innerRight + wallThickness * 0.5,
+          innerBottom + wallHeight * 0.5,
+          0
+          )
+        );
+      world.createCollider(
+        RAPIER.ColliderDesc.cuboid(wallThickness * 0.5, wallHeight * 0.5, wallDepth),
+        rightBody
+        );
+      boundaryBodies.push(rightBody);
+
+      const backBody = world.createRigidBody(
+        RAPIER.RigidBodyDesc.fixed().setTranslation(
+          0,
+          innerBottom + wallHeight * 0.5,
+          innerBack - wallThickness * 0.5
+          )
+        );
+      world.createCollider(
+        RAPIER.ColliderDesc.cuboid(worldState.width * 0.5, wallHeight * 0.5, wallThickness * 0.5),
+        backBody
+        );
+      boundaryBodies.push(backBody);
+
+      const frontBody = world.createRigidBody(
+        RAPIER.RigidBodyDesc.fixed().setTranslation(
+          0,
+          innerBottom + wallHeight * 0.5,
+          innerFront + wallThickness * 0.5
+          )
+        );
+      world.createCollider(
+        RAPIER.ColliderDesc.cuboid(worldState.width * 0.5, wallHeight * 0.5, wallThickness * 0.5),
+        frontBody
+        );
+      boundaryBodies.push(frontBody);
+
+      if (!boundaryFrame) {
+        const frameGeometry = new THREE.BufferGeometry();
+        frameGeometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(72), 3));
+        boundaryFrame = new THREE.LineSegments(
+          frameGeometry,
+          new THREE.LineBasicMaterial({ color: 0xffd5e7, transparent: true, opacity: 0.42 })
+          );
+        scene.add(boundaryFrame);
+
+        boundaryGlow = new THREE.Mesh(
+          new THREE.BoxGeometry(1, 1, 1),
+          new THREE.MeshPhongMaterial({
+            color: 0xffd9ea,
+            emissive: 0x1b0a12,
+            emissiveIntensity: 0.08,
+            transparent: true,
+            opacity: 0.06,
+            shininess: 90,
+            depthWrite: false,
+            side: THREE.DoubleSide
+          })
+          );
+        scene.add(boundaryGlow);
+      }
+
+      const positions = boundaryFrame.geometry.attributes.position.array;
+      const points = [
+        [innerLeft, innerBottom, innerFront], [innerLeft, innerTop, innerFront],
+        [innerLeft, innerTop, innerFront], [innerRight, innerTop, innerFront],
+        [innerRight, innerTop, innerFront], [innerRight, innerBottom, innerFront],
+        [innerLeft, innerBottom, innerFront], [innerRight, innerBottom, innerFront],
+
+        [innerLeft, innerBottom, innerBack], [innerLeft, innerTop, innerBack],
+        [innerLeft, innerTop, innerBack], [innerRight, innerTop, innerBack],
+        [innerRight, innerTop, innerBack], [innerRight, innerBottom, innerBack],
+        [innerLeft, innerBottom, innerBack], [innerRight, innerBottom, innerBack],
+
+        [innerLeft, innerBottom, innerFront], [innerLeft, innerBottom, innerBack],
+        [innerLeft, innerTop, innerFront], [innerLeft, innerTop, innerBack],
+        [innerRight, innerTop, innerFront], [innerRight, innerTop, innerBack],
+        [innerRight, innerBottom, innerFront], [innerRight, innerBottom, innerBack]
+      ];
+
+      for (let i = 0; i < points.length; i += 1) {
+        const offset = i * 3;
+        positions[offset] = points[i][0];
+        positions[offset + 1] = points[i][1];
+        positions[offset + 2] = points[i][2];
+      }
+
+      boundaryFrame.geometry.attributes.position.needsUpdate = true;
+      boundaryFrame.geometry.computeBoundingSphere();
+
+      boundaryGlow.position.set(0, innerBottom + wallHeight * 0.5, 0);
+      boundaryGlow.scale.set(
+        worldState.width + wallThickness * 2,
+        wallHeight + wallThickness * 2,
+        worldState.depth + wallThickness * 2
+        );
+    }
+
+
+
+
+
+
+
+    /* Clamps all bodies into the resized container and wakes them after layout changes. */
+    function clampObjectsIntoBounds() {
+      for (const object of objects) {
+        if (!object.body) {
+          continue;
+        }
+
+        const radius = object.radius;
+        const clampX = worldState.width * 0.5 - radius * 0.9;
+        const clampZ = worldState.depth * 0.5 - radius * 0.9;
+        const minY = worldState.floorY + radius * 0.8;
+        const maxY = camera.top - radius * 0.8;
+        const p = object.body.translation();
+
+        object.body.setTranslation({
+          x: Math.min(clampX, Math.max(-clampX, p.x)),
+          y: Math.min(maxY, Math.max(minY, p.y)),
+          z: Math.min(clampZ, Math.max(-clampZ, p.z))
+        }, true);
+        object.body.wakeUp();
+      }
+    }
+
+/* Recomputes camera and domain bounds so the simulation fills the full browser window. */
+    function resizeScene() {
+      const worldScale = 0.016;
+      const fullWidth = Math.max(window.innerWidth * worldScale, 6.8);
+      const fullHeight = Math.max(window.innerHeight * worldScale, 9.8);
+
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+      camera.left = -fullWidth * 0.5;
+      camera.right = fullWidth * 0.5;
+      camera.top = fullHeight * 0.5;
+      camera.bottom = -fullHeight * 0.5;
+      camera.updateProjectionMatrix();
+
+      worldState.width = fullWidth;
+      worldState.height = fullHeight;
+      worldState.depth = Math.max(config.maxSize * 3.5, 1.55);
+      worldState.floorY = camera.bottom;
+      worldState.leftX = camera.left;
+      worldState.rightX = camera.right;
+      worldState.backZ = -worldState.depth * 0.5;
+      worldState.frontZ = worldState.depth * 0.5;
+
+      rebuildBoundaries();
+      clampObjectsIntoBounds();
+      updateTargetCube(simulationTime);
+    }
+
+    /* Removes every simulated object from both physics and rendering state. */
+    function clearObjects() {
+      while (objects.length) {
+        removeObjectAt(objects.length - 1);
+      }
+    }
+
+    /* Ensures each geometry instancer has enough capacity for the current population. */
+    function fitInstancedCapacities() {
+      const perGeometryCounts = {};
+      for (const key of GEOMETRY_KEYS) {
+        perGeometryCounts[key] = 0;
+      }
+
+      for (const object of objects) {
+        if (!object.isSpecialBlackSphere) {
+          perGeometryCounts[object.geometryKey] += 1;
+        }
+      }
+
+      for (const key of GEOMETRY_KEYS) {
+        const mesh = geometryMeshes[key];
+        const needed = Math.max(perGeometryCounts[key], 1);
+        if (needed > mesh.instanceMatrix.count) {
+          scene.remove(mesh);
+          createGeometryMesh(key, Math.max(config.objectCount, needed, 1));
+        }
+      }
+    }
+
+    /* Rebuilds or trims the simulated population so GUI changes stay consistent. */
+    function synchronizePopulation(mode) {
+      const options = mode || {};
+      const preserveExisting = !!options.preserveExisting;
+      const targetCount = config.objectCount;
+
+      if (!preserveExisting) {
+        clearObjects();
+      }
+
+      let regularCount = 0;
+      let hasSpecialBlackSphere = false;
+      for (const object of objects) {
+        if (object.isSpecialBlackSphere) {
+          hasSpecialBlackSphere = true;
+        } else {
+          regularCount += 1;
+        }
+      }
+
+      while (regularCount < targetCount) {
+        createObject();
+        regularCount += 1;
+      }
+
+      while (regularCount > targetCount) {
+        for (let i = objects.length - 1; i >= 0; i -= 1) {
+          if (!objects[i].isSpecialBlackSphere) {
+            removeObjectAt(i);
+            regularCount -= 1;
+            break;
+          }
+        }
+      }
+
+      if (!hasSpecialBlackSphere) {
+        createSpecialBlackSphere();
+      }
+
+      fitInstancedCapacities();
+      clampObjectsIntoBounds();
+    }
+
+    /* Moves the interactive light target from the current pointer position. */
+    function updateLight(delta) {
+      lightTarget.set(
+        pointer.x * worldState.width * 0.46,
+        pointer.y * worldState.height * 0.34 + worldState.floorY + worldState.height * 0.46,
+        8.8 + (1 - Math.abs(pointer.x)) * 3.5
+        );
+
+      mouseLight.position.lerp(lightTarget, 1 - Math.exp(-delta * 8));
+      accentLight.position.x = mouseLight.position.x * 0.35;
+      accentLight.position.y = worldState.floorY + worldState.height * 0.18 + pointer.y * worldState.height * 0.08;
+    }
+
+    /* Advances and renders the expanding pop shells, then removes expired ones. */
+    function updatePopEffects(delta) {
+      let count = 0;
+      const expired = [];
+
+      for (let i = 0; i < pops.length; i += 1) {
+        const pop = pops[i];
+        pop.age += delta;
+        if (pop.age >= pop.duration) {
+          expired.push(i);
+          continue;
+        }
+
+        const t = pop.age / pop.duration;
+        tempPosition.set(pop.position.x, pop.position.y, pop.position.z);
+        tempQuaternion.identity();
+        tempScale.setScalar(pop.radius * (2 + t * 2.4));
+        tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
+        popMesh.setMatrixAt(count, tempMatrix);
+        tempColor.copy(pop.color).lerp(new THREE.Color(0xffffff), t * 0.7);
+        popMesh.setColorAt(count, tempColor);
+        count += 1;
+      }
+
+      for (let i = expired.length - 1; i >= 0; i -= 1) {
+        pops.splice(expired[i], 1);
+      }
+
+      popMesh.count = count;
+      popMesh.instanceMatrix.needsUpdate = true;
+      if (popMesh.instanceColor) {
+        popMesh.instanceColor.needsUpdate = true;
+      }
+    }
+
+    /* Writes current physics transforms and colors into the per-geometry instanced meshes. */
+    function updateInstancedMeshes() {
+      const writeIndexByGeometry = {};
+      for (const key of GEOMETRY_KEYS) {
+        writeIndexByGeometry[key] = 0;
+      }
+
+      for (let i = 0; i < objects.length; i += 1) {
+        const object = objects[i];
+
+        if (object.isSpecialBlackSphere) {
+          if (!object.body || !object.mesh) {
+            continue;
+          }
+
+          const translation = object.body.translation();
+          const rotation = object.body.rotation();
+          tempPosition.set(translation.x, translation.y, translation.z);
+          tempQuaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
+          tempScale.set(object.scale.x, object.scale.y, object.scale.z);
+          tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
+          object.mesh.matrixAutoUpdate = false;
+          object.mesh.matrix.copy(tempMatrix);
+          object.mesh.matrixWorldNeedsUpdate = true;
+          continue;
+        }
+
+        if (object.intercepting) {
+          const t = Math.min(1, object.interceptAge / object.interceptDuration);
+          const shrink = Math.max(0.001, 1 - t);
+          tempPosition.set(object.interceptPosition.x, object.interceptPosition.y, object.interceptPosition.z);
+          tempQuaternion.set(object.interceptRotation.x, object.interceptRotation.y, object.interceptRotation.z, object.interceptRotation.w);
+          tempScale.set(object.scale.x * shrink, object.scale.y * shrink, object.scale.z * shrink);
+        } else {
+          if (!object.body) {
+            continue;
+          }
+          const translation = object.body.translation();
+          const rotation = object.body.rotation();
+          tempPosition.set(translation.x, translation.y, translation.z);
+          tempQuaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
+          tempScale.set(object.scale.x, object.scale.y, object.scale.z);
+        }
+
+        tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
+
+        const mesh = geometryMeshes[object.geometryKey];
+        const writeIndex = writeIndexByGeometry[object.geometryKey];
+        mesh.setMatrixAt(writeIndex, tempMatrix);
+        mesh.setColorAt(writeIndex, object.color);
+
+        object.instanceId = writeIndex;
+        writeIndexByGeometry[object.geometryKey] += 1;
+      }
+
+      for (const key of GEOMETRY_KEYS) {
+        const mesh = geometryMeshes[key];
+        mesh.count = writeIndexByGeometry[key];
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) {
+          mesh.instanceColor.needsUpdate = true;
+        }
+      }
+    }
+
+    /* Steps the Rapier world at a fixed timestep and refreshes render buffers. */
+    function stepSimulation(delta) {
+      accumulator += Math.min(delta, 0.05);
+
+      while (accumulator >= world.timestep) {
+        simulationTime += world.timestep;
+        updateTargetCube(simulationTime);
+
+        if (dragState.active && dragState.object && objects.includes(dragState.object) && dragState.object.body) {
+          dragState.velocityX = THREE.MathUtils.lerp(dragState.velocityX, (dragState.targetX - dragState.lastX) / world.timestep, 0.45);
+          dragState.velocityY = THREE.MathUtils.lerp(dragState.velocityY, (dragState.targetY - dragState.lastY) / world.timestep, 0.45);
+          dragState.velocityZ = THREE.MathUtils.lerp(dragState.velocityZ, (dragState.targetZ - dragState.lastZ) / world.timestep, 0.45);
+          dragState.object.body.setNextKinematicTranslation({
+            x: dragState.targetX,
+            y: dragState.targetY,
+            z: dragState.targetZ
+          });
+          dragState.lastX = dragState.targetX;
+          dragState.lastY = dragState.targetY;
+          dragState.lastZ = dragState.targetZ;
+        }
+
+        world.step();
+        tagObjectsTouchedByBlackSphere();
+        updateInterceptions(world.timestep);
+        accumulator -= world.timestep;
+      }
+
+      updateInstancedMeshes();
+      updatePopEffects(delta);
+    }
+
+/* Runs one render frame with environment rotation, light update, physics step, and scene draw. */
+    function animate() {
+      const delta = clock.getDelta();
+      updateEnvironmentRotation(delta);
+      updateLight(delta);
+      stepSimulation(delta);
+      updateTargetCube(simulationTime + accumulator);
+      renderer.render(scene, camera);
+    }
+
+    /* Finds the closest visible body under the pointer using projected screen-space bounds. */
+    function pickObjectFromEvent(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const px = event.clientX;
+      const py = event.clientY;
+      const pixelsPerWorldUnit = rect.height / Math.max(camera.top - camera.bottom, 0.0001);
+      let bestIndex = -1;
+      let bestScore = Infinity;
+
+      for (let i = 0; i < objects.length; i += 1) {
+        const object = objects[i];
+        if (object.intercepting || !object.body) {
+          continue;
+        }
+
+        const p = object.body.translation();
+
+        tempPosition.set(p.x, p.y, p.z).project(camera);
+
+        if (tempPosition.z < -1 || tempPosition.z > 1) {
+          continue;
+        }
+
+        const sx = rect.left + (tempPosition.x * 0.5 + 0.5) * rect.width;
+        const sy = rect.top + (-tempPosition.y * 0.5 + 0.5) * rect.height;
+        const radiusPx = Math.max(object.radius * pixelsPerWorldUnit * 1.24, 10);
+        const dx = px - sx;
+        const dy = py - sy;
+        const distanceSq = dx * dx + dy * dy;
+
+        if (distanceSq > radiusPx * radiusPx) {
+          continue;
+        }
+
+        const depthBias = (tempPosition.z + 1) * 18;
+        let score = distanceSq + depthBias;
+
+        if (object.isSpecialBlackSphere) {
+          score -= radiusPx * 3.2;
+        }
+
+        if (score < bestScore) {
+          bestScore = score;
+          bestIndex = i;
+        }
+      }
+
+      return bestIndex;
+    }
+
+    /* Pops one object, pushes neighbors, and spawns the replacement above the top center. */
+    function popObjectByIndex(index) {
+      const object = objects[index];
+      if (!object || object.isSpecialBlackSphere || object.intercepting || !object.body) {
+        return;
+      }
+
+      const position = object.body.translation();
+      const radius = object.radius;
+      const color = object.color.clone();
+
+      removeObjectAt(index);
+      spawnPopEffect(position, radius, color);
+      playSoundEffect('pop');
+
+      const impulse = {
+        x: (Math.random() - 0.5) * config.popImpulse,
+        y: config.popImpulse * (0.45 + Math.random() * 0.8),
+        z: (Math.random() - 0.5) * config.popImpulse
+      };
+
+      for (const other of objects) {
+        if (!other.body) {
+          continue;
+        }
+
+        const p = other.body.translation();
+        const dx = p.x - position.x;
+        const dy = p.y - position.y;
+        const dz = p.z - position.z;
+        const distance = Math.max(Math.sqrt(dx * dx + dy * dy + dz * dz), 0.01);
+        if (distance < radius * 5.4) {
+          const falloff = 1 - Math.min(1, distance / (radius * 5.4));
+          other.body.applyImpulse({
+            x: impulse.x * falloff,
+            y: impulse.y * falloff,
+            z: impulse.z * falloff
+          }, true);
+        }
+      }
+
+      createObject(computeTopCenterSpawnPosition());
+      fitInstancedCapacities();
+    }
+
+    /* Debounces config persistence so rapid GUI edits do not spam storage writes. */
+    function schedulePersist() {
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+      }
+
+      persistTimer = window.setTimeout(() => {
+        persistTimer = 0;
+        persistCurrentConfig();
+      }, 140);
+    }
+
+    /* Opens the IndexedDB database used for config snapshots. */
+    async function openConfigDatabase() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(DB_STORE)) {
+            db.createObjectStore(DB_STORE, { keyPath: 'id' });
+          }
+        };
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    /* Reads the currently active persisted config from IndexedDB. */
+    async function readCurrentConfigFromDb(db) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_STORE, 'readonly');
+        const store = tx.objectStore(DB_STORE);
+        const request = store.get(DB_CURRENT_KEY);
+        request.onsuccess = () => resolve(request.result || null);
+        request.onerror = () => reject(request.error);
+      });
+    }
+
+    /* Writes the current config payload into IndexedDB under the active key. */
+    async function writeCurrentConfigToDb(db, payload) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_STORE, 'readwrite');
+        const store = tx.objectStore(DB_STORE);
+        store.put({ id: DB_CURRENT_KEY, ...payload });
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    /* Builds the persisted JSON payload with versioning and save timestamp. */
+    function buildConfigPayload() {
+      return {
+        version: CONFIG_VERSION,
+        savedAt: new Date().toISOString(),
+        config: sanitizeConfig(config)
+      };
+    }
+
+    /* Persists the current config to both localStorage and IndexedDB. */
+    async function persistCurrentConfig() {
+      const payload = buildConfigPayload();
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      } catch (error) {
+      }
+
+      try {
+        if (!indexedDb) {
+          indexedDb = await openConfigDatabase();
+        }
+        await writeCurrentConfigToDb(indexedDb, payload);
+      } catch (error) {
+      }
+    }
+
+    /* Refreshes all lil-gui controllers after programmatic config normalization. */
+    function refreshGuiDisplay() {
+      for (const controller of allControllers) {
+        controller.updateDisplay();
+      }
+    }
+
+
+
+
+/* Applies config changes, updates renderer/material/light state, and rebuilds when needed. */
+    function applyConfigAndRebuild(nextConfig, reason) {
+      const sanitized = sanitizeConfig(nextConfig);
+      Object.assign(config, sanitized);
+
+      world.gravity = new RAPIER.Vector3(0, -config.gravity, 0);
+
+      applyMaterialConfig();
+      applyDisplayConfig();
+      applyLightingConfig();
+      refreshGuiDisplay();
+
+      if (reason === 'material' || reason === 'gravity' || reason === 'display' || reason === 'lights') {
+        schedulePersist();
+        return;
+      }
+
+      resizeScene();
+      synchronizePopulation({ preserveExisting: false });
+      schedulePersist();
+    }
+
+
+
+
+    /* Hydrates the current config from IndexedDB when it is newer than localStorage. */
+    async function hydrateConfigFromIndexedDb() {
+      try {
+        indexedDb = await openConfigDatabase();
+        const payload = await readCurrentConfigFromDb(indexedDb);
+        if (!payload || !payload.config) {
+          return;
+        }
+
+        const localRaw = localStorage.getItem(STORAGE_KEY);
+        const localPayload = localRaw ? JSON.parse(localRaw) : null;
+        const dbTime = payload.savedAt ? Date.parse(payload.savedAt) : 0;
+        const localTime = localPayload && localPayload.savedAt ? Date.parse(localPayload.savedAt) : 0;
+
+        if (dbTime > localTime) {
+          applyConfigAndRebuild(payload.config);
+        }
+      } catch (error) {
+      }
+    }
+
+    /* Downloads the current config as JSON with a timestamped filename. */
+    function exportConfig() {
+      const payload = buildConfigPayload();
+      payload.exportedAt = new Date().toISOString();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'pink-fluid-config-' + makeTimestamp() + '.json';
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+
+    /* Imports a JSON config file and rebuilds the simulation from it. */
+    async function importConfigFromFile(file) {
+      if (!file) {
+        return;
+      }
+
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const incoming = sanitizeConfig(parsed && parsed.config ? parsed.config : parsed);
+      applyConfigAndRebuild(incoming);
+    }
+
+    /* Restores the simulation config to the bundled default file or built-in defaults. */
+    function resetConfig() {
+      applyConfigAndRebuild(loadedDefaultConfig || DEFAULT_CONFIG);
+    }
+
+    const guiActions = {
+      exportJson: exportConfig,
+      importJson: () => configImportInput.click(),
+      saveNow: () => persistCurrentConfig(),
+      reset: resetConfig
+    };
+
+
+
+    const gui = new GUI({ title: 'Fluid Mix' });
+    const allControllers = [];
+    const mobileGuiQuery = window.matchMedia('(pointer: coarse), (max-width: 900px)');
+
+    /* Syncs lil-gui visibility with the mobile toggle while keeping desktop always visible. */
+    function syncGuiVisibility() {
+      if (mobileGuiQuery.matches) {
+        document.body.classList.remove('gui-mobile-open');
+        document.body.classList.add('gui-mobile-hidden');
+      } else {
+        document.body.classList.remove('gui-mobile-open');
+        document.body.classList.remove('gui-mobile-hidden');
+      }
+      guiToggleButton.setAttribute('aria-pressed', 'false');
+    }
+
+/* Creates a lil-gui controller with rebuild and value normalization hooks. */
+    function addController(folder, object, property, min, max, step, rebuildMode) {
+      const controller = step !== undefined
+      ? folder.add(object, property, min, max, step)
+      : folder.add(object, property, min, max);
+
+      controller.onChange(() => {
+        if (property === 'minSize' && config.maxSize < config.minSize) {
+          config.maxSize = config.minSize;
+          refreshGuiDisplay();
+        }
+        if (property === 'maxSize' && config.minSize > config.maxSize) {
+          config.minSize = config.maxSize;
+          refreshGuiDisplay();
+        }
+      });
+
+      controller.onFinishChange(() => {
+        applyConfigAndRebuild(config, rebuildMode);
+      });
+
+      allControllers.push(controller);
+      return controller;
+    }
+
+    const simFolder = gui.addFolder('Simulation');
+    addController(simFolder, config, 'objectCount', 12, 420, 1);
+    addController(simFolder, config, 'minSize', 0.05, 4.0, 0.01);
+    addController(simFolder, config, 'maxSize', 0.05, 4.0, 0.01);
+    addController(simFolder, config, 'gravity', 4, 42, 0.5, 'gravity');
+    addController(simFolder, config, 'spawnHeight', 0.2, 0.9, 0.01);
+    addController(simFolder, config, 'popImpulse', 0, 5, 0.05);
+
+    const materialFolder = gui.addFolder('Colors');
+    const colorModeController = materialFolder.add(config, 'colorMode', ['solid', 'random']);
+    colorModeController.onFinishChange(() => recolourAllObjects());
+    allControllers.push(colorModeController);
+
+    const solidColorController = materialFolder.addColor(config, 'solidColor');
+    solidColorController.onChange(() => recolourAllObjects());
+    allControllers.push(solidColorController);
+
+    const colorAController = materialFolder.addColor(config, 'colorA');
+    colorAController.onChange(() => recolourAllObjects());
+    allControllers.push(colorAController);
+
+    const colorBController = materialFolder.addColor(config, 'colorB');
+    colorBController.onChange(() => recolourAllObjects());
+    allControllers.push(colorBController);
+
+    addController(materialFolder, config, 'roughness', 0.02, 0.95, 0.01, 'material');
+    addController(materialFolder, config, 'clearcoat', 0, 1, 0.01, 'material');
+    addController(materialFolder, config, 'opacity', 0.35, 1, 0.01, 'material');
+    addController(materialFolder, config, 'dispersion', 0, 1, 0.01, 'material');
+    addController(materialFolder, config, 'envMapIntensity', 0, 6, 0.01, 'material');
+
+    const displayFolder = gui.addFolder('Display');
+
+    const outputColorSpaceController = displayFolder.add(config, 'outputColorSpace', {
+      srgb: 'srgb',
+      linear: 'linear'
+    });
+    outputColorSpaceController.onChange(() => applyConfigAndRebuild(config, 'display'));
+    allControllers.push(outputColorSpaceController);
+
+    const toneMappingController = displayFolder.add(config, 'toneMapping', {
+      none: 'none',
+      linear: 'linear',
+      reinhard: 'reinhard',
+      cineon: 'cineon',
+      aces: 'aces'
+    });
+    toneMappingController.onChange(() => applyConfigAndRebuild(config, 'display'));
+    allControllers.push(toneMappingController);
+
+    const toneMappingExposureController = displayFolder.add(config, 'toneMappingExposure', 0, 4, 0.01);
+    toneMappingExposureController.onChange(() => applyConfigAndRebuild(config, 'display'));
+    allControllers.push(toneMappingExposureController);
+
+    const environmentRotationController = displayFolder.add(config, 'environmentRotation', 0, 360, 0.1);
+    environmentRotationController.onChange(() => applyConfigAndRebuild(config, 'display'));
+    allControllers.push(environmentRotationController);
+
+    const environmentRotationSpeedController = displayFolder.add(config, 'environmentRotationSpeed', -180, 180, 0.1);
+    environmentRotationSpeedController.onChange(() => applyConfigAndRebuild(config, 'display'));
+    allControllers.push(environmentRotationSpeedController);
+
+    const lightsFolder = gui.addFolder('Lights');
+
+    const ambientLightColorController = lightsFolder.addColor(config, 'ambientLightColor');
+    ambientLightColorController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(ambientLightColorController);
+
+    const ambientLightIntensityController = lightsFolder.add(config, 'ambientLightIntensity', 0, 10, 0.01);
+    ambientLightIntensityController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(ambientLightIntensityController);
+
+    const hemiSkyColorController = lightsFolder.addColor(config, 'hemiSkyColor');
+    hemiSkyColorController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(hemiSkyColorController);
+
+    const hemiGroundColorController = lightsFolder.addColor(config, 'hemiGroundColor');
+    hemiGroundColorController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(hemiGroundColorController);
+
+    const hemiLightIntensityController = lightsFolder.add(config, 'hemiLightIntensity', 0, 10, 0.01);
+    hemiLightIntensityController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(hemiLightIntensityController);
+
+    const fillLightColorController = lightsFolder.addColor(config, 'fillLightColor');
+    fillLightColorController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(fillLightColorController);
+
+    const fillLightIntensityController = lightsFolder.add(config, 'fillLightIntensity', 0, 10, 0.01);
+    fillLightIntensityController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(fillLightIntensityController);
+
+    const rimLightColorController = lightsFolder.addColor(config, 'rimLightColor');
+    rimLightColorController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(rimLightColorController);
+
+    const rimLightIntensityController = lightsFolder.add(config, 'rimLightIntensity', 0, 10, 0.01);
+    rimLightIntensityController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(rimLightIntensityController);
+
+    const mouseLightColorController = lightsFolder.addColor(config, 'mouseLightColor');
+    mouseLightColorController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(mouseLightColorController);
+
+    const mouseLightIntensityController = lightsFolder.add(config, 'mouseLightIntensity', 0, 300, 1);
+    mouseLightIntensityController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(mouseLightIntensityController);
+
+    const accentLightColorController = lightsFolder.addColor(config, 'accentLightColor');
+    accentLightColorController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(accentLightColorController);
+
+    const accentLightIntensityController = lightsFolder.add(config, 'accentLightIntensity', 0, 120, 0.1);
+    accentLightIntensityController.onChange(() => applyConfigAndRebuild(config, 'lights'));
+    allControllers.push(accentLightIntensityController);
+
+    const geometryFolder = gui.addFolder('Geometry');
+    const geometryModeController = geometryFolder.add(config, 'geometryMode', ['mono', 'mix']);
+    geometryModeController.onChange(() => applyConfigAndRebuild(config));
+    allControllers.push(geometryModeController);
+
+    const monoGeometryController = geometryFolder.add(config, 'monoGeometry', GEOMETRY_KEYS);
+    monoGeometryController.onChange(() => applyConfigAndRebuild(config));
+    allControllers.push(monoGeometryController);
+
+    addController(geometryFolder, config, 'sphereWeight', 0, 100, 1);
+    addController(geometryFolder, config, 'cubeWeight', 0, 100, 1);
+    addController(geometryFolder, config, 'pyramidWeight', 0, 100, 1);
+    addController(geometryFolder, config, 'octaWeight', 0, 100, 1);
+    addController(geometryFolder, config, 'icosaWeight', 0, 100, 1);
+    addController(geometryFolder, config, 'dodecaWeight', 0, 100, 1);
+
+    for (const def of GLB_MODELS) {
+      if (geometryCache[def.key]) {
+        addController(geometryFolder, config, def.key + 'Weight', 0, 100, 1);
+      }
+    }
+
+    const ioFolder = gui.addFolder('Config');
+    const exportController = ioFolder.add(guiActions, 'exportJson').name('export json');
+    const importController = ioFolder.add(guiActions, 'importJson').name('import json');
+    const saveController = ioFolder.add(guiActions, 'saveNow').name('save now');
+    const resetController = ioFolder.add(guiActions, 'reset').name('reset');
+    allControllers.push(exportController, importController, saveController, resetController);
+
+
+
+
+    /* Wires pointer input, popping, file import, and resize handling into the simulation. */
+    renderer.domElement.addEventListener('pointermove', (event) => {
+      pointer.x = event.clientX / window.innerWidth * 2 - 1;
+      pointer.y = -(event.clientY / window.innerHeight * 2 - 1);
+
+      if (dragState.active && dragState.pointerId === event.pointerId) {
+        updateSpecialSphereDrag(event);
+      }
+    }, { passive: true });
+
+    renderer.domElement.addEventListener('pointerdown', (event) => {
+      prepareAudio();
+      const objectIndex = pickObjectFromEvent(event);
+      if (objectIndex === -1) {
+        return;
+      }
+
+      if (objects[objectIndex].isSpecialBlackSphere) {
+        beginSpecialSphereDrag(event, objects[objectIndex]);
+        return;
+      }
+
+      popObjectByIndex(objectIndex);
+    });
+
+    renderer.domElement.addEventListener('pointerup', (event) => {
+      endSpecialSphereDrag(event);
+    });
+
+    renderer.domElement.addEventListener('pointercancel', (event) => {
+      endSpecialSphereDrag(event);
+    });
+
+    configImportInput.addEventListener('change', async (event) => {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = '';
+      try {
+        await importConfigFromFile(file);
+      } catch (error) {
+      }
+    });
+
+    restartButton.addEventListener('click', () => {
+      prepareAudio();
+      restartScene();
+    });
+
+    guiToggleButton.addEventListener('click', () => {
+      if (!mobileGuiQuery.matches) {
+        return;
+      }
+
+      const isOpen = document.body.classList.toggle('gui-mobile-open');
+      document.body.classList.toggle('gui-mobile-hidden', !isOpen);
+      guiToggleButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
+    });
+
+    if (mobileGuiQuery.addEventListener) {
+      mobileGuiQuery.addEventListener('change', syncGuiVisibility);
+    } else if (mobileGuiQuery.addListener) {
+      mobileGuiQuery.addListener(syncGuiVisibility);
+    }
+
+    window.addEventListener('resize', () => {
+      resizeScene();
+      syncGuiVisibility();
+    }, { passive: true });
+
+    syncGuiVisibility();
+    updateScoreDisplay();
+    await loadGlbModels();
+    applyMaterialConfig();
+    applyDisplayConfig();
+    applyLightingConfig();
+    resizeScene();
+    synchronizePopulation({ preserveExisting: false });
+    await hydrateConfigFromIndexedDb();
+    applyMaterialConfig();
+    applyDisplayConfig();
+    applyLightingConfig();
+    updateTargetCube(simulationTime);
+    await persistCurrentConfig();
+    renderer.setAnimationLoop(animate);
+
+
+
+
+  </script>
+</body>
+</html>
