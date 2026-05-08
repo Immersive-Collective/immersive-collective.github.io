@@ -11986,6 +11986,7 @@ function loadAllModels() {
     
 
 
+
     function resolveAvatarXZCollisions(pos) {
       const limX = Math.max(0.5, visualBounds.x - (avatarCollision.radius + 0.25));
       const limZ = Math.max(0.5, visualBounds.z - (avatarCollision.radius + 0.25));
@@ -12007,7 +12008,7 @@ function loadAllModels() {
       for (let iter = 0; iter < avatarCollision.iterations; iter++) {
         let pushed = false;
 
-    // --- sphere bounds (forest/rocks + stick meshes), grid-broadened ---
+// --- sphere bounds (forest/rocks + stick meshes), grid-broadened ---
         const candidates = getAvatarCollisionCandidatesXZ(pos);
         if (candidates && candidates.length) {
           for (let c = 0; c < candidates.length; c++) {
@@ -12047,6 +12048,10 @@ function loadAllModels() {
             const nx = dx / d;
             const nz = dz / d;
 
+            if (typeof avatarColliderIntersectsBodyXZ === "function") {
+              if (!avatarColliderIntersectsBodyXZ(b.obj, pos, bodyMinY, bodyMaxY, nx, nz)) continue;
+            }
+
             pos.x += nx * push;
             pos.z += nz * push;
 
@@ -12082,7 +12087,7 @@ function loadAllModels() {
           }
         }
 
-    // --- OBB bounds (explicit collide:true) ---
+// --- OBB bounds (explicit collide:true) ---
         if (avatarModelColliderOBBs && avatarModelColliderOBBs.length) {
           for (let i = 0; i < avatarModelColliderOBBs.length; i++) {
             const obb = avatarModelColliderOBBs[i];
@@ -12132,6 +12137,10 @@ function loadAllModels() {
             const nx = nlx * c - nlz * s;
             const nz = nlx * s + nlz * c;
 
+            if (typeof avatarColliderIntersectsBodyXZ === "function") {
+              if (!avatarColliderIntersectsBodyXZ(obb.object, pos, bodyMinY, bodyMaxY, nx, nz)) continue;
+            }
+
             pos.x += nx * push;
             pos.z += nz * push;
 
@@ -12176,6 +12185,11 @@ function loadAllModels() {
         pos.z = clamp(pos.z, -limZ, limZ);
       }
     }
+
+
+
+
+
 
 
 
@@ -13440,7 +13454,108 @@ function loadAllModels() {
     const avatarCenterTmp = new THREE.Vector3();
     const avatarHitNormal = new THREE.Vector3();
     const avatarHitMat3 = new THREE.Matrix3();
+
     const avatarPrevPosTmp = new THREE.Vector3();
+
+
+/* Tests actual mesh contact across the avatar body slice so overhead-only bounds do not block underpasses. */
+    function avatarColliderIntersectsBodyXZ(obj, pos, bodyMinY, bodyMaxY, nx, nz) {
+      if (!obj || !pos) return true;
+
+      const bodyHeight = bodyMaxY - bodyMinY;
+      if (!Number.isFinite(bodyHeight) || bodyHeight <= 1e-5) return true;
+
+      const rayReach = Math.max(0.18, avatarCollision.radius + avatarCollision.skin + 0.08);
+      const rayFar = rayReach * 2.0;
+
+      let baseNx = Number.isFinite(nx) ? nx : 0;
+      let baseNz = Number.isFinite(nz) ? nz : 0;
+      const baseLen = Math.sqrt(baseNx * baseNx + baseNz * baseNz);
+
+      if (baseLen > 1e-8) {
+        baseNx /= baseLen;
+        baseNz /= baseLen;
+      } else {
+        baseNx = 1;
+        baseNz = 0;
+      }
+
+      const oldNear = avatarRaycaster.near;
+      const oldFar = avatarRaycaster.far;
+
+      try {
+        if (obj.updateWorldMatrix) obj.updateWorldMatrix(true, true);
+
+        for (let ySlot = 0; ySlot < 3; ySlot++) {
+          let y;
+
+          if (ySlot === 0) {
+            y = bodyMinY + Math.min(0.22, bodyHeight * 0.35);
+          } else if (ySlot === 1) {
+            y = bodyMinY + bodyHeight * 0.5;
+          } else {
+            y = bodyMaxY - Math.min(0.10, bodyHeight * 0.25);
+          }
+
+          y = clamp(y, bodyMinY + 1e-4, bodyMaxY - 1e-4);
+
+          for (let dirSlot = 0; dirSlot < 6; dirSlot++) {
+            let dx;
+            let dz;
+
+            if (dirSlot === 0) {
+              dx = baseNx;
+              dz = baseNz;
+            } else if (dirSlot === 1) {
+              dx = -baseNx;
+              dz = -baseNz;
+            } else if (dirSlot === 2) {
+              dx = 1;
+              dz = 0;
+            } else if (dirSlot === 3) {
+              dx = -1;
+              dz = 0;
+            } else if (dirSlot === 4) {
+              dx = 0;
+              dz = 1;
+            } else {
+              dx = 0;
+              dz = -1;
+            }
+
+            avatarColN.set(dx, 0, dz);
+            if (avatarColN.lengthSq() < 1e-10) continue;
+            avatarColN.normalize();
+
+            avatarColTmpPos.set(
+              pos.x - avatarColN.x * rayReach,
+              y,
+              pos.z - avatarColN.z * rayReach
+              );
+
+            avatarRaycaster.near = 0.0;
+            avatarRaycaster.far = rayFar;
+            avatarRaycaster.set(avatarColTmpPos, avatarColN);
+
+            const hits = avatarRaycaster.intersectObject(obj, true);
+            if (hits && hits.length) {
+              avatarRaycaster.near = oldNear;
+              avatarRaycaster.far = oldFar;
+              return true;
+            }
+          }
+        }
+      } catch {
+        avatarRaycaster.near = oldNear;
+        avatarRaycaster.far = oldFar;
+        return true;
+      }
+
+      avatarRaycaster.near = oldNear;
+      avatarRaycaster.far = oldFar;
+      return false;
+    }
+
 
     /**
      * Clamps avatar XZ to the playable snow area while respecting the collision radius.
@@ -13614,9 +13729,9 @@ function loadAllModels() {
 
 
 /**
-     * Returns true when stepping onto the surface at (x,z) would require rising
-     * more than params.avatarMaxStepUp above prevGroundY.
-     */
+ * Returns true when stepping onto the surface at (x,z) would require rising
+ * more than params.avatarMaxStepUp above prevGroundY.
+ */
     function isAvatarStepUpBlocked(prevGroundY, x, z) {
       const maxStepUp = Number.isFinite(params.avatarMaxStepUp) ? params.avatarMaxStepUp : 0.0;
       if (!Number.isFinite(maxStepUp) || maxStepUp < 0) return false;
@@ -13624,6 +13739,9 @@ function loadAllModels() {
 
       const nextY = getWorldSurfaceY(x, z);
       if (!Number.isFinite(nextY)) return false;
+
+      const avatarBodyTopY = prevGroundY + avatarCollision.probeY + 0.55;
+      if (nextY > avatarBodyTopY + 0.04) return false;
 
       return (nextY - prevGroundY) > (maxStepUp + 1e-4);
     }
