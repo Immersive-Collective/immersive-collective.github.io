@@ -1,0 +1,1486 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Motion Negative + Halftone Lab</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lil-gui@0.21.0/dist/lil-gui.min.css">
+  <style>
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #090909;
+  color: #f3f3f3;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; min-height: 100%; background: #090909; }
+body { padding: 14px; }
+button, input, textarea { font: inherit; }
+#app { max-width: 1680px; margin: 0 auto; }
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.brand { font-weight: 750; letter-spacing: .02em; margin-right: 6px; }
+.button {
+  border: 1px solid #3a3a3a;
+  background: #181818;
+  color: #f4f4f4;
+  padding: 8px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  min-height: 36px;
+}
+.button:hover:not(:disabled) { background: #242424; }
+.button:disabled { opacity: .45; cursor: default; }
+.button.primary { background: #f3f3f3; color: #0a0a0a; border-color: #f3f3f3; }
+.status { color: #a9a9a9; font-size: 13px; margin-left: auto; min-width: 0; overflow-wrap: anywhere; }
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 12px;
+  align-items: start;
+}
+.stage {
+  position: relative;
+  min-height: 420px;
+  background: #000;
+  border: 1px solid #272727;
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+#glCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 76vh;
+  object-fit: contain;
+  background: #000;
+}
+.empty-state, .drop-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+.empty-state { color: #c8c8c8; padding: 20px; }
+.drop-title { font-size: 28px; font-weight: 700; }
+.drop-subtitle { margin-top: 7px; color: #777; max-width: 36rem; }
+.drop-overlay {
+  background: rgba(0,0,0,.72);
+  color: #fff;
+  font-size: 30px;
+  font-weight: 800;
+  z-index: 30;
+}
+.side-panel {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 10px;
+}
+.gui-host {
+  min-height: 120px;
+}
+.gui-host .lil-gui.root {
+  --width: 100%;
+  width: 100%;
+  max-height: 58vh;
+  overflow-y: auto;
+}
+.command-panel {
+  border: 1px solid #272727;
+  border-radius: 10px;
+  padding: 12px;
+  background: #101010;
+}
+.command-head { display: flex; gap: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.command-head strong { display: block; }
+.command-head span { display: block; color: #777; font-size: 12px; margin-top: 2px; }
+.command-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+#command {
+  width: 100%;
+  min-height: 240px;
+  margin-top: 10px;
+  resize: vertical;
+  border: 1px solid #2b2b2b;
+  border-radius: 7px;
+  background: #070707;
+  color: #d8d8d8;
+  padding: 10px;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.copy-status { min-height: 18px; margin-top: 6px; color: #8d8d8d; font-size: 12px; }
+#sourceVideo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: .001;
+  pointer-events: none;
+  left: -10px;
+  top: -10px;
+}
+@media (max-width: 1100px) {
+  .workspace { grid-template-columns: 1fr; }
+  .side-panel { position: static; }
+  .gui-host .lil-gui.root { max-height: none; }
+}
+@media (max-width: 760px) {
+  body { padding: 8px; }
+  .status { width: 100%; margin-left: 0; }
+  .stage { min-height: 320px; }
+}
+
+</style>
+</head>
+<body>
+  <main id="app">
+    <header class="toolbar">
+      <div class="brand">Motion Negative + Halftone Lab <small style="opacity:.55;font-weight:500">build zshfix-2</small></div>
+      <label class="button primary" for="fileInput">Open video</label>
+      <input id="fileInput" type="file" accept="video/*" hidden>
+      <button id="playPause" class="button" type="button" disabled>Play</button>
+      <button id="restart" class="button" type="button" disabled>Restart</button>
+      <div id="status" class="status">Drop a video anywhere</div>
+    </header>
+
+    <section class="workspace">
+      <section id="stage" class="stage" tabindex="0" aria-label="Drop a video here to process it in WebGL">
+        <canvas id="glCanvas"></canvas>
+        <div id="emptyState" class="empty-state">
+          <div class="drop-title">Drop video here</div>
+          <div class="drop-subtitle">Realtime motion-negative + halftone / ASCII preview. The file stays local in your browser.</div>
+        </div>
+        <div id="dropOverlay" class="drop-overlay" hidden>Drop to load</div>
+      </section>
+
+      <aside class="side-panel">
+        <div id="guiHost" class="gui-host"></div>
+        <section class="command-panel">
+          <div class="command-head">
+            <div>
+              <strong>Generated FFmpeg command</strong>
+              <span>Matches the current realtime settings, including threshold and halftone / ASCII</span>
+            </div>
+            <div class="command-actions">
+              <button id="copyCommand" class="button" type="button">Copy command</button>
+              <button id="copyJson" class="button" type="button">Copy settings JSON</button>
+            </div>
+          </div>
+          <textarea id="command" readonly spellcheck="false" aria-label="Generated FFmpeg command"></textarea>
+          <div id="copyStatus" class="copy-status" aria-live="polite"></div>
+        </section>
+      </aside>
+    </section>
+
+    <video id="sourceVideo" playsinline preload="metadata"></video>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/lil-gui@0.21.0/dist/lil-gui.umd.min.js"></script>
+  <script>
+(() => {
+  'use strict';
+
+  const app = document.getElementById('app');
+  const canvas = document.getElementById('glCanvas');
+  const video = document.getElementById('sourceVideo');
+  const fileInput = document.getElementById('fileInput');
+  const playPauseBtn = document.getElementById('playPause');
+  const restartBtn = document.getElementById('restart');
+  const emptyState = document.getElementById('emptyState');
+  const dropOverlay = document.getElementById('dropOverlay');
+  const statusEl = document.getElementById('status');
+  const commandEl = document.getElementById('command');
+  const copyCommandBtn = document.getElementById('copyCommand');
+  const copyJsonBtn = document.getElementById('copyJson');
+  const copyStatus = document.getElementById('copyStatus');
+  const guiHost = document.getElementById('guiHost');
+
+  if (!window.lil || !window.lil.GUI) {
+    statusEl.textContent = 'lil-gui failed to load. Check the network connection.';
+    return;
+  }
+
+  const gl = canvas.getContext('webgl2', {
+    antialias: false,
+    alpha: false,
+    depth: false,
+    preserveDrawingBuffer: false,
+    powerPreference: 'high-performance'
+  });
+
+  if (!gl) {
+    statusEl.textContent = 'WebGL2 is required.';
+    return;
+  }
+
+  const params = {
+    shiftMs: 50,
+    mix: 0.50,
+    contrast: 2.20,
+    saturation: 1.50,
+    vibrance: 0.35,
+    brightness: 0.00,
+    gamma: 1.00,
+    thresholdEnabled: true,
+    threshold: 0.18,
+    thresholdSoftness: 0.02,
+    halftoneEnabled: true,
+    effectMode: 'Dots',
+    gridSize: 12,
+    sizeScale: 1.00,
+    sizeMin: 0.08,
+    sizeMax: 1.00,
+    sizePower: 1.00,
+    invertSize: false,
+    softness: 0.08,
+    backgroundMix: 0.10,
+    colorMode: 'Source',
+    randomSeed: 1.0,
+    renderMax: 1280,
+    historyFps: 30,
+    loop: true,
+    mute: false
+  };
+
+  const effectModeMap = { Off: 0, Dots: 1, Crosses: 2, Squares: 3, Diamonds: 4, ASCII: 5 };
+  const colorModeMap = { Source: 0, Monochrome: 1, Rainbow: 2, Heatmap: 3, Random: 4 };
+
+  let fileName = 'input.mp4';
+  let objectUrl = null;
+  let renderWidth = 2;
+  let renderHeight = 2;
+  let frameCanvas = document.createElement('canvas');
+  let frameCtx = frameCanvas.getContext('2d', { alpha: false, desynchronized: true });
+  let currentTexture = null;
+  let history = [];
+  let historyIndex = 0;
+  let lastHistoryMediaTime = -Infinity;
+  let lastObservedMediaTime = -1;
+  let lastRenderedMediaTime = -1;
+  let newestFrameSerial = 0;
+  let renderedFrameSerial = -1;
+  let dirty = true;
+  let historyRebuildTimer = 0;
+  let actualDelayMs = 0;
+
+  const vertexSource = `#version 300 es
+    in vec2 a_position;
+    in vec2 a_uv;
+    out vec2 v_uv;
+    void main() {
+      gl_Position = vec4(a_position, 0.0, 1.0);
+      v_uv = a_uv;
+    }
+  `;
+
+  const fragmentSource = `#version 300 es
+    precision highp float;
+    in vec2 v_uv;
+    uniform sampler2D u_current;
+    uniform sampler2D u_delayed;
+    uniform float u_mix;
+    uniform float u_contrast;
+    uniform float u_saturation;
+    uniform float u_vibrance;
+    uniform float u_brightness;
+    uniform float u_gamma;
+    uniform int u_thresholdEnabled;
+    uniform float u_threshold;
+    uniform float u_thresholdSoftness;
+    uniform int u_effectMode;
+    uniform float u_gridSize;
+    uniform float u_sizeScale;
+    uniform float u_sizeMin;
+    uniform float u_sizeMax;
+    uniform float u_sizePower;
+    uniform int u_invertSize;
+    uniform float u_softness;
+    uniform float u_backgroundMix;
+    uniform int u_colorMode;
+    uniform float u_randomSeed;
+    out vec4 outColor;
+
+    float luma(vec3 c) {
+      return dot(c, vec3(0.2126, 0.7152, 0.0722));
+    }
+
+    vec3 hsv2rgb(vec3 c) {
+      vec3 rgb = clamp(abs(mod(c.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+      rgb = rgb * rgb * (3.0 - 2.0 * rgb);
+      return c.z * mix(vec3(1.0), rgb, c.y);
+    }
+
+    float hash21(vec2 p) {
+      p = fract(p * vec2(123.34, 345.45));
+      p += dot(p, p + 34.345);
+      return fract(p.x * p.y);
+    }
+
+    vec3 heatmap(float t) {
+      t = clamp(t, 0.0, 1.0);
+      vec3 a = vec3(0.0, 0.0, 0.2);
+      vec3 b = vec3(0.0, 0.5, 1.0);
+      vec3 c = vec3(1.0, 1.0, 0.0);
+      vec3 d = vec3(1.0, 0.1, 0.0);
+      return t < 0.33 ? mix(a, b, t / 0.33) : (t < 0.66 ? mix(b, c, (t - 0.33) / 0.33) : mix(c, d, (t - 0.66) / 0.34));
+    }
+
+    float squareMask(vec2 p, float halfWidth, float edge) {
+      return 1.0 - smoothstep(halfWidth, halfWidth + edge, max(abs(p.x), abs(p.y)));
+    }
+
+    float circleMask(vec2 p, float radius, float edge) {
+      return 1.0 - smoothstep(radius, radius + edge, length(p));
+    }
+
+    float diamondMask(vec2 p, float size, float edge) {
+      return 1.0 - smoothstep(size, size + edge, abs(p.x) + abs(p.y));
+    }
+
+    float crossMask(vec2 p, float size, float edge) {
+      float arm = max(0.12, size);
+      float thick = max(0.06, size * 0.22);
+      float vertical = (1.0 - smoothstep(thick, thick + edge, abs(p.x))) * (1.0 - smoothstep(arm, arm + edge, abs(p.y)));
+      float horizontal = (1.0 - smoothstep(thick, thick + edge, abs(p.y))) * (1.0 - smoothstep(arm, arm + edge, abs(p.x)));
+      return max(vertical, horizontal);
+    }
+
+    float diagonalMask(vec2 p, float size, float edge) {
+      float arm = max(0.12, size);
+      float thickA = abs(p.x - p.y);
+      float thickB = abs(p.x + p.y);
+      float diag1 = (1.0 - smoothstep(0.08, 0.08 + edge, thickA)) * (1.0 - smoothstep(arm, arm + edge, max(abs(p.x), abs(p.y))));
+      float diag2 = (1.0 - smoothstep(0.08, 0.08 + edge, thickB)) * (1.0 - smoothstep(arm, arm + edge, max(abs(p.x), abs(p.y))));
+      return max(diag1, diag2);
+    }
+
+    float asciiGlyph(vec2 local, float level, float edge) {
+      if (level < 0.12) return 0.0;
+      if (level < 0.24) return circleMask(local, 0.10, edge * 0.6);
+      if (level < 0.40) {
+        return max(circleMask(local + vec2(0.0, 0.22), 0.08, edge * 0.6), circleMask(local - vec2(0.0, 0.22), 0.08, edge * 0.6));
+      }
+      if (level < 0.56) {
+        return crossMask(local, 0.52, edge);
+      }
+      if (level < 0.72) {
+        return max(crossMask(local, 0.56, edge), diagonalMask(local, 0.56, edge));
+      }
+      if (level < 0.86) {
+        float bars1 = max(1.0 - smoothstep(0.08, 0.08 + edge, abs(local.x - 0.26)), 1.0 - smoothstep(0.08, 0.08 + edge, abs(local.x + 0.26)));
+        float bars2 = max(1.0 - smoothstep(0.08, 0.08 + edge, abs(local.y - 0.26)), 1.0 - smoothstep(0.08, 0.08 + edge, abs(local.y + 0.26)));
+        return max(bars1, bars2);
+      }
+      float ring = circleMask(local, 0.62, edge) * (1.0 - circleMask(local, 0.34, edge));
+      float tail = (1.0 - smoothstep(0.07, 0.07 + edge, abs(local.y + 0.10))) * (1.0 - smoothstep(0.50, 0.50 + edge, local.x));
+      return clamp(ring + tail, 0.0, 1.0);
+    }
+
+    float patternMask(int mode, vec2 local, float level, float elementSize, float edge) {
+      float size = clamp(elementSize, 0.0, 1.5);
+      if (mode == 1) return circleMask(local, size * 0.50, edge);
+      if (mode == 2) return crossMask(local, size * 0.85, edge);
+      if (mode == 3) return squareMask(local, size * 0.50, edge);
+      if (mode == 4) return diamondMask(local, size * 0.55, edge);
+      if (mode == 5) {
+        if (size <= 0.001) return 0.0;
+        float glyphScale = max(size, 0.04);
+        return asciiGlyph(local / glyphScale, level, edge / glyphScale);
+      }
+      return 1.0;
+    }
+
+    vec3 applyColorMode(int mode, vec3 baseColor, float level, vec2 cell) {
+      if (mode == 1) return vec3(level);
+      if (mode == 2) return hsv2rgb(vec3(fract(0.82 - level * 0.90), 0.85, mix(0.25, 1.0, level)));
+      if (mode == 3) return heatmap(level);
+      if (mode == 4) {
+        float h = hash21(cell + vec2(u_randomSeed, u_randomSeed * 1.73));
+        float s = 0.60 + 0.35 * hash21(cell + vec2(9.1, 2.3) + u_randomSeed);
+        float v = mix(0.28, 1.0, level);
+        return hsv2rgb(vec3(h, s, v));
+      }
+      return baseColor;
+    }
+
+    vec3 processedColor(vec2 uv) {
+      vec3 current = texture(u_current, uv).rgb;
+      vec3 delayed = texture(u_delayed, uv).rgb;
+      vec3 invertedDelayed = vec3(1.0) - delayed;
+
+      vec3 color = mix(current, invertedDelayed, clamp(u_mix, 0.0, 1.0));
+      color = (color - 0.5) * u_contrast + 0.5 + u_brightness;
+
+      float y = luma(color);
+      color = mix(vec3(y), color, u_saturation);
+
+      float maxC = max(color.r, max(color.g, color.b));
+      float minC = min(color.r, min(color.g, color.b));
+      float chroma = clamp(maxC - minC, 0.0, 1.0);
+      float vibranceGain = 1.0 + u_vibrance * (1.0 - chroma);
+      color = mix(vec3(luma(color)), color, vibranceGain);
+      color = pow(max(color, vec3(0.0)), vec3(1.0 / max(u_gamma, 0.001)));
+      return clamp(color, 0.0, 1.0);
+    }
+
+    vec3 applyThreshold(vec3 color) {
+      if (u_thresholdEnabled == 1) {
+        float thresholdLum = luma(color);
+        float thresholdEdge = max(0.0005, u_thresholdSoftness);
+        float thresholdMask = smoothstep(
+          clamp(u_threshold - thresholdEdge, 0.0, 1.0),
+          clamp(u_threshold + thresholdEdge, 0.0, 1.0),
+          thresholdLum
+        );
+        color *= thresholdMask;
+      }
+      return color;
+    }
+
+    void main() {
+      vec3 color = applyThreshold(processedColor(v_uv));
+
+      if (u_effectMode == 0) {
+        outColor = vec4(color, 1.0);
+        return;
+      }
+
+      // Proper halftone sampling: one luminance value per grid cell. The sampled
+      // cell brightness controls the size of the selected element for the whole cell.
+      vec2 grid = max(vec2(u_gridSize), vec2(1.0));
+      vec2 cell = floor(gl_FragCoord.xy / grid);
+      vec2 local = fract(gl_FragCoord.xy / grid) * 2.0 - 1.0;
+      vec2 texturePx = vec2(textureSize(u_current, 0));
+      vec2 cellCenterPx = (cell + vec2(0.5)) * grid;
+      vec2 cellUv = clamp(cellCenterPx / max(texturePx, vec2(1.0)), vec2(0.0), vec2(1.0));
+      vec3 cellColor = applyThreshold(processedColor(cellUv));
+      float level = clamp(luma(cellColor), 0.0, 1.0);
+
+      // Default behavior: brighter cell -> larger element. Controls can reshape,
+      // scale, limit, or invert the brightness-to-size mapping.
+      float sizeDrive = u_invertSize == 1 ? (1.0 - level) : level;
+      sizeDrive = pow(clamp(sizeDrive, 0.0, 1.0), max(u_sizePower, 0.01));
+      float elementSize = clamp(mix(u_sizeMin, u_sizeMax, sizeDrive) * u_sizeScale, 0.0, 1.5);
+
+      float edge = max(0.001, u_softness);
+      float mask = patternMask(u_effectMode, local, level, elementSize, edge);
+      vec3 fg = applyColorMode(u_colorMode, cellColor, level, cell);
+      vec3 bg = mix(vec3(0.0), color * 0.35, clamp(u_backgroundMix, 0.0, 1.0));
+      vec3 result = mix(bg, fg, clamp(mask, 0.0, 1.0));
+      outColor = vec4(clamp(result, 0.0, 1.0), 1.0);
+    }
+  `;
+
+  function compileShader(type, source) {
+    const shader = gl.createShader(type);
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      const message = gl.getShaderInfoLog(shader) || 'Unknown shader error';
+      gl.deleteShader(shader);
+      throw new Error(message);
+    }
+    return shader;
+  }
+
+  function createProgram() {
+    const vs = compileShader(gl.VERTEX_SHADER, vertexSource);
+    const fs = compileShader(gl.FRAGMENT_SHADER, fragmentSource);
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      throw new Error(gl.getProgramInfoLog(program) || 'Program link failed');
+    }
+    return program;
+  }
+
+  let program;
+  try {
+    program = createProgram();
+  } catch (error) {
+    statusEl.textContent = `WebGL shader error: ${error.message}`;
+    return;
+  }
+
+  const locations = {
+    position: gl.getAttribLocation(program, 'a_position'),
+    uv: gl.getAttribLocation(program, 'a_uv'),
+    current: gl.getUniformLocation(program, 'u_current'),
+    delayed: gl.getUniformLocation(program, 'u_delayed'),
+    mix: gl.getUniformLocation(program, 'u_mix'),
+    contrast: gl.getUniformLocation(program, 'u_contrast'),
+    saturation: gl.getUniformLocation(program, 'u_saturation'),
+    vibrance: gl.getUniformLocation(program, 'u_vibrance'),
+    brightness: gl.getUniformLocation(program, 'u_brightness'),
+    gamma: gl.getUniformLocation(program, 'u_gamma'),
+    thresholdEnabled: gl.getUniformLocation(program, 'u_thresholdEnabled'),
+    threshold: gl.getUniformLocation(program, 'u_threshold'),
+    thresholdSoftness: gl.getUniformLocation(program, 'u_thresholdSoftness'),
+    effectMode: gl.getUniformLocation(program, 'u_effectMode'),
+    gridSize: gl.getUniformLocation(program, 'u_gridSize'),
+    sizeScale: gl.getUniformLocation(program, 'u_sizeScale'),
+    sizeMin: gl.getUniformLocation(program, 'u_sizeMin'),
+    sizeMax: gl.getUniformLocation(program, 'u_sizeMax'),
+    sizePower: gl.getUniformLocation(program, 'u_sizePower'),
+    invertSize: gl.getUniformLocation(program, 'u_invertSize'),
+    softness: gl.getUniformLocation(program, 'u_softness'),
+    backgroundMix: gl.getUniformLocation(program, 'u_backgroundMix'),
+    colorMode: gl.getUniformLocation(program, 'u_colorMode'),
+    randomSeed: gl.getUniformLocation(program, 'u_randomSeed')
+  };
+
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  const buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1, -1, 0, 0,
+     1, -1, 1, 0,
+    -1,  1, 0, 1,
+    -1,  1, 0, 1,
+     1, -1, 1, 0,
+     1,  1, 1, 1
+  ]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(locations.position);
+  gl.vertexAttribPointer(locations.position, 2, gl.FLOAT, false, 16, 0);
+  gl.enableVertexAttribArray(locations.uv);
+  gl.vertexAttribPointer(locations.uv, 2, gl.FLOAT, false, 16, 8);
+  gl.bindVertexArray(null);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+
+  function createTexture() {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, renderWidth, renderHeight, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
+    return texture;
+  }
+
+  function deleteTextures() {
+    if (currentTexture) gl.deleteTexture(currentTexture);
+    currentTexture = null;
+    for (const item of history) gl.deleteTexture(item.texture);
+    history = [];
+  }
+
+  function desiredHistorySlots() {
+    const seconds = Math.max(0.18, params.shiftMs / 1000 + 0.18);
+    return Math.max(8, Math.min(72, Math.ceil(seconds * params.historyFps) + 4));
+  }
+
+  function rebuildTextures() {
+    deleteTextures();
+    currentTexture = createTexture();
+    const slots = desiredHistorySlots();
+    history = Array.from({ length: slots }, () => ({ texture: createTexture(), time: NaN }));
+    historyIndex = 0;
+    lastHistoryMediaTime = -Infinity;
+    dirty = true;
+  }
+
+  function scheduleHistoryRebuild() {
+    window.clearTimeout(historyRebuildTimer);
+    historyRebuildTimer = window.setTimeout(() => {
+      if (video.readyState >= 2) rebuildTextures();
+    }, 120);
+  }
+
+  function configureRenderSize() {
+    const sourceW = Math.max(2, video.videoWidth || 2);
+    const sourceH = Math.max(2, video.videoHeight || 2);
+    const maxDim = Number(params.renderMax) || Math.max(sourceW, sourceH);
+    const scale = Math.min(1, maxDim / Math.max(sourceW, sourceH));
+    renderWidth = Math.max(2, Math.round(sourceW * scale / 2) * 2);
+    renderHeight = Math.max(2, Math.round(sourceH * scale / 2) * 2);
+    canvas.width = renderWidth;
+    canvas.height = renderHeight;
+    canvas.style.aspectRatio = `${sourceW} / ${sourceH}`;
+    frameCanvas.width = renderWidth;
+    frameCanvas.height = renderHeight;
+    frameCtx = frameCanvas.getContext('2d', { alpha: false, desynchronized: true });
+    gl.viewport(0, 0, renderWidth, renderHeight);
+    rebuildTextures();
+    updateStatus();
+  }
+
+  function clearHistory() {
+    for (const item of history) item.time = NaN;
+    historyIndex = 0;
+    lastHistoryMediaTime = -Infinity;
+  }
+
+  function uploadFrame(texture) {
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGB, gl.UNSIGNED_BYTE, frameCanvas);
+  }
+
+  function captureHistory(mediaTime) {
+    const interval = 1 / Math.max(1, params.historyFps);
+    if (mediaTime + 0.001 < lastHistoryMediaTime) clearHistory();
+    if (mediaTime - lastHistoryMediaTime < interval * 0.90) return;
+    const slot = history[historyIndex];
+    uploadFrame(slot.texture);
+    slot.time = mediaTime;
+    historyIndex = (historyIndex + 1) % history.length;
+    lastHistoryMediaTime = mediaTime;
+  }
+
+  function findDelayedTexture(mediaTime) {
+    if (params.shiftMs <= 0 || history.length === 0) {
+      actualDelayMs = 0;
+      return currentTexture;
+    }
+    const target = mediaTime - params.shiftMs / 1000;
+    let best = null;
+    let bestDistance = Infinity;
+    for (const item of history) {
+      if (!Number.isFinite(item.time)) continue;
+      const distance = Math.abs(item.time - target);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = item;
+      }
+    }
+    if (!best) {
+      actualDelayMs = 0;
+      return currentTexture;
+    }
+    actualDelayMs = Math.max(0, (mediaTime - best.time) * 1000);
+    return best.texture;
+  }
+
+  function drawFrame(mediaTime) {
+    if (video.readyState < 2 || !currentTexture) return;
+
+    frameCtx.drawImage(video, 0, 0, renderWidth, renderHeight);
+    uploadFrame(currentTexture);
+    captureHistory(mediaTime);
+    const delayedTexture = findDelayedTexture(mediaTime);
+
+    gl.useProgram(program);
+    gl.bindVertexArray(vao);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, currentTexture);
+    gl.uniform1i(locations.current, 0);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, delayedTexture);
+    gl.uniform1i(locations.delayed, 1);
+
+    gl.uniform1f(locations.mix, params.mix);
+    gl.uniform1f(locations.contrast, params.contrast);
+    gl.uniform1f(locations.saturation, params.saturation);
+    gl.uniform1f(locations.vibrance, params.vibrance);
+    gl.uniform1f(locations.brightness, params.brightness);
+    gl.uniform1f(locations.gamma, params.gamma);
+    gl.uniform1i(locations.thresholdEnabled, params.thresholdEnabled ? 1 : 0);
+    gl.uniform1f(locations.threshold, params.threshold);
+    gl.uniform1f(locations.thresholdSoftness, params.thresholdSoftness);
+    gl.uniform1i(locations.effectMode, params.halftoneEnabled ? (effectModeMap[params.effectMode] || 0) : 0);
+    gl.uniform1f(locations.gridSize, params.gridSize);
+    gl.uniform1f(locations.sizeScale, params.sizeScale);
+    gl.uniform1f(locations.sizeMin, params.sizeMin);
+    gl.uniform1f(locations.sizeMax, params.sizeMax);
+    gl.uniform1f(locations.sizePower, params.sizePower);
+    gl.uniform1i(locations.invertSize, params.invertSize ? 1 : 0);
+    gl.uniform1f(locations.softness, params.softness);
+    gl.uniform1f(locations.backgroundMix, params.backgroundMix);
+    gl.uniform1i(locations.colorMode, colorModeMap[params.colorMode] || 0);
+    gl.uniform1f(locations.randomSeed, params.randomSeed);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.bindVertexArray(null);
+
+    lastRenderedMediaTime = mediaTime;
+    dirty = false;
+  }
+
+  function updateStatus() {
+    if (!video.src) {
+      statusEl.textContent = 'Drop a video anywhere';
+      return;
+    }
+    const source = `${video.videoWidth}×${video.videoHeight}`;
+    const render = `${renderWidth}×${renderHeight}`;
+    const delay = params.shiftMs > 0 ? ` · delay ${Math.round(actualDelayMs)} ms` : '';
+    const thresholdState = params.thresholdEnabled ? `Threshold ${params.threshold.toFixed(2)}` : 'Threshold off';
+    const fx = params.halftoneEnabled ? `${params.effectMode}/${params.colorMode}` : 'Halftone off';
+    statusEl.textContent = `${fileName} · source ${source} · GPU ${render}${delay} · ${thresholdState} · ${fx}`;
+  }
+
+  function escapeShellDoubleQuoted(value) {
+    return value.replace(/([\\"$`])/g, '\\$1');
+  }
+
+  function ffNum(value, digits = 6) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '0';
+    return n.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '') || '0';
+  }
+
+  function ffFract(expr) {
+    return `((${expr})-floor(${expr}))`;
+  }
+
+  function ffInverseSmooth(value, start, edge) {
+    const safeEdge = `max(0.000001,(${edge}))`;
+    const t = `clip(((${value})-(${start}))/(${safeEdge}),0,1)`;
+    return `(1-((${t})*(${t})*(3-2*(${t}))))`;
+  }
+
+  function ffCircleMask(x, y, radius, edge) {
+    return ffInverseSmooth(`hypot(${x},${y})`, radius, edge);
+  }
+
+  function ffSquareMask(x, y, halfWidth, edge) {
+    return ffInverseSmooth(`max(abs(${x}),abs(${y}))`, halfWidth, edge);
+  }
+
+  function ffDiamondMask(x, y, size, edge) {
+    return ffInverseSmooth(`(abs(${x})+abs(${y}))`, size, edge);
+  }
+
+  function ffCrossMask(x, y, size, edge) {
+    const arm = `max(0.12,(${size}))`;
+    const thick = `max(0.06,(${size})*0.22)`;
+    const vertical = `(${ffInverseSmooth(`abs(${x})`, thick, edge)})*(${ffInverseSmooth(`abs(${y})`, arm, edge)})`;
+    const horizontal = `(${ffInverseSmooth(`abs(${y})`, thick, edge)})*(${ffInverseSmooth(`abs(${x})`, arm, edge)})`;
+    return `max(${vertical},${horizontal})`;
+  }
+
+  function ffDiagonalMask(x, y, size, edge) {
+    const arm = `max(0.12,(${size}))`;
+    const bounds = ffInverseSmooth(`max(abs(${x}),abs(${y}))`, arm, edge);
+    const d1 = `(${ffInverseSmooth(`abs((${x})-(${y}))`, '0.08', edge)})*(${bounds})`;
+    const d2 = `(${ffInverseSmooth(`abs((${x})+(${y}))`, '0.08', edge)})*(${bounds})`;
+    return `max(${d1},${d2})`;
+  }
+
+  function ffAsciiMask(x, y, level, size, edge) {
+    const glyphScale = `max((${size}),0.04)`;
+    const gx = `((${x})/(${glyphScale}))`;
+    const gy = `((${y})/(${glyphScale}))`;
+    const ge = `((${edge})/(${glyphScale}))`;
+    const tiny = ffCircleMask(gx, gy, '0.10', `(${ge})*0.6`);
+    const colon = `max(${ffCircleMask(gx, `(${gy})+0.22`, '0.08', `(${ge})*0.6`)},${ffCircleMask(gx, `(${gy})-0.22`, '0.08', `(${ge})*0.6`)})`;
+    const plus = ffCrossMask(gx, gy, '0.52', ge);
+    const star = `max(${ffCrossMask(gx, gy, '0.56', ge)},${ffDiagonalMask(gx, gy, '0.56', ge)})`;
+    const bars1 = `max(${ffInverseSmooth(`abs((${gx})-0.26)`, '0.08', ge)},${ffInverseSmooth(`abs((${gx})+0.26)`, '0.08', ge)})`;
+    const bars2 = `max(${ffInverseSmooth(`abs((${gy})-0.26)`, '0.08', ge)},${ffInverseSmooth(`abs((${gy})+0.26)`, '0.08', ge)})`;
+    const hash = `max(${bars1},${bars2})`;
+    const outer = ffCircleMask(gx, gy, '0.62', ge);
+    const inner = ffCircleMask(gx, gy, '0.34', ge);
+    const tailA = ffInverseSmooth(`abs((${gy})+0.10)`, '0.07', ge);
+    const tailB = ffInverseSmooth(gx, '0.50', ge);
+    const at = `clip((${outer})*(1-(${inner}))+(${tailA})*(${tailB}),0,1)`;
+    return `if(lt(${size},0.001),0,if(lt(${level},0.12),0,if(lt(${level},0.24),${tiny},if(lt(${level},0.40),${colon},if(lt(${level},0.56),${plus},if(lt(${level},0.72),${star},if(lt(${level},0.86),${hash},${at})))))))`;
+  }
+
+  function ffHsvChannel(h, s, v, phase) {
+    const q = `clip(abs(mod((${h})*6+${phase},6)-3)-1,0,1)`;
+    const shaped = `((${q})*(${q})*(3-2*(${q})))`;
+    return `((${v})*((1-(${s}))+(${shaped})*(${s})))`;
+  }
+
+  function ffHash21(x, y) {
+    const px = ffFract(`(${x})*123.34`);
+    const py = ffFract(`(${y})*345.45`);
+    const d = `((${px})*((${px})+34.345)+(${py})*((${py})+34.345))`;
+    const ax = `((${px})+(${d}))`;
+    const ay = `((${py})+(${d}))`;
+    return ffFract(`(${ax})*(${ay})`);
+  }
+
+  function buildThresholdGeq() {
+    if (!params.thresholdEnabled) return '';
+    const edge = Math.max(0.0005, Number(params.thresholdSoftness) || 0.0005);
+    const low = Math.max(0, Number(params.threshold) - edge);
+    const high = Math.min(1, Number(params.threshold) + edge);
+    const span = Math.max(0.000001, high - low);
+    const lum = `((0.2126*r(X,Y)+0.7152*g(X,Y)+0.0722*b(X,Y))/255)`;
+    const t = `clip((${lum}-${ffNum(low)})/${ffNum(span)},0,1)`;
+    const mask = `((${t})*(${t})*(3-2*(${t})))`;
+    return `geq=r='r(X,Y)*${mask}':g='g(X,Y)*${mask}':b='b(X,Y)*${mask}'`;
+  }
+
+  function buildHalftoneGeq() {
+    if (!params.halftoneEnabled || params.effectMode === 'Off') return '';
+
+    const grid = ffNum(Math.max(1, Number(params.gridSize) || 1));
+    const sizeScale = ffNum(params.sizeScale);
+    const sizeMin = ffNum(params.sizeMin);
+    const sizeMax = ffNum(params.sizeMax);
+    const sizePower = ffNum(Math.max(0.01, Number(params.sizePower) || 0.01));
+    const edge = ffNum(Math.max(0.001, Number(params.softness) || 0.001));
+    const background = ffNum(Math.max(0, Math.min(1, Number(params.backgroundMix) || 0)));
+    const seed = ffNum(params.randomSeed);
+
+    const px = '(X+0.5)';
+    const py = '(Y+0.5)';
+    const cellX = `floor(${px}/${grid})`;
+    const cellY = `floor(${py}/${grid})`;
+    const centerX = `min((${cellX})*${grid}+${grid}/2,W-1)`;
+    const centerY = `min((${cellY})*${grid}+${grid}/2,H-1)`;
+    const level = `clip((0.2126*r(ld(0),ld(1))+0.7152*g(ld(0),ld(1))+0.0722*b(ld(0),ld(1)))/255,0,1)`;
+    const baseDrive = params.invertSize ? '(1-ld(2))' : 'ld(2)';
+    const drive = `pow(clip(${baseDrive},0,1),${sizePower})`;
+    const elementSize = `clip((${sizeMin}+(${sizeMax}-${sizeMin})*ld(3))*${sizeScale},0,1.5)`;
+    const localX = `(2*mod(${px},${grid})/${grid}-1)`;
+    const localY = `(2*mod(${py},${grid})/${grid}-1)`;
+
+    let mask;
+    switch (params.effectMode) {
+      case 'Crosses':
+        mask = ffCrossMask('ld(5)', 'ld(6)', '(ld(4)*0.85)', edge);
+        break;
+      case 'Squares':
+        mask = ffSquareMask('ld(5)', 'ld(6)', '(ld(4)*0.50)', edge);
+        break;
+      case 'Diamonds':
+        mask = ffDiamondMask('ld(5)', 'ld(6)', '(ld(4)*0.55)', edge);
+        break;
+      case 'ASCII':
+        mask = ffAsciiMask('ld(5)', 'ld(6)', 'ld(2)', 'ld(4)', edge);
+        break;
+      case 'Dots':
+      default:
+        mask = ffCircleMask('ld(5)', 'ld(6)', '(ld(4)*0.50)', edge);
+        break;
+    }
+
+    function foreground(channel) {
+      const phase = channel === 'r' ? '0' : (channel === 'g' ? '4' : '2');
+      if (params.colorMode === 'Monochrome') return '(ld(2)*255)';
+      if (params.colorMode === 'Rainbow') {
+        const hue = ffFract('(0.82-ld(2)*0.90)');
+        return `(${ffHsvChannel(hue, '0.85', '(0.25+0.75*ld(2))', phase)}*255)`;
+      }
+      if (params.colorMode === 'Heatmap') {
+        if (channel === 'r') return '(if(lt(ld(2),0.33),0,if(lt(ld(2),0.66),255*((ld(2)-0.33)/0.33),255)))';
+        if (channel === 'g') return '(if(lt(ld(2),0.33),255*0.5*(ld(2)/0.33),if(lt(ld(2),0.66),255*(0.5+0.5*((ld(2)-0.33)/0.33)),255*(1-0.9*((ld(2)-0.66)/0.34)))))';
+        return '(if(lt(ld(2),0.33),255*(0.2+0.8*(ld(2)/0.33)),if(lt(ld(2),0.66),255*(1-((ld(2)-0.33)/0.33)),0)))';
+      }
+      if (params.colorMode === 'Random') {
+        return `(${ffHsvChannel('ld(8)', '(0.60+0.35*ld(9))', '(0.28+0.72*ld(2))', phase)}*255)`;
+      }
+      return `${channel}(ld(0),ld(1))`;
+    }
+
+    function channelExpr(channel) {
+      let prefix = `st(0,${centerX});st(1,${centerY});st(2,${level});st(3,${drive});st(4,${elementSize});st(5,${localX});st(6,${localY});st(7,${mask});`;
+      if (params.colorMode === 'Random') {
+        const hueHash = ffHash21(`(${cellX}+${seed})`, `(${cellY}+${seed}*1.73)`);
+        const satHash = ffHash21(`(${cellX}+9.1+${seed})`, `(${cellY}+2.3+${seed})`);
+        prefix += `st(8,${hueHash});st(9,${satHash});`;
+      }
+      const bg = `(${channel}(X,Y)*0.35*${background})`;
+      const fg = foreground(channel);
+      return `${prefix}(${bg}*(1-ld(7))+(${fg})*ld(7))`;
+    }
+
+    return `geq=r='${channelExpr('r')}':g='${channelExpr('g')}':b='${channelExpr('b')}'`;
+  }
+
+  function makeFFmpegCommand() {
+    const shiftSec = (params.shiftMs / 1000).toFixed(6);
+    const mix = Number(params.mix).toFixed(3);
+    const invMix = (1 - Number(params.mix)).toFixed(3);
+    const input = escapeShellDoubleQuoted(fileName || 'input.mp4');
+    const outputBase = (fileName || 'input.mp4').replace(/\.[^.]+$/, '') || 'output';
+    const output = escapeShellDoubleQuoted(`${outputBase}-motion-negative.mp4`);
+
+    const filters = [
+      `[0:v]split=2[current][delay];[delay]tpad=start_mode=clone:start_duration=${shiftSec},negate[inverted];[current][inverted]blend=all_expr='A*${invMix}+B*${mix}':shortest=1`,
+      `eq=contrast=${Number(params.contrast).toFixed(3)}:brightness=${Number(params.brightness).toFixed(3)}:saturation=${Number(params.saturation).toFixed(3)}:gamma=${Number(params.gamma).toFixed(3)}`,
+      `vibrance=intensity=${Number(params.vibrance).toFixed(3)}`,
+      'format=gbrp'
+    ];
+
+    const threshold = buildThresholdGeq();
+    const halftone = buildHalftoneGeq();
+    if (threshold) filters.push(threshold);
+    if (halftone) filters.push(halftone);
+
+    const filterComplex = `${filters.join(',')}[v]`;
+    return `ffmpeg -i "${input}" -filter_complex "${filterComplex}" -map "[v]" -map '0:a?' -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart -shortest "${output}"`;
+  }
+
+  function updateCommand() {
+    commandEl.value = makeFFmpegCommand();
+    scheduleCurrentSettingsSave();
+  }
+
+  async function copyText(text, successMessage) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.appendChild(area);
+        area.focus();
+        area.select();
+        document.execCommand('copy');
+        area.remove();
+      }
+      copyStatus.textContent = successMessage;
+    } catch (error) {
+      copyStatus.textContent = `Copy failed: ${error.message}`;
+    }
+  }
+
+  function serializableSettings() {
+    return {
+      shiftMs: params.shiftMs,
+      mix: params.mix,
+      contrast: params.contrast,
+      saturation: params.saturation,
+      vibrance: params.vibrance,
+      brightness: params.brightness,
+      gamma: params.gamma,
+      thresholdEnabled: params.thresholdEnabled,
+      threshold: params.threshold,
+      thresholdSoftness: params.thresholdSoftness,
+      halftoneEnabled: params.halftoneEnabled,
+      effectMode: params.effectMode,
+      gridSize: params.gridSize,
+      sizeScale: params.sizeScale,
+      sizeMin: params.sizeMin,
+      sizeMax: params.sizeMax,
+      sizePower: params.sizePower,
+      invertSize: params.invertSize,
+      softness: params.softness,
+      backgroundMix: params.backgroundMix,
+      colorMode: params.colorMode,
+      randomSeed: params.randomSeed,
+      renderMax: params.renderMax,
+      historyFps: params.historyFps,
+      loop: params.loop,
+      mute: params.mute
+    };
+  }
+
+  const PRESET_STORAGE_KEY = 'motion-negative-halftone-presets-v1';
+  const CURRENT_SETTINGS_STORAGE_KEY = 'motion-negative-halftone-current-settings-v1';
+  let autosaveTimer = 0;
+
+  function readCurrentSettings() {
+    try {
+      const raw = localStorage.getItem(CURRENT_SETTINGS_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' && parsed.settings && typeof parsed.settings === 'object'
+        ? parsed.settings
+        : null;
+    } catch (error) {
+      copyStatus.textContent = `Recent settings restore failed: ${error.message}`;
+      return null;
+    }
+  }
+
+  function writeCurrentSettingsNow() {
+    try {
+      localStorage.setItem(CURRENT_SETTINGS_STORAGE_KEY, JSON.stringify({
+        version: 1,
+        savedAt: new Date().toISOString(),
+        settings: serializableSettings()
+      }));
+      return true;
+    } catch (error) {
+      copyStatus.textContent = `Recent settings save failed: ${error.message}`;
+      return false;
+    }
+  }
+
+  function scheduleCurrentSettingsSave() {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(() => {
+      writeCurrentSettingsNow();
+    }, 120);
+  }
+
+  function readPresetStore() {
+    try {
+      const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+      if (!raw) return { version: 1, presets: {} };
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || !parsed.presets || typeof parsed.presets !== 'object') {
+        return { version: 1, presets: {} };
+      }
+      return { version: 1, presets: parsed.presets };
+    } catch (error) {
+      copyStatus.textContent = `Preset storage read failed: ${error.message}`;
+      return { version: 1, presets: {} };
+    }
+  }
+
+  function writePresetStore(store) {
+    try {
+      localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(store));
+      return true;
+    } catch (error) {
+      copyStatus.textContent = `Preset storage write failed: ${error.message}`;
+      return false;
+    }
+  }
+
+  function sanitizePresetName(value) {
+    return String(value || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+  }
+
+  function sanitizeFileBase(value) {
+    const base = String(value || 'motion-negative-presets').trim()
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 96);
+    return base || 'motion-negative-presets';
+  }
+
+  function timestampForFilename(date = new Date()) {
+    const pad = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+  }
+
+  function applySettings(settings) {
+    if (!settings || typeof settings !== 'object') return;
+
+    const numericKeys = [
+      'shiftMs','mix','contrast','saturation','vibrance','brightness','gamma',
+      'threshold','thresholdSoftness','gridSize','sizeScale','sizeMin','sizeMax','sizePower','softness','backgroundMix',
+      'randomSeed','renderMax','historyFps'
+    ];
+    const booleanKeys = ['thresholdEnabled','halftoneEnabled','invertSize','loop','mute'];
+
+    for (const key of numericKeys) {
+      const value = Number(settings[key]);
+      if (Number.isFinite(value)) params[key] = value;
+    }
+    for (const key of booleanKeys) {
+      if (typeof settings[key] === 'boolean') params[key] = settings[key];
+    }
+    if (Object.prototype.hasOwnProperty.call(effectModeMap, settings.effectMode)) {
+      params.effectMode = settings.effectMode;
+    }
+    if (Object.prototype.hasOwnProperty.call(colorModeMap, settings.colorMode)) {
+      params.colorMode = settings.colorMode;
+    }
+
+    video.loop = params.loop;
+    video.muted = params.mute;
+    gui.controllersRecursive().forEach(controller => controller.updateDisplay());
+    if (video.readyState >= 1) configureRenderSize();
+    else scheduleHistoryRebuild();
+    updateCommand();
+    dirty = true;
+  }
+
+  function downloadJson(filename, value) {
+    const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function setVideoFile(file) {
+    if (!file || !file.type.startsWith('video/')) {
+      statusEl.textContent = 'Choose a video file.';
+      return;
+    }
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(file);
+    fileName = file.name || 'input.mp4';
+    video.src = objectUrl;
+    video.loop = params.loop;
+    video.muted = params.mute;
+    emptyState.hidden = true;
+    dropOverlay.hidden = true;
+    playPauseBtn.disabled = false;
+    restartBtn.disabled = false;
+    updateCommand();
+    statusEl.textContent = `Loading ${fileName}…`;
+    video.load();
+  }
+
+  video.addEventListener('loadedmetadata', () => {
+    emptyState.hidden = true;
+    dropOverlay.hidden = true;
+    configureRenderSize();
+    clearHistory();
+    lastObservedMediaTime = -1;
+    lastRenderedMediaTime = -1;
+    newestFrameSerial++;
+    dirty = true;
+    video.play().then(() => {
+      playPauseBtn.textContent = 'Pause';
+    }).catch(() => {
+      playPauseBtn.textContent = 'Play';
+      statusEl.textContent = `${fileName} loaded · press Play`;
+    });
+  });
+
+  video.addEventListener('play', () => { playPauseBtn.textContent = 'Pause'; });
+  video.addEventListener('pause', () => { playPauseBtn.textContent = 'Play'; dirty = true; });
+  video.addEventListener('seeking', () => { clearHistory(); dirty = true; });
+  video.addEventListener('ratechange', () => { dirty = true; });
+  video.addEventListener('error', () => {
+    statusEl.textContent = 'Browser could not decode this video.';
+  });
+
+  function armVideoFrameCallback() {
+    if (!('requestVideoFrameCallback' in HTMLVideoElement.prototype)) return;
+    const callback = (_now, metadata) => {
+      newestFrameSerial++;
+      if (metadata && Number.isFinite(metadata.mediaTime)) lastObservedMediaTime = metadata.mediaTime;
+      video.requestVideoFrameCallback(callback);
+    };
+    video.requestVideoFrameCallback(callback);
+  }
+  armVideoFrameCallback();
+
+  function animationLoop() {
+    if (video.readyState >= 2 && currentTexture) {
+      let shouldRender = dirty;
+      let mediaTime = Number.isFinite(lastObservedMediaTime) && lastObservedMediaTime >= 0
+        ? lastObservedMediaTime
+        : video.currentTime;
+
+      if ('requestVideoFrameCallback' in HTMLVideoElement.prototype) {
+        shouldRender = shouldRender || renderedFrameSerial !== newestFrameSerial;
+      } else if (Math.abs(video.currentTime - lastRenderedMediaTime) > 0.0005) {
+        shouldRender = true;
+        mediaTime = video.currentTime;
+      }
+
+      if (shouldRender) {
+        drawFrame(mediaTime);
+        renderedFrameSerial = newestFrameSerial;
+        updateStatus();
+      }
+    }
+    requestAnimationFrame(animationLoop);
+  }
+  requestAnimationFrame(animationLoop);
+
+  fileInput.addEventListener('change', () => setVideoFile(fileInput.files && fileInput.files[0]));
+
+  let dragDepth = 0;
+  app.addEventListener('dragenter', (event) => {
+    event.preventDefault();
+    dragDepth++;
+    if (!video.src) dropOverlay.hidden = false;
+  });
+  app.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  });
+  app.addEventListener('dragleave', (event) => {
+    event.preventDefault();
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) dropOverlay.hidden = true;
+  });
+  app.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dragDepth = 0;
+    dropOverlay.hidden = true;
+    const files = event.dataTransfer && event.dataTransfer.files;
+    if (files && files.length) setVideoFile(files[0]);
+  });
+
+  playPauseBtn.addEventListener('click', () => {
+    if (!video.src) return;
+    if (video.paused) video.play().catch(() => {});
+    else video.pause();
+  });
+
+  restartBtn.addEventListener('click', () => {
+    if (!video.src) return;
+    video.currentTime = 0;
+    clearHistory();
+    dirty = true;
+    video.play().catch(() => {});
+  });
+
+  copyCommandBtn.addEventListener('click', () => copyText(commandEl.value, 'FFmpeg command copied.'));
+  copyJsonBtn.addEventListener('click', () => copyText(JSON.stringify(serializableSettings(), null, 2), 'Settings JSON copied.'));
+
+  const gui = new window.lil.GUI({ container: guiHost, title: 'Realtime controls', width: 330 });
+
+  const presetUi = {
+    presetName: 'My preset',
+    savedPreset: '',
+    exportName: 'motion-negative-presets',
+    save: () => {},
+    load: () => {},
+    delete: () => {},
+    exportAll: () => {},
+    importJson: () => {}
+  };
+
+  const presetsFolder = gui.addFolder('Presets');
+  presetsFolder.add(presetUi, 'presetName').name('Preset name');
+  let presetSelectController = presetsFolder.add(presetUi, 'savedPreset', { '(none)': '' }).name('Saved presets');
+  presetsFolder.add(presetUi, 'exportName').name('Export filename');
+
+  function presetOptions() {
+    const store = readPresetStore();
+    const names = Object.keys(store.presets).sort((a, b) => a.localeCompare(b));
+    const options = { '(none)': '' };
+    for (const name of names) options[name] = name;
+    return options;
+  }
+
+  function refreshPresetList(preferredName = presetUi.savedPreset) {
+    const options = presetOptions();
+    const values = Object.values(options);
+    presetUi.savedPreset = values.includes(preferredName) ? preferredName : '';
+    presetSelectController.options(options);
+    presetSelectController.updateDisplay();
+  }
+
+  presetUi.save = () => {
+    const name = sanitizePresetName(presetUi.presetName);
+    if (!name) {
+      copyStatus.textContent = 'Enter a preset name first.';
+      return;
+    }
+    const store = readPresetStore();
+    store.presets[name] = {
+      name,
+      savedAt: new Date().toISOString(),
+      settings: serializableSettings()
+    };
+    if (!writePresetStore(store)) return;
+    presetUi.savedPreset = name;
+    refreshPresetList(name);
+    copyStatus.textContent = `Preset saved locally: ${name}`;
+  };
+
+  presetUi.load = () => {
+    const name = presetUi.savedPreset;
+    if (!name) {
+      copyStatus.textContent = 'Choose a saved preset first.';
+      return;
+    }
+    const store = readPresetStore();
+    const preset = store.presets[name];
+    if (!preset || !preset.settings) {
+      copyStatus.textContent = `Preset not found: ${name}`;
+      refreshPresetList();
+      return;
+    }
+    applySettings(preset.settings);
+    presetUi.presetName = name;
+    gui.controllersRecursive().forEach(controller => controller.updateDisplay());
+    copyStatus.textContent = `Preset loaded: ${name}`;
+  };
+
+  presetUi.delete = () => {
+    const name = presetUi.savedPreset;
+    if (!name) {
+      copyStatus.textContent = 'Choose a saved preset first.';
+      return;
+    }
+    const store = readPresetStore();
+    if (!store.presets[name]) {
+      refreshPresetList();
+      return;
+    }
+    delete store.presets[name];
+    if (!writePresetStore(store)) return;
+    presetUi.savedPreset = '';
+    refreshPresetList('');
+    copyStatus.textContent = `Preset deleted: ${name}`;
+  };
+
+  presetUi.exportAll = () => {
+    const store = readPresetStore();
+    const names = Object.keys(store.presets);
+    if (!names.length) {
+      copyStatus.textContent = 'No saved presets to export.';
+      return;
+    }
+    const now = new Date();
+    const filename = `${sanitizeFileBase(presetUi.exportName)}_${timestampForFilename(now)}.json`;
+    downloadJson(filename, {
+      format: 'motion-negative-halftone-presets',
+      version: 1,
+      exportedAt: now.toISOString(),
+      presetCount: names.length,
+      presets: store.presets
+    });
+    copyStatus.textContent = `Exported ${names.length} preset${names.length === 1 ? '' : 's'}: ${filename}`;
+  };
+
+  presetUi.importJson = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        const parsed = JSON.parse(await file.text());
+        const incoming = parsed && parsed.presets && typeof parsed.presets === 'object' ? parsed.presets : null;
+        if (!incoming) throw new Error('JSON does not contain a presets object');
+        const store = readPresetStore();
+        let count = 0;
+        for (const [rawName, value] of Object.entries(incoming)) {
+          const name = sanitizePresetName(rawName);
+          if (!name || !value || typeof value !== 'object' || !value.settings || typeof value.settings !== 'object') continue;
+          store.presets[name] = {
+            name,
+            savedAt: typeof value.savedAt === 'string' ? value.savedAt : new Date().toISOString(),
+            settings: value.settings
+          };
+          count++;
+        }
+        if (!count) throw new Error('No valid presets found');
+        if (!writePresetStore(store)) return;
+        refreshPresetList();
+        copyStatus.textContent = `Imported ${count} preset${count === 1 ? '' : 's'} from ${file.name}`;
+      } catch (error) {
+        copyStatus.textContent = `Preset import failed: ${error.message}`;
+      }
+    }, { once: true });
+    input.click();
+  };
+
+  presetsFolder.add(presetUi, 'save').name('Save / overwrite');
+  presetsFolder.add(presetUi, 'load').name('Load selected');
+  presetsFolder.add(presetUi, 'delete').name('Delete selected');
+  presetsFolder.add(presetUi, 'exportAll').name('Export ALL as JSON');
+  presetsFolder.add(presetUi, 'importJson').name('Import JSON');
+  presetsFolder.open();
+  refreshPresetList();
+
+  const restoredCurrentSettings = readCurrentSettings();
+  if (restoredCurrentSettings) {
+    applySettings(restoredCurrentSettings);
+    copyStatus.textContent = 'Restored recent settings.';
+  }
+
+  const motionFolder = gui.addFolder('Motion / temporal');
+  motionFolder.add(params, 'shiftMs', 0, 1000, 1).name('Time shift (ms)').onChange(() => {
+    scheduleHistoryRebuild();
+    updateCommand();
+    dirty = true;
+  });
+  motionFolder.add(params, 'mix', 0, 1, 0.01).name('Negative mix').onChange(() => { updateCommand(); dirty = true; });
+  motionFolder.open();
+
+  const gradeFolder = gui.addFolder('Post grade');
+  gradeFolder.add(params, 'contrast', 0.1, 5, 0.01).name('Contrast').onChange(() => { updateCommand(); dirty = true; });
+  gradeFolder.add(params, 'saturation', 0, 4, 0.01).name('Saturation').onChange(() => { updateCommand(); dirty = true; });
+  gradeFolder.add(params, 'vibrance', 0, 2, 0.01).name('Vibrance').onChange(() => { updateCommand(); dirty = true; });
+  gradeFolder.add(params, 'brightness', -0.5, 0.5, 0.005).name('Brightness').onChange(() => { updateCommand(); dirty = true; });
+  gradeFolder.add(params, 'gamma', 0.2, 3, 0.01).name('Gamma').onChange(() => { updateCommand(); dirty = true; });
+  gradeFolder.open();
+
+  const thresholdFolder = gui.addFolder('Threshold');
+  thresholdFolder.add(params, 'thresholdEnabled').name('Enabled').onChange(() => { updateCommand(); dirty = true; });
+  thresholdFolder.add(params, 'threshold', 0, 1, 0.005).name('Level').onChange(() => { updateCommand(); dirty = true; });
+  thresholdFolder.add(params, 'thresholdSoftness', 0.0005, 0.25, 0.0005).name('Softness').onChange(() => { updateCommand(); dirty = true; });
+  thresholdFolder.open();
+
+  const symbolFolder = gui.addFolder('Halftone / symbols');
+  symbolFolder.add(params, 'halftoneEnabled').name('Enabled').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'effectMode', Object.keys(effectModeMap)).name('Mode').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'gridSize', 4, 48, 1).name('Grid size').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'sizeScale', 0, 10, 0.01).name('Size scale').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'sizeMin', 0, 1.5, 0.01).name('Size at black').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'sizeMax', 0, 1.5, 0.01).name('Size at white').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'sizePower', 0.15, 5, 0.01).name('Brightness curve').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'invertSize').name('Invert bright/dark').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'softness', 0.001, 0.3, 0.001).name('Glyph softness').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'backgroundMix', 0, 1, 0.01).name('Background').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'colorMode', Object.keys(colorModeMap)).name('Color mode').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.add(params, 'randomSeed', 0, 100, 0.01).name('Random seed').onChange(() => { updateCommand(); dirty = true; });
+  symbolFolder.open();
+
+  const playbackFolder = gui.addFolder('Playback / GPU');
+  playbackFolder.add(params, 'loop').name('Loop').onChange(value => { video.loop = value; });
+  playbackFolder.add(params, 'mute').name('Mute').onChange(value => { video.muted = value; });
+  playbackFolder.add(params, 'renderMax', { '640 px': 640, '960 px': 960, '1280 px': 1280, '1920 px': 1920, 'Source size': 0 }).name('GPU max dimension').onChange(() => {
+    if (video.readyState >= 1) configureRenderSize();
+    updateCommand();
+  });
+  playbackFolder.add(params, 'historyFps', 12, 60, 1).name('Delay sampling fps').onChange(() => {
+    scheduleHistoryRebuild();
+    updateCommand();
+    dirty = true;
+  });
+
+  window.addEventListener('beforeunload', () => {
+    writeCurrentSettingsNow();
+  });
+
+  gui.add({ resetLook: () => {
+    Object.assign(params, {
+      shiftMs: 50,
+      mix: 0.50,
+      contrast: 2.20,
+      saturation: 1.50,
+      vibrance: 0.35,
+      brightness: 0.00,
+      gamma: 1.00,
+      thresholdEnabled: true,
+      threshold: 0.18,
+      thresholdSoftness: 0.02,
+      halftoneEnabled: true,
+      effectMode: 'Dots',
+      gridSize: 12,
+      sizeScale: 1.00,
+      sizeMin: 0.08,
+      sizeMax: 1.00,
+      sizePower: 1.00,
+      invertSize: false,
+      softness: 0.08,
+      backgroundMix: 0.10,
+      colorMode: 'Source',
+      randomSeed: 1.0,
+      renderMax: 1280,
+      historyFps: 30,
+      loop: true,
+      mute: false
+    });
+    video.loop = params.loop;
+    video.muted = params.mute;
+    gui.controllersRecursive().forEach(controller => controller.updateDisplay());
+    scheduleHistoryRebuild();
+    updateCommand();
+    dirty = true;
+  }}, 'resetLook').name('Reset effect');
+
+  updateCommand();
+})();
+
+  </script>
+</body>
+</html>

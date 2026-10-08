@@ -1,0 +1,40 @@
+{
+  "format": "motion-negative-halftone-presets",
+  "version": 1,
+  "exportedAt": "2026-10-08T03:19:54.119Z",
+  "presetCount": 1,
+  "presets": {
+    "Color Dots 1": {
+      "name": "Color Dots 1",
+      "savedAt": "2026-10-08T03:19:49.820Z",
+      "settings": {
+        "shiftMs": 288,
+        "mix": 0.54,
+        "contrast": 5,
+        "saturation": 1.6,
+        "vibrance": 2,
+        "brightness": -0.275,
+        "gamma": 0.34,
+        "thresholdEnabled": false,
+        "threshold": 0.735,
+        "thresholdSoftness": 0.0025,
+        "halftoneEnabled": true,
+        "effectMode": "Dots",
+        "gridSize": 12,
+        "sizeScale": 2,
+        "sizeMin": 0.11,
+        "sizeMax": 1,
+        "sizePower": 1,
+        "invertSize": false,
+        "softness": 0.08,
+        "backgroundMix": 0,
+        "colorMode": "Source",
+        "randomSeed": 1,
+        "renderMax": 1280,
+        "historyFps": 30,
+        "loop": true,
+        "mute": true
+      }
+    }
+  }
+}
